@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunReport",
+  "type": "object",
+  "required": ["run_id", "mode", "policy", "stats", "items"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "mode": {"type": "string"},
+    "llm_gate": {"type": ["object", "null"]},
+    "validation_warnings": {"type": ["array", "null"], "items": {"type": "string"}},
+    "evidence_confidence": {"type": ["string", "null"]},
+    "summary": {
+      "type": ["object", "null"],
+      "properties": {
+        "verdict": {"type": ["string", "null"]},
+        "release_readiness": {"type": ["string", "null"]},
+        "generated_at": {"type": ["string", "null"]},
+        "top_blockers": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {"type": ["string", "null"]},
+              "count": {"type": ["integer", "null"]},
+              "ratio": {"type": ["number", "null"]},
+              "severity": {"type": ["string", "null"]},
+              "sql_keys": {"type": ["array", "null"], "items": {"type": "string"}}
+            }
+          }
+        },
+        "next_actions": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "properties": {
+              "action_id": {"type": ["string", "null"]},
+              "title": {"type": ["string", "null"]},
+              "reason": {"type": ["string", "null"]},
+              "applicability": {"type": ["string", "null"]},
+              "expected_outcome": {"type": ["string", "null"]},
+              "blocker_codes": {"type": ["array", "null"], "items": {"type": "string"}},
+              "sql_keys": {"type": ["array", "null"], "items": {"type": "string"}},
+              "commands": {"type": ["array", "null"], "items": {"type": "string"}},
+              "config_hints": {"type": ["array", "null"], "items": {"type": "string"}}
+            }
+          }
+        },
+        "prioritized_sql_keys": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "properties": {
+              "sql_key": {"type": ["string", "null"]},
+              "priority": {"type": ["string", "null"]},
+              "score": {"type": ["integer", "null"]},
+              "blocker_codes": {"type": ["array", "null"], "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "require_perf_improvement",
+        "cost_threshold_pct",
+        "allow_seq_scan_if_rows_below",
+        "semantic_strict_mode"
+      ],
+      "properties": {
+        "require_perf_improvement": {"type": "boolean"},
+        "cost_threshold_pct": {"type": "number"},
+        "allow_seq_scan_if_rows_below": {"type": "integer"},
+        "semantic_strict_mode": {"type": "boolean"}
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "sql_units": {"type": ["integer", "null"]},
+        "proposals": {"type": ["integer", "null"]},
+        "acceptance_pass": {"type": ["integer", "null"]},
+        "acceptance_fail": {"type": ["integer", "null"]},
+        "acceptance_need_more_params": {"type": ["integer", "null"]},
+        "semantic_pass_count": {"type": ["integer", "null"]},
+        "semantic_mismatch_count": {"type": ["integer", "null"]},
+        "perf_checked_count": {"type": ["integer", "null"]},
+        "patch_candidates_total": {"type": ["integer", "null"]},
+        "patch_candidates_rejected": {"type": ["integer", "null"]},
+        "perf_improved_count": {"type": ["integer", "null"]},
+        "patch_files": {"type": ["integer", "null"]},
+        "llm_candidates_generated": {"type": ["integer", "null"]},
+        "llm_candidates_accepted": {"type": ["integer", "null"]},
+        "llm_candidates_rejected": {"type": ["integer", "null"]},
+        "llm_shadow_agreement_count": {"type": ["integer", "null"]},
+        "llm_conflict_agreement_count": {"type": ["integer", "null"]},
+        "llm_conflict_same_strategy_different_sql_count": {"type": ["integer", "null"]},
+        "llm_conflict_strategy_divergence_count": {"type": ["integer", "null"]},
+        "llm_fallback_count": {"type": ["integer", "null"]},
+        "llm_timeout_count": {"type": ["integer", "null"]},
+        "preflight_failure_count": {"type": ["integer", "null"]},
+        "phase_reason_code_counts": {"type": ["object", "null"]},
+        "cache_read_count": {"type": ["integer", "null"]},
+        "cache_write_count": {"type": ["integer", "null"]},
+        "cache_invalidation_count": {"type": ["integer", "null"]},
+        "cache_corruption_count": {"type": ["integer", "null"]},
+        "active_gate_downgraded": {"type": ["boolean", "null"]},
+        "active_gate_reason": {"type": ["string", "null"]},
+        "llm_cache_hit_rate": {"type": ["number", "null"]},
+        "llm_noop_rate": {"type": ["number", "null"]},
+        "llm_net_gain_count": {"type": ["integer", "null"]},
+        "llm_rejected_by_guardrail_count": {"type": ["integer", "null"]},
+        "active_adoption_rate": {"type": ["number", "null"]},
+        "semantic_regression_rate": {"type": ["number", "null"]},
+        "perf_not_checked_reason_counts": {"type": ["object", "null"]},
+        "perf_compared_but_not_improved_count": {"type": ["integer", "null"]},
+        "db_unreachable_count": {"type": ["integer", "null"]},
+        "db_unreachable_rate": {"type": ["number", "null"]},
+        "db_unreachable_high_rate_threshold": {"type": ["number", "null"]},
+        "ineffective_reason_counts": {"type": ["object", "null"]},
+        "active_gate_current_consecutive_passes": {"type": ["integer", "null"]},
+        "active_gate_required_consecutive_runs": {"type": ["integer", "null"]}
+      }
+    },
+    "items": {
+      "type": "object",
+      "properties": {
+        "units": {"type": ["array", "null"]},
+        "proposals": {"type": ["array", "null"]},
+        "acceptance": {"type": ["array", "null"]},
+        "patches": {"type": ["array", "null"]},
+        "evidence_refs_by_sql_key": {"type": ["object", "null"]},
+        "patch_decision_by_statement": {"type": ["object", "null"]},
+        "llm_decisions_by_sql_key": {"type": ["object", "null"]},
+        "llm_candidate_quality_by_strategy": {"type": ["object", "null"]},
+        "llm_trace_refs": {"type": ["array", "null"], "items": {"type": "string"}}
+      }
+    }
+  }
+}

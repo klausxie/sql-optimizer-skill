@@ -1,0 +1,33 @@
+# 交付检查清单（当前版本）
+
+## 1. 启动前
+1. `contracts/*.schema.json` 已确认是公开契约
+2. CLI 稳定面仍是：`run / status / resume / apply`
+3. 默认运行目录仍是：`runs/<run_id>/`
+
+## 2. 必测回归
+1. 正常全流程到 `patch_generate`
+2. `resume` 能从阶段失败后继续
+3. schema 校验失败时快速失败
+4. DB 不可达时 report 仍可生成
+5. statement 多变体冲突时保守跳过
+6. 至少一条 SQL `PASS` 并生成 patch
+7. patch 通过 `git apply --check`
+8. `scan.fragments.jsonl` 可生成且通过 schema 校验
+9. `<include><property .../></include>` 的 binding 信息被正确记录
+
+## 3. 模板感知专项回归
+1. 默认配置下：
+   - `scan.enable_fragment_catalog=true` 生效
+   - `patch.template_rewrite.enable_fragment_materialization=false` 仍保持关闭
+2. statement-level include-safe 模板 patch 仍要求 `replayVerified=true`
+3. fragment 自动物化默认不会误触发
+4. 动态 statement 仍不会被扁平 SQL 直接覆盖
+5. report 仍能重生，不复用旧报告
+
+## 4. 发布前验收
+1. 所有核心产物存在且结构合法
+2. `report.json` 与 `ops/*.json` 通过 schema 校验
+3. `ops/failures.jsonl` 与 `report.stats` 含 `fatal / retryable / degradable` 统计
+4. 至少一份真实项目运行样例可复现
+5. 文档描述与当前默认行为一致

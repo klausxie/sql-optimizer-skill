@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatchResult",
+  "type": "object",
+  "required": ["sqlKey", "patchFiles", "diffSummary", "applyMode", "rollback"],
+  "properties": {
+    "sqlKey": {"type": "string"},
+    "statementKey": {"type": ["string", "null"]},
+    "patchFiles": {"type": "array", "items": {"type": "string"}},
+    "diffSummary": {"type": "object"},
+    "applyMode": {"type": "string"},
+    "rollback": {"type": "string"},
+    "selectedCandidateId": {"type": ["string", "null"]},
+    "candidatesEvaluated": {"type": ["integer", "null"]},
+    "applicable": {"type": ["boolean", "null"]},
+    "applyCheckError": {"type": ["string", "null"]},
+    "selectionReason": {"type": ["object", "null"]},
+    "rejectedCandidates": {"type": ["array", "null"], "items": {"type": "object"}}
+  }
+}

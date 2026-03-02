@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import ast
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from uuid import uuid4
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def run_cli(*args: str) -> dict:
+    out = subprocess.check_output(["python3", "scripts/sqlopt_cli.py", *args], cwd=ROOT, text=True).strip()
+    return ast.literal_eval(out)
+
+
+class WorkflowSupervisorTest(unittest.TestCase):
+    def _write_cfg(self, td: str, *, report_enabled: bool = True, mapper_glob: str | None = None) -> Path:
+        cfg = Path(td) / "sqlopt.yml"
+        mapper = mapper_glob or "src/main/resources/com/example/mapper/user/user_mapper.xml"
+        report_flag = "true" if report_enabled else "false"
+        cfg.write_text(
+            "\n".join(
+                [
+                    "project:",
+                    f"  root_path: {str((ROOT / 'tests' / 'fixtures' / 'project').resolve())}",
+                    "scan:",
+                    "  mapper_globs:",
+                    f"    - {mapper}",
+                    "db:",
+                    "  platform: postgresql",
+                    "validate:",
+                    "  db_reachable: false",
+                    "  allow_db_unreachable_fallback: true",
+                    "policy:",
+                    "  require_perf_improvement: false",
+                    "  cost_threshold_pct: 0",
+                    "  allow_seq_scan_if_rows_below: 0",
+                    "  semantic_strict_mode: true",
+                    "apply:",
+                    "  mode: PATCH_ONLY",
+                    "runtime:",
+                    "  profile: fast",
+                    "report:",
+                    f"  enabled: {report_flag}",
+                    "llm:",
+                    "  enabled: false",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return cfg
+
+    def test_patch_generate_auto_finalizes_report(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
+            cfg = self._write_cfg(td)
+            run_id = f"run_supervisor_auto_report_{uuid4().hex[:8]}"
+            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id)
+            for _ in range(80):
+                status = run_cli("status", "--run-id", run_id)
+                if status["complete"]:
+                    break
+                run_cli("resume", "--run-id", run_id)
+
+        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
+        self.assertTrue((run_dir / "report.json").exists())
+        meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(meta.get("status"), "COMPLETED")
+        self.assertTrue((run_dir / "supervisor" / "results" / "scan.jsonl").exists())
+        self.assertTrue((run_dir / "supervisor" / "results" / "preflight.jsonl").exists())
+        self.assertTrue((run_dir / "supervisor" / "results" / "optimize.jsonl").exists())
+        self.assertTrue((run_dir / "supervisor" / "results" / "validate.jsonl").exists())
+        self.assertTrue((run_dir / "supervisor" / "results" / "patch_generate.jsonl").exists())
+        self.assertTrue((run_dir / "supervisor" / "results" / "report.jsonl").exists())
+
+    def test_optimize_stage_still_generates_report_by_default(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
+            cfg = self._write_cfg(td)
+            run_id = f"run_supervisor_optimize_report_{uuid4().hex[:8]}"
+            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id)
+            for _ in range(80):
+                status = run_cli("status", "--run-id", run_id)
+                if status["complete"]:
+                    break
+                run_cli("resume", "--run-id", run_id)
+
+        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
+        self.assertTrue((run_dir / "report.json").exists())
+        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["phase_status"]["optimize"], "DONE")
+        self.assertEqual(state["phase_status"]["validate"], "SKIPPED")
+        self.assertEqual(state["phase_status"]["patch_generate"], "SKIPPED")
+        self.assertEqual(state["phase_status"]["report"], "DONE")
+
+    def test_optimize_stage_skips_report_when_disabled(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
+            cfg = self._write_cfg(td, report_enabled=False)
+            run_id = f"run_supervisor_optimize_no_report_{uuid4().hex[:8]}"
+            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id)
+            for _ in range(80):
+                status = run_cli("status", "--run-id", run_id)
+                if status["complete"]:
+                    break
+                run_cli("resume", "--run-id", run_id)
+
+        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
+        self.assertFalse((run_dir / "report.json").exists())
+        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["phase_status"]["report"], "SKIPPED")
+        meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(meta.get("status"), "COMPLETED")
+
+
+if __name__ == "__main__":
+    unittest.main()

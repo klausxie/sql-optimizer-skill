@@ -1,0 +1,6 @@
+- OpenCode 单条命令硬上限约 120 秒。
+- 为避免硬超时，使用 `run_until_budget.py`，默认 `max_seconds=95`。
+- 核心 `run/resume` 语义仍是单步推进。
+- `sql-optimizer-run` 命令每次调用只跑一个时间片。
+- “跑到 complete”需要通过 skill 层自动循环执行实现。
+- 在 Windows 上，runtime 使用软超时回退（无 `SIGALRM` 硬超时）。

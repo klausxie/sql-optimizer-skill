@@ -1,0 +1,45 @@
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+  java_scanner:
+    jar_path: /Users/klaus/.opencode/skills/sql-optimizer/runtime/java/scan-agent/target/scan-agent-1.0.0.jar
+  class_resolution:
+    mode: tolerant
+    enable_classpath_probe: true
+    enable_type_sanitize: true
+    statement_level_recovery: true
+    min_success_ratio: 0.9
+
+db:
+  platform: postgresql
+  dsn: postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable
+
+validate:
+  db_reachable: true
+  validation_profile: balanced
+  allow_db_unreachable_fallback: false
+
+policy:
+  require_perf_improvement: false
+  cost_threshold_pct: 0
+  allow_seq_scan_if_rows_below: 0
+  semantic_strict_mode: true
+
+runtime:
+  profile: balanced
+
+llm:
+  enabled: true
+  provider: opencode_run
+  timeout_ms: 80000
+  # direct_openai_compatible example:
+  # provider: direct_openai_compatible
+  # api_base: https://api.openai.com/v1
+  # api_key: sk-xxxx
+  # api_model: gpt-4o-mini
+  # api_timeout_ms: 30000
+  # api_headers:
+  #   X-Env: prod

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OptimizationProposal",
+  "type": "object",
+  "required": ["sqlKey", "issues", "dbEvidenceSummary", "planSummary", "suggestions", "verdict"],
+  "properties": {
+    "sqlKey": {"type": "string"},
+    "issues": {"type": "array"},
+    "dbEvidenceSummary": {"type": "object"},
+    "planSummary": {"type": "object"},
+    "suggestions": {"type": "array"},
+    "verdict": {"type": "string"},
+    "estimatedBenefit": {"type": "string"},
+    "confidence": {"type": "string"},
+    "blockedBy": {"type": "array", "items": {"type": "string"}},
+    "llmCandidates": {"type": "array", "items": {"type": "object"}},
+    "llmTraceRefs": {"type": "array", "items": {"type": "string"}}
+  }
+}

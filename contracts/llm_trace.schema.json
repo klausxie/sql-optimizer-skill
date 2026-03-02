@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LlmTrace",
+  "type": "object",
+  "required": ["stage", "mode", "sql_key", "task_id", "input_hash", "output_hash", "executor", "task", "prompt", "response"],
+  "properties": {
+    "stage": {"type": "string"},
+    "mode": {"type": "string"},
+    "sql_key": {"type": "string"},
+    "task_id": {"type": "string"},
+    "input_hash": {"type": "string"},
+    "output_hash": {"type": "string"},
+    "executor": {"type": "string"},
+    "task": {"type": "string"},
+    "batch_index": {"type": ["integer", "null"]},
+    "batch_size": {"type": ["integer", "null"]},
+    "retry_count": {"type": ["integer", "null"]},
+    "budget": {
+      "type": ["object", "null"],
+      "properties": {
+        "timeout_ms": {"type": ["integer", "null"]},
+        "max_candidates_per_sql": {"type": ["integer", "null"]},
+        "max_total_candidates_per_run": {"type": ["integer", "null"]},
+        "max_total_llm_time_ms": {"type": ["integer", "null"]},
+        "cache_enabled": {"type": ["boolean", "null"]},
+        "elapsed_ms": {"type": ["integer", "null"]},
+        "remaining_run_budget_ms": {"type": ["integer", "null"]}
+      }
+    },
+    "degrade_reason": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "TIMEOUT",
+        "RUN_TIME_BUDGET_EXHAUSTED",
+        "RUN_CANDIDATE_BUDGET_EXHAUSTED",
+        "STRUCTURED_OUTPUT_INVALID",
+        "REPLAY_READ_ERROR",
+        "REPLAY_PAYLOAD_INVALID",
+        "EXECUTION_ERROR"
+      ]
+    },
+    "prompt": {"type": "object"},
+    "response": {
+      "type": "object",
+      "properties": {
+        "fallback_used": {"type": ["boolean", "null"]},
+        "cache_hit": {"type": ["boolean", "null"]},
+        "cache_read": {"type": ["boolean", "null"]},
+        "cache_write": {"type": ["boolean", "null"]},
+        "cache_invalidation_reason": {"type": ["string", "null"]},
+        "error_type": {"type": ["string", "null"]},
+        "replay": {"type": ["object", "null"]},
+        "raw": {"type": ["object", "array", "null"]},
+        "candidates": {"type": ["array", "null"]}
+      }
+    },
+    "validation_errors": {"type": ["array", "null"], "items": {"type": "string"}}
+  }
+}

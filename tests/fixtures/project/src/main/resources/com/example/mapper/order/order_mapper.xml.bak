@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.order">
+  <sql id="OrderBaseColumns">
+    id, user_id, order_no, amount, status, created_at
+  </sql>
+
+  <select id="findOrders" resultType="map">
+    SELECT <include refid="OrderBaseColumns" />
+    FROM orders
+    <trim prefix="WHERE" prefixOverrides="AND|OR">
+      <if test="userId != null">AND user_id = #{userId}</if>
+      <if test="status != null and status != ''">AND status = #{status}</if>
+      <if test="minAmount != null">AND amount &gt;= #{minAmount}</if>
+      <if test="maxAmount != null">AND amount &lt;= #{maxAmount}</if>
+      <if test="createdAfter != null">AND created_at &gt;= #{createdAfter}</if>
+      <if test="createdBefore != null">AND created_at &lt;= #{createdBefore}</if>
+    </trim>
+    ORDER BY created_at DESC
+  </select>
+
+  <select id="findOrdersByNos" resultType="map">
+    SELECT <include refid="OrderBaseColumns" />
+    FROM orders
+    <where>
+      <foreach collection="orderNos" item="orderNo" open="order_no IN (" separator="," close=")">
+        #{orderNo}
+      </foreach>
+    </where>
+  </select>
+
+  <select id="findOrdersByUserIds" resultType="map">
+    SELECT <include refid="OrderBaseColumns" />
+    FROM orders
+    <where>
+      <foreach collection="userIds" item="uid" open="user_id IN (" separator="," close=")">
+        #{uid}
+      </foreach>
+      <if test="status != null and status != ''">
+        AND status = #{status}
+      </if>
+    </where>
+    ORDER BY id DESC
+  </select>
+
+  <select id="findOrdersByRawPredicate" resultType="map">
+    SELECT <include refid="OrderBaseColumns" />
+    FROM orders
+    <where>
+      ${extraPredicate}
+    </where>
+    ORDER BY created_at DESC
+  </select>
+
+  <select id="listOrdersWithUsers" resultType="map">
+    SELECT
+      o.id,
+      o.order_no,
+      o.user_id,
+      o.amount,
+      o.status,
+      o.created_at,
+      u.name AS user_name,
+      u.email AS user_email
+    FROM orders o
+    JOIN users u ON u.id = o.user_id
+    <where>
+      <if test="keyword != null and keyword != ''">
+        AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+      <if test="status != null and status != ''">
+        AND o.status = #{status}
+      </if>
+    </where>
+    ORDER BY o.created_at DESC
+    LIMIT #{limit}
+    OFFSET #{offset}
+  </select>
+
+  <update id="updateOrderStatusByNos">
+    UPDATE orders
+    SET status = #{status}
+    WHERE order_no IN
+    <foreach collection="orderNos" item="orderNo" open="(" separator="," close=")">
+      #{orderNo}
+    </foreach>
+  </update>
+</mapper>

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AcceptanceResult",
+  "type": "object",
+  "required": ["sqlKey", "status", "equivalence", "perfComparison", "securityChecks"],
+  "properties": {
+    "sqlKey": {"type": "string"},
+    "status": {"type": "string"},
+    "rewrittenSql": {"type": ["string", "null"]},
+    "equivalence": {
+      "type": "object",
+      "properties": {
+        "checked": {"type": ["boolean", "null"]},
+        "method": {"type": ["string", "null"]},
+        "rowCount": {"type": ["object", "null"]},
+        "keySetHash": {"type": ["object", "null"]},
+        "rowSampleHash": {"type": ["object", "null"]},
+        "evidenceRefs": {"type": ["array", "null"], "items": {"type": "string"}},
+        "evidenceRefObjects": {"type": ["array", "null"], "items": {"type": "object"}}
+      }
+    },
+    "perfComparison": {
+      "type": "object",
+      "properties": {
+        "checked": {"type": ["boolean", "null"]},
+        "method": {"type": ["string", "null"]},
+        "beforeSummary": {"type": ["object", "null"]},
+        "afterSummary": {"type": ["object", "null"]},
+        "reasonCodes": {"type": ["array", "null"], "items": {"type": "string"}},
+        "improved": {"type": ["boolean", "null"]},
+        "error": {"type": ["string", "null"]},
+        "evidenceRefs": {"type": ["array", "null"], "items": {"type": "string"}},
+        "evidenceRefObjects": {"type": ["array", "null"], "items": {"type": "object"}}
+      }
+    },
+    "securityChecks": {"type": "object"},
+    "feedback": {"type": ["object", "null"]},
+    "rewriteStrategy": {"type": "string"},
+    "rewriteIntent": {"type": ["object", "null"]},
+    "rewriteMaterialization": {"type": ["object", "null"]},
+    "semanticRisk": {"type": "string"},
+    "regressionSignals": {"type": "array"},
+    "decisionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
+    "selectedCandidateSource": {"type": "string"},
+    "selectedCandidateId": {"type": ["string", "null"]},
+    "candidateEvaluations": {"type": "array", "items": {"type": "object"}},
+    "candidateEval": {"type": ["object", "null"]},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "riskFlags": {"type": "array", "items": {"type": "string"}},
+    "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
+    "selectionReason": {"type": ["object", "null"]},
+    "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
+    "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}}
+  }
+}

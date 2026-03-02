@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from sqlopt.platforms.sql.validator_sql import validate_proposal
+
+
+class ValidateCandidateSelectionTest(unittest.TestCase):
+    def test_selects_best_improved_candidate_by_cost(self) -> None:
+        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        proposal = {
+            "llmCandidates": [
+                {"id": "c1", "rewrittenSql": "SELECT id FROM users", "rewriteStrategy": "projection"},
+                {"id": "c2", "rewrittenSql": "SELECT id FROM users ORDER BY created_at DESC", "rewriteStrategy": "sort"},
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
+
+        def fake_plan(_cfg, _orig, rewritten, _dir):
+            if rewritten == "SELECT id FROM users":
+                return {
+                    "checked": True,
+                    "method": "sql_explain_json_compare",
+                    "beforeSummary": {"totalCost": 10.0},
+                    "afterSummary": {"totalCost": 9.0},
+                    "reasonCodes": ["TOTAL_COST_REDUCED"],
+                    "improved": True,
+                    "evidenceRefs": [],
+                }
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 8.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_pick_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["rewrittenSql"], "SELECT id FROM users ORDER BY created_at DESC")
+        self.assertEqual(result.get("selectedCandidateId"), "c2")
+        self.assertEqual(result.get("selectedCandidateSource"), "llm")
+        self.assertGreaterEqual(len(result.get("candidateEvaluations") or []), 2)
+
+    def test_rule_candidate_is_used_when_llm_candidate_invalid(self) -> None:
+        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users ORDER BY created_at DESC", "statementType": "SELECT"}
+        proposal = {
+            "llmCandidates": [{"id": "bad", "rewrittenSql": "SELECT * FROM users ORDER BY ${orderBy}"}],
+            "suggestions": [{"action": "PROJECT_COLUMNS", "sql": "SELECT id FROM users ORDER BY created_at DESC"}],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 20.0},
+                "afterSummary": {"totalCost": 10.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_rule_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["rewrittenSql"], "SELECT id FROM users ORDER BY created_at DESC")
+        self.assertEqual(result.get("selectedCandidateSource"), "rule")
+
+    def test_rejects_question_mark_candidate_when_original_uses_hash_placeholder(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.findUsersByStatusRecent#v1",
+            "sql": "SELECT id FROM users WHERE status = #{status}",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id FROM users WHERE status = ?"}],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 10.0},
+                "reasonCodes": ["TOTAL_COST_NOT_REDUCED"],
+                "improved": False,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_placeholder_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["rewrittenSql"], sql_unit["sql"])
+        self.assertIn("VALIDATE_PLACEHOLDER_SEMANTICS_MISMATCH_WARN", result.get("warnings", []))
+
+    def test_validate_emits_rewrite_materialization_for_static_sql(self) -> None:
+        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        proposal = {"llmCandidates": [], "suggestions": []}
+        config = {"db": {}, "validate": {}, "patch": {}, "policy": {}}
+
+        with tempfile.TemporaryDirectory(prefix="validate_materialization_") as td:
+            result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td), fragment_catalog={})
+
+        self.assertEqual(result["rewriteMaterialization"]["mode"], "STATEMENT_SQL")
+        self.assertEqual(result["templateRewriteOps"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

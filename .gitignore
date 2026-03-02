@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Build artifacts
+java/**/target/
+
+# Local runtime data
+.opencode-data/
+.sqlopt-run-index.json
+tests/fixtures/project/runs/
+
+# Logs / temp
+*.log
+*.tmp
+tmp/
+backup/

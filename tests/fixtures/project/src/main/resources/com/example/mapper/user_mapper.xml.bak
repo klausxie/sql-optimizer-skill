@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.user">
+  <sql id="UserBaseColumns">
+    id, name, email, status, created_at, updated_at
+  </sql>
+
+  <select id="findUsers" resultType="map">
+    SELECT <include refid="UserBaseColumns" />
+    FROM users
+    <where>
+      <if test="name != null and name != ''">
+        AND name ILIKE CONCAT('%', #{name}, '%')
+      </if>
+      <if test="status != null and status != ''">
+        AND status = #{status}
+      </if>
+    </where>
+    ORDER BY ${orderBy}
+  </select>
+
+  <select id="findUsersByIds" resultType="map">
+    SELECT <include refid="UserBaseColumns" />
+    FROM users
+    <where>
+      <foreach collection="ids" item="id" open="id IN (" separator="," close=")">
+        #{id}
+      </foreach>
+    </where>
+  </select>
+
+  <select id="findUsersByKeyword" resultType="map">
+    SELECT <include refid="UserBaseColumns" />
+    FROM users
+    <where>
+      <choose>
+        <when test="exactEmail != null and exactEmail != ''">
+          email = #{exactEmail}
+        </when>
+        <when test="keyword != null and keyword != ''">
+          (name ILIKE CONCAT('%', #{keyword}, '%') OR email ILIKE CONCAT('%', #{keyword}, '%'))
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+
+  <select id="findUsersByStatusExpr" resultType="map">
+    SELECT <include refid="UserBaseColumns" />
+    FROM users
+    <where>
+      ${statusExpr}
+    </where>
+    ORDER BY created_at DESC
+  </select>
+
+  <select id="countUsers" resultType="long">
+    SELECT COUNT(1)
+    FROM users
+    <where>
+      <if test="status != null and status != ''">
+        AND status = #{status}
+      </if>
+      <if test="createdAfter != null">
+        AND created_at &gt;= #{createdAfter}
+      </if>
+    </where>
+  </select>
+
+  <update id="updateUserSelective">
+    UPDATE users
+    <set>
+      <if test="name != null and name != ''">name = #{name},</if>
+      <if test="status != null and status != ''">status = #{status},</if>
+      <if test="email != null and email != ''">email = #{email},</if>
+      updated_at = NOW()
+    </set>
+    WHERE id = #{id}
+  </update>
+</mapper>
