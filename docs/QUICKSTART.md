@@ -5,7 +5,7 @@
 ## 前置条件
 
 - Python 3.10 或更高版本
-- PostgreSQL 或 MySQL 数据库（用于验证优化建议）
+- PostgreSQL 或 MySQL 数据库（真实验证时需要；首轮离线 smoke 可先禁用）
 - MyBatis XML mapper 文件
 
 ## 快速开始（5 分钟）
@@ -44,7 +44,7 @@ db:
 
 llm:
   enabled: true
-  provider: opencode_run  # 使用 opencode 内置 LLM
+  provider: opencode_run  # 使用 opencode 外部命令
 ```
 
 **重要配置项说明：**
@@ -52,6 +52,24 @@ llm:
 - `scan.mapper_globs`: MyBatis XML 文件的匹配模式
 - `db.dsn`: 数据库连接字符串
 - `llm.provider`: LLM 提供商（推荐使用 `opencode_run`）
+
+**如果只是先验证安装链路**，建议先改成：
+
+```yaml
+validate:
+  db_reachable: false
+  allow_db_unreachable_fallback: true
+  plan_compare_enabled: false
+
+llm:
+  enabled: true
+  provider: opencode_builtin
+
+apply:
+  mode: PATCH_ONLY
+```
+
+这样可以先完成一次离线 smoke run，再切回真实 DB / 外部 LLM。
 
 ### 3. 验证安装
 

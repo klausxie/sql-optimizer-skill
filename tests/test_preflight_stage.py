@@ -64,6 +64,44 @@ class PreflightStageTest(unittest.TestCase):
             saved = read_json(run_dir / "ops" / "preflight.json")
             self.assertFalse(saved.get("ok"))
 
+    def test_preflight_skips_db_check_when_platform_capability_disables_it(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
+            run_dir = Path(td) / "runs" / "run_pf_db_capability"
+            (run_dir / "ops").mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(Path(td).resolve())},
+                "db": {"platform": "postgresql"},
+                "validate": {"db_reachable": True},
+                "llm": {"enabled": False},
+                "scan": {},
+            }
+            with patch("sqlopt.stages.preflight_strategy.get_platform_capabilities") as caps:
+                caps.return_value.supports_connectivity_check = False
+                result = preflight.execute(config, run_dir)
+
+            self.assertTrue(result.get("ok"))
+            db_check = next(row for row in result["checks"] if row.get("name") == "db")
+            self.assertEqual(db_check.get("reason"), "platform capability disables connectivity check")
+
+    def test_preflight_skips_external_llm_checks_for_builtin_provider(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
+            run_dir = Path(td) / "runs" / "run_pf_llm_skip"
+            (run_dir / "ops").mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(Path(td).resolve())},
+                "validate": {"db_reachable": False},
+                "scan": {},
+                "llm": {"enabled": True, "provider": "opencode_builtin"},
+            }
+            with patch("sqlopt.stages.preflight._check_opencode") as opencode_mock:
+                with patch("sqlopt.stages.preflight._check_direct_openai") as direct_mock:
+                    result = preflight.execute(config, run_dir)
+
+            opencode_mock.assert_not_called()
+            direct_mock.assert_not_called()
+            llm_check = next(row for row in result["checks"] if row.get("name") == "llm")
+            self.assertEqual(llm_check.get("reason"), "provider=opencode_builtin")
+
     def test_preflight_direct_openai_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
             run_dir = Path(td) / "runs" / "run_pf_direct_ok"

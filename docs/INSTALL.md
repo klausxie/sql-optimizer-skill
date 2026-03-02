@@ -99,3 +99,53 @@ llm:
   # api_headers:
   #   x-env: prod
 ```
+
+## 7. Verify local tests
+
+From the repository root, run:
+
+```bash
+python3 -m pytest -q
+```
+
+## 8. Recommended Post-Install Smoke Run
+
+Before switching to real DB / external LLM, verify one offline-safe run first.
+
+Recommended config overrides for the project under test:
+
+```yaml
+validate:
+  db_reachable: false
+  allow_db_unreachable_fallback: true
+  plan_compare_enabled: false
+
+llm:
+  enabled: true
+  provider: opencode_builtin
+
+apply:
+  mode: PATCH_ONLY
+```
+
+Then run from the project root:
+
+```bash
+$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
+$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli status --run-id <run_id>
+$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli resume --run-id <run_id>
+```
+
+Repeat `resume` until `complete=true`, then verify:
+
+1. `runs/<run_id>/supervisor/state.json`
+2. `runs/<run_id>/report.json`
+3. `runs/<run_id>/report.summary.md`
+
+All three should agree that `report` is `DONE`.
+
+To verify the full install-to-opencode path (skill install, command docs, installed runtime) in one command from this repository, run:
+
+```bash
+python3 scripts/ci/opencode_smoke_acceptance.py
+```

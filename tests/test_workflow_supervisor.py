@@ -67,6 +67,8 @@ class WorkflowSupervisorTest(unittest.TestCase):
 
         run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
         self.assertTrue((run_dir / "report.json").exists())
+        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["stats"]["pipeline_coverage"]["report"], "DONE")
         meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
         self.assertEqual(meta.get("status"), "COMPLETED")
         self.assertTrue((run_dir / "supervisor" / "results" / "scan.jsonl").exists())
@@ -89,6 +91,8 @@ class WorkflowSupervisorTest(unittest.TestCase):
 
         run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
         self.assertTrue((run_dir / "report.json").exists())
+        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["stats"]["pipeline_coverage"]["report"], "DONE")
         state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
         self.assertEqual(state["phase_status"]["optimize"], "DONE")
         self.assertEqual(state["phase_status"]["validate"], "SKIPPED")

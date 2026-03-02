@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from sqlopt.stages import patching_templates
+
+
+class PatchingTemplatesTest(unittest.TestCase):
+    def test_build_template_plan_patch_requires_replay_verification(self) -> None:
+        patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+            {"locators": {"range": {"startOffset": 0, "endOffset": 1}}},
+            {
+                "rewriteMaterialization": {"mode": "STATEMENT_TEMPLATE_SAFE", "replayVerified": False},
+                "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": "SELECT 1"}],
+            },
+            Path("."),
+        )
+
+        self.assertIsNone(patch_text)
+        self.assertEqual(changed_lines, 0)
+        self.assertEqual(error["code"], "PATCH_TEMPLATE_MATERIALIZATION_MISSING")
+
+    def test_build_template_plan_patch_ignores_non_template_safe_mode(self) -> None:
+        patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+            {},
+            {"rewriteMaterialization": {"mode": "UNSAFE", "replayVerified": True}},
+            Path("."),
+        )
+
+        self.assertIsNone(patch_text)
+        self.assertEqual(changed_lines, 0)
+        self.assertIsNone(error)
+
+    def test_build_template_plan_patch_builds_fragment_patch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_template_fragment_") as td:
+            run_dir = Path(td)
+            mapper = run_dir / "demo_mapper.xml"
+            mapper.write_text(
+                """<mapper namespace="demo.user">
+  <sql id="BaseWhere">WHERE status = #{status}</sql>
+</mapper>""",
+                encoding="utf-8",
+            )
+            fragment_body = "WHERE status = #{status}"
+            start = mapper.read_text(encoding="utf-8").index(fragment_body)
+            end = start + len(fragment_body)
+            fragment_key = f"{mapper.resolve()}::demo.user.BaseWhere"
+            (run_dir / "scan.fragments.jsonl").write_text(
+                json.dumps(
+                    {
+                        "fragmentKey": fragment_key,
+                        "xmlPath": str(mapper),
+                        "locators": {"range": {"startOffset": start, "endOffset": end}},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+                {},
+                {
+                    "rewriteMaterialization": {
+                        "mode": "FRAGMENT_TEMPLATE_SAFE",
+                        "targetRef": fragment_key,
+                        "replayVerified": True,
+                    },
+                    "templateRewriteOps": [
+                        {
+                            "op": "replace_fragment_body",
+                            "targetRef": fragment_key,
+                            "afterTemplate": "WHERE status = #{status} AND active = TRUE",
+                        }
+                    ],
+                },
+                run_dir,
+            )
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(patch_text)
+        self.assertGreater(changed_lines, 0)
+        self.assertIn("active = TRUE", patch_text)
+
+
+if __name__ == "__main__":
+    unittest.main()

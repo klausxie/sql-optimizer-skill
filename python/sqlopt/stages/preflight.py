@@ -11,25 +11,24 @@ from ..errors import StageError
 from ..io_utils import write_json
 from ..llm.provider import _extract_json_events, _opencode_env
 from ..platforms.dispatch import check_db_connectivity
+from .preflight_strategy import DbCheckPolicy, LlmCheckPolicy, ScannerCheckPolicy, build_preflight_policy
 from ..subprocess_utils import run_capture_text
 
 
-def _check_db(config: dict[str, Any]) -> dict[str, Any]:
-    validate_cfg = (config.get("validate", {}) or {}) if isinstance(config, dict) else {}
-    if not bool(validate_cfg.get("db_reachable", False)):
-        return {"name": "db", "enabled": False, "ok": True, "reason": "validate.db_reachable=false"}
+def _check_db(config: dict[str, Any], policy: DbCheckPolicy | None = None) -> dict[str, Any]:
+    resolved = policy or build_preflight_policy(config).db
+    if not resolved.enabled:
+        return {"name": "db", "enabled": False, "ok": True, "reason": resolved.reason}
     return check_db_connectivity(config)
 
 
-def _check_opencode(config: dict[str, Any]) -> dict[str, Any]:
-    llm_cfg = (config.get("llm", {}) or {}) if isinstance(config, dict) else {}
-    if not bool(llm_cfg.get("enabled", False)):
-        return {"name": "llm", "enabled": False, "ok": True, "reason": "llm.enabled=false"}
-    provider = str(llm_cfg.get("provider", "opencode_builtin"))
-    if provider != "opencode_run":
-        return {"name": "llm", "enabled": False, "ok": True, "reason": f"provider={provider}"}
+def _check_opencode(config: dict[str, Any], policy: LlmCheckPolicy | None = None) -> dict[str, Any]:
+    resolved = policy or build_preflight_policy(config).llm
+    if not resolved.enabled:
+        return {"name": "llm", "enabled": False, "ok": True, "reason": resolved.reason}
     if not shutil.which("opencode"):
         return {"name": "llm", "enabled": True, "ok": False, "error": "opencode command not found", "reason_code": "PREFLIGHT_LLM_UNREACHABLE"}
+    llm_cfg = (config.get("llm", {}) or {}) if isinstance(config, dict) else {}
     cmd = ["opencode", "run", "--format", "json", "--variant", "minimal"]
     opencode_model = str(llm_cfg.get("opencode_model") or "").strip()
     if opencode_model:
@@ -53,13 +52,11 @@ def _check_opencode(config: dict[str, Any]) -> dict[str, Any]:
     return {"name": "llm", "enabled": True, "ok": True}
 
 
-def _check_direct_openai(config: dict[str, Any]) -> dict[str, Any]:
+def _check_direct_openai(config: dict[str, Any], policy: LlmCheckPolicy | None = None) -> dict[str, Any]:
+    resolved = policy or build_preflight_policy(config).llm
+    if not resolved.enabled:
+        return {"name": "llm", "enabled": False, "ok": True, "reason": resolved.reason}
     llm_cfg = (config.get("llm", {}) or {}) if isinstance(config, dict) else {}
-    if not bool(llm_cfg.get("enabled", False)):
-        return {"name": "llm", "enabled": False, "ok": True, "reason": "llm.enabled=false"}
-    provider = str(llm_cfg.get("provider", "opencode_builtin"))
-    if provider != "direct_openai_compatible":
-        return {"name": "llm", "enabled": False, "ok": True, "reason": f"provider={provider}"}
     api_base = str(llm_cfg.get("api_base") or "").strip().rstrip("/")
     api_key = str(llm_cfg.get("api_key") or "").strip()
     api_model = str(llm_cfg.get("api_model") or "").strip()
@@ -118,11 +115,12 @@ def _check_direct_openai(config: dict[str, Any]) -> dict[str, Any]:
     return {"name": "llm", "enabled": True, "ok": True}
 
 
-def _check_scanner(config: dict[str, Any]) -> dict[str, Any]:
+def _check_scanner(config: dict[str, Any], policy: ScannerCheckPolicy | None = None) -> dict[str, Any]:
+    resolved = policy or build_preflight_policy(config).scanner
+    if not resolved.enabled:
+        return {"name": "scanner", "enabled": False, "ok": True, "reason": resolved.reason}
     java_cfg = ((config.get("scan", {}) or {}).get("java_scanner", {}) or {})
     jar_path = str(java_cfg.get("jar_path") or "").strip()
-    if not jar_path:
-        return {"name": "scanner", "enabled": False, "ok": True, "reason": "scan.java_scanner.jar_path not set"}
     p = Path(jar_path)
     if not p.is_absolute():
         project_root = Path(str((config.get("project", {}) or {}).get("root_path") or ".")).resolve()
@@ -139,13 +137,18 @@ def _check_scanner(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def execute(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
-    llm_cfg = (config.get("llm", {}) or {}) if isinstance(config, dict) else {}
-    provider = str(llm_cfg.get("provider", "opencode_builtin"))
-    if provider == "direct_openai_compatible":
-        llm_check = _check_direct_openai(config)
+    policy = build_preflight_policy(config)
+    if policy.llm.mode == "direct_openai_compatible":
+        llm_check = _check_direct_openai(config, policy.llm)
+    elif policy.llm.mode == "opencode_run":
+        llm_check = _check_opencode(config, policy.llm)
     else:
-        llm_check = _check_opencode(config)
-    checks = [_check_db(config), llm_check, _check_scanner(config)]
+        llm_check = {"name": "llm", "enabled": False, "ok": True, "reason": policy.llm.reason}
+    checks = [
+        _check_db(config, policy.db),
+        llm_check,
+        _check_scanner(config, policy.scanner),
+    ]
     ok = all(bool(x.get("ok")) for x in checks)
     result = {
         "run_id": run_dir.name,

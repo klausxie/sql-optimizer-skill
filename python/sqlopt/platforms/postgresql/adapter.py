@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..base import FunctionPlatformAdapter, PlatformAdapter, PlatformCapabilities
 from .compare import compare_plan as _compare_plan
 from .compare import compare_semantics as _compare_semantics
 from .evidence import check_db_connectivity as _check_db_connectivity
@@ -23,3 +24,19 @@ def compare_plan(config: dict[str, Any], original_sql: str, rewritten_sql: str, 
 
 def compare_semantics(config: dict[str, Any], original_sql: str, rewritten_sql: str, evidence_dir: Path) -> dict[str, Any]:
     return _compare_semantics(config, original_sql, rewritten_sql, evidence_dir)
+
+
+def get_adapter() -> PlatformAdapter:
+    return FunctionPlatformAdapter(
+        name="postgresql",
+        capabilities=PlatformCapabilities(
+            supports_connectivity_check=True,
+            supports_plan_compare=True,
+            supports_semantic_compare=True,
+            supports_sql_evidence=True,
+        ),
+        check_db_connectivity_fn=check_db_connectivity,
+        collect_sql_evidence_fn=collect_sql_evidence,
+        compare_plan_fn=compare_plan,
+        compare_semantics_fn=compare_semantics,
+    )

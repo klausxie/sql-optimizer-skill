@@ -5,6 +5,7 @@ from typing import Any
 
 from ..dispatch import compare_plan, compare_semantics
 from .template_materializer import build_rewrite_materialization
+from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 
 
 def _numeric_cost(value: Any) -> float:
@@ -180,6 +181,7 @@ def validate_proposal(
     candidate_evaluations: list[dict[str, Any]] = []
     selected_candidate_source = None
     if config and evidence_dir is not None and (config.get("db", {}) or {}).get("dsn"):
+        compare_policy = build_compare_policy(config)
         if valid_candidates:
             best: dict[str, Any] | None = None
             best_cost = float("inf")
@@ -190,8 +192,8 @@ def validate_proposal(
                 if not rewritten_candidate:
                     continue
                 candidate_dir = evidence_dir / f"candidate_{idx}"
-                semantics = compare_semantics(config, sql, rewritten_candidate, candidate_dir)
-                plan = compare_plan(config, sql, rewritten_candidate, candidate_dir)
+                semantics = run_semantics_compare(compare_policy, compare_semantics, config, sql, rewritten_candidate, candidate_dir)
+                plan = run_plan_compare(compare_policy, compare_plan, config, sql, rewritten_candidate, candidate_dir)
                 row_status = ((semantics.get("rowCount") or {}) if isinstance(semantics, dict) else {}).get("status")
                 semantic_match = row_status == "MATCH"
                 improved_now = bool(plan.get("improved"))
@@ -237,8 +239,8 @@ def validate_proposal(
                     "evidenceRefs": plan.get("evidenceRefs", []),
                 }
         else:
-            semantics = compare_semantics(config, sql, rewritten_sql, evidence_dir)
-            plan = compare_plan(config, sql, rewritten_sql, evidence_dir)
+            semantics = run_semantics_compare(compare_policy, compare_semantics, config, sql, rewritten_sql, evidence_dir)
+            plan = run_plan_compare(compare_policy, compare_plan, config, sql, rewritten_sql, evidence_dir)
             equivalence = {
                 "checked": semantics.get("checked"),
                 "method": semantics.get("method", "sql_semantic_compare_v1"),

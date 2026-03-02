@@ -28,6 +28,31 @@ from sqlopt.install_support import cli_run_command, is_windows, skill_dir  # noq
 from sqlopt.subprocess_utils import run_capture_text  # noqa: E402
 
 
+def _make_run_id() -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return f"run_doctor_{stamp}_{uuid4().hex[:8]}"
+
+
+def _run_check(name: str, cmd: list[str]) -> bool:
+    try:
+        proc = run_capture_text(cmd)
+    except (FileNotFoundError, OSError) as exc:
+        print(f"[FAIL] {name}: {exc}")
+        return False
+
+    if proc.returncode == 0:
+        detail = (proc.stdout or "").strip()
+        if detail:
+            print(f"[ OK ] {name}: {detail}")
+        else:
+            print(f"[ OK ] {name}")
+        return True
+
+    detail = (proc.stderr or proc.stdout or "").strip() or "command failed"
+    print(f"[FAIL] {name}: {detail}")
+    return False
+
+
 class DiagnosticResult:
     """Result of a diagnostic check."""
 

@@ -48,6 +48,32 @@ class CliReportFinalizationTest(unittest.TestCase):
             self.assertEqual(mock_run.call_count, 1)
             self.assertEqual(load_state(run_dir)["attempts_by_phase"]["report"], 1)
 
+    def test_finalize_report_persists_done_state_before_report_generation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cli_report_state_") as td:
+            run_dir = Path(td)
+            self._prepare_completed_run(run_dir)
+            state = load_state(run_dir)
+            state["phase_status"]["report"] = "PENDING"
+            save_state(run_dir, state)
+
+            def check_state_before_generate(config, phase, fn):
+                self.assertEqual(phase, "report")
+                persisted = load_state(run_dir)
+                self.assertEqual(persisted["phase_status"]["report"], "DONE")
+                self.assertEqual(persisted["current_phase"], "report")
+                return {}, 1
+
+            with patch("sqlopt.cli._run_phase_action", side_effect=check_state_before_generate):
+                _finalize_report_if_enabled(
+                    run_dir,
+                    {"report": {"enabled": True}},
+                    ContractValidator(ROOT),
+                    state,
+                    final_meta_status="COMPLETED",
+                )
+
+            self.assertEqual(load_state(run_dir)["phase_status"]["report"], "DONE")
+
     def test_advance_to_report_always_finalizes_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cli_report_stage_") as td:
             run_dir = Path(td)

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlopt.platforms.base import PlatformCapabilities
 from sqlopt.platforms.sql.validator_sql import validate_proposal
 
 
@@ -15,7 +16,7 @@ class ValidateProfilesTest(unittest.TestCase):
             "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
             "suggestions": [],
         }
-        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {"validation_profile": "balanced"}, "policy": {}}
+        config = {"db": {"platform": "postgresql", "dsn": "postgresql://dummy"}, "validate": {"validation_profile": "balanced"}, "policy": {}}
 
         def fake_semantics(_cfg, _orig, _rewritten, _dir):
             return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
@@ -46,7 +47,7 @@ class ValidateProfilesTest(unittest.TestCase):
             "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
             "suggestions": [],
         }
-        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {"validation_profile": "balanced"}, "policy": {}}
+        config = {"db": {"platform": "postgresql", "dsn": "postgresql://dummy"}, "validate": {"validation_profile": "balanced"}, "policy": {}}
 
         def fake_semantics(_cfg, _orig, _rewritten, _dir):
             return {
@@ -98,6 +99,35 @@ class ValidateProfilesTest(unittest.TestCase):
             evidence_dir=Path(tempfile.gettempdir()),
         )
         self.assertEqual(result["status"], "FAIL")
+
+    def test_plan_and_semantic_compare_are_capability_gated(self) -> None:
+        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
+        proposal = {
+            "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy", "platform": "postgresql"}, "validate": {"validation_profile": "balanced"}, "policy": {}}
+
+        with tempfile.TemporaryDirectory(prefix="validate_capability_gate_") as td:
+            with patch(
+                "sqlopt.platforms.sql.validation_strategy.get_platform_capabilities",
+                return_value=PlatformCapabilities(
+                    supports_connectivity_check=True,
+                    supports_plan_compare=False,
+                    supports_semantic_compare=False,
+                    supports_sql_evidence=True,
+                ),
+            ), patch("sqlopt.platforms.sql.validator_sql.compare_semantics") as semantics_mock, patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan"
+            ) as plan_mock:
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        semantics_mock.assert_not_called()
+        plan_mock.assert_not_called()
+        self.assertFalse(result["equivalence"]["checked"])
+        self.assertFalse(result["perfComparison"]["checked"])
+        self.assertIn("VALIDATE_PLAN_COMPARE_DISABLED", result["perfComparison"]["reasonCodes"])
+        self.assertEqual(result["status"], "NEED_MORE_PARAMS")
 
 
 if __name__ == "__main__":

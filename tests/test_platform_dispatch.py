@@ -7,9 +7,25 @@ from unittest.mock import patch
 
 from sqlopt.errors import StageError
 from sqlopt.platforms import dispatch
+from sqlopt.platforms.base import FunctionPlatformAdapter, PlatformCapabilities
 
 
 class PlatformDispatchTest(unittest.TestCase):
+    def test_dispatch_exposes_platform_adapter_capability(self) -> None:
+        cfg = {"db": {"platform": "postgresql"}}
+        adapter = dispatch.get_platform_adapter(cfg)
+        self.assertEqual(adapter.name, "postgresql")
+        self.assertIsInstance(adapter, FunctionPlatformAdapter)
+        self.assertTrue(adapter.capabilities.supports_connectivity_check)
+        self.assertTrue(adapter.capabilities.supports_plan_compare)
+        self.assertTrue(adapter.capabilities.supports_semantic_compare)
+
+    def test_dispatch_exposes_platform_capabilities_helper(self) -> None:
+        cfg = {"db": {"platform": "postgresql"}}
+        capabilities = dispatch.get_platform_capabilities(cfg)
+        self.assertIsInstance(capabilities, PlatformCapabilities)
+        self.assertTrue(capabilities.supports_sql_evidence)
+
     def test_dispatch_routes_to_postgresql_adapter(self) -> None:
         cfg = {"db": {"platform": "postgresql"}}
         with patch("sqlopt.platforms.postgresql.adapter.collect_sql_evidence", return_value=({"ok": True}, {"s": 1})) as m:

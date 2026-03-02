@@ -31,3 +31,24 @@
 3. `ops/failures.jsonl` 与 `report.stats` 含 `fatal / retryable / degradable` 统计
 4. 至少一份真实项目运行样例可复现
 5. 文档描述与当前默认行为一致
+
+## 5. 离线 Smoke Run（推荐）
+1. 将 `tests/fixtures/project` 复制到临时目录，避免污染仓库内 fixture
+2. 在临时项目中覆盖一份离线安全配置：
+   - `llm.enabled=false`
+   - `validate.db_reachable=false`
+   - `validate.allow_db_unreachable_fallback=true`
+   - `validate.plan_compare_enabled=false`
+   - `apply.mode=PATCH_ONLY`
+3. 执行 `run --to-stage patch_generate`，随后循环执行 `status/resume` 直到 `complete=true`
+4. 验证以下文件存在且内容一致：
+   - `supervisor/state.json`
+   - `supervisor/meta.json`
+   - `report.json`
+   - `report.summary.md`
+5. 重点检查：
+   - `state.phase_status.report == DONE`
+   - `report.json.stats.pipeline_coverage.report == DONE`
+   - `report.summary.md` 显示 `report DONE`
+6. 如需覆盖“安装到 opencode + 命令文档 + 测试项目”整条链路，执行：
+   - `python3 scripts/ci/opencode_smoke_acceptance.py`

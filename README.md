@@ -8,6 +8,8 @@
 
 **查找文档？** 访问 [文档导航](docs/INDEX.md) - 按角色和主题查找所需文档
 
+**开发验证？** 在仓库根目录直接运行 `python3 -m pytest -q`
+
 ## 📖 文档定位
 
 - 面向"完全重写"而非"在旧代码上小修小补"。
@@ -28,6 +30,18 @@
 1. `contracts/*.schema.json`
 2. 当前代码可验证行为（`python/sqlopt`、`scripts/sqlopt_cli.py`）
 3. 历史说明文档（`docs/*.md`）
+
+## 🧱 当前实现基线（2026-03）
+
+1. `python/sqlopt/cli.py` 仅保留 CLI adapter 与兼容包装层，核心编排已下沉到 `python/sqlopt/application/`
+2. 运行编排边界固定为：`run_service -> workflow_engine -> run_repository/stages`
+3. `preflight` 与 `validate` 已使用策略层做 capability gating，不再把平台差异散落在 stage 主流程里
+4. `report` 产物与 `supervisor/state.json` 的 phase coverage 已做一致性修复，`report=DONE` 不再出现报告内滞后
+5. 推荐的发布前验收基线：
+   - 本仓库根目录执行 `python3 -m pytest -q`
+   - 复制 `tests/fixtures/project` 到临时目录后做一次离线 smoke run
+   - 核对 `state.json`、`report.json`、`report.summary.md` 中 `report=DONE`
+   - 如需覆盖安装到 opencode 的完整链路（安装布局、命令文档、已安装 runtime），执行 `python3 scripts/ci/opencode_smoke_acceptance.py`
 
 ## 💻 交接使用方式
 
@@ -51,6 +65,8 @@ python3 install/doctor.py --project <your_project_path>
 ```
 
 Windows 用户请使用 `python` 替代 `python3`。
+
+安装后，推荐先用 `llm.provider=opencode_builtin`、`validate.db_reachable=false` 做一轮离线 smoke run，再切回真实 LLM/DB 配置。
 
 ### 使用 Skill
 
@@ -98,4 +114,3 @@ Windows 用户请使用 `python` 替代 `python3`。
 - 运行诊断工具：`python3 install/doctor.py --project <path>`
 - 报告问题：https://github.com/your-org/sql-optimizer/issues
 - AI 助手指南：[CLAUDE.md](CLAUDE.md)
-
