@@ -64,7 +64,7 @@ db:
 当前边界：
 - MySQL 仅支持 8.0+
 - 不支持 MariaDB
-- 若候选 SQL 带 PostgreSQL 方言，MySQL compare 可能退化为 `ERROR` 或 `NEED_MORE_PARAMS`
+- 若原 SQL 或候选 SQL 带 PostgreSQL 方言（例如 `ILIKE`），当前不会自动兼容；MySQL evidence / compare 会按语法错误处理，并上报 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
 
 **如果只是先验证安装链路**，建议先改成：
 
@@ -147,6 +147,9 @@ python3 scripts/sqlopt_cli.py run --config sqlopt.yml
 # 查看某条 SQL 的验证证据链
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id run_20260301_123456 --sql-key com.example.UserMapper.selectById#v1
 
+# 只看压缩诊断（包含 warnings / why_now / recommended_next_step）
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id run_20260301_123456 --sql-key com.example.UserMapper.selectById#v1 --summary-only --format json
+
 # 查看详细报告
 cat runs/run_20260301_123456/report.md
 ```
@@ -155,6 +158,11 @@ cat runs/run_20260301_123456/report.md
 - `resume`：继续推进未完成阶段
 - `report-rebuild`：上游阶段已完成，只需重建 `report.json` / `report.md` / `ops/*.json`
 - `none`：当前目标阶段已完成，无需继续
+
+与当前实现一致的告警出口：
+- `report.json.validation_warnings`
+- `report.summary.md` 中的 `## Warnings`
+- `sqlopt-cli verify --summary-only` 返回的 `warnings`
 
 ### 7. 应用优化补丁（可选）
 
@@ -278,6 +286,16 @@ python3 scripts/run_until_budget.py \
 
 并且会额外锁住：
 - `includeTrace` 与 fragment catalog 对齐后不再误报 `SCAN_INCLUDE_TRACE_PARTIAL`
+
+### Q: 如何在本地准备 MySQL 测试库？
+
+仓库内置了 MySQL 8.0+ fixture schema：
+
+```bash
+mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
+```
+
+这会创建并填充 `users / orders / shipments`，用于 MySQL smoke 和 compare 验证。
 - `UPDATE + trim + set` 结构不会再产出重复 `SET SET`
 
 ### Q: 运行失败了怎么办？

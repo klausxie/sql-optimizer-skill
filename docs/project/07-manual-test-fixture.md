@@ -8,6 +8,7 @@
 - 配置文件固定：`tests/fixtures/project/sqlopt.yml`
 - scan-only 配置：`tests/fixtures/project/sqlopt.scan.local.yml`
 - MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.example.yml`
+- MySQL 本地 schema：`tests/fixtures/sql_local/schema.mysql.sql`
 - run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
 - 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer`
 
@@ -25,6 +26,17 @@
 - `llm.enabled=false`
 
 确认离线链路通过后，再切换成真实 `mysql://` DSN 打开 compare。
+
+若本地还没有测试库，可先初始化：
+
+```bash
+mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
+```
+
+这会创建并填充：
+- `users`
+- `orders`
+- `shipments`
 
 ## 2. 快速自检（建议每次先做）
 
@@ -226,3 +238,9 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 2. 确认 `report.json` 存在且可解析。
 3. 确认 `patch.results.jsonl` 中至少有一条 `applicable: true`（针对可 patch SQL）。
 4. 抽查 `acceptance.results.jsonl` 中 `selectedCandidateSource/selectedCandidateId/warnings/riskFlags` 字段。
+5. 若是 MySQL run，抽查 `report.json.validation_warnings`、`report.summary.md` 或 `verify --summary-only` 的 `warnings`，确认是否出现 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+
+当前 MySQL 方言边界：
+- 不做 PostgreSQL 方言兼容转换
+- 若原 SQL 或候选包含 `ILIKE` 等 MySQL 不支持语法，optimize 的 DB evidence / compare 会按语法错误处理
+- 原始错误保留在 proposal 的 `dbEvidenceSummary.explainError`

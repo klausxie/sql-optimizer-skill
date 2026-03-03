@@ -11,6 +11,7 @@
 **开发验证？** 在仓库根目录直接运行 `python3 -m pytest -q`
 
 **数据库平台？** 当前一等支持 `postgresql` 与 `mysql`（仅 MySQL 8.0+，不含 MariaDB）
+**MySQL 方言边界？** 若 SQL 或候选带 PostgreSQL 方言（如 `ILIKE`），当前不会自动兼容，会在 optimize DB evidence 阶段按语法错误处理，并以 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 暴露到 report / verify
 
 **扫描覆盖验证？** 直接运行
 `python3 scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-steps 10 --max-seconds 30`
@@ -106,6 +107,9 @@ Windows 用户请使用 `python` 替代 `python3`。
 # 查看某条 SQL 的验证证据链
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
 
+# 只看压缩诊断（包含 warnings / why_now / recommended_next_step）
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
+
 # 应用补丁
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli apply --run-id <run_id>
 ```
@@ -136,6 +140,24 @@ python3 scripts/run_until_budget.py \
 - `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
 - `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
 - `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
+
+## 🐬 MySQL 本地验证
+
+若要在本地快速准备 MySQL 8.0+ 测试库，可使用内置 schema：
+
+```bash
+mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
+```
+
+这份脚本会创建并填充：
+- `users`
+- `orders`
+- `shipments`
+
+如遇 PostgreSQL 方言 SQL（例如 `ILIKE`），当前行为是：
+- 不做自动改写
+- `dbEvidenceSummary.explainError` 保留原始错误
+- `report.json.validation_warnings` / `report.summary.md` / `sqlopt-cli verify --summary-only` 会显示 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
 
 ## 🔌 LLM Provider 选型
 

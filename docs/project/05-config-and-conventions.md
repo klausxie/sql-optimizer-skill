@@ -62,6 +62,7 @@
 4. 若要先做离线 smoke run，推荐：
    - `validate.db_reachable=false`
    - `validate.allow_db_unreachable_fallback=true`
+5. 若 SQL 或候选含 MySQL 不支持的 PostgreSQL 方言（例如 `ILIKE`），当前不会做方言兼容转换，而是按 SQL 语法错误处理
 
 ## 4. Report 约定
 默认：
@@ -125,6 +126,11 @@
 1. 失败要在 `ops/failures.jsonl` 可追踪
 2. DB 不可达、LLM 超时、schema 校验失败必须有结构化统计
 3. report 应包含可执行下一步动作（命令或配置建议）
+4. 非 blocking 但用户应看到的 DB 证据异常（例如 optimize 的 `EXPLAIN` 语法错误）应进入：
+   - `report.json.validation_warnings`
+   - `report.summary.md` 的 `## Warnings`
+   - `sqlopt-cli verify --summary-only` 的 `warnings`
+5. `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 表示 optimize 阶段的 DB evidence `EXPLAIN` 因 SQL 语法失败；原始错误仍保留在 proposal 的 `dbEvidenceSummary.explainError`
 
 ## 9. 诊断规则包约定
 默认：

@@ -81,10 +81,15 @@
 2. `llmTraceRefs`
 3. `estimatedBenefit`
 4. `confidence`
+5. `triggeredRules`
 
 说明：
 1. optimize 输出分析候选，不直接输出 XML 级 rewrite。
 2. `dbEvidenceSummary.dbType` 当前可能是 `postgresql` 或 `mysql`
+3. 当数据库 `EXPLAIN` 在 optimize 证据收集阶段因 SQL 语法失败时：
+   - 原始错误保留在 `dbEvidenceSummary.explainError`
+   - verification 会产出 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
+   - report / verify 会把它提升为用户可见 warning
 
 ## 3. `AcceptanceResult`
 文件：`acceptance/acceptance.results.jsonl`
@@ -125,6 +130,20 @@
    - 当前交付准备度、选中候选、replay 验证状态
 4. `acceptance`
    - 最终 `status` 与 validate 策略口径（profile / strategy flags）
+
+### 3.0.1 `verify` 摘要相关输出
+当前 CLI `verify --summary-only` 会基于 `AcceptanceResult`、`PatchResult` 与 verification ledger 聚合：
+1. `delivery_assessment`
+2. `evidence_state`
+3. `decision_summary`
+4. `why_now`
+5. `critical_gaps`
+6. `warnings`
+7. `recommended_next_step`
+
+说明：
+1. `warnings` 用于承载非 blocking 但用户应看到的诊断（例如 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`）
+2. `critical_gaps` 仍只保留 `UNVERIFIED` 级别缺口，不与 warning 混用
 
 ### 3.1 `rewriteMaterialization`
 当前行为：
