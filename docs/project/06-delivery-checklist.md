@@ -50,5 +50,8 @@
    - `state.phase_status.report == DONE`
    - `report.json.stats.pipeline_coverage.report == DONE`
    - `report.summary.md` 显示 `report DONE`
-6. 如需覆盖“安装到 opencode + 命令文档 + 测试项目”整条链路，执行：
+6. 发布前优先执行统一验收入口：
+   - `python3 scripts/ci/release_acceptance.py`
+7. 如需单独排查，可分别执行：
    - `python3 scripts/ci/opencode_smoke_acceptance.py`
+   - `python3 scripts/ci/degraded_runtime_acceptance.py`

@@ -24,6 +24,7 @@
 5. `docs/project/04-data-contracts.md`
 6. `docs/project/05-config-and-conventions.md`
 7. `docs/project/06-delivery-checklist.md`
+8. `docs/project/08-artifact-governance.md`
 
 ## 🔧 判定规则（冲突时优先级）
 
@@ -39,9 +40,12 @@
 4. `report` 产物与 `supervisor/state.json` 的 phase coverage 已做一致性修复，`report=DONE` 不再出现报告内滞后
 5. 推荐的发布前验收基线：
    - 本仓库根目录执行 `python3 -m pytest -q`
+   - 优先执行统一验收入口：`python3 scripts/ci/release_acceptance.py`
    - 复制 `tests/fixtures/project` 到临时目录后做一次离线 smoke run
    - 核对 `state.json`、`report.json`、`report.summary.md` 中 `report=DONE`
-   - 如需覆盖安装到 opencode 的完整链路（安装布局、命令文档、已安装 runtime），执行 `python3 scripts/ci/opencode_smoke_acceptance.py`
+   - 细分验收仍可单独执行：
+     `python3 scripts/ci/opencode_smoke_acceptance.py`
+     `python3 scripts/ci/degraded_runtime_acceptance.py`
 
 ## 💻 交接使用方式
 
@@ -104,6 +108,7 @@ Windows 用户请使用 `python` 替代 `python3`。
 - **[文档导航](docs/INDEX.md)** - 完整文档索引
 - **[安装指南](docs/INSTALL.md)** - 详细安装步骤
 - **[配置说明](docs/project/05-config-and-conventions.md)** - 配置选项详解
+- **[产物治理](docs/project/08-artifact-governance.md)** - 运行产物与 source-of-truth 规则
 - **[故障排查](docs/TROUBLESHOOTING.md)** - 常见问题解决
 - **[升级指南](docs/UPGRADE.md)** - 版本升级步骤
 - **[分发指南](docs/DISTRIBUTION.md)** - 打包和分发

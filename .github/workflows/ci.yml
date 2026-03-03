@@ -15,7 +15,7 @@ jobs:
       - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          pip install jsonschema PyYAML
+          pip install jsonschema PyYAML pytest
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -23,6 +23,8 @@ jobs:
       - name: Build scanner
         run: mvn -f java/scan-agent/pom.xml -DskipTests package
       - name: Unit and replay tests
-        run: python -m unittest discover -s tests -v
+        run: python -m pytest -q
+      - name: Repository acceptance smoke
+        run: python scripts/ci/degraded_runtime_acceptance.py
       - name: Skill validate
         run: python scripts/quick_validate.py skills/sqlopt-postgresql

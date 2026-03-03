@@ -144,8 +144,20 @@ Repeat `resume` until `complete=true`, then verify:
 
 All three should agree that `report` is `DONE`.
 
-To verify the full install-to-opencode path (skill install, command docs, installed runtime) in one command from this repository, run:
+Preferred release gate from this repository:
+
+```bash
+python3 scripts/ci/release_acceptance.py
+```
+
+This runs both:
+
+1. install-to-opencode path (skill install, command docs, installed runtime)
+2. repository-local degraded path (DB unreachable but fallback allowed)
+
+You can still run them individually:
 
 ```bash
 python3 scripts/ci/opencode_smoke_acceptance.py
+python3 scripts/ci/degraded_runtime_acceptance.py
 ```
