@@ -106,6 +106,24 @@
 8. `riskFlags`
 9. `rewriteMaterialization`
 10. `templateRewriteOps`
+11. `selectionRationale`
+12. `deliveryReadiness`
+13. `decisionLayers`
+
+### 3.0 `decisionLayers`
+当前行为：
+1. 这是 validate 的分层决策摘要，不取代顶层 `status`
+2. 用于解释“为什么通过/为什么未通过”，并给 `report` / `verify` 更稳定的内部依据
+
+当前四层：
+1. `feasibility`
+   - 候选是否存在、DB 是否可达、compare 是否可执行
+2. `evidence`
+   - 语义/性能证据是否实际完成，是否降级
+3. `delivery`
+   - 当前交付准备度、选中候选、replay 验证状态
+4. `acceptance`
+   - 最终 `status` 与 validate 策略口径（profile / strategy flags）
 
 ### 3.1 `rewriteMaterialization`
 当前行为：

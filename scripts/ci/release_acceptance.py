@@ -58,6 +58,7 @@ def main() -> None:
         ("degraded_runtime", "degraded_runtime_acceptance.py"),
         ("report_rebuild", "report_rebuild_acceptance.py"),
         ("verification_chain", "verification_chain_acceptance.py"),
+        ("guidance_consistency", "guidance_consistency_acceptance.py"),
     ]
     results: dict[str, Any] = {}
     for label, script_name in steps:

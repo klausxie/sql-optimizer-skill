@@ -3,22 +3,36 @@ from __future__ import annotations
 
 def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, phase_status: dict[str, str]) -> str:
     verification = stats.get("verification") or {}
-    return "\n".join(
+    top_actionable = (stats.get("top_actionable_sql") or [])[:3]
+    lines = [
+        f"# SQL Optimize Summary: {run_id}",
+        "",
+        f"- Verdict: `{verdict}`",
+        f"- Release Readiness: `{readiness}`",
+        f"- Evidence Confidence: `{stats.get('evidence_confidence', 'unknown')}`",
+        f"- SQL Units: `{stats.get('sql_units', 0)}`",
+        f"- Acceptance: pass `{stats.get('acceptance_pass', 0)}`, fail `{stats.get('acceptance_fail', 0)}`, need params `{stats.get('acceptance_need_more_params', 0)}`",
+        f"- Delivery: patches `{stats.get('patch_files', 0)}`, applicable `{stats.get('patch_applicable_count', 0)}`",
+        f"- Failures: fatal `{stats.get('fatal_count', 0)}`, retryable `{stats.get('retryable_count', 0)}`, degradable `{stats.get('degradable_count', 0)}`",
+        f"- Verification: verified `{verification.get('verified_count', 0)}`, partial `{verification.get('partial_count', 0)}`, unverified `{verification.get('unverified_count', 0)}`",
+        "",
+        "## Top Actionable SQL",
+    ]
+    if top_actionable:
+        for row in top_actionable:
+            lines.append(
+                f"- {row.get('sql_key')}: {row.get('why_now') or row.get('summary')} ({row.get('priority')}, {row.get('delivery_tier')})"
+            )
+    else:
+        lines.append("- None")
+    lines.extend(
         [
-            f"# SQL Optimize Summary: {run_id}",
             "",
-            f"- Verdict: `{verdict}`",
-            f"- Release Readiness: `{readiness}`",
-            f"- Evidence Confidence: `{stats.get('evidence_confidence', 'unknown')}`",
-            f"- SQL Units: `{stats.get('sql_units', 0)}`",
-            f"- Acceptance: pass `{stats.get('acceptance_pass', 0)}`, fail `{stats.get('acceptance_fail', 0)}`, need params `{stats.get('acceptance_need_more_params', 0)}`",
-            f"- Delivery: patches `{stats.get('patch_files', 0)}`, applicable `{stats.get('patch_applicable_count', 0)}`",
-            f"- Failures: fatal `{stats.get('fatal_count', 0)}`, retryable `{stats.get('retryable_count', 0)}`, degradable `{stats.get('degradable_count', 0)}`",
-            f"- Verification: verified `{verification.get('verified_count', 0)}`, partial `{verification.get('partial_count', 0)}`, unverified `{verification.get('unverified_count', 0)}`",
             f"- Phase Status: preflight `{phase_status.get('preflight', 'PENDING')}`, scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
             "",
         ]
     )
+    return "\n".join(lines)
 
 
 def render_report_md(
@@ -34,6 +48,7 @@ def render_report_md(
     proposal_rows: list[dict],
 ) -> str:
     verification = stats.get("verification") or {}
+    top_actionable = stats.get("top_actionable_sql") or []
     lines = [
         f"# SQL Optimize Report: {run_id}",
         "",
@@ -49,8 +64,29 @@ def render_report_md(
         f"- Materialization Reasons: `{stats.get('materialization_reason_counts', {})}`",
         f"- Materialization Actions: `{stats.get('materialization_reason_group_counts', {})}`",
         "",
-        "## Top Risks",
+        "## Top Actionable SQL",
     ]
+    if top_actionable:
+        lines.extend(
+            [
+                "| SQL Key | Priority | Actionability | Delivery | Patch Applicable | Why Now | Summary |",
+                "|---|---|---|---|---|---|---|",
+            ]
+        )
+        for row in top_actionable:
+            patch_label = "true" if row.get("patch_applicable") is True else ("false" if row.get("patch_applicable") is False else "n/a")
+            lines.append(
+                f"| `{row.get('sql_key')}` | `{row.get('priority')}` | `{row.get('actionability_tier')}` | `{row.get('delivery_tier')}` | `{patch_label}` | {row.get('why_now') or 'n/a'} | {row.get('summary')} |"
+            )
+    else:
+        lines.append("- None")
+
+    lines.extend(
+        [
+            "",
+            "## Top Risks",
+        ]
+    )
     if top_blockers:
         for blocker in top_blockers:
             lines.append(

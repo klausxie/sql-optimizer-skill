@@ -40,6 +40,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     replay_verified = rewrite_materialization.get("replayVerified")
     selected_source = str(payload.get("selectedCandidateSource") or "").strip()
     selected_id = str(payload.get("selectedCandidateId") or "").strip()
+    decision_layers = dict(payload.get("decisionLayers") or {})
     pass_has_selection = payload.get("status") != "PASS" or (bool(selected_source) and bool(selected_id))
     checks = [
         VerificationCheck(
@@ -113,6 +114,10 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
                 "db_reachable": db_reachable,
                 "selected_candidate_source": selected_source or None,
                 "selected_candidate_id": selected_id or None,
+                "selection_strategy": ((payload.get("selectionRationale") or {}).get("strategy")),
+                "delivery_readiness_tier": ((payload.get("deliveryReadiness") or {}).get("tier")),
+                "evidence_degraded": ((decision_layers.get("evidence") or {}).get("degraded")),
+                "acceptance_profile": ((decision_layers.get("acceptance") or {}).get("validationProfile")),
                 "template_op_count": len(template_ops),
                 "perf_reason_codes": reason_codes,
             },
@@ -121,6 +126,8 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
                 "status": payload.get("status"),
                 "semantic_risk": payload.get("semanticRisk"),
                 "replay_verified": replay_verified,
+                "selection_strategy": ((payload.get("selectionRationale") or {}).get("strategy")),
+                "delivery_tier": ((decision_layers.get("delivery") or {}).get("tier")),
             },
             created_at=datetime.now(timezone.utc).isoformat(),
         ),

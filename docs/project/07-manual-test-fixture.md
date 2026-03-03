@@ -6,6 +6,7 @@
 
 - 测试项目固定路径：`tests/fixtures/project`
 - 配置文件固定：`tests/fixtures/project/sqlopt.yml`
+- scan-only 配置：`tests/fixtures/project/sqlopt.scan.local.yml`
 - run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
 - 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer`
 
@@ -104,6 +105,43 @@ for i in {1..60}; do
   sleep 1
 done
 ```
+
+## 3.4 只验证 scan 覆盖（推荐用于 scanner 相关改动）
+
+当你只修改了 scanner / scan verification，不需要把整条 pipeline 跑完时，优先执行：
+
+```bash
+python3 scripts/run_until_budget.py \
+  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --to-stage scan \
+  --max-steps 10 \
+  --max-seconds 30
+```
+
+这份配置只扫描：
+
+- `tests/fixtures/project/scan_samples/dynamic_tags_mapper.xml`
+
+当前样例覆盖：
+
+- `bind`
+- `choose/when/otherwise`
+- `where`
+- `if`
+- `foreach`
+- `include`
+- `trim`
+- `set`
+
+建议至少检查：
+
+1. `scan.sqlunits.jsonl`
+   - `searchUsersAdvanced.dynamicFeatures` 含 `FOREACH/INCLUDE/IF/CHOOSE/WHERE/BIND`
+   - `patchUserStatusAdvanced.sql` 不含重复 `SET SET`
+2. `scan.fragments.jsonl`
+   - `ActiveOnly` / `TenantGuard` 两个 fragment 都存在
+3. `verification/ledger.jsonl`
+   - 两条 statement 都是 `SCAN_EVIDENCE_VERIFIED`
 
 ## 4. 查看输出结果
 

@@ -4,13 +4,14 @@ import argparse
 import json
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from .application import config_service, run_index, run_service, workflow_engine
 from .contracts import ContractValidator
 from .error_messages import format_error_message
 from .errors import StageError
 from .progress import init_progress_reporter
+from .verification.explain import action_reason, assess_sql_outcome
 
 STAGE_ORDER = workflow_engine.STAGE_ORDER
 
@@ -135,6 +136,175 @@ def _verification_status_counts(rows: list[dict]) -> dict[str, int]:
     return counts
 
 
+def _verify_decision_summary(delivery_assessment: str, evidence_state: str) -> str:
+    if evidence_state == "CRITICAL_GAP":
+        return "critical verification evidence is incomplete for this output"
+    if evidence_state == "DEGRADED":
+        return "validation evidence is degraded and should be rechecked before rollout"
+    if delivery_assessment == "READY_TO_APPLY":
+        return "validated and ready to apply"
+    if delivery_assessment == "PATCHABLE_WITH_REWRITE":
+        return "validated rewrite exists, but mapper needs template-aware refactoring"
+    if delivery_assessment == "MANUAL_REVIEW":
+        return "rewrite is promising, but the patch needs manual conflict resolution"
+    if delivery_assessment == "NEEDS_REVIEW":
+        return "rewrite validated, but patch still needs review"
+    return "no ready-to-apply optimization yet"
+
+
+def _verify_why_now(delivery_assessment: str, evidence_state: str, assessment: dict[str, Any]) -> str:
+    if evidence_state == "CRITICAL_GAP":
+        return "the main blocker is missing verification evidence, so rollout should wait"
+    if bool(assessment.get("db_recheck_recommended")):
+        return "the rewrite may be viable, but DB-backed validation needs to be restored first"
+    if delivery_assessment == "READY_TO_APPLY":
+        return "this is the fastest safe win because the patch is already ready"
+    if delivery_assessment == "PATCHABLE_WITH_REWRITE":
+        return "this becomes high-value as soon as the mapper is refactored for template safety"
+    if delivery_assessment == "MANUAL_REVIEW":
+        return "the SQL is promising and only manual patch conflict handling remains"
+    if delivery_assessment == "NEEDS_REVIEW":
+        return "the rewrite is validated, but a human still needs to decide the patch path"
+    return "this item still needs stronger validation or a clearer delivery path"
+
+
+def _verify_recommended_next_step(
+    run_id: str,
+    delivery_assessment: str,
+    assessment: dict[str, Any],
+) -> dict[str, Any]:
+    best_patch = assessment.get("best_patch")
+    repair_hints = list(assessment.get("repair_hints") or [])
+    primary_hint = repair_hints[0] if repair_hints else {}
+    hint_command = primary_hint.get("command")
+    if str(assessment.get("evidence_state") or "") == "CRITICAL_GAP":
+        return {
+            "action": "review-evidence",
+            "reason": action_reason("review-evidence"),
+            "command": None,
+        }
+    if bool(assessment.get("db_recheck_recommended")):
+        return {
+            "action": "restore-db-validation",
+            "reason": action_reason("restore-db-validation"),
+            "command": None,
+        }
+    if delivery_assessment == "READY_TO_APPLY":
+        return {
+            "action": "apply",
+            "reason": action_reason("apply"),
+            "command": f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}",
+        }
+    if delivery_assessment == "PATCHABLE_WITH_REWRITE":
+        return {
+            "action": "refactor-mapper",
+            "reason": action_reason("refactor-mapper"),
+            "command": None,
+        }
+    if delivery_assessment == "MANUAL_REVIEW":
+        return {
+            "action": "resolve-patch-conflict",
+            "reason": action_reason("resolve-patch-conflict"),
+            "command": hint_command,
+        }
+    if delivery_assessment == "NEEDS_REVIEW":
+        return {
+            "action": "review-patchability",
+            "reason": action_reason("review-patchability"),
+            "command": hint_command,
+        }
+    return {
+        "action": "resume",
+        "reason": action_reason("resume"),
+        "command": f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}",
+    }
+
+
+def _build_verify_payload(
+    run_id: str,
+    run_dir: Path,
+    sql_key: str,
+    phase: str | None,
+    verification_available: bool,
+    records: list[dict],
+    acceptance_rows: list[dict],
+    patch_rows: list[dict],
+) -> dict[str, Any]:
+    status_counts = _verification_status_counts(records)
+    assessment = assess_sql_outcome(acceptance_rows, patch_rows, records)
+    has_unverified = str(assessment.get("evidence_state") or "") == "CRITICAL_GAP"
+    has_partial = any(str(row.get("status") or "").upper() == "PARTIAL" for row in records)
+    delivery_assessment = str(assessment.get("delivery_assessment") or "BLOCKED")
+    critical_gaps = list(assessment.get("critical_gaps") or [])
+    evidence_state = str(assessment.get("evidence_state") or "NONE")
+    decision_summary = _verify_decision_summary(delivery_assessment, evidence_state)
+    why_now = _verify_why_now(delivery_assessment, evidence_state, assessment)
+    recommended_next_step = _verify_recommended_next_step(run_id, delivery_assessment, assessment)
+    return {
+        "run_id": run_id,
+        "run_dir": str(run_dir),
+        "sql_key": sql_key,
+        "phase": phase,
+        "verification_available": verification_available,
+        "record_count": len(records),
+        "status_counts": status_counts,
+        "has_unverified": has_unverified,
+        "has_partial": has_partial,
+        "delivery_assessment": delivery_assessment,
+        "evidence_state": evidence_state,
+        "critical_gaps": critical_gaps,
+        "decision_summary": decision_summary,
+        "why_now": why_now,
+        "recommended_next_step": recommended_next_step,
+        "repair_hints": list(assessment.get("repair_hints") or []),
+        "acceptance": acceptance_rows,
+        "patches": patch_rows,
+        "records": records,
+    }
+
+
+def _verify_summary_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": payload.get("run_id"),
+        "sql_key": payload.get("sql_key"),
+        "phase": payload.get("phase"),
+        "record_count": payload.get("record_count"),
+        "status_counts": payload.get("status_counts"),
+        "delivery_assessment": payload.get("delivery_assessment"),
+        "evidence_state": payload.get("evidence_state"),
+        "decision_summary": payload.get("decision_summary"),
+        "why_now": payload.get("why_now"),
+        "critical_gaps": payload.get("critical_gaps"),
+        "recommended_next_step": payload.get("recommended_next_step"),
+        "repair_hints": payload.get("repair_hints"),
+    }
+
+
+def _format_verify_text(payload: dict[str, Any]) -> str:
+    status_counts = payload.get("status_counts") or {}
+    gaps = payload.get("critical_gaps") or []
+    next_step = payload.get("recommended_next_step") or {}
+    repair_hints = payload.get("repair_hints") or []
+    command = next_step.get("command") or "n/a"
+    lines = [
+        f"SQL: {payload.get('sql_key')}",
+        f"Decision: {payload.get('decision_summary')}",
+        f"Why Now: {payload.get('why_now')}",
+        f"Delivery: {payload.get('delivery_assessment')}",
+        f"Evidence State: {payload.get('evidence_state')}",
+        "Evidence: "
+        f"VERIFIED={status_counts.get('VERIFIED', 0)} "
+        f"PARTIAL={status_counts.get('PARTIAL', 0)} "
+        f"UNVERIFIED={status_counts.get('UNVERIFIED', 0)} "
+        f"SKIPPED={status_counts.get('SKIPPED', 0)}",
+        f"Top Gaps: {', '.join(gaps) if gaps else 'none'}",
+    ]
+    if repair_hints:
+        lines.append(f"Top Hint: {repair_hints[0].get('title')}")
+    lines.append(f"Next Step: {next_step.get('action')} ({command})")
+    return "\n".join(lines)
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     config_path = Path(args.config)
     try:
@@ -197,22 +367,24 @@ def cmd_verify(args: argparse.Namespace) -> None:
         for row in _read_jsonl(run_dir / "patches" / "patch.results.jsonl")
         if str(row.get("sqlKey") or "") == sql_key
     ]
-    print(
-        {
-            "run_id": args.run_id,
-            "run_dir": str(run_dir),
-            "sql_key": sql_key,
-            "phase": phase,
-            "verification_available": ledger_path.exists(),
-            "record_count": len(records),
-            "status_counts": _verification_status_counts(records),
-            "has_unverified": any(str(row.get("status") or "").upper() == "UNVERIFIED" for row in records),
-            "has_partial": any(str(row.get("status") or "").upper() == "PARTIAL" for row in records),
-            "acceptance": acceptance_rows,
-            "patches": patch_rows,
-            "records": records,
-        }
+    payload = _build_verify_payload(
+        args.run_id,
+        run_dir,
+        sql_key,
+        phase,
+        ledger_path.exists(),
+        records,
+        acceptance_rows,
+        patch_rows,
     )
+    output_format = str(getattr(args, "format", "json") or "json").strip().lower()
+    if output_format == "text":
+        print(_format_verify_text(_verify_summary_payload(payload)))
+        return
+    if bool(getattr(args, "summary_only", False)):
+        print(_verify_summary_payload(payload))
+        return
+    print(payload)
 
 
 def cmd_validate_config(args: argparse.Namespace) -> None:
@@ -322,6 +494,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--phase",
         choices=["scan", "optimize", "validate", "patch_generate"],
         help="Optional phase filter for verification records",
+    )
+    p_verify.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Return only the compact decision summary instead of full verification records",
+    )
+    p_verify.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="Output format for verification details (default: json)",
     )
     p_verify.set_defaults(func=cmd_verify)
 

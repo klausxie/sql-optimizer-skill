@@ -19,15 +19,25 @@ class CandidateEvaluation:
     semantic_match: bool
     improved: bool
     after_cost: float | None
+    patchability_score: int | None = None
+    patchability_tier: str | None = None
+    patchability_reasons: list[str] | None = None
 
     def to_contract(self) -> dict[str, Any]:
-        return {
+        payload = {
             "candidateId": self.candidate_id,
             "source": self.source,
             "semanticMatch": self.semantic_match,
             "improved": self.improved,
             "afterCost": self.after_cost,
         }
+        if self.patchability_score is not None:
+            payload["patchabilityScore"] = self.patchability_score
+        if self.patchability_tier is not None:
+            payload["patchabilityTier"] = self.patchability_tier
+        if self.patchability_reasons is not None:
+            payload["patchabilityReasons"] = list(self.patchability_reasons)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -76,6 +86,8 @@ class CandidateSelectionResult:
     candidate_evaluations: list[CandidateEvaluation]
     equivalence: EquivalenceCheck
     perf: PerfComparison
+    selection_rationale: dict[str, Any] | None = None
+    delivery_readiness: dict[str, Any] | None = None
 
     def candidate_evaluations_to_contract(self) -> list[dict[str, Any]]:
         return [row.to_contract() for row in self.candidate_evaluations]

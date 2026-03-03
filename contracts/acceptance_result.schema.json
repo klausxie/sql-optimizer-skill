@@ -49,6 +49,9 @@
     "riskFlags": {"type": "array", "items": {"type": "string"}},
     "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
     "selectionReason": {"type": ["object", "null"]},
+    "selectionRationale": {"type": ["object", "null"]},
+    "deliveryReadiness": {"type": ["object", "null"]},
+    "decisionLayers": {"type": ["object", "null"]},
     "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
     "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}}
   }

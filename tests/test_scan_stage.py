@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from sqlopt.adapters import scanner_java as scanner_adapter
 from sqlopt.adapters.scanner_java import run_scan
 from sqlopt.contracts import ContractValidator
 from sqlopt.errors import StageError
@@ -380,6 +381,150 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("range", fragment_rows[0]["locators"])
             self.assertEqual(fragment_rows[0]["includeBindings"], [])
 
+    def test_python_fallback_tracks_choose_bind_trim_where_set_features(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_feature_matrix_") as td:
+            root = Path(td)
+            mapper_dir = root / "src" / "main" / "resources"
+            mapper_dir.mkdir(parents=True, exist_ok=True)
+            (mapper_dir / "feature_mapper.xml").write_text(
+                """<mapper namespace="demo.user">
+<select id="pickUsers">
+  <bind name="likeName" value="'%' + name + '%'" />
+  SELECT id FROM users
+  <where>
+    <choose>
+      <when test="name != null">name LIKE #{likeName}</when>
+      <otherwise>status = 'ACTIVE'</otherwise>
+    </choose>
+  </where>
+</select>
+<update id="updateUser">
+  UPDATE users
+  <trim prefix="SET" suffixOverrides=",">
+    <set>
+      <if test="name != null">name = #{name},</if>
+    </set>
+  </trim>
+  WHERE id = #{id}
+</update>
+</mapper>""",
+                encoding="utf-8",
+            )
+            run_dir = root / "runs" / "run_scan_feature_matrix"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(root)},
+                "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
+                "db": {"platform": "postgresql"},
+            }
+            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+
+            self.assertEqual(warnings, [])
+            self.assertEqual(len(units), 2)
+            by_id = {row["statementId"]: row for row in units}
+            self.assertIn("BIND", by_id["pickUsers"]["dynamicFeatures"])
+            self.assertIn("CHOOSE", by_id["pickUsers"]["dynamicFeatures"])
+            self.assertIn("WHERE", by_id["pickUsers"]["dynamicFeatures"])
+            self.assertTrue(str(by_id["pickUsers"]["templateSql"]).strip())
+            self.assertIn("range", by_id["pickUsers"]["locators"])
+            self.assertIn("TRIM", by_id["updateUser"]["dynamicFeatures"])
+            self.assertIn("SET", by_id["updateUser"]["dynamicFeatures"])
+            self.assertTrue(str(by_id["updateUser"]["templateSql"]).strip())
+            self.assertIn("range", by_id["updateUser"]["locators"])
+            self.assertNotIn("SET SET", by_id["updateUser"]["sql"])
+
+    def test_run_scan_normalizes_duplicate_set_from_java_scanner_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_java_set_") as td:
+            root = Path(td)
+            jar = root / "scan-agent.jar"
+            jar.write_text("stub", encoding="utf-8")
+            run_dir = root / "runs" / "run_scan_java_set"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(root)},
+                "scan": {
+                    "mapper_globs": [],
+                    "java_scanner": {"jar_path": str(jar)},
+                    "enable_fragment_catalog": False,
+                },
+                "db": {"platform": "postgresql"},
+            }
+            java_rows = [
+                {
+                    "sqlKey": "demo.user.updateUser#v1",
+                    "xmlPath": "demo.xml",
+                    "namespace": "demo.user",
+                    "statementId": "updateUser",
+                    "statementType": "UPDATE",
+                    "variantId": "v1",
+                    "sql": "UPDATE users SET SET status = #{status} WHERE id = #{id}",
+                    "dynamicFeatures": ["IF", "TRIM", "SET"],
+                    "parameterMappings": [],
+                    "paramExample": {},
+                    "locators": {"statementId": "updateUser"},
+                    "riskFlags": [],
+                    "scanWarnings": None,
+                }
+            ]
+            with patch.object(scanner_adapter, "_run_java_scanner", return_value=(java_rows, [])):
+                units, warnings = scanner_adapter.run_scan(config, run_dir, run_dir / "manifest.jsonl")
+
+            self.assertEqual(warnings, [])
+            self.assertEqual(len(units), 1)
+            self.assertEqual(units[0]["sql"], "UPDATE users SET status = #{status} WHERE id = #{id}")
+
+    def test_run_scan_fixture_dynamic_tags_mapper_reports_expected_features(self) -> None:
+        project_root = ROOT / "tests" / "fixtures" / "project"
+        jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
+        if not jar.exists():
+            self.skipTest("scan-agent jar not built")
+
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_fixture_dynamic_tags_") as td:
+            run_dir = Path(td) / "runs" / "run_scan_fixture_dynamic_tags"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(project_root)},
+                "scan": {
+                    "mapper_globs": ["scan_samples/dynamic_tags_mapper.xml"],
+                    "max_variants_per_statement": 3,
+                    "java_scanner": {"jar_path": str(jar)},
+                },
+                "db": {"platform": "postgresql"},
+            }
+
+            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+
+            self.assertEqual(warnings, [])
+            self.assertEqual(len(units), 2)
+            by_id = {row["statementId"]: row for row in units}
+
+            self.assertEqual(
+                by_id["patchUserStatusAdvanced"]["sql"],
+                "UPDATE users SET status = #{status} WHERE id = #{id}",
+            )
+            self.assertEqual(set(by_id["patchUserStatusAdvanced"]["dynamicFeatures"]), {"IF", "TRIM", "SET"})
+
+            self.assertEqual(
+                set(by_id["searchUsersAdvanced"]["dynamicFeatures"]),
+                {"FOREACH", "INCLUDE", "IF", "CHOOSE", "WHERE", "BIND"},
+            )
+            self.assertEqual(
+                by_id["searchUsersAdvanced"]["includeTrace"],
+                ["demo.scan.ActiveOnly", "demo.scan.TenantGuard"],
+            )
+            self.assertEqual(
+                by_id["searchUsersAdvanced"]["dynamicTrace"]["includeFragments"][1]["dynamicFeatures"],
+                ["IF"],
+            )
+
+            fragment_rows = [
+                json.loads(line)
+                for line in (run_dir / "scan.fragments.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(fragment_rows), 2)
+            self.assertEqual({row["displayRef"] for row in fragment_rows}, {"demo.scan.ActiveOnly", "demo.scan.TenantGuard"})
+
 
 class ScanStageTest(unittest.TestCase):
     def test_scan_stage_validates_fragment_catalog_when_present(self) -> None:
@@ -427,6 +572,65 @@ class ScanStageTest(unittest.TestCase):
             with patch("sqlopt.stages.scan.run_scan", return_value=(rows, [])):
                 units = scan.execute(config, run_dir, validator)
             self.assertEqual(len(units), 1)
+
+    def test_scan_stage_accepts_include_trace_display_refs_when_fragment_catalog_exists(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_displayref_") as td:
+            run_dir = Path(td) / "runs" / "run_scan_stage_displayref"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "scan.fragments.jsonl").write_text(
+                json.dumps(
+                    {
+                        "fragmentKey": "x.xml::demo.user.BaseWhere",
+                        "displayRef": "demo.user.BaseWhere",
+                        "xmlPath": "x.xml",
+                        "namespace": "demo.user",
+                        "fragmentId": "BaseWhere",
+                        "templateSql": "WHERE status = #{status}",
+                        "dynamicFeatures": [],
+                        "includeTrace": [],
+                        "dynamicTrace": {"templateFeatures": [], "includeFragments": [], "resolutionDegraded": False},
+                        "includeBindings": [],
+                        "locators": {"nodeType": "SQL_FRAGMENT", "fragmentId": "BaseWhere", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}},
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            config = {"project": {"root_path": td}, "scan": {"mapper_globs": []}, "db": {"platform": "postgresql"}}
+            validator = ContractValidator(ROOT)
+            rows = [
+                {
+                    "sqlKey": "demo.user.a#v1",
+                    "xmlPath": "x.xml",
+                    "namespace": "demo.user",
+                    "statementId": "a",
+                    "statementType": "SELECT",
+                    "variantId": "v1",
+                    "sql": "SELECT 1",
+                    "templateSql": "SELECT 1 <include refid=\"BaseWhere\" />",
+                    "dynamicFeatures": ["INCLUDE"],
+                    "includeTrace": ["demo.user.BaseWhere"],
+                    "dynamicTrace": {"statementFeatures": ["INCLUDE"], "includeFragments": [{"ref": "demo.user.BaseWhere", "dynamicFeatures": []}]},
+                    "parameterMappings": [],
+                    "paramExample": {},
+                    "locators": {"statementId": "a", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}},
+                    "riskFlags": [],
+                    "scanWarnings": None,
+                }
+            ]
+            with patch("sqlopt.stages.scan.run_scan", return_value=(rows, [])):
+                units = scan.execute(config, run_dir, validator)
+
+            ledger_rows = [
+                json.loads(line)
+                for line in (run_dir / "verification" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(units), 1)
+            self.assertEqual(len(ledger_rows), 1)
+            self.assertEqual(ledger_rows[0]["status"], "VERIFIED")
+            self.assertEqual(ledger_rows[0]["reason_code"], "SCAN_EVIDENCE_VERIFIED")
 
     def test_scan_stage_propagates_reason_code_from_warning(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_") as td:

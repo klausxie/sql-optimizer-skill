@@ -30,6 +30,9 @@ class ValidationResult:
     rewrite_materialization: dict[str, Any] | None = None
     template_rewrite_ops: list[dict[str, Any]] | None = None
     candidate_eval: dict[str, Any] | None = None
+    selection_rationale: dict[str, Any] | None = None
+    delivery_readiness: dict[str, Any] | None = None
+    decision_layers: dict[str, Any] | None = None
 
     def to_contract(self) -> dict[str, Any]:
         payload = {
@@ -56,6 +59,12 @@ class ValidationResult:
             payload["templateRewriteOps"] = self.template_rewrite_ops
         if self.candidate_eval is not None:
             payload["candidateEval"] = self.candidate_eval
+        if self.selection_rationale is not None:
+            payload["selectionRationale"] = self.selection_rationale
+        if self.delivery_readiness is not None:
+            payload["deliveryReadiness"] = self.delivery_readiness
+        if self.decision_layers is not None:
+            payload["decisionLayers"] = self.decision_layers
         return payload
 
     def __getitem__(self, key: str) -> Any:

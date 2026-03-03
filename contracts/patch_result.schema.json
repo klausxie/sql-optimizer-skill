@@ -15,6 +15,9 @@
     "applicable": {"type": ["boolean", "null"]},
     "applyCheckError": {"type": ["string", "null"]},
     "selectionReason": {"type": ["object", "null"]},
-    "rejectedCandidates": {"type": ["array", "null"], "items": {"type": "object"}}
+    "rejectedCandidates": {"type": ["array", "null"], "items": {"type": "object"}},
+    "deliveryOutcome": {"type": ["object", "null"]},
+    "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
+    "patchability": {"type": ["object", "null"]}
   }
 }

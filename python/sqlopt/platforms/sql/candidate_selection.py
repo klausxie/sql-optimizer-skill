@@ -34,6 +34,39 @@ def _preserves_mybatis_placeholders(original_sql: str, rewritten_sql: str) -> bo
     return "?" not in rewritten
 
 
+def _estimate_patchability(original_sql: str, candidate: Candidate) -> tuple[int, str, list[str]]:
+    rewritten = str(candidate.rewritten_sql or "")
+    score = 60
+    reasons: list[str] = []
+    strategy = str(candidate.rewrite_strategy or "").strip()
+    if candidate.source == "rule":
+        score += 15
+        reasons.append("rule-generated candidate is structurally conservative")
+    if strategy in {"PROJECT_COLUMNS", "projection"}:
+        score += 15
+        reasons.append("projection-style rewrite is easy to patch")
+    elif strategy in {"sort", "ORDER_BY_REWRITE"}:
+        score += 5
+        reasons.append("ordering rewrite is usually patchable")
+    if "#{" in original_sql and "#{" in rewritten:
+        score += 10
+        reasons.append("mybatis placeholders are preserved")
+    if " join " in rewritten.lower():
+        score -= 10
+        reasons.append("join-heavy rewrite expands structural patch surface")
+    if "?" in rewritten and "#{" not in rewritten:
+        score -= 20
+        reasons.append("generic placeholders reduce mapper patch stability")
+    score = max(0, min(score, 100))
+    if score >= 80:
+        tier = "HIGH"
+    elif score >= 60:
+        tier = "MEDIUM"
+    else:
+        tier = "LOW"
+    return score, tier, reasons
+
+
 def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[Candidate]:
     out: list[Candidate] = []
     seen_sql: set[str] = set()
@@ -124,9 +157,10 @@ def evaluate_candidate_selection(
 
     if valid_candidates:
         best: dict[str, Any] | None = None
-        best_cost = float("inf")
+        best_rank: tuple[int, int, float] | None = None
+        runner_up: dict[str, Any] | None = None
         fallback: dict[str, Any] | None = None
-        fallback_cost = float("inf")
+        fallback_rank: tuple[int, int, float] | None = None
         for idx, candidate in enumerate(valid_candidates[:5], start=1):
             rewritten_candidate = candidate.rewritten_sql.strip()
             if not rewritten_candidate:
@@ -138,6 +172,7 @@ def evaluate_candidate_selection(
             semantic_match = row_status == "MATCH"
             improved_now = bool(plan.get("improved"))
             after_cost = _numeric_cost((plan.get("afterSummary") or {}).get("totalCost"))
+            patchability_score, patchability_tier, patchability_reasons = _estimate_patchability(original_sql, candidate)
             candidate_evaluations.append(
                 CandidateEvaluation(
                     candidate_id=candidate.id,
@@ -145,17 +180,31 @@ def evaluate_candidate_selection(
                     semantic_match=semantic_match,
                     improved=improved_now,
                     after_cost=None if after_cost == float("inf") else after_cost,
+                    patchability_score=patchability_score,
+                    patchability_tier=patchability_tier,
+                    patchability_reasons=patchability_reasons,
                 )
             )
-            payload = {"candidate": candidate, "semantics": semantics, "plan": plan, "sql": rewritten_candidate}
-            if semantic_match and after_cost < fallback_cost:
+            payload = {
+                "candidate": candidate,
+                "semantics": semantics,
+                "plan": plan,
+                "sql": rewritten_candidate,
+                "patchability_score": patchability_score,
+                "patchability_tier": patchability_tier,
+                "patchability_reasons": patchability_reasons,
+            }
+            rank = (patchability_score, 1 if improved_now else 0, -after_cost)
+            if semantic_match:
+                if best_rank is None or rank > best_rank:
+                    runner_up = best
+                    best = payload
+                    best_rank = rank
+                elif runner_up is None:
+                    runner_up = payload
+            if fallback_rank is None or rank > fallback_rank:
                 fallback = payload
-                fallback_cost = after_cost
-            elif fallback is None:
-                fallback = payload
-            if semantic_match and improved_now and after_cost < best_cost:
-                best = payload
-                best_cost = after_cost
+                fallback_rank = rank
         selected = best or fallback
         if selected is not None:
             picked = selected["candidate"]
@@ -179,6 +228,22 @@ def evaluate_candidate_selection(
                 improved=plan.get("improved"),
                 evidence_refs=list(plan.get("evidenceRefs", [])),
             )
+            selection_rationale = {
+                "strategy": "PATCHABILITY_FIRST",
+                "reasonCodes": ["VALIDATE_PATCHABILITY_PRIORITY"],
+                "summary": "selected the most patchable semantically valid candidate before cost tie-break",
+                "runnerUpCandidateId": runner_up["candidate"].id if runner_up is not None else None,
+            }
+            delivery_readiness = {
+                "tier": "READY" if selected.get("patchability_tier") in {"HIGH", "MEDIUM"} else "NEEDS_TEMPLATE_REWRITE",
+                "autoPatchLikelihood": selected.get("patchability_tier") or "LOW",
+                "blockingReasons": []
+                if selected.get("patchability_tier") in {"HIGH", "MEDIUM"}
+                else ["VALIDATE_LOW_PATCHABILITY"],
+            }
+        else:
+            selection_rationale = None
+            delivery_readiness = {"tier": "BLOCKED", "autoPatchLikelihood": "LOW", "blockingReasons": ["VALIDATE_NO_CANDIDATE"]}
     else:
         semantics = compare_semantics_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
         plan = compare_plan_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
@@ -197,6 +262,8 @@ def evaluate_candidate_selection(
             improved=plan.get("improved"),
             evidence_refs=list(plan.get("evidenceRefs", [])),
         )
+        selection_rationale = None
+        delivery_readiness = {"tier": "BLOCKED", "autoPatchLikelihood": "LOW", "blockingReasons": ["VALIDATE_NO_CANDIDATE"]}
 
     return CandidateSelectionResult(
         rewritten_sql=rewritten_sql,
@@ -205,4 +272,6 @@ def evaluate_candidate_selection(
         candidate_evaluations=candidate_evaluations,
         equivalence=equivalence,
         perf=perf,
+        selection_rationale=selection_rationale,
+        delivery_readiness=delivery_readiness,
     )

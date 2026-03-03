@@ -13,6 +13,9 @@ def skip_patch_result(
     selected_candidate_id: str | None = None,
     applicable: bool | None = None,
     apply_check_error: str | None = None,
+    delivery_outcome: dict | None = None,
+    repair_hints: list[dict] | None = None,
+    patchability: dict | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -30,6 +33,12 @@ def skip_patch_result(
     if applicable is not None:
         patch["applicable"] = applicable
         patch["applyCheckError"] = apply_check_error
+    if delivery_outcome is not None:
+        patch["deliveryOutcome"] = delivery_outcome
+    if repair_hints is not None:
+        patch["repairHints"] = repair_hints
+    if patchability is not None:
+        patch["patchability"] = patchability
     return patch
 
 
@@ -41,8 +50,11 @@ def selected_patch_result(
     changed_lines: int,
     candidates_evaluated: int,
     selected_candidate_id: str | None,
+    delivery_outcome: dict | None = None,
+    repair_hints: list[dict] | None = None,
+    patchability: dict | None = None,
 ) -> dict:
-    return {
+    patch = {
         "sqlKey": sql_key,
         "statementKey": statement_key,
         "patchFiles": [str(patch_file)],
@@ -56,3 +68,10 @@ def selected_patch_result(
         "applicable": True,
         "applyCheckError": None,
     }
+    if delivery_outcome is not None:
+        patch["deliveryOutcome"] = delivery_outcome
+    if repair_hints is not None:
+        patch["repairHints"] = repair_hints
+    if patchability is not None:
+        patch["patchability"] = patchability
+    return patch

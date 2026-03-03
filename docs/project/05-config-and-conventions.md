@@ -7,11 +7,12 @@
 3. `db`
 4. `validate`
 5. `policy`
-6. `patch`
-7. `apply`
+6. `apply`
+7. `diagnostics`
 8. `runtime`
 9. `llm`
 10. `report`
+11. `verification`
 
 命名约束：
 1. 全部使用 `snake_case`
@@ -21,6 +22,19 @@
 1. `runtime.profile`：`fast | balanced | resilient`
 2. `validate.validation_profile`：`strict | balanced | relaxed`
 3. 应用顺序：先加载 profile 默认值，再叠加用户配置
+
+### 2.1 Validate 策略默认值
+默认：
+1. `validate.selection_mode=patchability_first`
+2. `validate.require_semantic_match=true`
+3. `validate.require_perf_evidence_for_pass=false`
+4. `validate.require_verified_evidence_for_pass=false`
+5. `validate.delivery_bias=conservative`
+
+当前约束：
+1. 第一阶段只支持 `selection_mode=patchability_first`
+2. 第一阶段只支持 `delivery_bias=conservative`
+3. 这些字段当前主要用于固定决策口径与 `decisionLayers` 输出，不改变既有主流程命令形态
 
 ## 3. LLM Provider
 `llm.provider` 当前支持：
@@ -99,7 +113,30 @@
 2. DB 不可达、LLM 超时、schema 校验失败必须有结构化统计
 3. report 应包含可执行下一步动作（命令或配置建议）
 
-## 9. 架构分层约定
+## 9. 诊断规则包约定
+默认：
+1. `diagnostics.rulepacks=[{builtin: core}, {builtin: performance}]`
+2. `diagnostics.severity_overrides={}`
+3. `diagnostics.disabled_rules=[]`
+
+当前支持：
+1. 内置规则包只支持 `core` 与 `performance`
+2. `diagnostics.rulepacks` 也支持 `file: <path>`，路径相对配置文件解析
+3. 外部规则文件第一阶段只支持声明式规则：
+   - `match.sql_contains`
+   - `match.sql_regex`
+   - `match.statement_type_is`
+   - `match.dynamic_feature_has`
+   - `action.suggestion_sql_template`
+   - `action.block_actionability`
+4. `severity_overrides` 允许按规则 ID 覆盖为 `info | warn | error`
+5. `disabled_rules` 会直接从提案诊断中移除对应规则
+
+边界：
+1. 第一阶段仅支持声明式规则包（内置与文件），不执行用户自定义代码
+2. 规则严重级别会影响 issue 呈现，但不会绕过底层安全约束（例如 `${}` 仍会降低可落地性）
+
+## 10. 架构分层约定
 当前默认分层：
 1. `models`：只定义内部文档对象与稳定导出 facade，不负责流程编排
 2. `policy / selection / builder / loader`：负责规则、聚合、读取，不直接持久化稳定契约

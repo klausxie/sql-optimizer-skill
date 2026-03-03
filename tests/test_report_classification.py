@@ -86,12 +86,17 @@ class ReportClassificationTest(unittest.TestCase):
             self.assertEqual(report["stats"]["materialization_reason_counts"]["VALIDATE_EQUIVALENCE_MISMATCH"], 1)
             self.assertEqual(report["stats"]["materialization_reason_group_counts"]["FEATURE_DISABLED"], 1)
             self.assertEqual(report["stats"]["materialization_reason_group_counts"]["OTHER"], 1)
+            self.assertIn("actionability", report["stats"])
+            self.assertIn("top_actionable_sql", report["stats"])
+            self.assertIn("delivery_tier", report["stats"]["top_actionable_sql"][0])
             failures = (run_dir / "ops" / "failures.jsonl").read_text(encoding="utf-8")
             self.assertIn('"classification": "degradable"', failures)
             self.assertIn('"classification": "retryable"', failures)
             self.assertIn('"classification": "fatal"', failures)
             report_md = (run_dir / "report.md").read_text(encoding="utf-8")
             self.assertIn("## Executive Decision", report_md)
+            self.assertIn("## Top Actionable SQL", report_md)
+            self.assertIn("Why Now", report_md)
             self.assertIn("## Change Portfolio", report_md)
             self.assertIn("## Proposal Insights", report_md)
             self.assertIn("## Action Plan (Next 24h)", report_md)
@@ -99,6 +104,9 @@ class ReportClassificationTest(unittest.TestCase):
             self.assertIn("Materialization", report_md)
             self.assertIn("Materialization Reasons", report_md)
             self.assertIn("Materialization Actions", report_md)
+            summary_md = (run_dir / "report.summary.md").read_text(encoding="utf-8")
+            self.assertIn("## Top Actionable SQL", summary_md)
+            self.assertIn("lower-confidence than the leading candidates", summary_md)
 
     def test_report_generate_tolerates_missing_stage_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_report_") as td:

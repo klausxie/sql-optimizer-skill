@@ -65,6 +65,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 "planSummary": {},
                 "suggestions": [{"strategy": "index"}],
                 "verdict": "ACTIONABLE",
+                "actionability": {"score": 85, "tier": "HIGH", "autoPatchLikelihood": "HIGH", "reasons": [], "blockedBy": []},
+                "recommendedSuggestionIndex": 0,
             }
             with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
                 with patch(
@@ -76,6 +78,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
 
         self.assertEqual(rows[0]["phase"], "optimize")
         self.assertEqual(rows[0]["status"], "VERIFIED")
+        self.assertEqual(rows[0]["inputs"]["actionability_tier"], "HIGH")
+        self.assertEqual(rows[0]["inputs"]["actionability_score"], 85)
 
     def test_validate_stage_writes_verification_record(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_") as td:
@@ -93,6 +97,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 risk_flags=[],
                 rewritten_sql="SELECT id FROM users WHERE id = ?",
                 selected_candidate_id="c1",
+                decision_layers={"acceptance": {"status": "PASS"}},
             )
             with patch("sqlopt.stages.validate.validate_proposal", return_value=result):
                 validate.execute_one(_sql_unit(), {}, run_dir, self._validator(), db_reachable=False, config={})

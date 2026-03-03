@@ -5,7 +5,59 @@ from typing import Any
 from .models import AcceptanceDecision, EquivalenceCheck, PerfComparison, ValidationResult
 
 
-def security_failure_result(sql_key: str, validation_profile: str, risk_flags: list[str]) -> ValidationResult:
+def _terminal_decision_layers(
+    *,
+    phase: str,
+    status: str,
+    validation_profile: str,
+    selection_mode: str = "patchability_first",
+    require_semantic_match: bool = True,
+    require_perf_evidence_for_pass: bool = False,
+    require_verified_evidence_for_pass: bool = False,
+    delivery_bias: str = "conservative",
+    feedback_reason_code: str | None = None,
+    reason_codes: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "feasibility": {
+            "phase": phase,
+            "candidate_available": False,
+            "db_reachable": phase != "db_unreachable",
+            "ready": phase not in {"security_block", "invalid_candidate", "db_unreachable"},
+        },
+        "evidence": {
+            "semantic_checked": phase == "security_block",
+            "perf_checked": False,
+            "degraded": phase == "db_unreachable",
+            "reasonCodes": list(reason_codes or []),
+        },
+        "delivery": {
+            "tier": "BLOCKED",
+            "selectionMode": selection_mode,
+            "deliveryBias": delivery_bias,
+        },
+        "acceptance": {
+            "status": status,
+            "validationProfile": validation_profile,
+            "requireSemanticMatch": require_semantic_match,
+            "requirePerfEvidenceForPass": require_perf_evidence_for_pass,
+            "requireVerifiedEvidenceForPass": require_verified_evidence_for_pass,
+            "feedbackReasonCode": feedback_reason_code,
+        },
+    }
+
+
+def security_failure_result(
+    sql_key: str,
+    validation_profile: str,
+    risk_flags: list[str],
+    *,
+    selection_mode: str = "patchability_first",
+    require_semantic_match: bool = True,
+    require_perf_evidence_for_pass: bool = False,
+    require_verified_evidence_for_pass: bool = False,
+    delivery_bias: str = "conservative",
+) -> ValidationResult:
     status = "FAIL" if validation_profile == "strict" else "NEED_MORE_PARAMS"
     return ValidationResult(
         sql_key=sql_key,
@@ -18,10 +70,32 @@ def security_failure_result(sql_key: str, validation_profile: str, risk_flags: l
         selected_candidate_source="rule",
         warnings=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"] if status != "FAIL" else [],
         risk_flags=risk_flags,
+        decision_layers=_terminal_decision_layers(
+            phase="security_block",
+            status=status,
+            validation_profile=validation_profile,
+            selection_mode=selection_mode,
+            require_semantic_match=require_semantic_match,
+            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
+            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
+            delivery_bias=delivery_bias,
+            feedback_reason_code="VALIDATE_SECURITY_DOLLAR_SUBSTITUTION",
+            reason_codes=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
+        ),
     )
 
 
-def invalid_candidate_result(sql_key: str, risk_flags: list[str]) -> ValidationResult:
+def invalid_candidate_result(
+    sql_key: str,
+    risk_flags: list[str],
+    *,
+    validation_profile: str = "balanced",
+    selection_mode: str = "patchability_first",
+    require_semantic_match: bool = True,
+    require_perf_evidence_for_pass: bool = False,
+    require_verified_evidence_for_pass: bool = False,
+    delivery_bias: str = "conservative",
+) -> ValidationResult:
     return ValidationResult(
         sql_key=sql_key,
         status="FAIL",
@@ -33,10 +107,32 @@ def invalid_candidate_result(sql_key: str, risk_flags: list[str]) -> ValidationR
         selected_candidate_source="llm",
         warnings=[],
         risk_flags=risk_flags,
+        decision_layers=_terminal_decision_layers(
+            phase="invalid_candidate",
+            status="FAIL",
+            validation_profile=validation_profile,
+            selection_mode=selection_mode,
+            require_semantic_match=require_semantic_match,
+            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
+            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
+            delivery_bias=delivery_bias,
+            feedback_reason_code="VALIDATE_EQUIVALENCE_MISMATCH",
+            reason_codes=["VALIDATE_EQUIVALENCE_MISMATCH"],
+        ),
     )
 
 
-def db_unreachable_result(sql_key: str, risk_flags: list[str]) -> ValidationResult:
+def db_unreachable_result(
+    sql_key: str,
+    risk_flags: list[str],
+    *,
+    validation_profile: str = "balanced",
+    selection_mode: str = "patchability_first",
+    require_semantic_match: bool = True,
+    require_perf_evidence_for_pass: bool = False,
+    require_verified_evidence_for_pass: bool = False,
+    delivery_bias: str = "conservative",
+) -> ValidationResult:
     return ValidationResult(
         sql_key=sql_key,
         status="NEED_MORE_PARAMS",
@@ -48,6 +144,18 @@ def db_unreachable_result(sql_key: str, risk_flags: list[str]) -> ValidationResu
         selected_candidate_source="rule",
         warnings=[],
         risk_flags=risk_flags,
+        decision_layers=_terminal_decision_layers(
+            phase="db_unreachable",
+            status="NEED_MORE_PARAMS",
+            validation_profile=validation_profile,
+            selection_mode=selection_mode,
+            require_semantic_match=require_semantic_match,
+            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
+            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
+            delivery_bias=delivery_bias,
+            feedback_reason_code="VALIDATE_PARAM_INSUFFICIENT",
+            reason_codes=["VALIDATE_DB_UNREACHABLE"],
+        ),
     )
 
 

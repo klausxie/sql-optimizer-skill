@@ -29,6 +29,15 @@ def _statement_key(sql_key: str) -> str:
     return sql_key.split("#", 1)[0]
 
 
+def _fragment_lookup_keys(row: dict[str, Any]) -> list[str]:
+    keys: list[str] = []
+    for value in (row.get("fragmentKey"), row.get("displayRef")):
+        text = str(value or "").strip()
+        if text and text not in keys:
+            keys.append(text)
+    return keys
+
+
 def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> int:
     total = 0
     files: list[str] = []
@@ -98,7 +107,10 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
     fragment_rows = read_jsonl(fragments_path)
     for fragment in fragment_rows:
         validator.validate("fragment_record", fragment)
-    fragment_index = {str(row.get("fragmentKey") or ""): row for row in fragment_rows if str(row.get("fragmentKey") or "").strip()}
+    fragment_index: dict[str, dict[str, Any]] = {}
+    for fragment in fragment_rows:
+        for key in _fragment_lookup_keys(fragment):
+            fragment_index[key] = fragment
     fragment_catalog_enabled = bool(scan_cfg.get("enable_fragment_catalog", True))
     for unit in units:
         sql_key = str(unit.get("sqlKey") or "")

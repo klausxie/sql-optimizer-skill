@@ -10,6 +10,9 @@
 
 **开发验证？** 在仓库根目录直接运行 `python3 -m pytest -q`
 
+**扫描覆盖验证？** 直接运行
+`python3 scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-steps 10 --max-seconds 30`
+
 ## 📖 文档定位
 
 - 面向"完全重写"而非"在旧代码上小修小补"。
@@ -46,6 +49,7 @@
    - 本仓库根目录执行 `python3 -m pytest -q`
    - 优先执行统一验收入口：`python3 scripts/ci/release_acceptance.py`
    - 复制 `tests/fixtures/project` 到临时目录后做一次离线 smoke run
+   - 若只验证 scanner/scan，可直接对 `tests/fixtures/project/sqlopt.scan.local.yml` 做一次 scan-only smoke run
    - 核对 `state.json`、`report.json`、`report.summary.md` 中 `report=DONE`
    - 若 `status.next_action=report-rebuild`，说明主流程已完成，仅需重建 report 派生产物
    - 细分验收仍可单独执行：
@@ -102,6 +106,33 @@ Windows 用户请使用 `python` 替代 `python3`。
 # 应用补丁
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli apply --run-id <run_id>
 ```
+
+### Scan-only 样例验证
+
+仓库内置了一份只验证扫描覆盖的 fixture 配置：
+
+```bash
+python3 scripts/run_until_budget.py \
+  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --to-stage scan \
+  --max-steps 10 \
+  --max-seconds 30
+```
+
+当前样例覆盖并已验证：
+- `bind`
+- `choose/when/otherwise`
+- `where`
+- `if`
+- `foreach`
+- `include`
+- `trim`
+- `set`
+
+建议检查这些产物：
+- `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
+- `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
+- `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
 
 ## 🔌 LLM Provider 选型
 

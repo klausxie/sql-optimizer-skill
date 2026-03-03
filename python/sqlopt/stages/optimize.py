@@ -57,6 +57,8 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     llm_trace_refs = [str(ref) for ref in (proposal.get("llmTraceRefs") or []) if str(ref).strip()]
     llm_candidate_count = len(proposal.get("llmCandidates") or [])
     degrade_reason = str(trace.get("degrade_reason") or "").strip()
+    actionability = dict(proposal.get("actionability") or {})
+    triggered_rules = [str(row.get("ruleId") or "") for row in (proposal.get("triggeredRules") or []) if isinstance(row, dict) and str(row.get("ruleId") or "").strip()]
     has_verdict = bool(str(proposal.get("verdict") or "").strip())
     has_analysis = bool(proposal.get("issues")) or bool(proposal.get("suggestions"))
     checks = [
@@ -111,12 +113,18 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 "llm_candidate_count": llm_candidate_count,
                 "llm_trace_ref_count": len(llm_trace_refs),
                 "degrade_reason": degrade_reason or None,
+                "actionability_score": actionability.get("score"),
+                "actionability_tier": actionability.get("tier"),
+                "auto_patch_likelihood": actionability.get("autoPatchLikelihood"),
+                "triggered_rule_count": len(triggered_rules),
+                "triggered_rule_ids": triggered_rules,
             },
             checks=checks,
             verdict={
                 "proposal_verdict": proposal.get("verdict"),
                 "llm_candidates_present": llm_candidate_count > 0,
                 "llm_trace_linked": bool(llm_trace_refs),
+                "recommended_suggestion_index": proposal.get("recommendedSuggestionIndex"),
             },
             created_at=datetime.now(timezone.utc).isoformat(),
         ),

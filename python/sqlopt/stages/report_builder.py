@@ -20,6 +20,7 @@ from .report_models import (
     RunReportSummary,
 )
 from .report_stats import (
+    build_top_actionable_sql,
     build_prioritized_sql_keys,
     build_proposal_rows,
     build_sql_rows,
@@ -31,6 +32,7 @@ from .report_stats import (
     materialization_reason_counts,
     materialization_reason_group_counts,
     report_acceptance_llm_count,
+    summarize_actionability,
 )
 
 _OPS_TOPOLOGY_STAGE_KEYS = ("scan", "optimize", "validate", "apply", "report")
@@ -261,16 +263,30 @@ def build_report_artifacts(
     stats["verification"].update(verification_gate)
     stats["validation_warnings"] = validation_warnings
     stats["evidence_confidence"] = evidence_confidence
+    stats["actionability"] = summarize_actionability(inputs.proposals, inputs.acceptance, inputs.patches)
+    stats["top_actionable_sql"] = build_top_actionable_sql(
+        inputs.units,
+        inputs.proposals,
+        inputs.acceptance,
+        inputs.patches,
+        inputs.verification_rows,
+    )
 
     verdict = compute_verdict(stats)
     readiness = compute_release_readiness(verdict, stats)
     failure_rows = [row.to_contract() for row in failures]
     top_blockers = build_top_blockers(failure_rows, reason_counts)
-    next_actions = default_next_actions(run_id, verdict, reason_counts)
     prioritized_sql_keys = build_prioritized_sql_keys(failure_rows)
 
     sql_rows = build_sql_rows(inputs.units, inputs.acceptance, inputs.patches)
     proposal_rows = build_proposal_rows(inputs.proposals)
+    next_actions = default_next_actions(
+        run_id,
+        verdict,
+        reason_counts,
+        top_actionable_sql=stats["top_actionable_sql"],
+        verification=stats["verification"],
+    )
 
     report = RunReportDocument(
         run_id=run_id,

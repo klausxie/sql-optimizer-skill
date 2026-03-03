@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover
     yaml = None
 
 SNAKE_CASE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+RULE_ID_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 LEGACY_DOTTED_KEYS = {
     "project.root",
     "db.type",
@@ -44,6 +45,10 @@ def _check_snake_case(obj: Any, path: str = "") -> None:
         for k, v in obj.items():
             # Allow arbitrary HTTP header keys under llm.api_headers.
             if path.endswith("llm.api_headers."):
+                _check_snake_case(v, path + k + ".")
+                continue
+            # Allow rule-id keyed overrides under diagnostics.severity_overrides.
+            if path.endswith("diagnostics.severity_overrides."):
                 _check_snake_case(v, path + k + ".")
                 continue
             if not SNAKE_CASE_RE.match(k):
@@ -92,6 +97,75 @@ def _has_key(config: dict[str, Any], dotted: str) -> bool:
             return False
         node = node[part]
     return True
+
+
+def _load_diagnostics_rule_file(path: Path) -> list[dict[str, Any]]:
+    data = _load_raw(path)
+    rules = data.get("rules")
+    if not isinstance(rules, list):
+        raise ConfigError(f"diagnostics rule file must define a rules array: {path}")
+    normalized_rules: list[dict[str, Any]] = []
+    for raw_rule in rules:
+        if not isinstance(raw_rule, dict):
+            raise ConfigError(f"diagnostics rule entries must be objects: {path}")
+        rule_id = str(raw_rule.get("rule_id") or "").strip()
+        if not RULE_ID_RE.match(rule_id):
+            raise ConfigError(f"diagnostics rule_id must match {RULE_ID_RE.pattern}: {path}")
+        message = str(raw_rule.get("message") or "").strip()
+        if not message:
+            raise ConfigError(f"diagnostics rule message is required: {path}")
+        default_severity = str(raw_rule.get("default_severity") or "warn").strip().lower()
+        if default_severity not in {"info", "warn", "error"}:
+            raise ConfigError(f"diagnostics default_severity must be one of: info, warn, error ({path})")
+        match = raw_rule.get("match")
+        if not isinstance(match, dict):
+            raise ConfigError(f"diagnostics rule match must be object: {path}")
+        allowed_match_keys = {"sql_contains", "sql_regex", "statement_type_is", "dynamic_feature_has"}
+        unknown_match_keys = sorted(set(match.keys()) - allowed_match_keys)
+        if unknown_match_keys:
+            raise ConfigError(f"diagnostics rule match contains unsupported keys {unknown_match_keys}: {path}")
+        normalized_match: dict[str, Any] = {}
+        sql_contains = str(match.get("sql_contains") or "").strip()
+        if sql_contains:
+            normalized_match["sql_contains"] = sql_contains
+        sql_regex = str(match.get("sql_regex") or "").strip()
+        if sql_regex:
+            try:
+                re.compile(sql_regex)
+            except re.error as exc:
+                raise ConfigError(f"diagnostics rule sql_regex is invalid ({path}): {exc}") from exc
+            normalized_match["sql_regex"] = sql_regex
+        statement_type_is = str(match.get("statement_type_is") or "").strip().upper()
+        if statement_type_is:
+            normalized_match["statement_type_is"] = statement_type_is
+        dynamic_feature_has = str(match.get("dynamic_feature_has") or "").strip().upper()
+        if dynamic_feature_has:
+            normalized_match["dynamic_feature_has"] = dynamic_feature_has
+        if not normalized_match:
+            raise ConfigError(f"diagnostics rule match must define at least one supported matcher: {path}")
+
+        action = raw_rule.get("action") or {}
+        if not isinstance(action, dict):
+            raise ConfigError(f"diagnostics rule action must be object when set: {path}")
+        allowed_action_keys = {"suggestion_sql_template", "block_actionability"}
+        unknown_action_keys = sorted(set(action.keys()) - allowed_action_keys)
+        if unknown_action_keys:
+            raise ConfigError(f"diagnostics rule action contains unsupported keys {unknown_action_keys}: {path}")
+        suggestion_sql_template = str(action.get("suggestion_sql_template") or "").strip()
+        block_actionability = bool(action.get("block_actionability", False))
+        normalized_rules.append(
+            {
+                "rule_id": rule_id,
+                "message": message,
+                "default_severity": default_severity,
+                "match": normalized_match,
+                "action": {
+                    "suggestion_sql_template": suggestion_sql_template or None,
+                    "block_actionability": block_actionability,
+                },
+            }
+        )
+    return normalized_rules
 
 
 def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -151,8 +225,20 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     validate_cfg.setdefault("plan_compare_enabled", True)
     validate_cfg.setdefault("allow_db_unreachable_fallback", True)
     validate_cfg.setdefault("validation_profile", "balanced")
+    validate_cfg.setdefault("selection_mode", "patchability_first")
+    validate_cfg.setdefault("require_semantic_match", True)
+    validate_cfg.setdefault("require_perf_evidence_for_pass", False)
+    validate_cfg.setdefault("require_verified_evidence_for_pass", False)
+    validate_cfg.setdefault("delivery_bias", "conservative")
     if str(validate_cfg.get("validation_profile", "balanced")) not in {"strict", "balanced", "relaxed"}:
         raise ConfigError("validate.validation_profile must be one of: strict, balanced, relaxed")
+    if str(validate_cfg.get("selection_mode", "patchability_first")).strip().lower() not in {"patchability_first"}:
+        raise ConfigError("validate.selection_mode must be one of: patchability_first")
+    for key in ("require_semantic_match", "require_perf_evidence_for_pass", "require_verified_evidence_for_pass"):
+        if not isinstance(validate_cfg.get(key), bool):
+            raise ConfigError(f"validate.{key} must be boolean")
+    if str(validate_cfg.get("delivery_bias", "conservative")).strip().lower() not in {"conservative"}:
+        raise ConfigError("validate.delivery_bias must be one of: conservative")
 
     llm_cfg = cfg.setdefault("llm", {})
     llm_cfg.setdefault("enabled", False)
@@ -187,6 +273,65 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     report_cfg.setdefault("enabled", True)
     if not isinstance(report_cfg.get("enabled"), bool):
         raise ConfigError("report.enabled must be boolean")
+
+    diagnostics_cfg = cfg.setdefault("diagnostics", {})
+    diagnostics_cfg.setdefault("rulepacks", [{"builtin": "core"}, {"builtin": "performance"}])
+    rulepacks = diagnostics_cfg.get("rulepacks")
+    if not isinstance(rulepacks, list):
+        raise ConfigError("diagnostics.rulepacks must be array")
+    normalized_rulepacks: list[dict[str, str]] = []
+    loaded_rulepacks: list[dict[str, Any]] = []
+    for entry in rulepacks:
+        if not isinstance(entry, dict):
+            raise ConfigError("diagnostics.rulepacks entries must be objects")
+        builtin = str(entry.get("builtin") or "").strip().lower()
+        file_ref = str(entry.get("file") or "").strip()
+        if builtin:
+            if builtin not in {"core", "performance"}:
+                raise ConfigError("diagnostics.rulepacks builtin must be one of: core, performance")
+            normalized_rulepacks.append({"builtin": builtin})
+            continue
+        if file_ref:
+            file_path = Path(file_ref)
+            if not file_path.is_absolute():
+                file_path = (config_path.parent / file_path).resolve()
+            if not file_path.exists():
+                raise ConfigError(f"diagnostics rule file not found: {file_path}")
+            normalized_rulepacks.append({"file": str(file_path)})
+            loaded_rulepacks.append(
+                {
+                    "file": str(file_path),
+                    "rules": _load_diagnostics_rule_file(file_path),
+                }
+            )
+            continue
+        raise ConfigError("diagnostics.rulepacks entries must set either builtin or file")
+    diagnostics_cfg["rulepacks"] = normalized_rulepacks
+    diagnostics_cfg["loaded_rulepacks"] = loaded_rulepacks
+    diagnostics_cfg.setdefault("severity_overrides", {})
+    severity_overrides = diagnostics_cfg.get("severity_overrides")
+    if not isinstance(severity_overrides, dict):
+        raise ConfigError("diagnostics.severity_overrides must be object")
+    normalized_overrides: dict[str, str] = {}
+    for rule_id, severity in severity_overrides.items():
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            raise ConfigError("diagnostics.severity_overrides keys must be non-empty strings")
+        normalized_severity = str(severity or "").strip().lower()
+        if normalized_severity not in {"info", "warn", "error"}:
+            raise ConfigError("diagnostics.severity_overrides values must be one of: info, warn, error")
+        normalized_overrides[rule_id.strip()] = normalized_severity
+    diagnostics_cfg["severity_overrides"] = normalized_overrides
+    diagnostics_cfg.setdefault("disabled_rules", [])
+    disabled_rules = diagnostics_cfg.get("disabled_rules")
+    if not isinstance(disabled_rules, list):
+        raise ConfigError("diagnostics.disabled_rules must be array")
+    normalized_disabled = []
+    for rule_id in disabled_rules:
+        rule = str(rule_id or "").strip()
+        if not rule:
+            raise ConfigError("diagnostics.disabled_rules entries must be non-empty strings")
+        normalized_disabled.append(rule)
+    diagnostics_cfg["disabled_rules"] = normalized_disabled
 
     verification_cfg = cfg.setdefault("verification", {})
     verification_cfg.setdefault("enforce_verified_outputs", False)

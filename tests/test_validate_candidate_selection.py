@@ -14,7 +14,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         proposal = {
             "llmCandidates": [
                 {"id": "c1", "rewrittenSql": "SELECT id FROM users", "rewriteStrategy": "projection"},
-                {"id": "c2", "rewrittenSql": "SELECT id FROM users ORDER BY created_at DESC", "rewriteStrategy": "sort"},
+                {"id": "c2", "rewrittenSql": "SELECT id FROM users ORDER BY created_at DESC", "rewriteStrategy": "projection"},
             ],
             "suggestions": [],
         }
@@ -55,7 +55,57 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result["rewrittenSql"], "SELECT id FROM users ORDER BY created_at DESC")
         self.assertEqual(result.get("selectedCandidateId"), "c2")
         self.assertEqual(result.get("selectedCandidateSource"), "llm")
+        self.assertEqual(result.get("selectionRationale", {}).get("strategy"), "PATCHABILITY_FIRST")
+        self.assertEqual(result.get("deliveryReadiness", {}).get("tier"), "READY")
+        self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("tier"), "READY")
+        self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "PASS")
         self.assertGreaterEqual(len(result.get("candidateEvaluations") or []), 2)
+
+    def test_prefers_more_patchable_candidate_before_best_cost(self) -> None:
+        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        proposal = {
+            "llmCandidates": [
+                {"id": "c1", "rewrittenSql": "SELECT id FROM users ORDER BY created_at DESC", "rewriteStrategy": "sort"},
+            ],
+            "suggestions": [{"action": "PROJECT_COLUMNS", "sql": "SELECT id FROM users"}],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
+
+        def fake_plan(_cfg, _orig, rewritten, _dir):
+            if rewritten == "SELECT id FROM users ORDER BY created_at DESC":
+                return {
+                    "checked": True,
+                    "method": "sql_explain_json_compare",
+                    "beforeSummary": {"totalCost": 10.0},
+                    "afterSummary": {"totalCost": 7.0},
+                    "reasonCodes": ["TOTAL_COST_REDUCED"],
+                    "improved": True,
+                    "evidenceRefs": [],
+                }
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 9.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_patchability_first_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["rewrittenSql"], "SELECT id FROM users")
+        self.assertEqual(result.get("selectedCandidateSource"), "rule")
+        evals = result.get("candidateEvaluations") or []
+        self.assertGreater((evals[1].get("patchabilityScore") if len(evals) > 1 else 0), evals[0].get("patchabilityScore"))
+        self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("selectedCandidateSource"), "rule")
 
     def test_rule_candidate_is_used_when_llm_candidate_invalid(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users ORDER BY created_at DESC", "statementType": "SELECT"}
@@ -88,6 +138,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["rewrittenSql"], "SELECT id FROM users ORDER BY created_at DESC")
         self.assertEqual(result.get("selectedCandidateSource"), "rule")
+        self.assertEqual(result.get("selectionRationale", {}).get("strategy"), "PATCHABILITY_FIRST")
+        self.assertTrue(result.get("decisionLayers", {}).get("feasibility", {}).get("ready"))
 
     def test_rejects_question_mark_candidate_when_original_uses_hash_placeholder(self) -> None:
         sql_unit = {

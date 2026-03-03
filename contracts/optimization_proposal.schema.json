@@ -13,6 +13,30 @@
     "estimatedBenefit": {"type": "string"},
     "confidence": {"type": "string"},
     "blockedBy": {"type": "array", "items": {"type": "string"}},
+    "actionability": {
+      "type": ["object", "null"],
+      "properties": {
+        "score": {"type": ["integer", "null"]},
+        "tier": {"type": ["string", "null"]},
+        "autoPatchLikelihood": {"type": ["string", "null"]},
+        "reasons": {"type": ["array", "null"], "items": {"type": "string"}},
+        "blockedBy": {"type": ["array", "null"], "items": {"type": "string"}}
+      }
+    },
+    "recommendedSuggestionIndex": {"type": ["integer", "null"]},
+    "triggeredRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ruleId": {"type": "string"},
+          "builtin": {"type": "string"},
+          "severity": {"type": "string"},
+          "sourceRef": {"type": ["string", "null"]},
+          "blocksActionability": {"type": ["boolean", "null"]}
+        }
+      }
+    },
     "llmCandidates": {"type": "array", "items": {"type": "object"}},
     "llmTraceRefs": {"type": "array", "items": {"type": "string"}}
   }

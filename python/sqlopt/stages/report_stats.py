@@ -4,6 +4,24 @@ from typing import Any
 
 from ..failure_classification import classify_reason_code
 from ..platforms.sql.materialization_constants import materialization_reason_group
+from ..verification.explain import action_reason, assess_sql_outcome
+
+
+def _append_action_once(actions: list[dict[str, Any]], action: dict[str, Any]) -> None:
+    existing = {str(row.get("action_id") or "") for row in actions if isinstance(row, dict)}
+    action_id = str(action.get("action_id") or "")
+    if action_id and action_id in existing:
+        return
+    actions.append(action)
+
+
+def _acceptance_decision_layers(acceptance_row: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    decision_layers = dict(acceptance_row.get("decisionLayers") or {})
+    return (
+        dict(decision_layers.get("evidence") or {}),
+        dict(decision_layers.get("delivery") or {}),
+        dict(decision_layers.get("acceptance") or {}),
+    )
 
 
 def compute_verdict(stats: dict[str, Any]) -> str:
@@ -28,51 +46,161 @@ def compute_release_readiness(verdict: str, stats: dict[str, Any]) -> str:
     return "CONDITIONAL_GO"
 
 
-def default_next_actions(run_id: str, verdict: str, reason_counts: dict[str, int]) -> list[dict[str, Any]]:
+def default_next_actions(
+    run_id: str,
+    verdict: str,
+    reason_counts: dict[str, int],
+    *,
+    top_actionable_sql: list[dict[str, Any]] | None = None,
+    verification: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
-    if verdict in {"BLOCKED", "ATTENTION", "PARTIAL"}:
-        actions.append(
-            {
-                "action_id": "resume",
-                "title": "Platform: resume run",
-                "reason": "pipeline not fully healthy",
-                "applicability": "pending or degraded pipeline",
-                "expected_outcome": "continue or finalize processing",
-                "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"],
-            }
-        )
+    verification_stats = verification or {}
+    top_row = (top_actionable_sql or [None])[0] if top_actionable_sql else None
+
+    if int(verification_stats.get("unverified_pass_count") or 0) > 0 or int(
+        verification_stats.get("unverified_applicable_patch_count") or 0
+    ) > 0:
+        _append_action_once(
+            actions,
+                {
+                    "action_id": "review-evidence",
+                    "title": "QA: review missing verification evidence",
+                    "reason": action_reason("review-evidence"),
+                    "applicability": "verification gate warnings present",
+                    "expected_outcome": "restore confidence before applying or refactoring",
+                    "commands": [],
+                },
+            )
+
+    if isinstance(top_row, dict):
+        delivery_tier = str(top_row.get("delivery_tier") or "").strip().upper()
+        evidence_state = str(top_row.get("evidence_state") or "").strip().upper()
+        evidence_degraded = evidence_state == "DEGRADED" or bool(top_row.get("evidence_degraded"))
+        critical_gap = evidence_state == "CRITICAL_GAP"
+        acceptance_reason_code = str(top_row.get("acceptance_reason_code") or "").strip().upper()
+        hint_title = str(top_row.get("repair_hint_title") or "").strip()
+        hint_command = str(top_row.get("repair_hint_command") or "").strip() or None
+        if critical_gap:
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "review-evidence",
+                    "title": "QA: review missing verification evidence",
+                    "reason": action_reason("review-evidence"),
+                    "applicability": "top actionable sql is marked CRITICAL_GAP",
+                    "expected_outcome": "restore confidence before rollout or manual intervention",
+                    "commands": [],
+                },
+            )
+        elif evidence_degraded and acceptance_reason_code in {"VALIDATE_PARAM_INSUFFICIENT", "VALIDATE_DB_UNREACHABLE"}:
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "check-db",
+                    "title": "DBA: verify DB connectivity",
+                    "reason": action_reason("check-db"),
+                    "applicability": "decisionLayers indicates DB-backed validation is incomplete",
+                    "expected_outcome": "restore semantic and perf checks for the highest-value item",
+                    "commands": ['psql "$DSN" -c "select 1;"'],
+                },
+            )
+        if delivery_tier == "PATCHABLE_WITH_REWRITE":
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "refactor-mapper",
+                    "title": "Backend: refactor mapper for template-aware rewrite",
+                    "reason": action_reason("refactor-mapper"),
+                    "applicability": "top actionable sql requires template-aware rewrite",
+                    "expected_outcome": "unlock automated patch generation for the highest-value item",
+                    "commands": [hint_command] if hint_command else [],
+                },
+            )
+        elif delivery_tier == "MANUAL_REVIEW":
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "resolve-patch-conflict",
+                    "title": "Backend: resolve patch conflict manually",
+                    "reason": action_reason("resolve-patch-conflict"),
+                    "applicability": "top actionable sql is in MANUAL_REVIEW state",
+                    "expected_outcome": "land the highest-value patch after manual conflict resolution",
+                    "commands": [hint_command] if hint_command else [],
+                },
+            )
+        elif delivery_tier == "NEEDS_REVIEW":
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "review-patchability",
+                    "title": "Backend: review patchability details",
+                    "reason": action_reason("review-patchability"),
+                    "applicability": "top actionable sql is validated without a ready patch",
+                    "expected_outcome": "decide whether to patch manually or adjust the mapper shape",
+                    "commands": [],
+                },
+            )
+        elif delivery_tier == "READY_TO_APPLY" and verdict == "PASS":
+            _append_action_once(
+                actions,
+                {
+                    "action_id": "apply",
+                    "title": "Backend: apply generated patches",
+                    "reason": action_reason("apply"),
+                    "applicability": "healthy run with applicable patches available",
+                    "expected_outcome": "land safe SQL improvements",
+                    "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
+                },
+            )
+
     if reason_counts.get("VALIDATE_DB_UNREACHABLE", 0) > 0:
-        actions.append(
+        _append_action_once(
+            actions,
             {
                 "action_id": "check-db",
                 "title": "DBA: verify DB connectivity",
-                "reason": "validation DB checks were skipped",
+                "reason": action_reason("check-db"),
                 "applicability": "VALIDATE_DB_UNREACHABLE present",
                 "expected_outcome": "semantic and perf checks become executable",
                 "commands": ['psql "$DSN" -c "select 1;"'],
-            }
+            },
         )
     if reason_counts.get("VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", 0) > 0:
-        actions.append(
+        _append_action_once(
+            actions,
             {
                 "action_id": "remove-dollar",
                 "title": "Backend: remove ${} dynamic SQL",
-                "reason": "unsafe SQL substitution blocks optimization",
+                "reason": action_reason("remove-dollar"),
                 "applicability": "security warnings in validation",
                 "expected_outcome": "statement becomes patchable",
                 "commands": ['rg -n "\\$\\{" src/main/resources/**/*.xml'],
-            }
+            },
+        )
+    if verdict in {"BLOCKED", "ATTENTION", "PARTIAL"}:
+        _append_action_once(
+            actions,
+            {
+                "action_id": "resume",
+                "title": "Platform: resume run",
+                "reason": action_reason("resume"),
+                "applicability": "pending or degraded pipeline",
+                "expected_outcome": "continue or finalize processing",
+                "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"],
+            },
         )
     if not actions:
-        actions.append(
+        _append_action_once(
+            actions,
             {
                 "action_id": "apply",
                 "title": "Backend: apply generated patches",
-                "reason": "run is healthy",
+                "reason": action_reason("apply"),
                 "applicability": "applicable patches available",
                 "expected_outcome": "land safe SQL improvements",
                 "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
-            }
+            },
         )
     return actions
 
@@ -200,6 +328,175 @@ def build_proposal_rows(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]
             }
         )
     return rows
+
+
+def build_top_actionable_sql(
+    units: list[dict[str, Any]],
+    proposals: list[dict[str, Any]],
+    acceptance: list[dict[str, Any]],
+    patches: list[dict[str, Any]],
+    verification_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    proposal_by_sql_key = {str(row.get("sqlKey") or ""): row for row in proposals if str(row.get("sqlKey") or "").strip()}
+    acceptance_by_sql_key = {str(row.get("sqlKey") or ""): row for row in acceptance if str(row.get("sqlKey") or "").strip()}
+    patch_by_statement = {
+        str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()
+    }
+    unverified_sql = {
+        str(row.get("sql_key") or "")
+        for row in verification_rows
+        if str(row.get("status") or "").upper() == "UNVERIFIED" and str(row.get("sql_key") or "").strip()
+    }
+    ranked_rows: list[dict[str, Any]] = []
+    for unit in units:
+        sql_key = str(unit.get("sqlKey") or "").strip()
+        if not sql_key:
+            continue
+        statement_key = sql_key.split("#", 1)[0]
+        proposal = proposal_by_sql_key.get(sql_key, {})
+        acceptance_row = acceptance_by_sql_key.get(sql_key, {})
+        patch_row = patch_by_statement.get(statement_key, {})
+        actionability = dict(proposal.get("actionability") or {})
+        sql_verification_rows = [row for row in verification_rows if str(row.get("sql_key") or "").strip() == sql_key]
+        outcome = assess_sql_outcome(
+            [acceptance_row] if acceptance_row else [],
+            [patch_row] if patch_row else [],
+            sql_verification_rows,
+        )
+        evidence_layer, delivery_layer, acceptance_layer = _acceptance_decision_layers(acceptance_row)
+        delivery_readiness = dict(acceptance_row.get("deliveryReadiness") or {})
+        delivery_outcome = dict(patch_row.get("deliveryOutcome") or {})
+        actionability_score = int(actionability.get("score") or 0)
+        priority_score = actionability_score
+        delivery_tier = str(outcome.get("delivery_assessment") or delivery_outcome.get("tier") or "").strip()
+        readiness_tier = str(delivery_layer.get("tier") or delivery_readiness.get("tier") or "").strip()
+        evidence_state = str(outcome.get("evidence_state") or "NONE").strip().upper()
+        if delivery_tier == "READY_TO_APPLY":
+            priority_score += 100
+        elif delivery_tier == "PATCHABLE_WITH_REWRITE":
+            priority_score += 70
+        elif delivery_tier == "MANUAL_REVIEW":
+            priority_score += 40
+        elif patch_row.get("applicable") is True:
+            priority_score += 100
+            delivery_tier = "READY_TO_APPLY"
+        elif readiness_tier == "READY":
+            priority_score += 60
+        elif readiness_tier == "NEEDS_TEMPLATE_REWRITE":
+            priority_score += 35
+        status = str(acceptance_layer.get("status") or acceptance_row.get("status") or "")
+        if status == "PASS":
+            priority_score += 20
+        elif status == "NEED_MORE_PARAMS":
+            priority_score += 5
+        if evidence_state == "CRITICAL_GAP" or sql_key in unverified_sql:
+            priority_score -= 50
+        if evidence_state == "DEGRADED":
+            priority_score -= 15
+        if status == "FAIL":
+            priority_score -= 20
+        if priority_score >= 90:
+            priority = "P0"
+        elif priority_score >= 60:
+            priority = "P1"
+        else:
+            priority = "P2"
+
+        if str(delivery_outcome.get("summary") or "").strip():
+            summary = str(delivery_outcome.get("summary") or "").strip()
+        elif evidence_state == "CRITICAL_GAP":
+            summary = "critical verification evidence is missing; review evidence before rollout"
+        elif bool(outcome.get("db_recheck_recommended")) or (
+            bool(evidence_layer.get("degraded")) and str((acceptance_layer.get("feedbackReasonCode") or "")).strip() in {
+            "VALIDATE_PARAM_INSUFFICIENT",
+            "VALIDATE_DB_UNREACHABLE",
+        }):
+            summary = "validation evidence is degraded and needs a DB-backed recheck"
+        elif patch_row.get("applicable") is True:
+            summary = "ready to apply patch"
+        elif readiness_tier == "READY" or status == "PASS":
+            summary = "validated rewrite exists but patch is not directly applicable"
+        elif readiness_tier == "NEEDS_TEMPLATE_REWRITE":
+            summary = "validated path exists but mapper needs template-aware refactoring"
+        elif str(actionability.get("tier") or "") in {"HIGH", "MEDIUM"}:
+            summary = "high-value optimization identified but not yet validated"
+        else:
+            summary = "low-confidence or blocked optimization candidate"
+
+        if evidence_state == "CRITICAL_GAP":
+            why_now = "critical evidence is missing, so this stays high priority until the gap is closed"
+        elif bool(outcome.get("db_recheck_recommended")):
+            why_now = "the main blocker is degraded DB-backed validation, not the rewrite itself"
+        elif delivery_tier == "READY_TO_APPLY":
+            why_now = "this is the fastest safe win because the patch is already ready"
+        elif delivery_tier == "PATCHABLE_WITH_REWRITE":
+            why_now = "this becomes high-value immediately after template-safe mapper refactoring"
+        elif delivery_tier == "MANUAL_REVIEW":
+            why_now = "the SQL is promising and only manual patch conflict handling remains"
+        elif delivery_tier == "NEEDS_REVIEW":
+            why_now = "the rewrite is validated, but patchability still needs a manual call"
+        elif str(actionability.get("tier") or "") in {"HIGH", "MEDIUM"}:
+            why_now = "this has strong upside, but it still needs stronger downstream validation"
+        else:
+            why_now = "this is currently lower-confidence than the leading candidates"
+
+        if not delivery_tier:
+            if patch_row.get("applicable") is True:
+                delivery_tier = "READY_TO_APPLY"
+            elif readiness_tier == "READY":
+                delivery_tier = "READY"
+            elif readiness_tier == "NEEDS_TEMPLATE_REWRITE":
+                delivery_tier = "NEEDS_TEMPLATE_REWRITE"
+            else:
+                delivery_tier = "BLOCKED"
+
+        ranked_rows.append(
+            {
+                "sql_key": sql_key,
+                "priority": priority,
+                "actionability_tier": actionability.get("tier") or "LOW",
+                "actionability_score": actionability_score,
+                "delivery_tier": delivery_tier,
+                "patch_applicable": patch_row.get("applicable"),
+                "status": status or "PENDING",
+                "summary": summary,
+                "why_now": why_now,
+                "evidence_state": evidence_state,
+                "evidence_degraded": evidence_state == "DEGRADED",
+                "acceptance_reason_code": str((outcome.get("feedback_reason_code") or (acceptance_layer.get("feedbackReasonCode") or ""))).strip() or None,
+                "repair_hint_title": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("title")) or "")).strip() or None,
+                "repair_hint_command": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("command")) or "")).strip() or None,
+                "_priority_score": priority_score,
+            }
+        )
+    ranked_rows.sort(key=lambda row: (-int(row.get("_priority_score") or 0), str(row.get("sql_key") or "")))
+    return [{k: v for k, v in row.items() if k != "_priority_score"} for row in ranked_rows[:10]]
+
+
+def summarize_actionability(
+    proposals: list[dict[str, Any]],
+    acceptance: list[dict[str, Any]],
+    patches: list[dict[str, Any]],
+) -> dict[str, int]:
+    proposal_tiers = [str((row.get("actionability") or {}).get("tier") or "").strip() for row in proposals]
+    patch_by_statement = {
+        str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()
+    }
+    needs_manual_review_count = 0
+    for row in acceptance:
+        if str(row.get("status") or "") != "PASS":
+            continue
+        sql_key = str(row.get("sqlKey") or "").strip()
+        statement_key = sql_key.split("#", 1)[0] if sql_key else ""
+        patch_row = patch_by_statement.get(statement_key, {})
+        if patch_row.get("applicable") is not True:
+            needs_manual_review_count += 1
+    return {
+        "high_value_sql_count": sum(1 for tier in proposal_tiers if tier in {"HIGH", "MEDIUM"}),
+        "ready_to_apply_count": sum(1 for row in patches if row.get("applicable") is True),
+        "needs_manual_review_count": needs_manual_review_count,
+        "blocked_value_count": sum(1 for tier in proposal_tiers if tier == "BLOCKED"),
+    }
 
 
 def report_acceptance_llm_count(acceptance_rows: list[dict[str, Any]]) -> int:

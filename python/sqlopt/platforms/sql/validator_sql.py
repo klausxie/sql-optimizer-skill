@@ -19,6 +19,74 @@ from .candidate_selection import (
 from .template_materializer import build_rewrite_materialization
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 
+
+def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "selection_mode": str(validate_cfg.get("selection_mode", "patchability_first")).strip().lower() or "patchability_first",
+        "require_semantic_match": bool(validate_cfg.get("require_semantic_match", True)),
+        "require_perf_evidence_for_pass": bool(validate_cfg.get("require_perf_evidence_for_pass", False)),
+        "require_verified_evidence_for_pass": bool(validate_cfg.get("require_verified_evidence_for_pass", False)),
+        "delivery_bias": str(validate_cfg.get("delivery_bias", "conservative")).strip().lower() or "conservative",
+    }
+
+
+def _build_decision_layers(
+    *,
+    status: str,
+    validation_profile: str,
+    strategy: dict[str, Any],
+    db_reachable: bool,
+    compare_enabled: bool,
+    selected_candidate_source: str,
+    selected_candidate_id: str | None,
+    valid_candidate_count: int,
+    selected_candidate_count: int,
+    equivalence: dict[str, Any],
+    perf_comparison: dict[str, Any],
+    delivery_readiness: dict[str, Any] | None,
+    feedback: dict[str, Any] | None,
+    rewrite_materialization: dict[str, Any] | None,
+) -> dict[str, Any]:
+    reason_codes = [str(code) for code in (perf_comparison.get("reasonCodes") or []) if str(code).strip()]
+    replay_verified = None if not rewrite_materialization else rewrite_materialization.get("replayVerified")
+    return {
+        "feasibility": {
+            "candidateAvailable": valid_candidate_count > 0,
+            "validCandidateCount": valid_candidate_count,
+            "selectedCandidateCount": selected_candidate_count,
+            "dbReachable": db_reachable,
+            "compareEnabled": compare_enabled,
+            "ready": valid_candidate_count > 0 and db_reachable,
+        },
+        "evidence": {
+            "semanticChecked": bool(equivalence.get("checked")),
+            "perfChecked": bool(perf_comparison.get("checked")),
+            "degraded": (not db_reachable)
+            or (not compare_enabled)
+            or (not bool(equivalence.get("checked")))
+            or (not bool(perf_comparison.get("checked"))),
+            "reasonCodes": reason_codes,
+        },
+        "delivery": {
+            "tier": (delivery_readiness or {}).get("tier"),
+            "autoPatchLikelihood": (delivery_readiness or {}).get("autoPatchLikelihood"),
+            "selectedCandidateSource": selected_candidate_source or None,
+            "selectedCandidateId": selected_candidate_id,
+            "replayVerified": replay_verified,
+            "selectionMode": strategy["selection_mode"],
+            "deliveryBias": strategy["delivery_bias"],
+        },
+        "acceptance": {
+            "status": status,
+            "validationProfile": validation_profile,
+            "requireSemanticMatch": strategy["require_semantic_match"],
+            "requirePerfEvidenceForPass": strategy["require_perf_evidence_for_pass"],
+            "requireVerifiedEvidenceForPass": strategy["require_verified_evidence_for_pass"],
+            "feedbackReasonCode": (feedback or {}).get("reason_code"),
+        },
+    }
+
+
 def _derive_rewrite_materialization(
     sql_unit: dict[str, Any],
     rewritten_sql: str,
@@ -50,6 +118,7 @@ def validate_proposal(
     validation_profile = str(validate_cfg.get("validation_profile", "balanced")).strip().lower()
     if validation_profile not in {"strict", "balanced", "relaxed"}:
         validation_profile = "balanced"
+    strategy = _validate_strategy(validate_cfg)
     risk = "high" if "${" in sql else "low"
     risk_flags = ["DOLLAR_SUBSTITUTION"] if risk == "high" else []
     llm_candidates = proposal.get("llmCandidates") or []
@@ -57,11 +126,11 @@ def validate_proposal(
     valid_candidates, rejected_placeholder_semantics = filter_valid_candidates(sql, candidates)
 
     if risk == "high":
-        return security_failure_result(sql_unit["sqlKey"], validation_profile, risk_flags)
+        return security_failure_result(sql_unit["sqlKey"], validation_profile, risk_flags, **strategy)
     if candidates and not valid_candidates and rejected_placeholder_semantics == 0:
-        return invalid_candidate_result(sql_unit["sqlKey"], risk_flags)
+        return invalid_candidate_result(sql_unit["sqlKey"], risk_flags, validation_profile=validation_profile, **strategy)
     if not db_reachable:
-        return db_unreachable_result(sql_unit["sqlKey"], risk_flags)
+        return db_unreachable_result(sql_unit["sqlKey"], risk_flags, validation_profile=validation_profile, **strategy)
 
     compare_enabled = bool(config and evidence_dir is not None and (config.get("db", {}) or {}).get("dsn"))
     compare_policy = build_compare_policy(config) if compare_enabled else None
@@ -94,6 +163,22 @@ def validate_proposal(
         fragment_catalog or {},
         config,
     )
+    decision_layers = _build_decision_layers(
+        status=decision.status,
+        validation_profile=validation_profile,
+        strategy=strategy,
+        db_reachable=db_reachable,
+        compare_enabled=compare_enabled,
+        selected_candidate_source=selected_source,
+        selected_candidate_id=selection.selected_candidate_id,
+        valid_candidate_count=len(valid_candidates),
+        selected_candidate_count=len(selection.candidate_evaluations),
+        equivalence=selection.equivalence.to_contract(),
+        perf_comparison=selection.perf.to_contract(reason_codes=decision.reason_codes),
+        delivery_readiness=selection.delivery_readiness,
+        feedback=decision.feedback,
+        rewrite_materialization=rewrite_materialization,
+    )
 
     return ValidationResult(
         sql_key=sql_unit["sqlKey"],
@@ -117,4 +202,7 @@ def validate_proposal(
             "improved": sum(1 for x in selection.candidate_evaluations if x.improved and x.semantic_match),
             "bestAfterCost": (selection.perf.after_summary or {}).get("totalCost"),
         },
+        selection_rationale=selection.selection_rationale,
+        delivery_readiness=selection.delivery_readiness,
+        decision_layers=decision_layers,
     )

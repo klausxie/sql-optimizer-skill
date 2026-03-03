@@ -243,6 +243,30 @@ llm:
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage scan
 ```
 
+如果你要验证仓库内置的扫描覆盖样例，可直接使用：
+
+```bash
+python3 scripts/run_until_budget.py \
+  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --to-stage scan \
+  --max-steps 10 \
+  --max-seconds 30
+```
+
+这份样例当前覆盖：
+- `bind`
+- `choose/when/otherwise`
+- `where`
+- `if`
+- `foreach`
+- `include`
+- `trim`
+- `set`
+
+并且会额外锁住：
+- `includeTrace` 与 fragment catalog 对齐后不再误报 `SCAN_INCLUDE_TRACE_PARTIAL`
+- `UPDATE + trim + set` 结构不会再产出重复 `SET SET`
+
 ### Q: 运行失败了怎么办？
 
 1. 查看错误消息中的建议

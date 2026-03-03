@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import glob
 import json
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,23 @@ def _build_unit(xml_path: Path, namespace: str, statement_id: str, statement_typ
         "riskFlags": ["DOLLAR_SUBSTITUTION"] if "${" in sql else [],
         "scanWarnings": None,
     }
+
+
+def _normalize_scanned_sql_text(sql: str, statement_type: str, dynamic_features: list[str] | None = None) -> str:
+    normalized = " ".join(str(sql or "").split())
+    features = {str(x or "").strip().upper() for x in (dynamic_features or []) if str(x or "").strip()}
+    if str(statement_type or "").strip().upper() == "UPDATE" and {"TRIM", "SET"}.issubset(features):
+        normalized = re.sub(r"\bSET\s+SET\b", "SET", normalized, flags=re.IGNORECASE)
+    return normalized
+
+
+def _normalize_unit_sql(unit: dict[str, Any]) -> dict[str, Any]:
+    unit["sql"] = _normalize_scanned_sql_text(
+        str(unit.get("sql") or ""),
+        str(unit.get("statementType") or ""),
+        list(unit.get("dynamicFeatures") or []),
+    )
+    return unit
 
 
 def _inner_xml(node: ET.Element) -> str:
@@ -202,7 +220,7 @@ def _python_fallback_scan(project_root: Path, mapper_globs: list[str], manifest_
                 "statementFeatures": unit["dynamicFeatures"],
                 "includeFragments": include_fragments,
             } if unit["dynamicFeatures"] or include_trace else None
-            units.append(unit)
+            units.append(_normalize_unit_sql(unit))
     return units, warnings
 
 
@@ -355,6 +373,7 @@ def run_scan(config: dict[str, Any], run_dir: Path, manifest_path: Path) -> tupl
         if units:
             if _strict_mode_rejects_warnings(class_resolution_mode, warnings):
                 return [], _java_scan_failure("class resolution degraded under strict mode")
+            units = [_normalize_unit_sql(dict(unit)) for unit in units]
             units, _ = _write_fragment_catalog(
                 units=units,
                 enable_fragment_catalog=enable_fragment_catalog,

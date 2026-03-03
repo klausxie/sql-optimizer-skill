@@ -58,6 +58,8 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row.get("applicable"))
         self.assertIsNone(patch_row.get("applyCheckError"))
         self.assertTrue(patch_row.get("patchFiles"))
+        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "READY_TO_APPLY")
+        self.assertTrue(patch_row.get("patchability", {}).get("applyCheckPassed"))
 
     def test_patch_skips_statement_level_include_change_without_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_include_safe_") as td:
@@ -116,6 +118,8 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
             )
             self.assertEqual(patch_row.get("patchFiles"), [])
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "PATCHABLE_WITH_REWRITE")
+            self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MAPPER_REFACTOR")
 
     def test_patch_not_applicable_when_git_apply_check_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_not_applicable_") as td:
@@ -143,6 +147,8 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertFalse(patch_row.get("applicable"))
         self.assertIn("patch does not apply", str(patch_row.get("applyCheckError")))
         self.assertEqual(patch_row.get("patchFiles"), [])
+        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "MANUAL_REVIEW")
+        self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "GIT_CONFLICT")
 
     def test_patch_prefers_statement_template_ops_from_validate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_stmt_template_ops_") as td:

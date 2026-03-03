@@ -40,6 +40,8 @@ class ValidateProfilesTest(unittest.TestCase):
 
         self.assertEqual(result["status"], "PASS")
         self.assertIn("VALIDATE_PERF_NOT_IMPROVED_WARN", result.get("warnings", []))
+        self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "PASS")
+        self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "balanced")
 
     def test_semantic_error_is_need_more_params(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
@@ -88,6 +90,7 @@ class ValidateProfilesTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "NEED_MORE_PARAMS")
         self.assertIn("DOLLAR_SUBSTITUTION", result.get("riskFlags", []))
+        self.assertEqual(result.get("decisionLayers", {}).get("feasibility", {}).get("phase"), "security_block")
 
     def test_dollar_substitution_strict_is_fail(self) -> None:
         sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
@@ -99,6 +102,7 @@ class ValidateProfilesTest(unittest.TestCase):
             evidence_dir=Path(tempfile.gettempdir()),
         )
         self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "strict")
 
     def test_plan_and_semantic_compare_are_capability_gated(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
@@ -128,6 +132,7 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertFalse(result["perfComparison"]["checked"])
         self.assertIn("VALIDATE_PLAN_COMPARE_DISABLED", result["perfComparison"]["reasonCodes"])
         self.assertEqual(result["status"], "NEED_MORE_PARAMS")
+        self.assertTrue(result.get("decisionLayers", {}).get("evidence", {}).get("degraded"))
 
 
 if __name__ == "__main__":

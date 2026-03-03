@@ -73,6 +73,7 @@ class ReleaseAcceptanceScriptTest(unittest.TestCase):
                 "degraded_runtime_acceptance.py",
                 "report_rebuild_acceptance.py",
                 "verification_chain_acceptance.py",
+                "guidance_consistency_acceptance.py",
             ],
         )
         payload = json.loads(buf.getvalue().strip())
@@ -81,6 +82,7 @@ class ReleaseAcceptanceScriptTest(unittest.TestCase):
         self.assertIn("degraded_runtime", payload["steps"])
         self.assertIn("report_rebuild", payload["steps"])
         self.assertIn("verification_chain", payload["steps"])
+        self.assertIn("guidance_consistency", payload["steps"])
 
 
 if __name__ == "__main__":

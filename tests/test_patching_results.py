@@ -18,12 +18,17 @@ class PatchingResultsTest(unittest.TestCase):
             selected_candidate_id="c1",
             applicable=False,
             apply_check_error="patch does not apply",
+            delivery_outcome={"tier": "MANUAL_REVIEW"},
+            repair_hints=[{"hintId": "review-target-drift"}],
+            patchability={"applyCheckPassed": False},
         )
 
         self.assertEqual(patch["selectedCandidateId"], "c1")
         self.assertFalse(patch["applicable"])
         self.assertEqual(patch["applyCheckError"], "patch does not apply")
         self.assertTrue(patch["diffSummary"]["skipped"])
+        self.assertEqual(patch["deliveryOutcome"]["tier"], "MANUAL_REVIEW")
+        self.assertFalse(patch["patchability"]["applyCheckPassed"])
 
     def test_selected_patch_result_marks_patch_as_selected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_result_") as td:
@@ -35,12 +40,16 @@ class PatchingResultsTest(unittest.TestCase):
                 changed_lines=4,
                 candidates_evaluated=1,
                 selected_candidate_id="c1",
+                delivery_outcome={"tier": "READY_TO_APPLY"},
+                repair_hints=[],
+                patchability={"applyCheckPassed": True},
             )
 
         self.assertEqual(patch["patchFiles"], [str(patch_file)])
         self.assertEqual(patch["selectionReason"]["code"], "PATCH_SELECTED_SINGLE_PASS")
         self.assertTrue(patch["diffSummary"]["changed"])
         self.assertTrue(patch["applicable"])
+        self.assertEqual(patch["deliveryOutcome"]["tier"], "READY_TO_APPLY")
 
 
 if __name__ == "__main__":
