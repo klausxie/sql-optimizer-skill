@@ -38,7 +38,11 @@
 2. 运行编排边界固定为：`run_service -> workflow_engine -> run_repository/stages`
 3. `preflight` 与 `validate` 已使用策略层做 capability gating，不再把平台差异散落在 stage 主流程里
 4. `report` 产物与 `supervisor/state.json` 的 phase coverage 已做一致性修复，`report=DONE` 不再出现报告内滞后
-5. 推荐的发布前验收基线：
+5. 文档模型边界当前固定为：
+   - `sqlopt.platforms.sql.models` 是 SQL 侧稳定模型入口
+   - `sqlopt.stages.report_interfaces` 是 report 侧稳定模型入口
+   - 对外契约统一通过 `to_contract()` 导出
+6. 推荐的发布前验收基线：
    - 本仓库根目录执行 `python3 -m pytest -q`
    - 优先执行统一验收入口：`python3 scripts/ci/release_acceptance.py`
    - 复制 `tests/fixtures/project` 到临时目录后做一次离线 smoke run

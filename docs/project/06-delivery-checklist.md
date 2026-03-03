@@ -15,6 +15,9 @@
 7. patch 通过 `git apply --check`
 8. `scan.fragments.jsonl` 可生成且通过 schema 校验
 9. `<include><property .../></include>` 的 binding 信息被正确记录
+10. 架构守卫测试通过：
+   - `tests/test_architecture_boundaries.py`
+   - `tests/test_contract_model_interfaces.py`
 
 ## 3. 模板感知专项回归
 1. 默认配置下：
@@ -31,6 +34,7 @@
 3. `ops/failures.jsonl` 与 `report.stats` 含 `fatal / retryable / degradable` 统计
 4. 至少一份真实项目运行样例可复现
 5. 文档描述与当前默认行为一致
+6. CI 中显式 `Architecture guards` 步骤已通过
 
 ## 5. 离线 Smoke Run（推荐）
 1. 将 `tests/fixtures/project` 复制到临时目录，避免污染仓库内 fixture

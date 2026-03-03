@@ -105,7 +105,7 @@ class Doctor:
         """Check Python version."""
         try:
             version = sys.version_info
-            if version >= (3, 10):
+            if version >= (3, 9):
                 self.add_result(DiagnosticResult(
                     "Python Version",
                     True,
@@ -115,8 +115,8 @@ class Doctor:
                 self.add_result(DiagnosticResult(
                     "Python Version",
                     False,
-                    f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.10)",
-                    "Upgrade Python to 3.10 or higher"
+                    f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.9)",
+                    "Upgrade Python to 3.9 or higher"
                 ))
         except Exception as e:
             self.add_result(DiagnosticResult("Python Version", False, str(e)))

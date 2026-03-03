@@ -2,7 +2,7 @@
 
 ## 1. Prerequisites
 
-1. Python (>= 3.10)
+1. Python (>= 3.9)
 2. If using `llm.provider=opencode_run`, ensure `opencode` command is available
 3. Network access to your configured LLM endpoint and DB
 

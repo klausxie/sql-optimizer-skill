@@ -22,6 +22,8 @@ jobs:
           java-version: '17'
       - name: Build scanner
         run: mvn -f java/scan-agent/pom.xml -DskipTests package
+      - name: Architecture guards
+        run: python -m pytest -q tests/test_architecture_boundaries.py tests/test_contract_model_interfaces.py
       - name: Unit and replay tests
         run: python -m pytest -q
       - name: Repository acceptance smoke

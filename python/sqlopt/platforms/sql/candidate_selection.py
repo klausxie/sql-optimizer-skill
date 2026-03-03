@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-
-@dataclass(frozen=True)
-class CandidateSelectionResult:
-    rewritten_sql: str
-    selected_candidate_id: str | None
-    selected_candidate_source: str | None
-    candidate_evaluations: list[dict[str, Any]]
-    equivalence: dict[str, Any]
-    perf: dict[str, Any]
+from .candidate_models import (
+    Candidate,
+    CandidateEvaluation,
+    CandidateSelectionResult,
+    EquivalenceCheck,
+    PerfComparison,
+)
 
 
 def _numeric_cost(value: Any) -> float:
@@ -37,8 +34,8 @@ def _preserves_mybatis_placeholders(original_sql: str, rewritten_sql: str) -> bo
     return "?" not in rewritten
 
 
-def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[Candidate]:
+    out: list[Candidate] = []
     seen_sql: set[str] = set()
     for i, row in enumerate(proposal.get("llmCandidates") or [], start=1):
         if not isinstance(row, dict):
@@ -48,12 +45,12 @@ def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[dict[st
             continue
         seen_sql.add(rewritten)
         out.append(
-            {
-                "id": str(row.get("id") or f"{sql_key}:llm:c{i}"),
-                "source": "llm",
-                "rewrittenSql": rewritten,
-                "rewriteStrategy": str(row.get("rewriteStrategy") or "llm"),
-            }
+            Candidate(
+                id=str(row.get("id") or f"{sql_key}:llm:c{i}"),
+                source="llm",
+                rewritten_sql=rewritten,
+                rewrite_strategy=str(row.get("rewriteStrategy") or "llm"),
+            )
         )
     for i, row in enumerate(proposal.get("suggestions") or [], start=1):
         if not isinstance(row, dict):
@@ -63,21 +60,21 @@ def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[dict[st
             continue
         seen_sql.add(rewritten)
         out.append(
-            {
-                "id": f"{sql_key}:rule:c{i}",
-                "source": "rule",
-                "rewrittenSql": rewritten,
-                "rewriteStrategy": str(row.get("action") or "rule"),
-            }
+            Candidate(
+                id=f"{sql_key}:rule:c{i}",
+                source="rule",
+                rewritten_sql=rewritten,
+                rewrite_strategy=str(row.get("action") or "rule"),
+            )
         )
     return out
 
 
-def filter_valid_candidates(original_sql: str, candidates: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    valid_candidates: list[dict[str, Any]] = []
+def filter_valid_candidates(original_sql: str, candidates: list[Candidate]) -> tuple[list[Candidate], int]:
+    valid_candidates: list[Candidate] = []
     rejected_placeholder_semantics = 0
     for candidate in candidates:
-        rewritten = str((candidate or {}).get("rewrittenSql") or "")
+        rewritten = candidate.rewritten_sql
         if not _is_valid_candidate_sql(rewritten):
             continue
         if not _preserves_mybatis_placeholders(original_sql, rewritten):
@@ -93,27 +90,27 @@ def evaluate_candidate_selection(
     config: dict[str, Any] | None,
     evidence_dir: Path | None,
     compare_policy: Any,
-    valid_candidates: list[dict[str, Any]],
+    valid_candidates: list[Candidate],
     compare_semantics_fn: Callable[..., dict[str, Any]],
     compare_plan_fn: Callable[..., dict[str, Any]],
     *,
     compare_enabled: bool,
 ) -> CandidateSelectionResult:
-    candidate_sql = (valid_candidates[0] or {}).get("rewrittenSql") if valid_candidates else None
+    candidate_sql = valid_candidates[0].rewritten_sql if valid_candidates else None
     rewritten_sql = candidate_sql if isinstance(candidate_sql, str) and candidate_sql.strip() else original_sql
-    equivalence: dict[str, Any] = {"checked": True, "method": "static", "evidenceRefs": []}
-    perf: dict[str, Any] = {
-        "checked": True,
-        "method": "heuristic",
-        "beforeSummary": {},
-        "afterSummary": {},
-        "reasonCodes": [],
-        "improved": bool(proposal.get("suggestions")),
-        "evidenceRefs": [],
-    }
+    equivalence = EquivalenceCheck(checked=True, method="static", evidence_refs=[])
+    perf = PerfComparison(
+        checked=True,
+        method="heuristic",
+        before_summary={},
+        after_summary={},
+        reason_codes=[],
+        improved=bool(proposal.get("suggestions")),
+        evidence_refs=[],
+    )
     selected_candidate_id = None
     selected_candidate_source = None
-    candidate_evaluations: list[dict[str, Any]] = []
+    candidate_evaluations: list[CandidateEvaluation] = []
 
     if not compare_enabled:
         return CandidateSelectionResult(
@@ -131,7 +128,7 @@ def evaluate_candidate_selection(
         fallback: dict[str, Any] | None = None
         fallback_cost = float("inf")
         for idx, candidate in enumerate(valid_candidates[:5], start=1):
-            rewritten_candidate = str((candidate or {}).get("rewrittenSql") or "").strip()
+            rewritten_candidate = candidate.rewritten_sql.strip()
             if not rewritten_candidate:
                 continue
             candidate_dir = evidence_dir / f"candidate_{idx}" if evidence_dir is not None else None
@@ -142,13 +139,13 @@ def evaluate_candidate_selection(
             improved_now = bool(plan.get("improved"))
             after_cost = _numeric_cost((plan.get("afterSummary") or {}).get("totalCost"))
             candidate_evaluations.append(
-                {
-                    "candidateId": (candidate or {}).get("id"),
-                    "source": (candidate or {}).get("source"),
-                    "semanticMatch": semantic_match,
-                    "improved": improved_now,
-                    "afterCost": None if after_cost == float("inf") else after_cost,
-                }
+                CandidateEvaluation(
+                    candidate_id=candidate.id,
+                    source=candidate.source,
+                    semantic_match=semantic_match,
+                    improved=improved_now,
+                    after_cost=None if after_cost == float("inf") else after_cost,
+                )
             )
             payload = {"candidate": candidate, "semantics": semantics, "plan": plan, "sql": rewritten_candidate}
             if semantic_match and after_cost < fallback_cost:
@@ -161,45 +158,45 @@ def evaluate_candidate_selection(
                 best_cost = after_cost
         selected = best or fallback
         if selected is not None:
-            picked = selected["candidate"] or {}
+            picked = selected["candidate"]
             rewritten_sql = str(selected["sql"])
-            selected_candidate_id = picked.get("id")
-            selected_candidate_source = picked.get("source")
+            selected_candidate_id = picked.id
+            selected_candidate_source = picked.source
             semantics = selected["semantics"] or {}
             plan = selected["plan"] or {}
-            equivalence = {
-                "checked": semantics.get("checked"),
-                "method": semantics.get("method", "sql_semantic_compare_v1"),
-                "rowCount": semantics.get("rowCount"),
-                "evidenceRefs": semantics.get("evidenceRefs", []),
-            }
-            perf = {
-                "checked": plan.get("checked"),
-                "method": plan.get("method", "sql_explain_json_compare"),
-                "beforeSummary": plan.get("beforeSummary"),
-                "afterSummary": plan.get("afterSummary"),
-                "reasonCodes": plan.get("reasonCodes", []),
-                "improved": plan.get("improved"),
-                "evidenceRefs": plan.get("evidenceRefs", []),
-            }
+            equivalence = EquivalenceCheck(
+                checked=semantics.get("checked"),
+                method=semantics.get("method", "sql_semantic_compare_v1"),
+                row_count=semantics.get("rowCount"),
+                evidence_refs=semantics.get("evidenceRefs", []),
+            )
+            perf = PerfComparison(
+                checked=bool(plan.get("checked")),
+                method=plan.get("method", "sql_explain_json_compare"),
+                before_summary=plan.get("beforeSummary"),
+                after_summary=plan.get("afterSummary"),
+                reason_codes=list(plan.get("reasonCodes", [])),
+                improved=plan.get("improved"),
+                evidence_refs=list(plan.get("evidenceRefs", [])),
+            )
     else:
         semantics = compare_semantics_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
         plan = compare_plan_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
-        equivalence = {
-            "checked": semantics.get("checked"),
-            "method": semantics.get("method", "sql_semantic_compare_v1"),
-            "rowCount": semantics.get("rowCount"),
-            "evidenceRefs": semantics.get("evidenceRefs", []),
-        }
-        perf = {
-            "checked": plan.get("checked"),
-            "method": plan.get("method", "sql_explain_json_compare"),
-            "beforeSummary": plan.get("beforeSummary"),
-            "afterSummary": plan.get("afterSummary"),
-            "reasonCodes": plan.get("reasonCodes", []),
-            "improved": plan.get("improved"),
-            "evidenceRefs": plan.get("evidenceRefs", []),
-        }
+        equivalence = EquivalenceCheck(
+            checked=semantics.get("checked"),
+            method=semantics.get("method", "sql_semantic_compare_v1"),
+            row_count=semantics.get("rowCount"),
+            evidence_refs=semantics.get("evidenceRefs", []),
+        )
+        perf = PerfComparison(
+            checked=bool(plan.get("checked")),
+            method=plan.get("method", "sql_explain_json_compare"),
+            before_summary=plan.get("beforeSummary"),
+            after_summary=plan.get("afterSummary"),
+            reason_codes=list(plan.get("reasonCodes", [])),
+            improved=plan.get("improved"),
+            evidence_refs=list(plan.get("evidenceRefs", [])),
+        )
 
     return CandidateSelectionResult(
         rewritten_sql=rewritten_sql,

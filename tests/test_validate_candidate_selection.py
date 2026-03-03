@@ -51,6 +51,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result.to_contract()["status"], "PASS")
         self.assertEqual(result["rewrittenSql"], "SELECT id FROM users ORDER BY created_at DESC")
         self.assertEqual(result.get("selectedCandidateId"), "c2")
         self.assertEqual(result.get("selectedCandidateSource"), "llm")

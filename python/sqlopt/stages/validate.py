@@ -21,7 +21,8 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
         evidence_dir=evidence_dir,
         fragment_catalog=fragment_catalog,
     )
-    validator.validate("acceptance_result", result)
-    append_jsonl(run_dir / "acceptance" / "acceptance.results.jsonl", result)
-    log_event(run_dir / "manifest.jsonl", "validate", "done", {"statement_key": sql_unit["sqlKey"], "status": result["status"]})
-    return result
+    payload = result.to_contract()
+    validator.validate("acceptance_result", payload)
+    append_jsonl(run_dir / "acceptance" / "acceptance.results.jsonl", payload)
+    log_event(run_dir / "manifest.jsonl", "validate", "done", {"statement_key": sql_unit["sqlKey"], "status": result.status})
+    return payload

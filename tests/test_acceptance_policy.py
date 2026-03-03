@@ -3,13 +3,22 @@ from __future__ import annotations
 import unittest
 
 from sqlopt.platforms.sql.acceptance_policy import build_acceptance_decision
+from sqlopt.platforms.sql.models import EquivalenceCheck, PerfComparison
 
 
 class AcceptancePolicyTest(unittest.TestCase):
     def test_semantic_mismatch_is_fail(self) -> None:
         decision = build_acceptance_decision(
-            {"rowCount": {"status": "MISMATCH"}},
-            {"reasonCodes": [], "improved": False},
+            EquivalenceCheck(checked=True, method="static", row_count={"status": "MISMATCH"}, evidence_refs=[]),
+            PerfComparison(
+                checked=True,
+                method="heuristic",
+                before_summary={},
+                after_summary={},
+                reason_codes=[],
+                improved=False,
+                evidence_refs=[],
+            ),
             "balanced",
             0,
         )
@@ -20,8 +29,16 @@ class AcceptancePolicyTest(unittest.TestCase):
 
     def test_balanced_semantic_match_without_improvement_is_pass_with_warning(self) -> None:
         decision = build_acceptance_decision(
-            {"rowCount": {"status": "MATCH"}},
-            {"reasonCodes": [], "improved": False},
+            EquivalenceCheck(checked=True, method="static", row_count={"status": "MATCH"}, evidence_refs=[]),
+            PerfComparison(
+                checked=True,
+                method="heuristic",
+                before_summary={},
+                after_summary={},
+                reason_codes=[],
+                improved=False,
+                evidence_refs=[],
+            ),
             "balanced",
             1,
         )

@@ -1,74 +1,67 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
-
-@dataclass(frozen=True)
-class AcceptanceDecision:
-    status: str
-    feedback: dict[str, Any] | None
-    warnings: list[str]
-    reason_codes: list[str]
+from .models import AcceptanceDecision, EquivalenceCheck, PerfComparison, ValidationResult
 
 
-def security_failure_result(sql_key: str, validation_profile: str, risk_flags: list[str]) -> dict[str, Any]:
+def security_failure_result(sql_key: str, validation_profile: str, risk_flags: list[str]) -> ValidationResult:
     status = "FAIL" if validation_profile == "strict" else "NEED_MORE_PARAMS"
-    return {
-        "sqlKey": sql_key,
-        "status": status,
-        "equivalence": {"checked": True, "method": "static", "evidenceRefs": []},
-        "perfComparison": {"checked": False, "reasonCodes": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"], "improved": None},
-        "securityChecks": {"dollar_substitution_removed": False},
-        "semanticRisk": "high",
-        "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", "message": "unsafe ${} pattern"},
-        "selectedCandidateSource": "rule",
-        "warnings": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"] if status != "FAIL" else [],
-        "riskFlags": risk_flags,
-    }
+    return ValidationResult(
+        sql_key=sql_key,
+        status=status,
+        equivalence={"checked": True, "method": "static", "evidenceRefs": []},
+        perf_comparison={"checked": False, "reasonCodes": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"], "improved": None},
+        security_checks={"dollar_substitution_removed": False},
+        semantic_risk="high",
+        feedback={"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", "message": "unsafe ${} pattern"},
+        selected_candidate_source="rule",
+        warnings=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"] if status != "FAIL" else [],
+        risk_flags=risk_flags,
+    )
 
 
-def invalid_candidate_result(sql_key: str, risk_flags: list[str]) -> dict[str, Any]:
-    return {
-        "sqlKey": sql_key,
-        "status": "FAIL",
-        "equivalence": {"checked": True, "method": "candidate_sanity", "evidenceRefs": []},
-        "perfComparison": {"checked": False, "reasonCodes": ["VALIDATE_EQUIVALENCE_MISMATCH"], "improved": None},
-        "securityChecks": {"dollar_substitution_removed": False},
-        "semanticRisk": "high",
-        "feedback": {"reason_code": "VALIDATE_EQUIVALENCE_MISMATCH", "message": "invalid candidate sql"},
-        "selectedCandidateSource": "llm",
-        "warnings": [],
-        "riskFlags": risk_flags,
-    }
+def invalid_candidate_result(sql_key: str, risk_flags: list[str]) -> ValidationResult:
+    return ValidationResult(
+        sql_key=sql_key,
+        status="FAIL",
+        equivalence={"checked": True, "method": "candidate_sanity", "evidenceRefs": []},
+        perf_comparison={"checked": False, "reasonCodes": ["VALIDATE_EQUIVALENCE_MISMATCH"], "improved": None},
+        security_checks={"dollar_substitution_removed": False},
+        semantic_risk="high",
+        feedback={"reason_code": "VALIDATE_EQUIVALENCE_MISMATCH", "message": "invalid candidate sql"},
+        selected_candidate_source="llm",
+        warnings=[],
+        risk_flags=risk_flags,
+    )
 
 
-def db_unreachable_result(sql_key: str, risk_flags: list[str]) -> dict[str, Any]:
-    return {
-        "sqlKey": sql_key,
-        "status": "NEED_MORE_PARAMS",
-        "equivalence": {"checked": None, "method": "none", "evidenceRefs": []},
-        "perfComparison": {"checked": False, "reasonCodes": ["VALIDATE_DB_UNREACHABLE"], "improved": None},
-        "securityChecks": {"dollar_substitution_removed": True},
-        "semanticRisk": "medium",
-        "feedback": {"reason_code": "VALIDATE_PARAM_INSUFFICIENT", "message": "db not reachable"},
-        "selectedCandidateSource": "rule",
-        "warnings": [],
-        "riskFlags": risk_flags,
-    }
+def db_unreachable_result(sql_key: str, risk_flags: list[str]) -> ValidationResult:
+    return ValidationResult(
+        sql_key=sql_key,
+        status="NEED_MORE_PARAMS",
+        equivalence={"checked": None, "method": "none", "evidenceRefs": []},
+        perf_comparison={"checked": False, "reasonCodes": ["VALIDATE_DB_UNREACHABLE"], "improved": None},
+        security_checks={"dollar_substitution_removed": True},
+        semantic_risk="medium",
+        feedback={"reason_code": "VALIDATE_PARAM_INSUFFICIENT", "message": "db not reachable"},
+        selected_candidate_source="rule",
+        warnings=[],
+        risk_flags=risk_flags,
+    )
 
 
 def build_acceptance_decision(
-    equivalence: dict[str, Any],
-    perf: dict[str, Any],
+    equivalence: EquivalenceCheck,
+    perf: PerfComparison,
     validation_profile: str,
     rejected_placeholder_semantics: int,
 ) -> AcceptanceDecision:
-    improved = bool(perf.get("improved"))
-    reason_codes = list(perf.get("reasonCodes") or [])
+    improved = bool(perf.improved)
+    reason_codes = list(perf.reason_codes)
     warnings: list[str] = []
     feedback: dict[str, Any] | None = None
-    row_status = ((equivalence.get("rowCount") or {}) if isinstance(equivalence, dict) else {}).get("status")
+    row_status = (equivalence.row_count or {}).get("status")
     semantic_error = row_status == "ERROR"
     semantic_mismatch = row_status == "MISMATCH"
     semantic_match = row_status == "MATCH"

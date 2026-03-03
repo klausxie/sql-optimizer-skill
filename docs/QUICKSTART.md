@@ -4,7 +4,7 @@
 
 ## 前置条件
 
-- Python 3.10 或更高版本
+- Python 3.9 或更高版本
 - PostgreSQL 或 MySQL 数据库（真实验证时需要；首轮离线 smoke 可先禁用）
 - MyBatis XML mapper 文件
 

@@ -46,3 +46,8 @@ python3 install/doctor.py --project /path/to/your/project
 1. `sqlopt.yml` and `runs/` data are not removed during upgrade.
 2. Old run data compatibility is not guaranteed across major behavior changes.
 3. If you use `llm.provider=direct_openai_compatible`, re-check `api_base/api_key/api_model` after upgrade.
+4. Runtime baseline is now `Python >= 3.9`; re-run `install/doctor.py` after upgrade if your environment was pinned to an older assumption.
+5. Internal extension points are now stabilized behind:
+   - `sqlopt.platforms.sql.models`
+   - `sqlopt.stages.report_interfaces`
+   External contract export should use `to_contract()`.

@@ -2,6 +2,9 @@
 
 本文档用于发布方和使用方快速完成打包、分发、安装、自检。
 
+环境基线：
+1. Python `>= 3.9`
+
 ## 1. 发布方：生成分发包
 
 在仓库根目录执行：
@@ -49,6 +52,11 @@ python install/doctor.py --project C:\path\to\your\project
 2. `llm.api_base`
 3. `llm.api_key`
 4. `llm.api_model`
+
+如需基于内部文档模型扩展脚本或工具，请优先依赖稳定入口：
+1. `sqlopt.platforms.sql.models`
+2. `sqlopt.stages.report_interfaces`
+3. 对外 JSON 契约统一通过 `to_contract()`
 
 ## 3. 安装后验证
 

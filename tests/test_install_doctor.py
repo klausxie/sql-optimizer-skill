@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import unittest
+from collections import namedtuple
 from pathlib import Path
 from unittest.mock import patch
 
@@ -39,6 +40,18 @@ class InstallDoctorTest(unittest.TestCase):
         self.assertNotEqual(a, b)
         self.assertTrue(a.startswith("run_doctor_"))
         self.assertTrue(b.startswith("run_doctor_"))
+
+    def test_doctor_accepts_python_3_9(self) -> None:
+        module = _load_doctor_module()
+        doctor = module.Doctor(Path.cwd())
+        out = io.StringIO()
+        version_info = namedtuple("version_info", "major minor micro releaselevel serial")(3, 9, 0, "final", 0)
+        with patch.object(module.sys, "version_info", version_info):
+            with contextlib.redirect_stdout(out):
+                doctor.check_python_version()
+
+        self.assertEqual(len(doctor.results), 1)
+        self.assertTrue(doctor.results[0].passed)
 
 
 if __name__ == "__main__":

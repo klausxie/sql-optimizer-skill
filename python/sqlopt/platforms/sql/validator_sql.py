@@ -10,6 +10,7 @@ from .acceptance_policy import (
     invalid_candidate_result,
     security_failure_result,
 )
+from .models import ValidationResult
 from .candidate_selection import (
     build_candidate_pool,
     evaluate_candidate_selection,
@@ -43,7 +44,7 @@ def validate_proposal(
     config: dict[str, Any] | None = None,
     evidence_dir: Path | None = None,
     fragment_catalog: dict[str, dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> ValidationResult:
     sql = sql_unit["sql"]
     validate_cfg = (config.get("validate", {}) if isinstance(config, dict) else {}) or {}
     validation_profile = str(validate_cfg.get("validation_profile", "balanced")).strip().lower()
@@ -94,26 +95,26 @@ def validate_proposal(
         config,
     )
 
-    return {
-        "sqlKey": sql_unit["sqlKey"],
-        "status": decision.status,
-        "rewrittenSql": selection.rewritten_sql,
-        "equivalence": selection.equivalence,
-        "perfComparison": {**selection.perf, "reasonCodes": decision.reason_codes},
-        "securityChecks": {"dollar_substitution_removed": True},
-        "semanticRisk": "low",
-        "feedback": decision.feedback,
-        "selectedCandidateSource": selected_source,
-        "selectedCandidateId": selection.selected_candidate_id,
-        "candidateEvaluations": selection.candidate_evaluations,
-        "warnings": decision.warnings,
-        "riskFlags": risk_flags,
-        "rewriteMaterialization": rewrite_materialization,
-        "templateRewriteOps": template_rewrite_ops,
-        "candidateEval": {
+    return ValidationResult(
+        sql_key=sql_unit["sqlKey"],
+        status=decision.status,
+        rewritten_sql=selection.rewritten_sql,
+        equivalence=selection.equivalence.to_contract(),
+        perf_comparison=selection.perf.to_contract(reason_codes=decision.reason_codes),
+        security_checks={"dollar_substitution_removed": True},
+        semantic_risk="low",
+        feedback=decision.feedback,
+        selected_candidate_source=selected_source,
+        selected_candidate_id=selection.selected_candidate_id,
+        candidate_evaluations=selection.candidate_evaluations_to_contract(),
+        warnings=decision.warnings,
+        risk_flags=risk_flags,
+        rewrite_materialization=rewrite_materialization,
+        template_rewrite_ops=template_rewrite_ops,
+        candidate_eval={
             "evaluated": len(selection.candidate_evaluations),
             "valid": len(valid_candidates),
-            "improved": sum(1 for x in selection.candidate_evaluations if x.get("improved") and x.get("semanticMatch")),
-            "bestAfterCost": (selection.perf.get("afterSummary") or {}).get("totalCost"),
+            "improved": sum(1 for x in selection.candidate_evaluations if x.improved and x.semantic_match),
+            "bestAfterCost": (selection.perf.after_summary or {}).get("totalCost"),
         },
-    }
+    )

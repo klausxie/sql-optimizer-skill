@@ -98,3 +98,18 @@
 1. 失败要在 `ops/failures.jsonl` 可追踪
 2. DB 不可达、LLM 超时、schema 校验失败必须有结构化统计
 3. report 应包含可执行下一步动作（命令或配置建议）
+
+## 9. 架构分层约定
+当前默认分层：
+1. `models`：只定义内部文档对象与稳定导出 facade，不负责流程编排
+2. `policy / selection / builder / loader`：负责规则、聚合、读取，不直接持久化稳定契约
+3. `writer / stage`：负责 `to_contract()`、schema 校验和最终落盘
+
+依赖方向：
+1. `models` 不能反向依赖 `builder / writer / stage / policy`
+2. facade 模块（如 `platforms/sql/models.py`、`stages/report_interfaces.py`）只做 re-export，不承载业务逻辑
+3. 新增模型对外导出时统一使用 `to_contract()`，不再引入 `as_dict()` 或 `*_payload()` 命名
+
+当前稳定入口：
+1. SQL 模型入口：`sqlopt.platforms.sql.models`
+2. Report 模型入口：`sqlopt.stages.report_interfaces`
