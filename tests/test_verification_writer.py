@@ -46,3 +46,30 @@ class VerificationWriterTest(unittest.TestCase):
             self.assertEqual(summary_payload["partial_count"], 1)
             self.assertEqual(summary_payload["coverage_by_phase"]["validate"]["ratio"], 1.0)
             self.assertEqual(json.loads(summary_path.read_text(encoding="utf-8"))["run_id"], "run_demo")
+
+    def test_summary_counts_check_level_reason_codes(self) -> None:
+        summary = summarize_records(
+            "run_demo",
+            [
+                {
+                    "run_id": "run_demo",
+                    "sql_key": "demo.user.listUsers#v1",
+                    "statement_key": "demo.user.listUsers",
+                    "phase": "optimize",
+                    "status": "PARTIAL",
+                    "reason_code": "RISKY_DOLLAR_SUBSTITUTION",
+                    "checks": [
+                        {
+                            "name": "db_explain_syntax_ok",
+                            "ok": False,
+                            "severity": "warn",
+                            "reason_code": "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR",
+                        }
+                    ],
+                }
+            ],
+            total_sql=1,
+        )
+        top_codes = {row["reason_code"] for row in summary.to_contract()["top_reason_codes"]}
+        self.assertIn("RISKY_DOLLAR_SUBSTITUTION", top_codes)
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", top_codes)

@@ -220,6 +220,14 @@ diagnostics:
         self.assertFalse(loaded["validate"]["require_verified_evidence_for_pass"])
         self.assertEqual(loaded["validate"]["delivery_bias"], "conservative")
 
+    def test_mysql_platform_is_accepted(self) -> None:
+        td = tempfile.TemporaryDirectory(prefix="sqlopt_cfg_mysql_")
+        self.addCleanup(td.cleanup)
+        cfg = Path(td.name) / "sqlopt.yml"
+        cfg.write_text(BASE_YAML.replace("platform: postgresql", "platform: mysql"), encoding="utf-8")
+        loaded = load_config(cfg)
+        self.assertEqual(loaded["db"]["platform"], "mysql")
+
     def test_validate_strategy_rejects_invalid_values(self) -> None:
         cfg = self._write_cfg(
             """\

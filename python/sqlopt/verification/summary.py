@@ -27,9 +27,20 @@ def summarize_records(run_id: str, rows: list[dict[str, Any]], *, total_sql: int
             sql_key = str(row.get("sql_key") or "").strip()
             if sql_key:
                 blocking_sql_keys.add(sql_key)
+        row_reason_codes: set[str] = set()
         code = str(row.get("reason_code") or "").strip()
         if status != "VERIFIED" and code:
-            reason_counts[code] = reason_counts.get(code, 0) + 1
+            row_reason_codes.add(code)
+        for check in row.get("checks") or []:
+            if not isinstance(check, dict):
+                continue
+            if bool(check.get("ok")):
+                continue
+            check_code = str(check.get("reason_code") or "").strip()
+            if check_code:
+                row_reason_codes.add(check_code)
+        for reason_code in row_reason_codes:
+            reason_counts[reason_code] = reason_counts.get(reason_code, 0) + 1
 
     expected = total_sql if total_sql > 0 else 0
     coverage_by_phase: dict[str, dict[str, Any]] = {}

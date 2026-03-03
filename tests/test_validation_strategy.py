@@ -37,6 +37,14 @@ class ValidationStrategyTest(unittest.TestCase):
         self.assertEqual(policy.semantics_skip_reason, "VALIDATE_SEMANTIC_COMPARE_DISABLED")
         self.assertEqual(policy.plan_skip_reason, "VALIDATE_PLAN_COMPARE_DISABLED")
 
+    def test_build_compare_policy_keeps_mysql_capabilities_enabled(self) -> None:
+        policy = validation_strategy.build_compare_policy({"db": {"platform": "mysql"}, "validate": {}})
+
+        self.assertTrue(policy.semantics_enabled)
+        self.assertTrue(policy.plan_enabled)
+        self.assertIsNone(policy.semantics_skip_reason)
+        self.assertIsNone(policy.plan_skip_reason)
+
     def test_run_compare_helpers_skip_without_calling_runner(self) -> None:
         policy = validation_strategy.ValidationComparePolicy(
             capabilities=PlatformCapabilities(),

@@ -31,6 +31,12 @@ class PreflightStrategyTest(unittest.TestCase):
         self.assertFalse(policy.db.enabled)
         self.assertEqual(policy.db.reason, "platform capability disables connectivity check")
 
+    def test_db_policy_enables_mysql_connectivity_when_supported(self) -> None:
+        policy = build_preflight_policy({"db": {"platform": "mysql"}, "validate": {"db_reachable": True}})
+
+        self.assertTrue(policy.db.enabled)
+        self.assertIsNone(policy.db.reason)
+
     def test_llm_policy_selects_provider_mode(self) -> None:
         direct = build_preflight_policy({"llm": {"enabled": True, "provider": "direct_openai_compatible"}})
         opencode = build_preflight_policy({"llm": {"enabled": True, "provider": "opencode_run"}})

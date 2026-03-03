@@ -84,6 +84,7 @@
 
 说明：
 1. optimize 输出分析候选，不直接输出 XML 级 rewrite。
+2. `dbEvidenceSummary.dbType` 当前可能是 `postgresql` 或 `mysql`
 
 ## 3. `AcceptanceResult`
 文件：`acceptance/acceptance.results.jsonl`

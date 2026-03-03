@@ -111,6 +111,58 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.topology.runtime_policy["stage_timeout_ms"]["report"], 300)
         self.assertEqual(artifacts.health.report_json, str(Path(td) / "report.json"))
 
+    def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.findUsers#v1"}],
+            proposals=[],
+            acceptance=[],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[
+                {
+                    "run_id": "run_demo",
+                    "sql_key": "demo.user.findUsers#v1",
+                    "statement_key": "demo.user.findUsers",
+                    "phase": "optimize",
+                    "status": "PARTIAL",
+                    "reason_code": "RISKY_DOLLAR_SUBSTITUTION",
+                    "reason_message": "skip LLM for unsafe dollar substitution",
+                    "evidence_refs": [],
+                    "inputs": {},
+                    "checks": [
+                        {
+                            "name": "db_explain_syntax_ok",
+                            "ok": False,
+                            "severity": "warn",
+                            "reason_code": "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR",
+                            "detail": "You have an error in your SQL syntax near ILIKE",
+                            "evidence_ref": None,
+                        }
+                    ],
+                    "verdict": {},
+                    "created_at": "2026-03-03T00:00:00+00:00",
+                }
+            ],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
+                "stage_retry_max": {"scan": 1, "report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_opt_warn_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertIsNotNone(artifacts.report.validation_warnings)
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", artifacts.report.validation_warnings[0])
+        top_reason_codes = {row["reason_code"] for row in artifacts.report.stats["verification"]["top_reason_codes"]}
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", top_reason_codes)
+
     def test_action_plan_prefers_delivery_specific_guidance(self) -> None:
         inputs = ReportInputs(
             units=[{"sqlKey": "demo.user.findIncluded#v1"}],

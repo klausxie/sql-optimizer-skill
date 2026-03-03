@@ -4,6 +4,7 @@ from __future__ import annotations
 def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, phase_status: dict[str, str]) -> str:
     verification = stats.get("verification") or {}
     top_actionable = (stats.get("top_actionable_sql") or [])[:3]
+    validation_warnings = stats.get("validation_warnings") or []
     lines = [
         f"# SQL Optimize Summary: {run_id}",
         "",
@@ -28,6 +29,15 @@ def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, ph
     lines.extend(
         [
             "",
+        ]
+    )
+    if validation_warnings:
+        lines.extend(["## Warnings"])
+        for warning in validation_warnings[:3]:
+            lines.append(f"- {warning}")
+        lines.append("")
+    lines.extend(
+        [
             f"- Phase Status: preflight `{phase_status.get('preflight', 'PENDING')}`, scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
             "",
         ]

@@ -209,6 +209,9 @@ class ReportClassificationTest(unittest.TestCase):
 
             self.assertEqual(report["evidence_confidence"], "LOW")
             self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", report["validation_warnings"][0])
+            summary_md = (run_dir / "report.summary.md").read_text(encoding="utf-8")
+            self.assertIn("## Warnings", summary_md)
+            self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", summary_md)
 
             config["verification"]["enforce_verified_outputs"] = False
             config["verification"]["critical_output_policy"] = "block"

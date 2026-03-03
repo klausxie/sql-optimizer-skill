@@ -140,6 +140,20 @@ def _build_verification_gate(
 
     unverified_pass_sql = sorted(sql_key for sql_key in (pass_sql & unverified_validate_sql) if sql_key)
     unverified_applicable_patch_sql = sorted(sql_key for sql_key in (applicable_patch_sql & unverified_patch_sql) if sql_key)
+    optimize_explain_syntax_sql = {
+        str(row.get("sql_key") or "")
+        for row in verification_rows
+        if (
+            str(row.get("reason_code") or "") == "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
+            or any(
+                isinstance(check, dict)
+                and not bool(check.get("ok"))
+                and str(check.get("reason_code") or "") == "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
+                for check in (row.get("checks") or [])
+            )
+        )
+    }
+    optimize_explain_syntax_sql.discard("")
 
     warnings: list[str] = []
     if unverified_pass_sql:
@@ -149,6 +163,11 @@ def _build_verification_gate(
     if unverified_applicable_patch_sql:
         warnings.append(
             f"UNVERIFIED_APPLICABLE_PATCH: {len(unverified_applicable_patch_sql)} sql(s) have applicable patches without complete verification evidence"
+        )
+    if optimize_explain_syntax_sql:
+        warnings.append(
+            "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR: "
+            f"{len(optimize_explain_syntax_sql)} sql(s) hit SQL syntax errors during optimize DB evidence collection"
         )
 
     if warnings:

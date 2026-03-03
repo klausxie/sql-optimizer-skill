@@ -10,6 +10,8 @@
 
 **开发验证？** 在仓库根目录直接运行 `python3 -m pytest -q`
 
+**数据库平台？** 当前一等支持 `postgresql` 与 `mysql`（仅 MySQL 8.0+，不含 MariaDB）
+
 **扫描覆盖验证？** 直接运行
 `python3 scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-steps 10 --max-seconds 30`
 
@@ -81,6 +83,7 @@ python3 install/doctor.py --project <your_project_path>
 Windows 用户请使用 `python` 替代 `python3`。
 
 安装后，推荐先用 `llm.provider=opencode_builtin`、`validate.db_reachable=false` 做一轮离线 smoke run，再切回真实 LLM/DB 配置。
+如果是 MySQL 项目，建议先用 `db.platform=mysql` + `validate.db_reachable=false` 做一轮离线 smoke，再打开真实 compare。
 
 ### 使用 Skill
 

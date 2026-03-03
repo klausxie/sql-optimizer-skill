@@ -26,6 +26,12 @@ class PlatformDispatchTest(unittest.TestCase):
         self.assertIsInstance(capabilities, PlatformCapabilities)
         self.assertTrue(capabilities.supports_sql_evidence)
 
+        mysql_capabilities = dispatch.get_platform_capabilities({"db": {"platform": "mysql"}})
+        self.assertTrue(mysql_capabilities.supports_connectivity_check)
+        self.assertTrue(mysql_capabilities.supports_plan_compare)
+        self.assertTrue(mysql_capabilities.supports_semantic_compare)
+        self.assertTrue(mysql_capabilities.supports_sql_evidence)
+
     def test_dispatch_routes_to_postgresql_adapter(self) -> None:
         cfg = {"db": {"platform": "postgresql"}}
         with patch("sqlopt.platforms.postgresql.adapter.collect_sql_evidence", return_value=({"ok": True}, {"s": 1})) as m:
@@ -49,7 +55,7 @@ class PlatformDispatchTest(unittest.TestCase):
 
     def test_dispatch_rejects_unsupported_platform(self) -> None:
         with self.assertRaises(StageError) as cm:
-            dispatch.collect_sql_evidence({"db": {"platform": "mysql"}}, "SELECT 1")
+            dispatch.collect_sql_evidence({"db": {"platform": "sqlite"}}, "SELECT 1")
         self.assertEqual(cm.exception.reason_code, "UNSUPPORTED_PLATFORM")
 
 

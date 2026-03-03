@@ -223,6 +223,7 @@ class CliVerifyTest(unittest.TestCase):
         self.assertIn("why_now", payload)
         self.assertNotIn("records", payload)
         self.assertEqual(payload["recommended_next_step"]["action"], "review-evidence")
+        self.assertEqual(payload["warnings"], [])
         self.assertEqual(payload["repair_hints"], [])
 
     def test_cmd_verify_summary_only_prefers_template_rewrite_guidance(self) -> None:
@@ -439,6 +440,60 @@ class CliVerifyTest(unittest.TestCase):
         self.assertEqual(payload["delivery_assessment"], "READY_TO_APPLY")
         self.assertEqual(payload["evidence_state"], "COMPLETE")
         self.assertIn("fastest safe win", payload["why_now"])
+        self.assertEqual(payload["warnings"], [])
+
+    def test_cmd_verify_summary_only_surfaces_optimize_db_explain_syntax_warning(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cli_verify_opt_warn_") as td:
+            run_dir = Path(td)
+            (run_dir / "verification").mkdir(parents=True, exist_ok=True)
+            (run_dir / "verification" / "ledger.jsonl").write_text(
+                json.dumps(
+                    {
+                        "run_id": "run_demo",
+                        "sql_key": "demo.user.findUsers#v1",
+                        "statement_key": "demo.user.findUsers",
+                        "phase": "optimize",
+                        "status": "PARTIAL",
+                        "reason_code": "RISKY_DOLLAR_SUBSTITUTION",
+                        "reason_message": "llm disabled",
+                        "evidence_refs": [],
+                        "inputs": {},
+                        "checks": [
+                            {
+                                "name": "db_explain_syntax_ok",
+                                "ok": False,
+                                "severity": "warn",
+                                "reason_code": "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR",
+                                "detail": "You have an error in your SQL syntax near 'ILIKE'",
+                                "evidence_ref": None,
+                            }
+                        ],
+                        "verdict": {},
+                        "created_at": "2026-03-03T00:00:00+00:00",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            buf = io.StringIO()
+            with patch("sqlopt.cli._resolve_run_dir", return_value=run_dir):
+                with redirect_stdout(buf):
+                    cmd_verify(
+                        SimpleNamespace(
+                            run_id="run_demo",
+                            sql_key="demo.user.findUsers#v1",
+                            phase=None,
+                            summary_only=True,
+                            format="json",
+                        )
+                    )
+
+        payload = ast.literal_eval(buf.getvalue().strip())
+        self.assertEqual(payload["delivery_assessment"], "BLOCKED")
+        self.assertEqual(payload["evidence_state"], "DEGRADED")
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", payload["warnings"][0])
+        self.assertNotIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", payload["critical_gaps"])
 
     def test_cmd_verify_text_format_prints_summary_lines(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cli_verify_text_") as td:
@@ -496,6 +551,7 @@ class CliVerifyTest(unittest.TestCase):
         self.assertIn("Delivery:", text)
         self.assertIn("Top Hint: Check target mapper drift", text)
         self.assertIn("Next Step:", text)
+        self.assertNotIn("Warnings:", text)
 
 
 if __name__ == "__main__":

@@ -220,6 +220,16 @@ def _verify_recommended_next_step(
     }
 
 
+def _verify_warnings(assessment: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    reason_codes = [str(code).strip() for code in (assessment.get("reason_codes") or []) if str(code).strip()]
+    if "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR" in reason_codes:
+        warnings.append(
+            "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR: optimize DB evidence hit a SQL syntax error; inspect dbEvidenceSummary.explainError"
+        )
+    return warnings
+
+
 def _build_verify_payload(
     run_id: str,
     run_dir: Path,
@@ -240,6 +250,7 @@ def _build_verify_payload(
     decision_summary = _verify_decision_summary(delivery_assessment, evidence_state)
     why_now = _verify_why_now(delivery_assessment, evidence_state, assessment)
     recommended_next_step = _verify_recommended_next_step(run_id, delivery_assessment, assessment)
+    warnings = _verify_warnings(assessment)
     return {
         "run_id": run_id,
         "run_dir": str(run_dir),
@@ -256,6 +267,7 @@ def _build_verify_payload(
         "decision_summary": decision_summary,
         "why_now": why_now,
         "recommended_next_step": recommended_next_step,
+        "warnings": warnings,
         "repair_hints": list(assessment.get("repair_hints") or []),
         "acceptance": acceptance_rows,
         "patches": patch_rows,
@@ -276,6 +288,7 @@ def _verify_summary_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "why_now": payload.get("why_now"),
         "critical_gaps": payload.get("critical_gaps"),
         "recommended_next_step": payload.get("recommended_next_step"),
+        "warnings": payload.get("warnings"),
         "repair_hints": payload.get("repair_hints"),
     }
 
@@ -285,6 +298,7 @@ def _format_verify_text(payload: dict[str, Any]) -> str:
     gaps = payload.get("critical_gaps") or []
     next_step = payload.get("recommended_next_step") or {}
     repair_hints = payload.get("repair_hints") or []
+    warnings = payload.get("warnings") or []
     command = next_step.get("command") or "n/a"
     lines = [
         f"SQL: {payload.get('sql_key')}",
@@ -299,6 +313,8 @@ def _format_verify_text(payload: dict[str, Any]) -> str:
         f"SKIPPED={status_counts.get('SKIPPED', 0)}",
         f"Top Gaps: {', '.join(gaps) if gaps else 'none'}",
     ]
+    if warnings:
+        lines.append(f"Warnings: {', '.join(warnings)}")
     if repair_hints:
         lines.append(f"Top Hint: {repair_hints[0].get('title')}")
     lines.append(f"Next Step: {next_step.get('action')} ({command})")

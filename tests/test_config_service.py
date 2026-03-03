@@ -44,7 +44,7 @@ class ConfigServiceTest(unittest.TestCase):
         self.assertEqual(checks["scan.mapper_globs"]["status"], "ok")
         self.assertEqual(checks["scan.java_scanner.jar_path"]["status"], "warning")
 
-    def test_validate_config_raises_on_invalid_config(self) -> None:
+    def test_validate_config_accepts_mysql_platform(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_config_invalid_") as td:
             config = Path(td) / "sqlopt.yml"
             config.write_text(
@@ -58,6 +58,32 @@ class ConfigServiceTest(unittest.TestCase):
                         "db:",
                         "  platform: mysql",
                         "  dsn: mysql://user:pass@localhost:3306/demo",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            results = config_service.validate_config(config)
+
+        self.assertTrue(results["valid"])
+        checks = {row["field"]: row for row in results["checks"]}
+        self.assertEqual(checks["db.platform"]["status"], "ok")
+
+    def test_validate_config_raises_on_invalid_platform(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_config_invalid_") as td:
+            config = Path(td) / "sqlopt.yml"
+            config.write_text(
+                "\n".join(
+                    [
+                        "project:",
+                        "  root_path: .",
+                        "scan:",
+                        "  mapper_globs:",
+                        "    - src/main/resources/**/*.xml",
+                        "db:",
+                        "  platform: sqlite",
+                        "  dsn: sqlite:///tmp/demo.db",
                     ]
                 )
                 + "\n",

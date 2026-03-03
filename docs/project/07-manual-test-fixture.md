@@ -7,6 +7,7 @@
 - 测试项目固定路径：`tests/fixtures/project`
 - 配置文件固定：`tests/fixtures/project/sqlopt.yml`
 - scan-only 配置：`tests/fixtures/project/sqlopt.scan.local.yml`
+- MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.example.yml`
 - run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
 - 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer`
 
@@ -18,6 +19,12 @@
    - `llm.provider=opencode_run`：`opencode` 命令可用；
    - `llm.provider=direct_openai_compatible`：`api_base/api_key/api_model` 可用且网络可达。
 4. Java scanner jar 已存在：`java/scan-agent/target/scan-agent-1.0.0.jar`。
+
+若要验证 MySQL 8.0+，建议先从 `tests/fixtures/project/sqlopt.mysql.example.yml` 复制一份到临时目录，并先保持：
+- `validate.db_reachable=false`
+- `llm.enabled=false`
+
+确认离线链路通过后，再切换成真实 `mysql://` DSN 打开 compare。
 
 ## 2. 快速自检（建议每次先做）
 

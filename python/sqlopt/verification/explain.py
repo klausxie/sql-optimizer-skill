@@ -79,6 +79,23 @@ def critical_gaps(verification_rows: list[dict[str, Any]]) -> list[str]:
     return gaps[:5]
 
 
+def verification_reason_codes(verification_rows: list[dict[str, Any]]) -> list[str]:
+    codes: list[str] = []
+    for row in verification_rows:
+        status = str(row.get("status") or "").upper()
+        if status in {"PARTIAL", "UNVERIFIED"}:
+            code = str(row.get("reason_code") or "").strip()
+            if code and code not in codes:
+                codes.append(code)
+        for check in row.get("checks") or []:
+            if bool((check or {}).get("ok")):
+                continue
+            code = str((check or {}).get("reason_code") or "").strip()
+            if code and code not in codes:
+                codes.append(code)
+    return codes
+
+
 def assess_sql_outcome(
     acceptance_rows: list[dict[str, Any]],
     patch_rows: list[dict[str, Any]],
@@ -114,12 +131,7 @@ def assess_sql_outcome(
     best_acceptance_layers = dict((best_acceptance or {}).get("decisionLayers") or {})
     evidence_layer = dict(best_acceptance_layers.get("evidence") or {})
     acceptance_layer = dict(best_acceptance_layers.get("acceptance") or {})
-    verification_reason_codes = [
-        str(row.get("reason_code") or "").strip()
-        for row in verification_rows
-        if str(row.get("reason_code") or "").strip()
-        and str(row.get("status") or "").upper() in {"PARTIAL", "UNVERIFIED"}
-    ]
+    verification_codes = verification_reason_codes(verification_rows)
     evidence_reason_codes = [
         str(code).strip()
         for code in (evidence_layer.get("reasonCodes") or [])
@@ -138,7 +150,7 @@ def assess_sql_outcome(
         evidence_state = "NONE"
 
     combined_reason_codes = []
-    for code in [*evidence_reason_codes, *verification_reason_codes]:
+    for code in [*evidence_reason_codes, *verification_codes]:
         if code and code not in combined_reason_codes:
             combined_reason_codes.append(code)
 

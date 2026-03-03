@@ -5,7 +5,7 @@
 ## 前置条件
 
 - Python 3.9 或更高版本
-- PostgreSQL 或 MySQL 数据库（真实验证时需要；首轮离线 smoke 可先禁用）
+- PostgreSQL 或 MySQL 8.0+ 数据库（真实验证时需要；首轮离线 smoke 可先禁用）
 - MyBatis XML mapper 文件
 
 ## 快速开始（5 分钟）
@@ -52,6 +52,19 @@ llm:
 - `scan.mapper_globs`: MyBatis XML 文件的匹配模式
 - `db.dsn`: 数据库连接字符串
 - `llm.provider`: LLM 提供商（推荐使用 `opencode_run`）
+
+MySQL 示例：
+
+```yaml
+db:
+  platform: mysql
+  dsn: mysql://user:password@127.0.0.1:3306/mydb
+```
+
+当前边界：
+- MySQL 仅支持 8.0+
+- 不支持 MariaDB
+- 若候选 SQL 带 PostgreSQL 方言，MySQL compare 可能退化为 `ERROR` 或 `NEED_MORE_PARAMS`
 
 **如果只是先验证安装链路**，建议先改成：
 

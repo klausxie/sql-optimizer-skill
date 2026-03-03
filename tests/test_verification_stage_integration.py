@@ -81,6 +81,33 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         self.assertEqual(rows[0]["inputs"]["actionability_tier"], "HIGH")
         self.assertEqual(rows[0]["inputs"]["actionability_score"], 85)
 
+    def test_optimize_stage_marks_db_explain_syntax_error(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_") as td:
+            run_dir = Path(td)
+            proposal = {
+                "sqlKey": "demo.user.listUsers#v1",
+                "issues": [{"code": "SEQ_SCAN"}],
+                "dbEvidenceSummary": {"explainError": "You have an error in your SQL syntax near ILIKE"},
+                "planSummary": {"summary": "EXPLAIN failed"},
+                "suggestions": [{"strategy": "index"}],
+                "verdict": "ACTIONABLE",
+                "actionability": {"score": 85, "tier": "HIGH", "autoPatchLikelihood": "HIGH", "reasons": [], "blockedBy": []},
+                "recommendedSuggestionIndex": 0,
+            }
+            with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
+                with patch(
+                    "sqlopt.stages.optimize.generate_llm_candidates",
+                    return_value=([], {"executor": "heuristic"}),
+                ):
+                    optimize.execute_one(_sql_unit(), run_dir, self._validator(), config={"llm": {}, "project": {}})
+                    rows = self._ledger_rows(run_dir)
+
+        self.assertEqual(rows[0]["phase"], "optimize")
+        self.assertEqual(rows[0]["status"], "PARTIAL")
+        self.assertEqual(rows[0]["reason_code"], "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR")
+        check_codes = {check.get("reason_code") for check in rows[0]["checks"]}
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", check_codes)
+
     def test_validate_stage_writes_verification_record(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_") as td:
             run_dir = Path(td)

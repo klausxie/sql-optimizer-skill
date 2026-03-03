@@ -371,6 +371,6 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     cfg["config_version"] = cfg.get("config_version", "v1")
 
     platform = cfg["db"]["platform"]
-    if platform != "postgresql":
-        raise ConfigError("v1 only supports db.platform=postgresql")
+    if platform not in {"postgresql", "mysql"}:
+        raise ConfigError("v1 only supports db.platform in {postgresql, mysql}")
     return cfg

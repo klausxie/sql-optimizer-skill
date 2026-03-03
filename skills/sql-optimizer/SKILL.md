@@ -12,6 +12,7 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 4. 当 `report.enabled=true`（默认）时，即使 `to_stage` 更早，运行收尾也会完成 report。
 5. 生成报告并检查 ops 产物。
 6. 若用户当前只在改 scanner/scan verification，优先先做一次 scan-only smoke，再决定是否继续全流程。
+7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 仅支持 8.0+，不支持 MariaDB。
 
 ## 自动续跑策略
 1. 先执行 `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`。
@@ -46,6 +47,7 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 - `python scripts/run_with_resolved_id.py resume --project . [--run-id <run_id>]`
 - `python scripts/run_with_resolved_id.py apply --project . [--run-id <run_id>]`
 - 推荐先做首轮检查：`python scripts/sqlopt_cli.py run --config <path> --to-stage preflight`
+- MySQL 项目建议先用 `validate.db_reachable=false` 做一轮离线 smoke，再打开真实 compare。
 - 如需在 apply 阶段直接修改项目文件，在 `sqlopt.yml` 中设置 `apply.mode: APPLY_IN_PLACE`（默认是 `PATCH_ONLY`）。
 
 ## 参考资料

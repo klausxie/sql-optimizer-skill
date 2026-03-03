@@ -17,6 +17,19 @@ def _statement_key(sql_key: str) -> str:
     return sql_key.split("#", 1)[0]
 
 
+def _is_sql_syntax_error(message: str) -> bool:
+    text = str(message or "").strip().lower()
+    if not text:
+        return False
+    markers = [
+        "syntax error",
+        "you have an error in your sql syntax",
+        "parse error",
+        "(1064,",
+    ]
+    return any(marker in text for marker in markers)
+
+
 def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
     llm_cfg = dict(config.get("llm", {}) or {})
     project_root = (config.get("project", {}) or {}).get("root_path")
@@ -59,6 +72,8 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     degrade_reason = str(trace.get("degrade_reason") or "").strip()
     actionability = dict(proposal.get("actionability") or {})
     triggered_rules = [str(row.get("ruleId") or "") for row in (proposal.get("triggeredRules") or []) if isinstance(row, dict) and str(row.get("ruleId") or "").strip()]
+    db_explain_error = str(((proposal.get("dbEvidenceSummary") or {}).get("explainError")) or "").strip()
+    db_explain_syntax_error = _is_sql_syntax_error(db_explain_error)
     has_verdict = bool(str(proposal.get("verdict") or "").strip())
     has_analysis = bool(proposal.get("issues")) or bool(proposal.get("suggestions"))
     checks = [
@@ -75,6 +90,13 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
             "warn" if llm_candidate_count else "info",
             None if (llm_candidate_count == 0) or bool(llm_trace_refs) else "OPTIMIZE_LLM_TRACE_MISSING",
         ),
+        VerificationCheck(
+            "db_explain_syntax_ok",
+            not db_explain_syntax_error,
+            "warn",
+            None if not db_explain_syntax_error else "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR",
+            detail=db_explain_error or None,
+        ),
     ]
     if not has_verdict:
         verification_status = "UNVERIFIED"
@@ -88,6 +110,10 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
         verification_status = "PARTIAL"
         verification_reason_code = degrade_reason
         verification_reason_message = "optimization fell back to a degraded or skipped candidate generation path"
+    elif db_explain_syntax_error:
+        verification_status = "PARTIAL"
+        verification_reason_code = "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
+        verification_reason_message = "database EXPLAIN failed with a SQL syntax error during optimize evidence collection"
     elif not has_analysis:
         verification_status = "PARTIAL"
         verification_reason_code = "OPTIMIZE_ANALYSIS_PARTIAL"
@@ -118,6 +144,8 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 "auto_patch_likelihood": actionability.get("autoPatchLikelihood"),
                 "triggered_rule_count": len(triggered_rules),
                 "triggered_rule_ids": triggered_rules,
+                "db_explain_error": db_explain_error or None,
+                "db_explain_syntax_error": db_explain_syntax_error,
             },
             checks=checks,
             verdict={
@@ -125,6 +153,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 "llm_candidates_present": llm_candidate_count > 0,
                 "llm_trace_linked": bool(llm_trace_refs),
                 "recommended_suggestion_index": proposal.get("recommendedSuggestionIndex"),
+                "db_explain_error_present": bool(db_explain_error),
             },
             created_at=datetime.now(timezone.utc).isoformat(),
         ),

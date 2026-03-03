@@ -50,6 +50,19 @@
    - `llm.api_key`
    - `llm.api_model`
 
+## 3.1 数据库平台
+`db.platform` 当前支持：
+1. `postgresql`
+2. `mysql`
+
+边界：
+1. MySQL 仅支持 8.0+
+2. 不支持 MariaDB
+3. `db.dsn` 的 MySQL 连接串格式固定为：`mysql://user:pass@host:3306/db`
+4. 若要先做离线 smoke run，推荐：
+   - `validate.db_reachable=false`
+   - `validate.allow_db_unreachable_fallback=true`
+
 ## 4. Report 约定
 默认：
 1. `report.enabled=true`
