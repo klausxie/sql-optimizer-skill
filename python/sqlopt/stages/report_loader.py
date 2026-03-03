@@ -32,4 +32,5 @@ def load_report_inputs(run_dir: Path) -> ReportInputs:
             attempts_by_phase=dict(state.get("attempts_by_phase") or {}),
         ),
         manifest_rows=[ManifestEvent.from_row(row) for row in _read_jsonl_or_empty(run_dir / "manifest.jsonl")],
+        verification_rows=_read_jsonl_or_empty(run_dir / "verification" / "ledger.jsonl"),
     )

@@ -64,6 +64,7 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
             "phase_status": {k: "PENDING" for k in PHASES},
             "statements": {},
             "attempts_by_phase": {k: 0 for k in PHASES},
+            "report_rebuild_required": False,
             "last_error": None,
             "last_reason_code": None,
             "updated_at": datetime.now(timezone.utc).isoformat(),

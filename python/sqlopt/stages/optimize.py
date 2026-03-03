@@ -9,6 +9,12 @@ from ..io_utils import append_jsonl, write_json
 from ..llm.provider import generate_llm_candidates
 from ..manifest import log_event
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
+from ..verification.models import VerificationCheck, VerificationRecord
+from ..verification.writer import append_verification_record
+
+
+def _statement_key(sql_key: str) -> str:
+    return sql_key.split("#", 1)[0]
 
 
 def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
@@ -47,5 +53,73 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
+    sql_key = str(sql_unit["sqlKey"])
+    llm_trace_refs = [str(ref) for ref in (proposal.get("llmTraceRefs") or []) if str(ref).strip()]
+    llm_candidate_count = len(proposal.get("llmCandidates") or [])
+    degrade_reason = str(trace.get("degrade_reason") or "").strip()
+    has_verdict = bool(str(proposal.get("verdict") or "").strip())
+    has_analysis = bool(proposal.get("issues")) or bool(proposal.get("suggestions"))
+    checks = [
+        VerificationCheck("proposal_verdict_present", has_verdict, "error", None if has_verdict else "OPTIMIZE_VERDICT_MISSING"),
+        VerificationCheck(
+            "analysis_payload_present",
+            has_analysis,
+            "warn",
+            None if has_analysis else "OPTIMIZE_ANALYSIS_MISSING",
+        ),
+        VerificationCheck(
+            "llm_trace_present",
+            (llm_candidate_count == 0) or bool(llm_trace_refs),
+            "warn" if llm_candidate_count else "info",
+            None if (llm_candidate_count == 0) or bool(llm_trace_refs) else "OPTIMIZE_LLM_TRACE_MISSING",
+        ),
+    ]
+    if not has_verdict:
+        verification_status = "UNVERIFIED"
+        verification_reason_code = "OPTIMIZE_PROPOSAL_UNVERIFIED"
+        verification_reason_message = "optimization proposal is missing its verdict"
+    elif llm_candidate_count > 0 and not llm_trace_refs:
+        verification_status = "PARTIAL"
+        verification_reason_code = "OPTIMIZE_LLM_TRACE_MISSING"
+        verification_reason_message = "LLM candidates were generated without a corresponding trace reference"
+    elif degrade_reason:
+        verification_status = "PARTIAL"
+        verification_reason_code = degrade_reason
+        verification_reason_message = "optimization fell back to a degraded or skipped candidate generation path"
+    elif not has_analysis:
+        verification_status = "PARTIAL"
+        verification_reason_code = "OPTIMIZE_ANALYSIS_PARTIAL"
+        verification_reason_message = "proposal is structurally valid but has limited issue/suggestion evidence"
+    else:
+        verification_status = "VERIFIED"
+        verification_reason_code = "OPTIMIZE_EVIDENCE_VERIFIED"
+        verification_reason_message = "proposal includes source and candidate-generation evidence"
+    append_verification_record(
+        run_dir,
+        validator,
+        VerificationRecord(
+            run_id=run_dir.name,
+            sql_key=sql_key,
+            statement_key=_statement_key(sql_key),
+            phase="optimize",
+            status=verification_status,
+            reason_code=verification_reason_code,
+            reason_message=verification_reason_message,
+            evidence_refs=[str(run_dir / "proposals" / "optimization.proposals.jsonl"), *[str(run_dir / ref) for ref in llm_trace_refs]],
+            inputs={
+                "executor": str(trace.get("executor") or ("llm" if llm_candidate_count else "heuristic")),
+                "llm_candidate_count": llm_candidate_count,
+                "llm_trace_ref_count": len(llm_trace_refs),
+                "degrade_reason": degrade_reason or None,
+            },
+            checks=checks,
+            verdict={
+                "proposal_verdict": proposal.get("verdict"),
+                "llm_candidates_present": llm_candidate_count > 0,
+                "llm_trace_linked": bool(llm_trace_refs),
+            },
+            created_at=datetime.now(timezone.utc).isoformat(),
+        ),
+    )
     log_event(run_dir / "manifest.jsonl", "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
     return proposal

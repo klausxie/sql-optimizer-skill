@@ -133,6 +133,7 @@ Then run from the project root:
 ```bash
 $HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
 $HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli status --run-id <run_id>
+$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
 $HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli resume --run-id <run_id>
 ```
 
@@ -144,6 +145,12 @@ Repeat `resume` until `complete=true`, then verify:
 
 All three should agree that `report` is `DONE`.
 
+If `status.next_action=report-rebuild`, the main pipeline is already complete and only the report artifacts need to be regenerated:
+
+```bash
+$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run_id>
+```
+
 Preferred release gate from this repository:
 
 ```bash
@@ -154,10 +161,12 @@ This runs both:
 
 1. install-to-opencode path (skill install, command docs, installed runtime)
 2. repository-local degraded path (DB unreachable but fallback allowed)
+3. explicit report rebuild path (re-generate report without duplicating completion state)
 
 You can still run them individually:
 
 ```bash
 python3 scripts/ci/opencode_smoke_acceptance.py
 python3 scripts/ci/degraded_runtime_acceptance.py
+python3 scripts/ci/report_rebuild_acceptance.py
 ```

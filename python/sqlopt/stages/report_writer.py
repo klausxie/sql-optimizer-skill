@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ..contracts import ContractValidator
 from ..io_utils import write_json, write_jsonl
+from ..verification.writer import write_verification_summary
 from .report_models import ReportArtifacts
 from .report_render import render_report_md, render_summary_md
 
@@ -53,4 +54,6 @@ def write_report_artifacts(
     health_payload = artifacts.health.to_contract()
     validator.validate("ops_health", health_payload)
     write_json(run_dir / "ops" / "health.json", health_payload)
+    if artifacts.verification_summary:
+        write_verification_summary(run_dir, validator, artifacts.verification_summary)
     return report_payload

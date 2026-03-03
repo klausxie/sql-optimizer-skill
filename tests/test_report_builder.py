@@ -34,6 +34,22 @@ class ReportBuilderTest(unittest.TestCase):
                     payload={"reason_code": "PREFLIGHT_SCANNER_MISSING"},
                 )
             ],
+            verification_rows=[
+                {
+                    "run_id": "run_demo",
+                    "sql_key": "demo.user.listUsers#v1",
+                    "statement_key": "demo.user.listUsers",
+                    "phase": "validate",
+                    "status": "PARTIAL",
+                    "reason_code": "VALIDATE_DB_UNREACHABLE",
+                    "reason_message": "degraded DB fallback",
+                    "evidence_refs": [],
+                    "inputs": {},
+                    "checks": [],
+                    "verdict": {},
+                    "created_at": "2026-03-03T00:00:00+00:00",
+                }
+            ],
         )
         config = {
             "policy": {},
@@ -56,6 +72,11 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.failures[0].phase, "validate")
         self.assertIn("validate", artifacts.report.stats["phase_reason_code_counts"])
         self.assertIn("preflight", artifacts.report.stats["phase_reason_code_counts"])
+        self.assertEqual(artifacts.report.stats["verification"]["partial_count"], 1)
+        self.assertNotIn("generated_at", artifacts.report.stats["verification"])
+        self.assertEqual(artifacts.report.evidence_confidence, "MEDIUM")
+        self.assertIsNone(artifacts.report.validation_warnings)
+        self.assertEqual(artifacts.verification_summary["coverage_by_phase"]["validate"]["ratio"], 1.0)
         self.assertEqual(artifacts.topology.runtime_policy["stage_timeout_ms"]["report"], 300)
         self.assertEqual(artifacts.health.report_json, str(Path(td) / "report.json"))
 

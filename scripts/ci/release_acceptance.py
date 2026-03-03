@@ -56,6 +56,8 @@ def main() -> None:
     steps = [
         ("opencode_install_smoke", "opencode_smoke_acceptance.py"),
         ("degraded_runtime", "degraded_runtime_acceptance.py"),
+        ("report_rebuild", "report_rebuild_acceptance.py"),
+        ("verification_chain", "verification_chain_acceptance.py"),
     ]
     results: dict[str, Any] = {}
     for label, script_name in steps:

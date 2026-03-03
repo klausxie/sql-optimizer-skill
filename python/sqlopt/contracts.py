@@ -20,6 +20,8 @@ SCHEMA_MAP = {
     "run_report": "run_report.schema.json",
     "ops_health": "ops_health.schema.json",
     "ops_topology": "ops_topology.schema.json",
+    "verification_record": "verification_record.schema.json",
+    "verification_summary": "verification_summary.schema.json",
 }
 
 

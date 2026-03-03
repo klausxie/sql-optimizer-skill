@@ -47,9 +47,11 @@
    - 优先执行统一验收入口：`python3 scripts/ci/release_acceptance.py`
    - 复制 `tests/fixtures/project` 到临时目录后做一次离线 smoke run
    - 核对 `state.json`、`report.json`、`report.summary.md` 中 `report=DONE`
+   - 若 `status.next_action=report-rebuild`，说明主流程已完成，仅需重建 report 派生产物
    - 细分验收仍可单独执行：
      `python3 scripts/ci/opencode_smoke_acceptance.py`
      `python3 scripts/ci/degraded_runtime_acceptance.py`
+     `python3 scripts/ci/report_rebuild_acceptance.py`
 
 ## 💻 交接使用方式
 
@@ -90,6 +92,12 @@ Windows 用户请使用 `python` 替代 `python3`。
 
 # 继续运行
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli resume --run-id <run_id>
+
+# 仅重建报告（当 status.next_action=report-rebuild 时）
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run_id>
+
+# 查看某条 SQL 的验证证据链
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
 
 # 应用补丁
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli apply --run-id <run_id>

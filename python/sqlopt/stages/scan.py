@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,8 @@ from ..contracts import ContractValidator
 from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
+from ..verification.models import VerificationCheck, VerificationRecord
+from ..verification.writer import append_verification_record
 import glob
 import xml.etree.ElementTree as ET
 
@@ -20,6 +23,10 @@ def _local_name(tag: str) -> str:
 
 def _is_mybatis_mapper_root(root: ET.Element) -> bool:
     return _local_name(str(root.tag)).lower() == "mapper" and bool(str(root.attrib.get("namespace") or "").strip())
+
+
+def _statement_key(sql_key: str) -> str:
+    return sql_key.split("#", 1)[0]
 
 
 def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> int:
@@ -88,8 +95,95 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
         validator.validate("sqlunit", unit)
     write_jsonl(run_dir / "scan.sqlunits.jsonl", units)
     fragments_path = run_dir / "scan.fragments.jsonl"
-    for fragment in read_jsonl(fragments_path):
+    fragment_rows = read_jsonl(fragments_path)
+    for fragment in fragment_rows:
         validator.validate("fragment_record", fragment)
+    fragment_index = {str(row.get("fragmentKey") or ""): row for row in fragment_rows if str(row.get("fragmentKey") or "").strip()}
+    fragment_catalog_enabled = bool(scan_cfg.get("enable_fragment_catalog", True))
+    for unit in units:
+        sql_key = str(unit.get("sqlKey") or "")
+        dynamic_features = [str(x) for x in (unit.get("dynamicFeatures") or []) if str(x).strip()]
+        locators = dict(unit.get("locators") or {})
+        include_refs = [str(x) for x in (unit.get("includeTrace") or []) if str(x).strip()]
+        is_dynamic = bool(dynamic_features)
+        has_locator = bool(str(locators.get("statementId") or unit.get("statementId") or "").strip())
+        has_range = bool(locators.get("range"))
+        has_template_sql = bool(str(unit.get("templateSql") or "").strip())
+        include_refs_resolved = all(ref in fragment_index for ref in include_refs)
+        checks = [
+            VerificationCheck("sql_key_present", bool(sql_key), "error", None if sql_key else "SCAN_SQL_KEY_MISSING"),
+            VerificationCheck(
+                "xml_path_present",
+                bool(str(unit.get("xmlPath") or "").strip()),
+                "error",
+                None if str(unit.get("xmlPath") or "").strip() else "SCAN_XML_PATH_MISSING",
+            ),
+            VerificationCheck("statement_locator_present", has_locator, "error", None if has_locator else "SCAN_STATEMENT_LOCATOR_MISSING"),
+            VerificationCheck(
+                "dynamic_template_sql_present",
+                (not is_dynamic) or has_template_sql,
+                "warn" if is_dynamic else "info",
+                None if (not is_dynamic) or has_template_sql else "SCAN_TEMPLATE_SQL_MISSING",
+            ),
+            VerificationCheck(
+                "dynamic_range_present",
+                (not is_dynamic) or has_range,
+                "warn" if is_dynamic else "info",
+                None if (not is_dynamic) or has_range else "SCAN_DYNAMIC_RANGE_MISSING",
+            ),
+            VerificationCheck(
+                "include_trace_resolved",
+                (not include_refs) or include_refs_resolved or (not fragment_catalog_enabled),
+                "warn" if include_refs else "info",
+                None if (not include_refs) or include_refs_resolved or (not fragment_catalog_enabled) else "SCAN_INCLUDE_TRACE_UNRESOLVED",
+            ),
+        ]
+        if not sql_key or not has_locator or not str(unit.get("xmlPath") or "").strip():
+            status = "UNVERIFIED"
+            reason_code = "SCAN_CRITICAL_EVIDENCE_MISSING"
+            reason_message = "scan output is missing key identity or locator fields"
+        elif is_dynamic and (not has_template_sql or not has_range):
+            status = "PARTIAL"
+            reason_code = "SCAN_DYNAMIC_EVIDENCE_PARTIAL"
+            reason_message = "dynamic statement is missing templateSql or source range evidence"
+        elif include_refs and fragment_catalog_enabled and not include_refs_resolved:
+            status = "PARTIAL"
+            reason_code = "SCAN_INCLUDE_TRACE_PARTIAL"
+            reason_message = "include trace contains fragment references not present in the fragment catalog"
+        else:
+            status = "VERIFIED"
+            reason_code = "SCAN_EVIDENCE_VERIFIED"
+            reason_message = "scan output includes the expected structural evidence"
+        append_verification_record(
+            run_dir,
+            validator,
+            VerificationRecord(
+                run_id=run_dir.name,
+                sql_key=sql_key,
+                statement_key=_statement_key(sql_key),
+                phase="scan",
+                status=status,
+                reason_code=reason_code,
+                reason_message=reason_message,
+                evidence_refs=[
+                    str(run_dir / "scan.sqlunits.jsonl"),
+                    *([str(fragments_path)] if fragments_path.exists() else []),
+                ],
+                inputs={
+                    "dynamic": is_dynamic,
+                    "dynamic_features": dynamic_features,
+                    "fragment_catalog_enabled": fragment_catalog_enabled,
+                    "include_ref_count": len(include_refs),
+                },
+                checks=checks,
+                verdict={
+                    "has_template_sql": has_template_sql,
+                    "has_source_range": has_range,
+                    "include_refs_resolved": include_refs_resolved or (not include_refs) or (not fragment_catalog_enabled),
+                },
+                created_at=datetime.now(timezone.utc).isoformat(),
+            ),
+        )
     for w in warnings:
         log_event(run_dir / "manifest.jsonl", "scan", "warning", w)
     log_event(run_dir / "manifest.jsonl", "scan", "done", {"sql_keys": [u["sqlKey"] for u in units]})

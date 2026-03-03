@@ -75,6 +75,12 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run_id>
 - `last_reason_code`
 - `next_action`
 
+`next_action` 判定：
+
+- `resume`：继续推进未完成阶段
+- `report-rebuild`：主流程已完成，只需执行 `run --to-stage report --run-id <run_id>`
+- `none`：当前目标阶段已完成，无需继续
+
 ## 3.3 持续推进到完成
 
 ```bash
@@ -82,6 +88,12 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run_id>
 ```
 
 如未完成，重复执行 `resume` + `status`，直到 `complete: True`。
+
+若 `status` 返回 `next_action: 'report-rebuild'`，改为执行：
+
+```bash
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config tests/fixtures/project/sqlopt.yml --to-stage report --run-id <run_id>
+```
 
 可用轮询命令：
 

@@ -117,6 +117,29 @@ class WorkflowSupervisorTest(unittest.TestCase):
         meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
         self.assertEqual(meta.get("status"), "COMPLETED")
 
+    def test_explicit_report_rebuild_does_not_append_duplicate_done_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
+            cfg = self._write_cfg(td)
+            run_id = f"run_supervisor_report_rebuild_{uuid4().hex[:8]}"
+            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id)
+            for _ in range(80):
+                status = run_cli("status", "--run-id", run_id)
+                if status["complete"]:
+                    break
+                run_cli("resume", "--run-id", run_id)
+
+            run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
+            report_results = run_dir / "supervisor" / "results" / "report.jsonl"
+            before_lines = report_results.read_text(encoding="utf-8").strip().splitlines()
+
+            run_cli("run", "--config", str(cfg), "--to-stage", "report", "--run-id", run_id)
+
+        after_lines = report_results.read_text(encoding="utf-8").strip().splitlines()
+        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(before_lines), 1)
+        self.assertEqual(len(after_lines), 1)
+        self.assertFalse(state.get("report_rebuild_required", False))
+
 
 if __name__ == "__main__":
     unittest.main()

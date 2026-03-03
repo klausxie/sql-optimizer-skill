@@ -18,6 +18,7 @@ class ReportLoaderTest(unittest.TestCase):
         self.assertEqual(inputs.acceptance, [])
         self.assertEqual(inputs.patches, [])
         self.assertEqual(inputs.manifest_rows, [])
+        self.assertEqual(inputs.verification_rows, [])
         self.assertEqual(inputs.state.phase_status, {})
         self.assertEqual(inputs.state.attempts_by_phase, {})
 

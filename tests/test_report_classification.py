@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from sqlopt.contracts import ContractValidator
+from sqlopt.errors import StageError
 from sqlopt.stages import report as report_stage
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,6 +133,80 @@ class ReportClassificationTest(unittest.TestCase):
             self.assertGreaterEqual(report["stats"]["fatal_count"], 1)
             self.assertTrue((run_dir / "report.md").exists())
             self.assertTrue((run_dir / "report.summary.md").exists())
+
+    def test_report_warns_and_optionally_blocks_on_unverified_critical_outputs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_report_gate_") as td:
+            run_dir = Path(td)
+            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
+            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
+            (run_dir / "verification").mkdir(parents=True, exist_ok=True)
+            (run_dir / "ops").mkdir(parents=True, exist_ok=True)
+            (run_dir / "scan.sqlunits.jsonl").write_text(json.dumps({"sqlKey": "demo.user.findUsers#v1"}) + "\n", encoding="utf-8")
+            (run_dir / "proposals").mkdir(parents=True, exist_ok=True)
+            (run_dir / "proposals" / "optimization.proposals.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+                json.dumps(
+                    {
+                        "sqlKey": "demo.user.findUsers#v1",
+                        "status": "PASS",
+                        "equivalence": {"checked": True},
+                        "perfComparison": {"checked": True, "reasonCodes": []},
+                        "securityChecks": {"dollar_substitution_removed": True},
+                        "selectedCandidateSource": "heuristic",
+                        "selectedCandidateId": "c1",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (run_dir / "patches" / "patch.results.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "verification" / "ledger.jsonl").write_text(
+                json.dumps(
+                    {
+                        "run_id": "rpt_gate",
+                        "sql_key": "demo.user.findUsers#v1",
+                        "statement_key": "demo.user.findUsers",
+                        "phase": "validate",
+                        "status": "UNVERIFIED",
+                        "reason_code": "VALIDATE_PASS_SELECTION_INCOMPLETE",
+                        "reason_message": "missing selection evidence",
+                        "evidence_refs": [],
+                        "inputs": {},
+                        "checks": [],
+                        "verdict": {},
+                        "created_at": "2026-03-03T00:00:00+00:00",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            config = {
+                "policy": {
+                    "require_perf_improvement": False,
+                    "cost_threshold_pct": 0,
+                    "allow_seq_scan_if_rows_below": 0,
+                    "semantic_strict_mode": True,
+                },
+                "runtime": {
+                    "stage_timeout_ms": {"scan": 1, "optimize": 1, "validate": 1, "apply": 1, "report": 1},
+                    "stage_retry_max": {"scan": 0, "optimize": 0, "validate": 0, "apply": 0, "report": 0},
+                    "stage_retry_backoff_ms": 1,
+                },
+                "llm": {"enabled": False},
+                "verification": {"enforce_verified_outputs": False, "critical_output_policy": "warn"},
+            }
+            validator = ContractValidator(ROOT)
+
+            report = report_stage.generate("rpt_gate", "analyze", config, run_dir, validator)
+
+            self.assertEqual(report["evidence_confidence"], "LOW")
+            self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", report["validation_warnings"][0])
+
+            config["verification"]["enforce_verified_outputs"] = False
+            config["verification"]["critical_output_policy"] = "block"
+            with self.assertRaises(StageError):
+                report_stage.generate("rpt_gate", "analyze", config, run_dir, validator)
+            self.assertTrue((run_dir / "report.json").exists())
 
 
 if __name__ == "__main__":

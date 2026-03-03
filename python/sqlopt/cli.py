@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 from typing import Callable
@@ -114,6 +115,26 @@ def _advance_one_step(run_dir: Path, config: dict, to_stage: str, validator: Con
     )
 
 
+def _read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    rows: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rows.append(json.loads(line))
+    return rows
+
+
+def _verification_status_counts(rows: list[dict]) -> dict[str, int]:
+    counts = {"VERIFIED": 0, "PARTIAL": 0, "UNVERIFIED": 0, "SKIPPED": 0}
+    for row in rows:
+        status = str(row.get("status") or "").strip().upper()
+        if status in counts:
+            counts[status] += 1
+    return counts
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     config_path = Path(args.config)
     try:
@@ -147,6 +168,51 @@ def cmd_status(args: argparse.Namespace) -> None:
         error_info = format_error_message("RUN_NOT_FOUND", "run_id not found in run index")
         print({"run_id": args.run_id, "error": error_info})
         raise SystemExit(2)
+
+
+def cmd_verify(args: argparse.Namespace) -> None:
+    try:
+        run_dir = _resolve_run_dir(args.run_id)
+    except FileNotFoundError:
+        error_info = format_error_message("RUN_NOT_FOUND", "run_id not found in run index")
+        print({"run_id": args.run_id, "error": error_info})
+        raise SystemExit(2)
+
+    ledger_path = run_dir / "verification" / "ledger.jsonl"
+    all_records = _read_jsonl(ledger_path)
+    sql_key = str(args.sql_key)
+    phase = str(args.phase).strip() if getattr(args, "phase", None) else None
+    records = [
+        row
+        for row in all_records
+        if str(row.get("sql_key") or "") == sql_key and (phase is None or str(row.get("phase") or "") == phase)
+    ]
+    acceptance_rows = [
+        row
+        for row in _read_jsonl(run_dir / "acceptance" / "acceptance.results.jsonl")
+        if str(row.get("sqlKey") or "") == sql_key
+    ]
+    patch_rows = [
+        row
+        for row in _read_jsonl(run_dir / "patches" / "patch.results.jsonl")
+        if str(row.get("sqlKey") or "") == sql_key
+    ]
+    print(
+        {
+            "run_id": args.run_id,
+            "run_dir": str(run_dir),
+            "sql_key": sql_key,
+            "phase": phase,
+            "verification_available": ledger_path.exists(),
+            "record_count": len(records),
+            "status_counts": _verification_status_counts(records),
+            "has_unverified": any(str(row.get("status") or "").upper() == "UNVERIFIED" for row in records),
+            "has_partial": any(str(row.get("status") or "").upper() == "PARTIAL" for row in records),
+            "acceptance": acceptance_rows,
+            "patches": patch_rows,
+            "records": records,
+        }
+    )
 
 
 def cmd_validate_config(args: argparse.Namespace) -> None:
@@ -236,6 +302,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run ID to check status for",
     )
     p_status.set_defaults(func=cmd_status)
+
+    p_verify = sub.add_parser(
+        "verify",
+        help="Inspect verification evidence for one SQL",
+        description="Display verification ledger records and related outputs for a single sqlKey",
+    )
+    p_verify.add_argument(
+        "--run-id",
+        required=True,
+        help="Run ID to inspect",
+    )
+    p_verify.add_argument(
+        "--sql-key",
+        required=True,
+        help="sqlKey to inspect in the verification ledger",
+    )
+    p_verify.add_argument(
+        "--phase",
+        choices=["scan", "optimize", "validate", "patch_generate"],
+        help="Optional phase filter for verification records",
+    )
+    p_verify.set_defaults(func=cmd_verify)
 
     p_apply = sub.add_parser(
         "apply",

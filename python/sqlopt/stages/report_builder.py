@@ -7,6 +7,7 @@ from typing import Any
 from ..constants import CONTRACT_VERSION
 from ..failure_classification import classify_reason_code
 from ..io_utils import read_json
+from ..verification.summary import summarize_records
 from .report_models import (
     FailureRecord,
     ManifestEvent,
@@ -113,6 +114,59 @@ def _summarize_failures(failures: list[FailureRecord]) -> tuple[dict[str, int], 
     return reason_counts, phase_reason_counts, class_counts
 
 
+def _build_verification_gate(
+    acceptance_rows: list[dict[str, Any]],
+    patch_rows: list[dict[str, Any]],
+    verification_rows: list[dict[str, Any]],
+) -> tuple[list[str], str, dict[str, Any]]:
+    unverified_validate_sql = {
+        str(row.get("sql_key") or "")
+        for row in verification_rows
+        if str(row.get("phase") or "") == "validate" and str(row.get("status") or "").upper() == "UNVERIFIED"
+    }
+    unverified_patch_sql = {
+        str(row.get("sql_key") or "")
+        for row in verification_rows
+        if str(row.get("phase") or "") == "patch_generate" and str(row.get("status") or "").upper() == "UNVERIFIED"
+    }
+    pass_sql = {str(row.get("sqlKey") or "") for row in acceptance_rows if str(row.get("status") or "") == "PASS"}
+    applicable_patch_sql = {
+        str(row.get("sqlKey") or "")
+        for row in patch_rows
+        if row.get("applicable") is True and str(row.get("sqlKey") or "").strip()
+    }
+
+    unverified_pass_sql = sorted(sql_key for sql_key in (pass_sql & unverified_validate_sql) if sql_key)
+    unverified_applicable_patch_sql = sorted(sql_key for sql_key in (applicable_patch_sql & unverified_patch_sql) if sql_key)
+
+    warnings: list[str] = []
+    if unverified_pass_sql:
+        warnings.append(
+            f"UNVERIFIED_PASS_ACCEPTANCE: {len(unverified_pass_sql)} sql(s) have PASS acceptance without complete verification evidence"
+        )
+    if unverified_applicable_patch_sql:
+        warnings.append(
+            f"UNVERIFIED_APPLICABLE_PATCH: {len(unverified_applicable_patch_sql)} sql(s) have applicable patches without complete verification evidence"
+        )
+
+    if warnings:
+        confidence = "LOW"
+    elif any(str(row.get("status") or "").upper() == "PARTIAL" for row in verification_rows):
+        confidence = "MEDIUM"
+    else:
+        confidence = "HIGH"
+
+    return (
+        warnings,
+        confidence,
+        {
+            "unverified_pass_count": len(unverified_pass_sql),
+            "unverified_applicable_patch_count": len(unverified_applicable_patch_sql),
+            "critical_unverified_sql_keys": sorted(set(unverified_pass_sql + unverified_applicable_patch_sql)),
+        },
+    )
+
+
 def build_report_artifacts(
     run_id: str,
     mode: str,
@@ -197,6 +251,16 @@ def build_report_artifacts(
     stats["retryable_count"] = class_counts.get("retryable", 0)
     stats["degradable_count"] = class_counts.get("degradable", 0)
     stats["pipeline_coverage"] = phase_status
+    verification_summary = summarize_records(run_id, inputs.verification_rows, total_sql=len(inputs.units)).to_contract()
+    stats["verification"] = {k: v for k, v in verification_summary.items() if k != "generated_at"}
+    validation_warnings, evidence_confidence, verification_gate = _build_verification_gate(
+        inputs.acceptance,
+        inputs.patches,
+        inputs.verification_rows,
+    )
+    stats["verification"].update(verification_gate)
+    stats["validation_warnings"] = validation_warnings
+    stats["evidence_confidence"] = evidence_confidence
 
     verdict = compute_verdict(stats)
     readiness = compute_release_readiness(verdict, stats)
@@ -229,6 +293,8 @@ def build_report_artifacts(
             prioritized_sql_keys=prioritized_sql_keys,
         ),
         contract_version=CONTRACT_VERSION,
+        validation_warnings=validation_warnings or None,
+        evidence_confidence=evidence_confidence,
     )
 
     health = OpsHealthDocument(
@@ -253,4 +319,5 @@ def build_report_artifacts(
         top_blockers=top_blockers,
         sql_rows=sql_rows,
         proposal_rows=proposal_rows,
+        verification_summary=verification_summary,
     )

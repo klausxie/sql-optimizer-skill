@@ -23,6 +23,14 @@ class CliResult:
     stderr: str
 
 
+@dataclass(frozen=True)
+class NextInvocation:
+    mode: str
+    cli_args: list[str]
+    recovery_cmd: str
+    error_reason: str
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -66,19 +74,39 @@ def _run_cli(repo_root: Path, *args: str) -> CliResult:
     return CliResult(rc=proc.returncode, payload=payload, stdout=stdout, stderr=stderr)
 
 
-def _error(reason_code: str, message: str, *, run_id: str | None = None, details: dict[str, Any] | None = None) -> None:
+def _error(
+    reason_code: str,
+    message: str,
+    *,
+    run_id: str | None = None,
+    details: dict[str, Any] | None = None,
+    next_mode: str | None = None,
+    retryable: bool = False,
+) -> None:
     out: dict[str, Any] = {
         "complete": False,
+        "retryable": retryable,
         "error": {"reason_code": reason_code, "message": message},
     }
     if run_id:
         out["run_id"] = run_id
+    if next_mode:
+        out["next_mode"] = next_mode
     if details:
         out["details"] = details
     print(out)
 
 
-def _continue_cmd(config: Path, to_stage: str, run_id: str, max_steps: int, max_seconds: int) -> str:
+def _continue_cmd(
+    config: Path,
+    to_stage: str,
+    run_id: str,
+    max_steps: int,
+    max_seconds: int,
+    *,
+    next_stage: str | None = None,
+) -> str:
+    target_stage = next_stage or to_stage
     return " ".join(
         [
             sys.executable,
@@ -86,7 +114,7 @@ def _continue_cmd(config: Path, to_stage: str, run_id: str, max_steps: int, max_
             "--config",
             str(config),
             "--to-stage",
-            to_stage,
+            target_stage,
             "--run-id",
             run_id,
             "--max-steps",
@@ -107,6 +135,27 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, Any]) -> NextInvocation:
+    next_action = str(status_payload.get("next_action") or "resume")
+    if next_action == "report-rebuild":
+        recovery_cmd = f"python scripts/sqlopt_cli.py run --config {config_path} --to-stage report --run-id {run_id}"
+        return NextInvocation(
+            mode="report-rebuild",
+            cli_args=["run", "--config", str(config_path), "--to-stage", "report", "--run-id", run_id],
+            recovery_cmd=recovery_cmd,
+            error_reason="REPORT_REBUILD_FAILED",
+        )
+    if next_action in {"resume", ""}:
+        recovery_cmd = f"python scripts/sqlopt_cli.py resume --run-id {run_id}"
+        return NextInvocation(
+            mode="resume",
+            cli_args=["resume", "--run-id", run_id],
+            recovery_cmd=recovery_cmd,
+            error_reason="RESUME_FAILED",
+        )
+    raise ValueError(f"unsupported next_action: {next_action}")
+
+
 def main() -> None:
     args = _build_parser().parse_args()
     if args.max_steps <= 0:
@@ -122,6 +171,7 @@ def main() -> None:
             "CONFIG_NOT_FOUND",
             "config not found (default is ./sqlopt.yml)",
             details={"config": str(config_path)},
+            retryable=False,
         )
         raise SystemExit(2)
 
@@ -132,6 +182,7 @@ def main() -> None:
 
     started = time.monotonic()
     step_calls = 0
+    completion_mode = "pipeline"
 
     run_result = _run_cli(repo_root, *run_cmd)
     if run_result.stdout:
@@ -139,7 +190,7 @@ def main() -> None:
     run_payload = run_result.payload or {}
     run_id = str(run_payload.get("run_id") or args.run_id or "").strip()
     if not run_id:
-        _error("RUN_ID_MISSING", "run command returned no run_id", details={"stdout": run_result.stdout})
+        _error("RUN_ID_MISSING", "run command returned no run_id", details={"stdout": run_result.stdout}, retryable=False)
         raise SystemExit(2)
 
     if run_result.rc != 0 or "error" in run_payload:
@@ -149,6 +200,7 @@ def main() -> None:
             str(err.get("message") or "run command failed"),
             run_id=run_id,
             details={"next_recovery": f"python scripts/sqlopt_cli.py resume --run-id {run_id}"},
+            retryable=True,
         )
         raise SystemExit(2)
 
@@ -168,6 +220,7 @@ def main() -> None:
                 str(err.get("message") or "status command failed"),
                 run_id=run_id,
                 details={"next_recovery": f"python scripts/sqlopt_cli.py status --run-id {run_id}"},
+                retryable=True,
             )
             raise SystemExit(2)
 
@@ -177,6 +230,7 @@ def main() -> None:
                     "run_id": run_id,
                     "complete": True,
                     "reason": "completed",
+                    "completion_mode": completion_mode,
                     "steps_executed": step_calls,
                     "current_phase": status_payload.get("current_phase"),
                     "remaining_statements": status_payload.get("remaining_statements"),
@@ -190,17 +244,30 @@ def main() -> None:
                 "run entered FAILED state",
                 run_id=run_id,
                 details={"next_recovery": f"python scripts/sqlopt_cli.py resume --run-id {run_id}"},
+                retryable=True,
             )
             raise SystemExit(2)
+
+        budget_next_mode = "report-rebuild" if str(status_payload.get("next_action") or "") == "report-rebuild" else "resume"
+        budget_next_stage = "report" if budget_next_mode == "report-rebuild" else args.to_stage
 
         if step_calls >= args.max_steps:
             print(
                 {
                     "run_id": run_id,
                     "complete": False,
+                    "retryable": True,
                     "reason": "step_budget_exhausted",
                     "steps_executed": step_calls,
-                    "next_action": _continue_cmd(config_path, args.to_stage, run_id, args.max_steps, args.max_seconds),
+                    "next_mode": budget_next_mode,
+                    "next_action": _continue_cmd(
+                        config_path,
+                        args.to_stage,
+                        run_id,
+                        args.max_steps,
+                        args.max_seconds,
+                        next_stage=budget_next_stage,
+                    ),
                 }
             )
             return
@@ -210,25 +277,43 @@ def main() -> None:
                 {
                     "run_id": run_id,
                     "complete": False,
+                    "retryable": True,
                     "reason": "time_budget_exhausted",
                     "steps_executed": step_calls,
-                    "next_action": _continue_cmd(config_path, args.to_stage, run_id, args.max_steps, args.max_seconds),
+                    "next_mode": budget_next_mode,
+                    "next_action": _continue_cmd(
+                        config_path,
+                        args.to_stage,
+                        run_id,
+                        args.max_steps,
+                        args.max_seconds,
+                        next_stage=budget_next_stage,
+                    ),
                 }
             )
             return
 
-        resume_result = _run_cli(repo_root, "resume", "--run-id", run_id)
-        resume_payload = resume_result.payload or {}
-        if resume_result.stdout:
-            print(resume_result.stdout)
+        try:
+            next_invocation = _next_invocation(config_path, run_id, status_payload)
+        except ValueError as exc:
+            _error("INVALID_STATUS", str(exc), run_id=run_id, retryable=False)
+            raise SystemExit(2)
+        completion_mode = next_invocation.mode if next_invocation.mode == "report-rebuild" else completion_mode
 
-        if resume_result.rc != 0 or "error" in resume_payload:
-            err = resume_payload.get("error", {}) if isinstance(resume_payload, dict) else {}
+        step_result = _run_cli(repo_root, *next_invocation.cli_args)
+        step_payload = step_result.payload or {}
+        if step_result.stdout:
+            print(step_result.stdout)
+
+        if step_result.rc != 0 or "error" in step_payload:
+            err = step_payload.get("error", {}) if isinstance(step_payload, dict) else {}
             _error(
-                str(err.get("reason_code") or "RESUME_FAILED"),
-                str(err.get("message") or "resume command failed"),
+                str(err.get("reason_code") or next_invocation.error_reason),
+                str(err.get("message") or "follow-up command failed"),
                 run_id=run_id,
-                details={"next_recovery": f"python scripts/sqlopt_cli.py resume --run-id {run_id}"},
+                details={"next_recovery": next_invocation.recovery_cmd},
+                next_mode=next_invocation.mode,
+                retryable=True,
             )
             raise SystemExit(2)
 

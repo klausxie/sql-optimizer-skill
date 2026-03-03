@@ -119,15 +119,29 @@ python3 scripts/sqlopt_cli.py run --config sqlopt.yml
 
 重复执行直到看到 `"complete": true`。
 
+如果 `status` 返回的 `next_action` 是 `report-rebuild`，说明主流程已经完成，只需要重建 report：
+
+```bash
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage report --run-id run_20260301_123456
+```
+
 ### 6. 查看结果
 
 ```bash
 # 查看运行状态
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli status --run-id run_20260301_123456
 
+# 查看某条 SQL 的验证证据链
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id run_20260301_123456 --sql-key com.example.UserMapper.selectById#v1
+
 # 查看详细报告
 cat runs/run_20260301_123456/report.md
 ```
+
+`status` 里的 `next_action` 含义：
+- `resume`：继续推进未完成阶段
+- `report-rebuild`：上游阶段已完成，只需重建 `report.json` / `report.md` / `ops/*.json`
+- `none`：当前目标阶段已完成，无需继续
 
 ### 7. 应用优化补丁（可选）
 
@@ -159,10 +173,16 @@ python3 ~/.opencode/skills/sql-optimizer/install/doctor.py --project .
 # 6. 继续运行（如果需要）
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli resume --run-id <run_id>
 
+# 6b. 如果 status 提示 report-rebuild，则只重建 report
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run_id>
+
 # 7. 查看报告
 cat runs/<run_id>/report.md
 
-# 8. 应用补丁（可选）
+# 8. 查看某条 SQL 的验证证据（可选）
+~/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
+
+# 9. 应用补丁（可选）
 ~/.opencode/skills/sql-optimizer/bin/sqlopt-cli apply --run-id <run_id>
 ```
 

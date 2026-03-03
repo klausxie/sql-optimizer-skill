@@ -188,6 +188,18 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     if not isinstance(report_cfg.get("enabled"), bool):
         raise ConfigError("report.enabled must be boolean")
 
+    verification_cfg = cfg.setdefault("verification", {})
+    verification_cfg.setdefault("enforce_verified_outputs", False)
+    if not isinstance(verification_cfg.get("enforce_verified_outputs"), bool):
+        raise ConfigError("verification.enforce_verified_outputs must be boolean")
+    verification_cfg.setdefault("critical_output_policy", None)
+    critical_output_policy = verification_cfg.get("critical_output_policy")
+    if critical_output_policy is not None:
+        critical_output_policy = str(critical_output_policy).strip().lower()
+        if critical_output_policy not in {"warn", "block"}:
+            raise ConfigError("verification.critical_output_policy must be one of: warn, block")
+        verification_cfg["critical_output_policy"] = critical_output_policy
+
     for key in [
         "project.root_path",
         "scan.mapper_globs",

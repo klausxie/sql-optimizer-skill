@@ -20,7 +20,7 @@ class AdvanceStepRequest:
     repository: RunRepository | None = None
     run_phase_action_fn: RunPhaseAction | None = None
     record_failure_fn: RecordFailure | None = None
-    finalize_report_if_enabled_fn: Callable[..., None] | None = None
+    finalize_report_if_enabled_fn: Callable[..., bool] | None = None
     finalize_without_report_fn: Callable[..., None] | None = None
 
 

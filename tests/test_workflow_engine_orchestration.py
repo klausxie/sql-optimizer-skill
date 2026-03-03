@@ -83,6 +83,7 @@ def _initial_state() -> dict:
             "patch_generate": 0,
             "report": 0,
         },
+        "report_rebuild_required": False,
         "last_error": None,
         "last_reason_code": None,
         "updated_at": "2026-03-02T00:00:00+00:00",
@@ -137,7 +138,42 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
 
         record_failure.assert_called_once()
         self.assertEqual(record_failure.call_args.args[2], "report")
-        self.assertEqual(repo.meta_statuses, [])
+        self.assertEqual(repo.meta_statuses, ["FAILED"])
+
+    def test_finalize_report_rebuild_failure_preserves_completed_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_rebuild_fail_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["current_phase"] = "report"
+            state["phase_status"] = {
+                "preflight": "DONE",
+                "scan": "DONE",
+                "optimize": "DONE",
+                "validate": "DONE",
+                "patch_generate": "DONE",
+                "report": "DONE",
+            }
+            repo = _FakeRepository(run_dir, state, {"sql_keys": []})
+
+            result = workflow_engine.finalize_report_if_enabled(
+                run_dir,
+                {"report": {"enabled": True}},
+                self._validator(),
+                state,
+                final_meta_status="COMPLETED",
+                repository=repo,
+                run_phase_action_fn=lambda config, phase, fn: (_ for _ in ()).throw(
+                    StageError("report failed", reason_code="REPORT_FAILED")
+                ),
+            )
+
+        self.assertFalse(result)
+        self.assertEqual(state["phase_status"]["report"], "DONE")
+        self.assertTrue(state["report_rebuild_required"])
+        self.assertEqual(state["last_reason_code"], "REPORT_FAILED")
+        self.assertEqual(repo.meta_statuses, ["COMPLETED"])
+        self.assertEqual(repo.step_results[-1][0:2], ("report", "FAILED"))
+        self.assertTrue(repo.step_results[-1][2]["detail"]["rebuild"])
 
     def test_advance_preflight_failure_without_report_sets_failed_meta(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_preflight_fail_") as td:
@@ -370,6 +406,69 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         self.assertEqual(repo.step_results[-1][0:2], ("patch_generate", "FAILED"))
         finalize_report.assert_not_called()
         self.assertEqual(repo.meta_statuses, ["FAILED"])
+
+    def test_advance_rebuilds_report_when_pipeline_is_already_complete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_resume_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["current_phase"] = "report"
+            state["phase_status"] = {
+                "preflight": "DONE",
+                "scan": "DONE",
+                "optimize": "DONE",
+                "validate": "DONE",
+                "patch_generate": "DONE",
+                "report": "DONE",
+            }
+            state["report_rebuild_required"] = True
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            finalize_report = Mock(return_value=True)
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
+                with patch("sqlopt.application.workflow_engine.load_index", return_value=({}, {}, {})):
+                    result = workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": True}, "validate": {}},
+                        "patch_generate",
+                        self._validator(),
+                        repository=repo,
+                        finalize_report_if_enabled_fn=finalize_report,
+                    )
+
+        self.assertEqual(result, {"complete": True, "phase": "report"})
+        finalize_report.assert_called_once()
+
+    def test_advance_marks_report_skipped_when_report_is_disabled_after_completion(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_skip_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["current_phase"] = "report"
+            state["phase_status"] = {
+                "preflight": "DONE",
+                "scan": "DONE",
+                "optimize": "DONE",
+                "validate": "DONE",
+                "patch_generate": "DONE",
+                "report": "PENDING",
+            }
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            finalize_without_report = Mock(
+                side_effect=lambda *_args, **_kwargs: state["phase_status"].__setitem__("report", "SKIPPED")
+            )
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
+                with patch("sqlopt.application.workflow_engine.load_index", return_value=({}, {}, {})):
+                    result = workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": False}, "validate": {}},
+                        "patch_generate",
+                        self._validator(),
+                        repository=repo,
+                        finalize_without_report_fn=finalize_without_report,
+                    )
+
+        self.assertEqual(result, {"complete": True, "phase": "report"})
+        finalize_without_report.assert_called_once()
 
 
 if __name__ == "__main__":

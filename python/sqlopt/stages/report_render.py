@@ -2,16 +2,19 @@ from __future__ import annotations
 
 
 def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, phase_status: dict[str, str]) -> str:
+    verification = stats.get("verification") or {}
     return "\n".join(
         [
             f"# SQL Optimize Summary: {run_id}",
             "",
             f"- Verdict: `{verdict}`",
             f"- Release Readiness: `{readiness}`",
+            f"- Evidence Confidence: `{stats.get('evidence_confidence', 'unknown')}`",
             f"- SQL Units: `{stats.get('sql_units', 0)}`",
             f"- Acceptance: pass `{stats.get('acceptance_pass', 0)}`, fail `{stats.get('acceptance_fail', 0)}`, need params `{stats.get('acceptance_need_more_params', 0)}`",
             f"- Delivery: patches `{stats.get('patch_files', 0)}`, applicable `{stats.get('patch_applicable_count', 0)}`",
             f"- Failures: fatal `{stats.get('fatal_count', 0)}`, retryable `{stats.get('retryable_count', 0)}`, degradable `{stats.get('degradable_count', 0)}`",
+            f"- Verification: verified `{verification.get('verified_count', 0)}`, partial `{verification.get('partial_count', 0)}`, unverified `{verification.get('unverified_count', 0)}`",
             f"- Phase Status: preflight `{phase_status.get('preflight', 'PENDING')}`, scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
             "",
         ]
@@ -30,15 +33,18 @@ def render_report_md(
     sql_rows: list[dict],
     proposal_rows: list[dict],
 ) -> str:
+    verification = stats.get("verification") or {}
     lines = [
         f"# SQL Optimize Report: {run_id}",
         "",
         "## Executive Decision",
         f"- Release Readiness: `{readiness}`",
         f"- Verdict: `{verdict}`",
+        f"- Evidence Confidence: `{stats.get('evidence_confidence', 'unknown')}`",
         f"- Scope: SQL units `{stats.get('sql_units', 0)}`, proposals `{stats.get('proposals', 0)}`",
         f"- Delivery Snapshot: patches `{stats.get('patch_files', 0)}`, applicable `{stats.get('patch_applicable_count', 0)}`, blocked sql `{stats.get('blocked_sql_count', 0)}`",
         f"- Perf Evidence: improved `{stats.get('perf_improved_count', 0)}`, not improved `{stats.get('perf_compared_but_not_improved_count', 0)}`",
+        f"- Verification: verified `{verification.get('verified_count', 0)}`, partial `{verification.get('partial_count', 0)}`, unverified `{verification.get('unverified_count', 0)}`",
         f"- Materialization: `{stats.get('materialization_mode_counts', {})}`",
         f"- Materialization Reasons: `{stats.get('materialization_reason_counts', {})}`",
         f"- Materialization Actions: `{stats.get('materialization_reason_group_counts', {})}`",
@@ -115,14 +121,28 @@ def render_report_md(
     else:
         lines.append("- None")
 
+    validation_warnings = stats.get("validation_warnings") or []
+    lines.extend(["", "## Verification Warnings"])
+    if validation_warnings:
+        for warning in validation_warnings:
+            lines.append(f"- {warning}")
+    else:
+        lines.append("- None")
+
     lines.extend(
         [
+            "",
+            "## Verification Coverage",
+            f"- phase coverage: `{verification.get('coverage_by_phase', {})}`",
+            f"- top gaps: `{verification.get('top_reason_codes', [])}`",
+            f"- blocking sql: `{verification.get('blocking_sql_keys', [])}`",
             "",
             "## Appendix",
             f"- report.json: `{run_id}/report.json`",
             f"- proposals: `{run_id}/proposals/optimization.proposals.jsonl`",
             f"- acceptance: `{run_id}/acceptance/acceptance.results.jsonl`",
             f"- patches: `{run_id}/patches/patch.results.jsonl`",
+            f"- verification: `{run_id}/verification/ledger.jsonl`",
             f"- failures: `{run_id}/ops/failures.jsonl`",
             "",
         ]

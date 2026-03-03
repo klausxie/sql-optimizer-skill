@@ -35,6 +35,9 @@
 4. 至少一份真实项目运行样例可复现
 5. 文档描述与当前默认行为一致
 6. CI 中显式 `Architecture guards` 步骤已通过
+7. 显式 `to_stage=report` 重建后：
+   - `report.json.stats` 不重复累计
+   - `supervisor/results/report.jsonl` 不重复追加 `DONE`
 
 ## 5. 离线 Smoke Run（推荐）
 1. 将 `tests/fixtures/project` 复制到临时目录，避免污染仓库内 fixture
@@ -59,3 +62,4 @@
 7. 如需单独排查，可分别执行：
    - `python3 scripts/ci/opencode_smoke_acceptance.py`
    - `python3 scripts/ci/degraded_runtime_acceptance.py`
+   - `python3 scripts/ci/report_rebuild_acceptance.py`

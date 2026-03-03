@@ -42,6 +42,63 @@ class WorkflowEngineRequestsTest(unittest.TestCase):
         self.assertEqual(snapshot["next_action"], "resume")
         self.assertFalse(snapshot["complete"])
 
+    def test_build_status_snapshot_marks_completed_run_for_report_rebuild(self) -> None:
+        request = RunStatusRequest(
+            run_id="run_demo",
+            state={
+                "current_phase": "report",
+                "phase_status": {
+                    "preflight": "DONE",
+                    "scan": "DONE",
+                    "optimize": "DONE",
+                    "validate": "DONE",
+                    "patch_generate": "DONE",
+                    "report": "DONE",
+                },
+                "statements": {},
+                "attempts_by_phase": {"report": 2},
+                "report_rebuild_required": True,
+                "last_reason_code": "REPORT_FAILED",
+            },
+            plan={"to_stage": "patch_generate"},
+            meta={"status": "COMPLETED"},
+            config={"report": {"enabled": True}},
+        )
+
+        snapshot = workflow_engine.build_status_snapshot(request)
+
+        self.assertTrue(snapshot["complete"])
+        self.assertEqual(snapshot["next_action"], "report-rebuild")
+        self.assertEqual(snapshot["run_status"], "COMPLETED")
+
+    def test_build_status_snapshot_completed_run_has_no_follow_up_action(self) -> None:
+        request = RunStatusRequest(
+            run_id="run_done",
+            state={
+                "current_phase": "report",
+                "phase_status": {
+                    "preflight": "DONE",
+                    "scan": "DONE",
+                    "optimize": "DONE",
+                    "validate": "DONE",
+                    "patch_generate": "DONE",
+                    "report": "DONE",
+                },
+                "statements": {},
+                "attempts_by_phase": {"report": 1},
+                "report_rebuild_required": False,
+                "last_reason_code": None,
+            },
+            plan={"to_stage": "patch_generate"},
+            meta={"status": "COMPLETED"},
+            config={"report": {"enabled": True}},
+        )
+
+        snapshot = workflow_engine.build_status_snapshot(request)
+
+        self.assertTrue(snapshot["complete"])
+        self.assertEqual(snapshot["next_action"], "none")
+
     def test_advance_one_step_wrapper_builds_request_object(self) -> None:
         captured: dict[str, object] = {}
 

@@ -53,7 +53,7 @@ class ReleaseAcceptanceScriptTest(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["name"], "demo")
 
-    def test_main_runs_both_steps_and_prints_combined_payload(self) -> None:
+    def test_main_runs_all_steps_and_prints_combined_payload(self) -> None:
         module = _load_module()
         calls: list[str] = []
 
@@ -66,11 +66,21 @@ class ReleaseAcceptanceScriptTest(unittest.TestCase):
             with redirect_stdout(buf):
                 module.main()
 
-        self.assertEqual(calls, ["opencode_smoke_acceptance.py", "degraded_runtime_acceptance.py"])
+        self.assertEqual(
+            calls,
+            [
+                "opencode_smoke_acceptance.py",
+                "degraded_runtime_acceptance.py",
+                "report_rebuild_acceptance.py",
+                "verification_chain_acceptance.py",
+            ],
+        )
         payload = json.loads(buf.getvalue().strip())
         self.assertTrue(payload["ok"])
         self.assertIn("opencode_install_smoke", payload["steps"])
         self.assertIn("degraded_runtime", payload["steps"])
+        self.assertIn("report_rebuild", payload["steps"])
+        self.assertIn("verification_chain", payload["steps"])
 
 
 if __name__ == "__main__":

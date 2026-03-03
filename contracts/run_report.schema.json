@@ -119,7 +119,8 @@
         "db_unreachable_high_rate_threshold": {"type": ["number", "null"]},
         "ineffective_reason_counts": {"type": ["object", "null"]},
         "active_gate_current_consecutive_passes": {"type": ["integer", "null"]},
-        "active_gate_required_consecutive_runs": {"type": ["integer", "null"]}
+        "active_gate_required_consecutive_runs": {"type": ["integer", "null"]},
+        "verification": {"type": ["object", "null"]}
       }
     },
     "items": {

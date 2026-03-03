@@ -170,6 +170,22 @@ ERROR_MESSAGES = {
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#patch-conflicts"
     },
+    "VERIFICATION_GATE_FAILED": {
+        "title": "Verification Gate Failed",
+        "description": "A critical output was produced without complete verification evidence.",
+        "causes": [
+            "A PASS acceptance result is marked UNVERIFIED in the verification ledger",
+            "An applicable patch is marked UNVERIFIED in the verification ledger",
+            "Verification evidence is incomplete for a critical output"
+        ],
+        "suggestions": [
+            "Inspect runs/<run_id>/verification/ledger.jsonl for the failing phase evidence",
+            "Review report.json validation_warnings and evidence_confidence",
+            "Set verification.critical_output_policy=warn (or legacy verification.enforce_verified_outputs=false) only if you accept the risk",
+            "Fix the missing evidence path before re-running release acceptance"
+        ],
+        "doc_link": "docs/TROUBLESHOOTING.md#verification"
+    },
     "INSUFFICIENT_PERMISSIONS": {
         "title": "Insufficient Permissions",
         "description": "Unable to read or write required files.",

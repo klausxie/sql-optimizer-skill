@@ -13,6 +13,7 @@ ROOT_KEYS = {
     "runtime",
     "report",
     "llm",
+    "verification",
     "config_version",
 }
 
@@ -64,4 +65,5 @@ REASON_CODES = {
     "RUNTIME_STAGE_TIMEOUT",
     "RUNTIME_RETRY_EXHAUSTED",
     "RUNTIME_SCHEMA_VALIDATION_FAILED",
+    "VERIFICATION_GATE_FAILED",
 }

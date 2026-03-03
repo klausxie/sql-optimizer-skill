@@ -87,6 +87,31 @@ llm:
         self.assertEqual(loaded["llm"]["provider"], "direct_openai_compatible")
         self.assertEqual(loaded["llm"]["api_model"], "m")
 
+    def test_verification_gate_policy_defaults_warn_and_accepts_block(self) -> None:
+        cfg = self._write_cfg(
+            """\
+verification:
+  critical_output_policy: block
+"""
+        )
+        loaded = load_config(cfg)
+        self.assertEqual(loaded["verification"]["critical_output_policy"], "block")
+
+        default_cfg = self._write_cfg("")
+        default_loaded = load_config(default_cfg)
+        self.assertFalse(default_loaded["verification"]["enforce_verified_outputs"])
+        self.assertIsNone(default_loaded["verification"]["critical_output_policy"])
+
+    def test_verification_gate_policy_rejects_invalid_value(self) -> None:
+        cfg = self._write_cfg(
+            """\
+verification:
+  critical_output_policy: strict
+"""
+        )
+        with self.assertRaises(ConfigError):
+            load_config(cfg)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -22,9 +23,38 @@ from .run_repository import RunRepository
 STAGE_ORDER = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
 
 RunPhaseAction = Callable[[dict[str, Any], str, Callable[[], object]], tuple[object, int]]
-FinalizeReport = Callable[[Path, dict[str, Any], ContractValidator, dict[str, Any]], None]
+FinalizeReport = Callable[[Path, dict[str, Any], ContractValidator, dict[str, Any]], bool]
 FinalizeWithoutReport = Callable[[Path, dict[str, Any]], None]
 RecordFailure = Callable[[Path, dict[str, Any], str, str, str], None]
+
+
+@dataclass(frozen=True)
+class PhaseExecutionPolicy:
+    phase: str
+    allow_regenerate: bool = False
+
+
+@dataclass(frozen=True)
+class ResumeDecision:
+    phase: str
+    final_meta_status: str
+
+
+@dataclass(frozen=True)
+class StatusResolution:
+    complete: bool
+    next_action: str
+    current_sql_key: str | None
+
+
+PHASE_POLICIES = {
+    "preflight": PhaseExecutionPolicy("preflight"),
+    "scan": PhaseExecutionPolicy("scan"),
+    "optimize": PhaseExecutionPolicy("optimize"),
+    "validate": PhaseExecutionPolicy("validate"),
+    "patch_generate": PhaseExecutionPolicy("patch_generate"),
+    "report": PhaseExecutionPolicy("report", allow_regenerate=True),
+}
 
 
 def runs_root(config: dict[str, Any]) -> Path:
@@ -52,6 +82,10 @@ def report_enabled(config: dict[str, Any]) -> bool:
     return bool((config.get("report", {}) or {}).get("enabled", True))
 
 
+def report_rebuild_required(state: dict[str, Any]) -> bool:
+    return bool(state.get("report_rebuild_required", False))
+
+
 def is_complete_to_stage(state: dict[str, Any], to_stage: str, *, include_report: bool = False) -> bool:
     target = "report" if include_report else to_stage
     for phase in STAGE_ORDER:
@@ -61,6 +95,73 @@ def is_complete_to_stage(state: dict[str, Any], to_stage: str, *, include_report
         if status not in {"DONE", "SKIPPED"}:
             return False
     return False
+
+
+def resolve_report_resume_decision(state: dict[str, Any], to_stage: str, config: dict[str, Any]) -> ResumeDecision | None:
+    report_policy = PHASE_POLICIES["report"]
+    if report_enabled(config):
+        if to_stage == "report" and report_policy.allow_regenerate:
+            if not is_complete_to_stage(state, "patch_generate", include_report=False):
+                return None
+            return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+        if is_complete_to_stage(state, to_stage, include_report=False):
+            report_status = state["phase_status"].get("report")
+            if report_status != "DONE" or report_rebuild_required(state):
+                return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+        return None
+
+    if to_stage == "report":
+        if not is_complete_to_stage(state, "patch_generate", include_report=False):
+            return None
+        return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+    if is_complete_to_stage(state, to_stage, include_report=False) and state["phase_status"].get("report") != "SKIPPED":
+        return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+    return None
+
+
+def resolve_status(request: RunStatusRequest) -> StatusResolution:
+    report_on = report_enabled(request.config)
+    report_status = request.state.get("phase_status", {}).get("report")
+    target_stage = request.plan.get("to_stage", "patch_generate")
+    report_resume = resolve_report_resume_decision(request.state, target_stage, request.config)
+    base_complete = is_complete_to_stage(request.state, target_stage, include_report=report_on)
+    report_rebuild = report_rebuild_required(request.state)
+    report_done = report_status == "DONE"
+    complete = base_complete or (report_on and report_done and report_rebuild and request.meta.get("status") == "COMPLETED")
+    if not report_on and report_resume is not None:
+        complete = False
+
+    current_phase = request.state.get("current_phase")
+    if isinstance(current_phase, str) and current_phase in {"optimize", "validate", "patch_generate"} and not complete:
+        current_sql_key = next_pending_sql(request.state, current_phase)
+    else:
+        current_sql_key = None
+
+    report_action_required = report_resume is not None
+    if report_on and target_stage == "report":
+        report_action_required = is_complete_to_stage(request.state, "patch_generate", include_report=False) and (
+            report_status != "DONE" or report_rebuild
+        )
+
+    if report_action_required:
+        if report_on and (report_rebuild or report_status != "DONE"):
+            next_action = "report-rebuild"
+        elif not report_on:
+            next_action = "resume"
+        else:
+            next_action = "report-rebuild"
+    elif not complete:
+        next_action = "resume"
+    else:
+        next_action = "none"
+
+    return StatusResolution(complete=complete, next_action=next_action, current_sql_key=current_sql_key)
+
+
+def report_phase_complete_for_result(state: dict[str, Any], to_stage: str, config: dict[str, Any]) -> bool:
+    if report_enabled(config):
+        return is_complete_to_stage(state, to_stage, include_report=True)
+    return is_complete_to_stage(state, to_stage, include_report=False) and state["phase_status"].get("report") == "SKIPPED"
 
 
 def load_index(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -124,16 +225,18 @@ def finalize_report_if_enabled(
     repository: RunRepository | None = None,
     run_phase_action_fn: RunPhaseAction | None = None,
     record_failure_fn: RecordFailure | None = None,
-) -> None:
+) -> bool:
     if not report_enabled(config):
-        return
+        return False
     repo = repository or RunRepository(run_dir)
     phase_action = run_phase_action_fn or run_phase_action
     on_failure = record_failure_fn or record_failure
+    report_was_done = state["phase_status"].get("report") == "DONE"
     # Persist the final report phase state before rendering so report artifacts
     # read the same phase coverage that status/state will expose afterwards.
     state["phase_status"]["report"] = "DONE"
     state["current_phase"] = "report"
+    state["report_rebuild_required"] = True
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
     repo.save_state(state)
     try:
@@ -143,13 +246,41 @@ def finalize_report_if_enabled(
             lambda: report_stage.generate(run_dir.name, "analyze", config, run_dir, validator),
         )
     except StageError as exc:
-        on_failure(run_dir, state, "report", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-        return
+        reason_code = exc.reason_code or "RUNTIME_RETRY_EXHAUSTED"
+        if report_was_done:
+            state["phase_status"]["report"] = "DONE"
+            state["current_phase"] = "report"
+            state["last_error"] = str(exc)
+            state["last_reason_code"] = reason_code
+            state["report_rebuild_required"] = True
+            state["updated_at"] = datetime.now(timezone.utc).isoformat()
+            repo.save_state(state)
+            repo.append_step_result(
+                "report",
+                "FAILED",
+                reason_code=reason_code,
+                artifact_refs=[str(run_dir / "manifest.jsonl")],
+                detail={"message": str(exc), "rebuild": True},
+            )
+            log_event(run_dir / "manifest.jsonl", "report", "failed", {"reason_code": reason_code, "message": str(exc)})
+            repo.set_meta_status(final_meta_status)
+            return False
+
+        on_failure(run_dir, state, "report", reason_code, str(exc))
+        state["report_rebuild_required"] = True
+        state["current_phase"] = "report"
+        state["updated_at"] = datetime.now(timezone.utc).isoformat()
+        repo.save_state(state)
+        repo.set_meta_status("READY_TO_FINALIZE" if final_meta_status == "COMPLETED" else final_meta_status)
+        return False
     state["attempts_by_phase"]["report"] += attempts
+    state["report_rebuild_required"] = False
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
     repo.save_state(state)
-    repo.append_step_result("report", "DONE", artifact_refs=[str(run_dir / "report.json")])
+    if not report_was_done:
+        repo.append_step_result("report", "DONE", artifact_refs=[str(run_dir / "report.json")])
     repo.set_meta_status(final_meta_status)
+    return True
 
 
 def finalize_without_report(
@@ -160,10 +291,13 @@ def finalize_without_report(
     repository: RunRepository | None = None,
 ) -> None:
     repo = repository or RunRepository(run_dir)
+    report_was_skipped = state["phase_status"].get("report") == "SKIPPED"
     state["phase_status"]["report"] = "SKIPPED"
+    state["report_rebuild_required"] = False
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
     repo.save_state(state)
-    repo.append_step_result("report", "SKIPPED")
+    if not report_was_skipped:
+        repo.append_step_result("report", "SKIPPED")
     repo.set_meta_status(final_meta_status)
 
 
@@ -176,7 +310,7 @@ def advance_one_step(
     repository: RunRepository | None = None,
     run_phase_action_fn: RunPhaseAction | None = None,
     record_failure_fn: RecordFailure | None = None,
-    finalize_report_if_enabled_fn: Callable[..., None] | None = None,
+    finalize_report_if_enabled_fn: Callable[..., bool] | None = None,
     finalize_without_report_fn: Callable[..., None] | None = None,
 ) -> dict[str, Any]:
     request = AdvanceStepRequest(
@@ -413,14 +547,18 @@ def advance_one_step_request(request: AdvanceStepRequest) -> dict[str, Any]:
         )
         return {"complete": False, "phase": "patch_generate", "sql_key": key}
 
-    if to_stage == "report":
+    report_resume = resolve_report_resume_decision(state, to_stage, config)
+    if report_resume is not None:
         if report_enabled(config):
-            finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-            if state["phase_status"]["report"] != "DONE":
-                raise StageError("report finalization failed", reason_code="RUNTIME_RETRY_EXHAUSTED")
+            report_ok = finalize_report(run_dir, config, validator, state, final_meta_status=report_resume.final_meta_status)
+            if to_stage == "report" and not report_ok:
+                raise StageError(
+                    "report finalization failed",
+                    reason_code=state.get("last_reason_code") or "RUNTIME_RETRY_EXHAUSTED",
+                )
         else:
-            finalize_without(run_dir, state, final_meta_status="COMPLETED")
-        return {"complete": True, "phase": "report"}
+            finalize_without(run_dir, state, final_meta_status=report_resume.final_meta_status)
+        return {"complete": report_phase_complete_for_result(state, to_stage, config), "phase": report_resume.phase}
 
     return {
         "complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)),
@@ -429,27 +567,18 @@ def advance_one_step_request(request: AdvanceStepRequest) -> dict[str, Any]:
 
 
 def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:
-    complete = is_complete_to_stage(
-        request.state,
-        request.plan.get("to_stage", "patch_generate"),
-        include_report=report_enabled(request.config),
-    )
+    status = resolve_status(request)
     pending = [k for k, v in request.state.get("statements", {}).items() if any(x == "PENDING" for x in v.values())]
-    current_phase = request.state.get("current_phase")
-    if isinstance(current_phase, str) and current_phase in {"optimize", "validate", "patch_generate"} and not complete:
-        current_sql_key = next_pending_sql(request.state, current_phase)
-    else:
-        current_sql_key = None
     return {
         "run_id": request.run_id,
-        "current_phase": current_phase,
-        "current_sql_key": current_sql_key,
+        "current_phase": request.state.get("current_phase"),
+        "current_sql_key": status.current_sql_key,
         "phase_status": request.state.get("phase_status"),
         "run_status": request.meta.get("status"),
         "remaining_statements": len(pending),
         "pending_by_phase": pending_by_phase(request.state),
         "attempts_by_phase": request.state.get("attempts_by_phase", {}),
         "last_reason_code": request.state.get("last_reason_code"),
-        "complete": complete,
-        "next_action": "resume" if not complete else "report-ready",
+        "complete": status.complete,
+        "next_action": status.next_action,
     }

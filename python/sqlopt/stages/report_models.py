@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -18,6 +18,7 @@ class ReportInputs:
     patches: list[dict[str, Any]]
     state: ReportStateSnapshot
     manifest_rows: list["ManifestEvent"]
+    verification_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -99,12 +100,16 @@ class RunReportDocument:
     items: RunReportItems
     summary: RunReportSummary
     contract_version: str
+    validation_warnings: list[str] | None = None
+    evidence_confidence: str | None = None
 
     def to_contract(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "mode": self.mode,
             "llm_gate": self.llm_gate,
+            "validation_warnings": self.validation_warnings,
+            "evidence_confidence": self.evidence_confidence,
             "policy": self.policy,
             "stats": self.stats,
             "items": self.items.to_contract(),
@@ -170,6 +175,7 @@ class ReportArtifacts:
     top_blockers: list[dict[str, Any]]
     sql_rows: list[dict[str, Any]]
     proposal_rows: list[dict[str, Any]]
+    verification_summary: dict[str, Any] = field(default_factory=dict)
 
     def failures_to_contract(self) -> list[dict[str, Any]]:
         return [row.to_contract() for row in self.failures]

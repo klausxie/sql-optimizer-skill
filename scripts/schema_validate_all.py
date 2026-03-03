@@ -20,7 +20,12 @@ for row in read_jsonl(p / "acceptance" / "acceptance.results.jsonl"):
     v.validate("acceptance_result", row)
 for row in read_jsonl(p / "patches" / "patch.results.jsonl"):
     v.validate("patch_result", row)
+for row in read_jsonl(p / "verification" / "ledger.jsonl"):
+    v.validate("verification_record", row)
 v.validate("run_report", read_json(p / "report.json"))
 v.validate("ops_health", read_json(p / "ops" / "health.json"))
 v.validate("ops_topology", read_json(p / "ops" / "topology.json"))
+summary_path = p / "verification" / "summary.json"
+if summary_path.exists():
+    v.validate("verification_summary", read_json(summary_path))
 print("ok")
