@@ -18,6 +18,7 @@ from .candidate_selection import (
 )
 from .template_materializer import build_rewrite_materialization
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
+from .llm_semantic_check import integrate_llm_semantic_check
 
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -157,6 +158,21 @@ def validate_proposal(
         rejected_placeholder_semantics,
     )
 
+    # Phase 3: LLM 语义等价性检查（可选）
+    llm_semantic_result: dict[str, Any] = {}
+    llm_semantic_warnings: list[str] = []
+    llm_cfg = (config or {}).get("llm", {}) or {}
+    if llm_cfg.get("enabled", False) and selection.rewritten_sql != sql:
+        should_override, llm_warnings, llm_result = integrate_llm_semantic_check(
+            original_sql=sql,
+            rewritten_sql=selection.rewritten_sql,
+            db_equivalence_result=selection.equivalence.to_contract(),
+            llm_cfg=llm_cfg,
+            config=config,
+        )
+        llm_semantic_result = llm_result
+        llm_semantic_warnings = llm_warnings
+
     rewrite_materialization, template_rewrite_ops = _derive_rewrite_materialization(
         sql_unit,
         selection.rewritten_sql,
@@ -180,6 +196,9 @@ def validate_proposal(
         rewrite_materialization=rewrite_materialization,
     )
 
+    # 合并警告
+    all_warnings = list(decision.warnings) + llm_semantic_warnings
+
     return ValidationResult(
         sql_key=sql_unit["sqlKey"],
         status=decision.status,
@@ -192,7 +211,7 @@ def validate_proposal(
         selected_candidate_source=selected_source,
         selected_candidate_id=selection.selected_candidate_id,
         candidate_evaluations=selection.candidate_evaluations_to_contract(),
-        warnings=decision.warnings,
+        warnings=all_warnings,
         risk_flags=risk_flags,
         rewrite_materialization=rewrite_materialization,
         template_rewrite_ops=template_rewrite_ops,
@@ -205,4 +224,5 @@ def validate_proposal(
         selection_rationale=selection.selection_rationale,
         delivery_readiness=selection.delivery_readiness,
         decision_layers=decision_layers,
+        llm_semantic_check=llm_semantic_result or None,
     )

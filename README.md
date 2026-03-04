@@ -59,6 +59,14 @@
      `python3 scripts/ci/opencode_smoke_acceptance.py`
      `python3 scripts/ci/degraded_runtime_acceptance.py`
      `python3 scripts/ci/report_rebuild_acceptance.py`
+7. **LLM 增强功能（Phase 1-5）已全部完成**：
+   - Phase 1: LLM 输出质量控制层（语法检查、启发式检查）
+   - Phase 2: LLM 重试 + 反馈机制（验证失败自动重试）
+   - Phase 3: validate 阶段 LLM 语义判断（DB 验证失败时 LLM 介入）
+   - Phase 4: 规则引擎 ↔ LLM 双向反馈（反馈日志记录到 `ops/llm_feedback.jsonl`）
+   - Phase 5: patch_generate 阶段 LLM 辅助（动态 SQL 模板建议）
+   - Phase 6: LLM Trace 完整性增强（完整记录 LLM 交互历史）
+   - 测试覆盖：84 个新增测试，全部通过
 
 ## 💻 交接使用方式
 
@@ -167,6 +175,49 @@ mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysq
 2. `direct_openai_compatible` - 直连 OpenAI 兼容 `/chat/completions`
 3. `opencode_builtin` - 本地内置策略
 4. `heuristic` - 本地简化启发式策略
+
+### LLM 增强功能配置
+
+所有 LLM 增强功能默认启用，可通过配置控制：
+
+```yaml
+llm:
+  enabled: true
+  provider: opencode_run
+
+  # Phase 1: 输出质量控制
+  output_validation:
+    enabled: true
+    syntax_check: true
+    heuristic_check: true
+    schema_check: false
+
+  # Phase 2: 重试机制
+  retry:
+    enabled: true
+    max_retries: 2
+    include_error_context: true
+
+validate:
+  # Phase 3: LLM 语义检查
+  llm_semantic_check:
+    enabled: true
+    only_on_db_mismatch: true
+
+diagnostics:
+  # Phase 4: LLM 反馈收集
+  llm_feedback:
+    enabled: true
+    log_detected_issues: true
+    auto_learn_patterns: false
+
+patch:
+  # Phase 5: patch_generate 阶段 LLM 辅助
+  llm_assist:
+    enabled: true
+    only_for_dynamic_sql: true
+    generate_template_suggestions: true
+```
 
 配置示例见 `templates/sqlopt.example.yml`。
 

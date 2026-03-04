@@ -14,11 +14,6 @@ db:
   dsn: postgresql://postgres:Aa28012801@127.0.0.1:5432/postgres?sslmode=disable
   schema: public
 
-validate:
-  db_reachable: true
-  validation_profile: balanced
-  allow_db_unreachable_fallback: false
-
 apply:
   mode: APPLY_IN_PLACE
 
@@ -53,3 +48,44 @@ llm:
   api_key: sk-56f90dbbfd6e44aab99fa2f5f04037a8
   api_model: deepseek-chat
   api_timeout_ms: 30000
+
+  # Phase 1: 输出质量控制
+  output_validation:
+    enabled: true
+    syntax_check: true
+    heuristic_check: true
+    schema_check: false
+
+  # Phase 2: 重试机制
+  retry:
+    enabled: true
+    max_retries: 2
+    include_error_context: true
+
+validate:
+  db_reachable: true
+  validation_profile: balanced
+  allow_db_unreachable_fallback: false
+
+  # Phase 3: LLM 语义检查
+  llm_semantic_check:
+    enabled: true
+    only_on_db_mismatch: true
+
+diagnostics:
+  rulepacks:
+    - builtin: core
+    - builtin: performance
+
+  # Phase 4: LLM 反馈收集
+  llm_feedback:
+    enabled: true
+    log_detected_issues: true
+    auto_learn_patterns: false
+
+patch:
+  # Phase 5: patch_generate 阶段 LLM 辅助
+  llm_assist:
+    enabled: true
+    only_for_dynamic_sql: true
+    generate_template_suggestions: true

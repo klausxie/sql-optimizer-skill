@@ -94,19 +94,18 @@ class ReportClassificationTest(unittest.TestCase):
             self.assertIn('"classification": "retryable"', failures)
             self.assertIn('"classification": "fatal"', failures)
             report_md = (run_dir / "report.md").read_text(encoding="utf-8")
-            self.assertIn("## Executive Decision", report_md)
-            self.assertIn("## Top Actionable SQL", report_md)
-            self.assertIn("Why Now", report_md)
-            self.assertIn("## Change Portfolio", report_md)
-            self.assertIn("## Proposal Insights", report_md)
-            self.assertIn("## Action Plan (Next 24h)", report_md)
+            self.assertIn("## 执行决策", report_md)
+            self.assertIn("## 优先处理的 SQL", report_md)
+            self.assertIn("当前原因", report_md)
+            self.assertIn("## 变更组合", report_md)
+            self.assertIn("## 优化建议分析", report_md)
+            self.assertIn("## 行动计划", report_md)
             self.assertIn("proposals/optimization.proposals.jsonl", report_md)
-            self.assertIn("Materialization", report_md)
-            self.assertIn("Materialization Reasons", report_md)
-            self.assertIn("Materialization Actions", report_md)
+            self.assertIn("物化", report_md)
+            self.assertIn("## 验证警告", report_md)
             summary_md = (run_dir / "report.summary.md").read_text(encoding="utf-8")
-            self.assertIn("## Top Actionable SQL", summary_md)
-            self.assertIn("lower-confidence than the leading candidates", summary_md)
+            self.assertIn("## 优先处理的 SQL", summary_md)
+            self.assertIn("当前置信度低于领先候选", summary_md)
 
     def test_report_generate_tolerates_missing_stage_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_report_") as td:
@@ -210,7 +209,7 @@ class ReportClassificationTest(unittest.TestCase):
             self.assertEqual(report["evidence_confidence"], "LOW")
             self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", report["validation_warnings"][0])
             summary_md = (run_dir / "report.summary.md").read_text(encoding="utf-8")
-            self.assertIn("## Warnings", summary_md)
+            self.assertIn("## 警告", summary_md)
             self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", summary_md)
 
             config["verification"]["enforce_verified_outputs"] = False

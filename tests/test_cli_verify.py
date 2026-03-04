@@ -547,11 +547,11 @@ class CliVerifyTest(unittest.TestCase):
 
         text = buf.getvalue()
         self.assertIn("SQL: demo.user.findUsers#v1", text)
-        self.assertIn("Decision:", text)
-        self.assertIn("Delivery:", text)
-        self.assertIn("Top Hint: Check target mapper drift", text)
-        self.assertIn("Next Step:", text)
-        self.assertNotIn("Warnings:", text)
+        self.assertIn("决策：", text)
+        self.assertIn("交付评估：", text)
+        self.assertIn("首要提示：", text)
+        self.assertIn("下一步：", text)
+        self.assertNotIn("警告：", text)
 
 
 if __name__ == "__main__":

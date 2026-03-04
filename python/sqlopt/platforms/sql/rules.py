@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -192,3 +194,137 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
         "verdict": verdict,
         "triggeredRules": triggered_rules,
     }
+
+
+def load_llm_feedback(run_dir: Path) -> list[dict[str, Any]]:
+    """加载 LLM 反馈记录
+
+    从运行目录中加载之前运行收集的 LLM 反馈。
+
+    Args:
+        run_dir: 运行目录
+
+    Returns:
+        反馈记录列表
+    """
+    feedback_file = run_dir / "ops" / "llm_feedback.jsonl"
+    if not feedback_file.exists():
+        return []
+
+    feedback_records: list[dict[str, Any]] = []
+    with open(feedback_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    record = json.loads(line)
+                    feedback_records.append(record)
+                except json.JSONDecodeError:
+                    continue
+
+    return feedback_records
+
+
+def analyze_llm_feedback_for_rules(
+    feedback_records: list[dict[str, Any]],
+    current_rules: list[str],
+) -> dict[str, Any]:
+    """分析 LLM 反馈以发现规则未覆盖的问题
+
+    比较 LLM 发现的问题与当前规则触发的情况，找出规则引擎可能遗漏的模式。
+
+    Args:
+        feedback_records: LLM 反馈记录列表
+        current_rules: 当前启用的规则 ID 列表
+
+    Returns:
+        分析结果字典
+    """
+    # 统计 LLM 发现但规则未覆盖的情况
+    llm_only_issues: list[dict[str, Any]] = []
+    rule_missed_counts: dict[str, int] = {}
+
+    for record in feedback_records:
+        llm_issues = record.get("llm_detected_issues", [])
+        triggered = set(record.get("triggered_rules", []))
+
+        if llm_issues and not triggered:
+            # LLM 发现了问题但没有规则被触发
+            for issue in llm_issues:
+                issue_type = issue.get("type", "unknown")
+                if issue_type not in rule_missed_counts:
+                    rule_missed_counts[issue_type] = 0
+                rule_missed_counts[issue_type] += 1
+
+                llm_only_issues.append({
+                    "sql_key": record.get("sql_key"),
+                    "issue_type": issue_type,
+                    "description": issue.get("description", ""),
+                    "acceptance_status": record.get("acceptance_status"),
+                })
+
+    # 统计各规则的覆盖率
+    rule_coverage: dict[str, dict[str, int]] = {}
+    for record in feedback_records:
+        triggered = record.get("triggered_rules", [])
+        for rule_id in triggered:
+            if rule_id not in rule_coverage:
+                rule_coverage[rule_id] = {"triggered": 0, "with_llm_issue": 0}
+            rule_coverage[rule_id]["triggered"] += 1
+
+            # 如果同时 LLM 也发现了问题
+            if record.get("llm_detected_issues"):
+                rule_coverage[rule_id]["with_llm_issue"] += 1
+
+    return {
+        "llm_only_issues": llm_only_issues,
+        "llm_only_issue_types": rule_missed_counts,
+        "rule_coverage": rule_coverage,
+        "total_records_analyzed": len(feedback_records),
+        "records_with_llm_issues": sum(1 for r in feedback_records if r.get("llm_detected_issues")),
+        "records_with_triggered_rules": sum(1 for r in feedback_records if r.get("triggered_rules")),
+    }
+
+
+def get_feedback_based_suggestions(
+    feedback_records: list[dict[str, Any]],
+    sql_unit: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """基于历史反馈生成建议
+
+    查看历史反馈中类似 SQL 的处理方式，提供建议。
+
+    Args:
+        feedback_records: LLM 反馈记录列表
+        sql_unit: 当前 SQL 单元
+
+    Returns:
+        建议列表
+    """
+    suggestions: list[dict[str, Any]] = []
+
+    current_sql = str(sql_unit.get("sql", "")).lower()
+    current_sql_key = str(sql_unit.get("sqlKey", ""))
+
+    # 查找类似的 SQL 处理案例
+    for record in feedback_records:
+        # 跳过当前 SQL
+        if record.get("sql_key") == current_sql_key:
+            continue
+
+        # 查看是否有类似的 LLM 发现
+        for issue in record.get("llm_detected_issues", []):
+            issue_desc = str(issue.get("description", "")).lower()
+
+            # 简单的相似性检查：是否包含共同的关键词
+            if any(kw in current_sql for kw in ["join", "where", "select"]):
+                if issue.get("type") == "performance" and "index" in issue_desc:
+                    suggestions.append({
+                        "action": "FEEDBACK_BASED_SUGGESTION",
+                        "type": "performance",
+                        "message": f"Similar SQL had performance issue: {issue_desc[:100]}",
+                        "reference_sql_key": record.get("sql_key"),
+                    })
+                    break
+
+    return suggestions

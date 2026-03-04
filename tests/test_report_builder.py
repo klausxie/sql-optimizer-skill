@@ -228,7 +228,7 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.next_actions[0]["action_id"], "refactor-mapper")
-        self.assertIn("template-aware refactoring", artifacts.next_actions[0]["reason"])
+        self.assertIn("模板", artifacts.next_actions[0]["reason"])
 
     def test_action_plan_prefers_decision_layers_degraded_db_recheck(self) -> None:
         inputs = ReportInputs(
@@ -354,8 +354,8 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.report.stats["top_actionable_sql"][0]["evidence_state"], "CRITICAL_GAP")
-        self.assertIn("critical verification evidence", artifacts.report.stats["top_actionable_sql"][0]["summary"])
-        self.assertIn("critical evidence is missing", artifacts.report.stats["top_actionable_sql"][0]["why_now"])
+        self.assertIn("缺失关键验证证据", artifacts.report.stats["top_actionable_sql"][0]["summary"])
+        self.assertIn("缺失关键证据", artifacts.report.stats["top_actionable_sql"][0]["why_now"])
         self.assertEqual(artifacts.next_actions[0]["action_id"], "review-evidence")
 
 

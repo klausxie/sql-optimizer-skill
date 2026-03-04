@@ -10,6 +10,7 @@ ROOT_KEYS = {
     "validate",
     "policy",
     "apply",
+    "patch",
     "diagnostics",
     "runtime",
     "report",

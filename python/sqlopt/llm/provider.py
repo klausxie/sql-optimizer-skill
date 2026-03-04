@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..subprocess_utils import run_capture_text
+from .retry_context import RetryContext, build_retry_prompt
 
 
 def _hash_payload(payload: Any) -> str:
@@ -318,11 +319,29 @@ def _opencode_env() -> dict[str, str]:
     return env
 
 
-def generate_llm_candidates(sql_key: str, sql: str, llm_cfg: dict[str, Any], *, prompt: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def generate_llm_candidates(
+    sql_key: str,
+    sql: str,
+    llm_cfg: dict[str, Any],
+    *,
+    prompt: dict[str, Any] | None = None,
+    retry_context: RetryContext | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    import time
+    start_time = time.time()
+
     enabled = bool(llm_cfg.get("enabled", False))
     if not enabled:
         return [], {"enabled": False}
     provider = llm_cfg.get("provider", "opencode_builtin")
+
+    # 完整记录 prompt 内容
+    full_prompt = prompt or {"sql": sql, "provider": provider}
+
+    # 如果有重试上下文，构建增强的 prompt
+    if retry_context is not None:
+        full_prompt = build_retry_prompt(full_prompt, retry_context)
+
     trace: dict[str, Any] = {
         "stage": "optimize",
         "mode": "candidate_generation",
@@ -332,24 +351,49 @@ def generate_llm_candidates(sql_key: str, sql: str, llm_cfg: dict[str, Any], *, 
         "task": "rewrite_sql",
         "provider": provider,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "prompt": full_prompt,  # 完整 prompt
+        "config_snapshot": {
+            "provider": provider,
+            "timeout_ms": llm_cfg.get("timeout_ms"),
+            "opencode_model": llm_cfg.get("opencode_model"),
+            "api_model": llm_cfg.get("api_model"),
+        }
     }
-    prompt_payload = prompt or {"sql": sql, "provider": provider}
-    trace["prompt"] = prompt_payload
+
+    # 记录重试信息
+    if retry_context is not None:
+        trace["retry"] = {
+            "attempt": retry_context.attempt,
+            "max_retries": retry_context.max_retries,
+            "error_count": len(retry_context.errors),
+        }
+
+    candidates: list[dict[str, Any]] = []
+    response: dict[str, Any] = {}
+
     try:
         if provider == "heuristic":
             candidates = [_heuristic_candidate(sql_key, sql)]
             response = {"fallback_used": False, "mode": "local_heuristic"}
         elif provider == "opencode_run":
-            candidates, response = _run_opencode(sql_key, prompt_payload, llm_cfg)
+            candidates, response = _run_opencode(sql_key, full_prompt, llm_cfg)
         elif provider == "direct_openai_compatible":
-            candidates, response = _run_direct_openai_compatible(sql_key, prompt_payload, llm_cfg)
+            candidates, response = _run_direct_openai_compatible(sql_key, full_prompt, llm_cfg)
         else:
             candidates, response = _opencode_builtin_candidate(sql_key, sql)
+
         trace["response"] = response
         trace["degrade_reason"] = None
     except Exception as exc:
         if provider in {"opencode_run", "direct_openai_compatible"}:
+            # 严格模式：直接抛出
+            trace["response"] = {
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            }
+            trace["degrade_reason"] = "EXECUTION_ERROR"
             raise
+        # 降级模式：使用 heuristic
         candidates = [_heuristic_candidate(sql_key, sql)]
         trace["response"] = {
             "fallback_used": True,
@@ -357,6 +401,28 @@ def generate_llm_candidates(sql_key: str, sql: str, llm_cfg: dict[str, Any], *, 
             "error_message": str(exc),
         }
         trace["degrade_reason"] = "EXECUTION_ERROR"
+
+    # 增强 trace：添加完整响应和统计信息
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    trace["elapsed_ms"] = elapsed_ms
     trace["input_hash"] = _hash_payload(trace["prompt"])
-    trace["output_hash"] = _hash_payload(trace["response"])
+    trace["output_hash"] = _hash_payload({"candidates": candidates})
+
+    # 添加候选方案摘要到 trace
+    trace["candidate_summary"] = {
+        "count": len(candidates),
+        "candidates": [
+            {
+                "id": c.get("id"),
+                "source": c.get("source"),
+                "rewriteStrategy": c.get("rewriteStrategy"),
+                "semanticRisk": c.get("semanticRisk"),
+                "confidence": c.get("confidence"),
+                # 不记录完整 rewrittenSql，避免 trace 文件过大
+                "sql_preview": str(c.get("rewrittenSql", ""))[:100] if c.get("rewrittenSql") else None
+            }
+            for c in candidates
+        ]
+    }
+
     return candidates, trace

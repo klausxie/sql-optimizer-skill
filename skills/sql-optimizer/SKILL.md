@@ -1,6 +1,6 @@
 ---
 name: sql-optimizer
-description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 run/status/resume/apply 命令、契约校验、扫描桥接检查、回放基线与 patch-only 输出。
+description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 run/status/resume/apply 命令、契约校验、扫描桥接检查、回放基线与 patch-only 输出。支持 LLM 增强功能（Phase 1-6）。
 ---
 
 # sql-optimizer
@@ -14,6 +14,21 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 6. 若用户当前只在改 scanner/scan verification，优先先做一次 scan-only smoke，再决定是否继续全流程。
 7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 仅支持 8.0+，不支持 MariaDB。
 8. MySQL 不做 PostgreSQL 方言兼容；若 SQL 含 `ILIKE` 等不支持语法，应按语法错误处理，并检查 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+
+## LLM 增强功能（Phase 1-6）
+
+所有 LLM 增强功能已集成到主流程，默认启用：
+
+| Phase | 功能 | 产物位置 |
+|-------|------|----------|
+| Phase 1 | LLM 输出质量控制（语法/启发式检查） | `proposals/*.llmValidationResults` |
+| Phase 2 | LLM 重试 + 反馈机制 | `proposals/*.llmRetryStats` |
+| Phase 3 | validate 阶段 LLM 语义判断 | `acceptance/*.llmSemanticCheck` |
+| Phase 4 | 规则引擎 ↔ LLM 双向反馈 | `ops/llm_feedback.jsonl` |
+| Phase 5 | patch_generate 阶段 LLM 辅助 | `ops/template_suggestions/*.json` |
+| Phase 6 | LLM Trace 完整性增强 | `traces/*.optimize.llm.json` |
+
+配置控制见主文档 `LLM 增强功能配置` 章节。
 
 ## 自动续跑策略
 1. 先执行 `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`。

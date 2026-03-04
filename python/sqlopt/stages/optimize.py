@@ -6,11 +6,14 @@ from typing import Any
 
 from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, write_json
+from ..llm.output_validator import validate_candidates
 from ..llm.provider import generate_llm_candidates
+from ..llm.retry_context import build_retry_context, should_retry, collect_validation_errors
 from ..manifest import log_event
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
+from .llm_feedback import collect_llm_feedback, save_feedback_record
 
 
 def _statement_key(sql_key: str) -> str:
@@ -35,9 +38,19 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     project_root = (config.get("project", {}) or {}).get("root_path")
     if isinstance(project_root, str) and project_root.strip():
         llm_cfg["opencode_workdir"] = project_root
+
+    # Phase 2: 获取重试配置
+    retry_cfg = llm_cfg.get("retry", {}) or {}
+    retry_enabled = bool(retry_cfg.get("enabled", False))
+    max_retries = int(retry_cfg.get("max_retries", 2))
+
     proposal = generate_proposal(sql_unit, config=config)
     candidates: list[dict[str, Any]] = []
     trace: dict[str, Any] = {}
+    validation_results: list[dict[str, Any]] = []
+    val_results: list[Any] = []  # Phase 4: 保存原始验证结果对象
+    retry_traces: list[dict[str, Any]] = []
+
     if "${" in str(sql_unit.get("sql", "")):
         trace = {
             "stage": "optimize",
@@ -50,10 +63,128 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
         }
     else:
         prompt = build_optimize_prompt(sql_unit, proposal)
-        candidates, trace = generate_llm_candidates(sql_unit["sqlKey"], sql_unit["sql"], llm_cfg, prompt=prompt)
+
+        # Phase 2: 重试循环
+        current_attempt = 0
+        last_validation_errors: list[dict[str, Any]] = []
+        last_execution_error: str | None = None
+
+        while True:
+            current_attempt += 1
+
+            # 构建重试上下文（如果是重试）
+            retry_context = None
+            if current_attempt > 1 and retry_enabled:
+                retry_context = build_retry_context(
+                    attempt=current_attempt,
+                    max_retries=max_retries,
+                    validation_errors=last_validation_errors if last_validation_errors else None,
+                    execution_error=last_execution_error,
+                )
+
+            # 调用 LLM
+            try:
+                candidates, trace = generate_llm_candidates(
+                    sql_unit["sqlKey"],
+                    sql_unit["sql"],
+                    llm_cfg,
+                    prompt=prompt,
+                    retry_context=retry_context,
+                )
+                last_execution_error = None
+            except Exception as exc:
+                # 执行错误
+                trace = {
+                    "stage": "optimize",
+                    "mode": "candidate_generation",
+                    "sql_key": sql_unit["sqlKey"],
+                    "task_id": f"{sql_unit['sqlKey']}:opt",
+                    "executor": llm_cfg.get("provider", "unknown"),
+                    "error": str(exc),
+                }
+                last_execution_error = str(exc)
+                candidates = []
+
+            # 记录重试 trace
+            if retry_context is not None:
+                retry_traces.append(trace)
+
+            # Phase 1: LLM 输出质量控制
+            validation_results = []
+            valid_candidates = []
+            if candidates:
+                valid_candidates, val_results = validate_candidates(
+                    candidates=candidates,
+                    original_sql=sql_unit["sql"],
+                    sql_key=sql_unit["sqlKey"],
+                    config=config,
+                    sql_unit=sql_unit
+                )
+                candidates = valid_candidates
+                validation_results = [
+                    {
+                        "candidate_id": r.candidate_id,
+                        "passed": r.passed,
+                        "checks": [
+                            {"type": c.check_type, "passed": c.passed, "message": c.message}
+                            for c in r.checks
+                        ],
+                        "rejected_reason": r.rejected_reason
+                    }
+                    for r in val_results
+                ]
+                last_validation_errors = collect_validation_errors(val_results, candidates) if not valid_candidates else []
+            else:
+                last_validation_errors = []
+
+            # 判断是否重试
+            force_retry_reason = None
+            if last_execution_error:
+                force_retry_reason = f"执行错误：{last_execution_error}"
+            elif candidates and not valid_candidates:
+                force_retry_reason = "所有候选均未通过验证"
+
+            do_retry, retry_reason = should_retry(
+                valid_candidates=candidates,
+                current_attempt=current_attempt,
+                max_retries=max_retries if retry_enabled else 0,
+                force_retry_reason=force_retry_reason,
+            )
+
+            if do_retry:
+                # 继续重试
+                continue
+            else:
+                # 不再重试，退出循环
+                break
+
         if candidates:
             proposal["llmCandidates"] = candidates
             proposal["llmTraceRefs"] = [f"traces/{sql_unit['sqlKey']}.optimize.llm.json"]
+            # 如果有重试，记录重试信息
+            if retry_traces:
+                proposal["llmRetryTraces"] = retry_traces
+                proposal["llmRetryStats"] = {
+                    "total_attempts": current_attempt,
+                    "successful_attempt": current_attempt,
+                }
+
+    # 添加验证结果到 proposal
+    if validation_results:
+        proposal["llmValidationResults"] = validation_results
+
+    # Phase 4: LLM 反馈收集（可选）
+    diagnostics_cfg = config.get("diagnostics", {}) or {}
+    llm_feedback_cfg = diagnostics_cfg.get("llm_feedback", {})
+    llm_feedback_enabled = bool(llm_feedback_cfg.get("enabled", False))
+
+    validation_errors_for_feedback = None
+    if llm_feedback_enabled:
+        validation_errors_for_feedback = [
+            {"check_type": r.rejected_reason, "rejected_reason": r.rejected_reason}
+            for r in val_results if not r.passed
+        ] if val_results else []
+
     validator.validate("optimization_proposal", proposal)
     append_jsonl(run_dir / "proposals" / "optimization.proposals.jsonl", proposal)
     if proposal.get("llmTraceRefs"):
@@ -158,5 +289,17 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
             created_at=datetime.now(timezone.utc).isoformat(),
         ),
     )
+
+    # Phase 4: 保存 LLM 反馈记录（如果启用）
+    if llm_feedback_enabled:
+        feedback_record = collect_llm_feedback(
+            sql_key=sql_key,
+            proposal=proposal,
+            acceptance=None,  # optimize 阶段还没有 acceptance 结果
+            run_id=run_dir.name,
+            validation_errors=validation_errors_for_feedback,
+        )
+        save_feedback_record(run_dir, feedback_record)
+
     log_event(run_dir / "manifest.jsonl", "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
     return proposal

@@ -230,6 +230,19 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     validate_cfg.setdefault("require_perf_evidence_for_pass", False)
     validate_cfg.setdefault("require_verified_evidence_for_pass", False)
     validate_cfg.setdefault("delivery_bias", "conservative")
+
+    # Phase 3: LLM 语义检查配置
+    llm_semantic_cfg = validate_cfg.setdefault("llm_semantic_check", {})
+    llm_semantic_cfg.setdefault("enabled", False)
+    llm_semantic_cfg.setdefault("only_on_db_mismatch", True)
+
+    # Phase 5: patch_generate 阶段 LLM 辅助配置
+    patch_cfg = cfg.setdefault("patch", {})
+    llm_assist_cfg = patch_cfg.setdefault("llm_assist", {})
+    llm_assist_cfg.setdefault("enabled", False)
+    llm_assist_cfg.setdefault("only_for_dynamic_sql", True)
+    llm_assist_cfg.setdefault("generate_template_suggestions", True)
+
     if str(validate_cfg.get("validation_profile", "balanced")) not in {"strict", "balanced", "relaxed"}:
         raise ConfigError("validate.validation_profile must be one of: strict, balanced, relaxed")
     if str(validate_cfg.get("selection_mode", "patchability_first")).strip().lower() not in {"patchability_first"}:
@@ -250,6 +263,21 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
     llm_cfg.setdefault("api_model", None)
     llm_cfg.setdefault("api_timeout_ms", None)
     llm_cfg.setdefault("api_headers", None)
+
+    # Phase 1: LLM 输出质量控制配置
+    output_validation_cfg = llm_cfg.setdefault("output_validation", {})
+    output_validation_cfg.setdefault("enabled", False)
+    output_validation_cfg.setdefault("syntax_check", True)
+    output_validation_cfg.setdefault("heuristic_check", True)
+    output_validation_cfg.setdefault("schema_check", False)
+
+    # Phase 2: LLM 重试机制配置
+    retry_cfg = llm_cfg.setdefault("retry", {})
+    retry_cfg.setdefault("enabled", False)
+    retry_cfg.setdefault("max_retries", 2)
+    retry_cfg.setdefault("include_error_context", True)
+
+    # Phase 3: validate 阶段 LLM 语义检查配置（在 validate cfg 中）
     provider = str(llm_cfg.get("provider", "opencode_builtin"))
     allowed_providers = {"opencode_run", "opencode_builtin", "heuristic", "direct_openai_compatible"}
     if provider not in allowed_providers:
@@ -332,6 +360,12 @@ def load_config(config_path: Path, cli_overrides: dict[str, Any] | None = None) 
             raise ConfigError("diagnostics.disabled_rules entries must be non-empty strings")
         normalized_disabled.append(rule)
     diagnostics_cfg["disabled_rules"] = normalized_disabled
+
+    # Phase 4: LLM 反馈收集配置
+    llm_feedback_cfg = diagnostics_cfg.setdefault("llm_feedback", {})
+    llm_feedback_cfg.setdefault("enabled", False)
+    llm_feedback_cfg.setdefault("log_detected_issues", True)
+    llm_feedback_cfg.setdefault("auto_learn_patterns", False)
 
     verification_cfg = cfg.setdefault("verification", {})
     verification_cfg.setdefault("enforce_verified_outputs", False)

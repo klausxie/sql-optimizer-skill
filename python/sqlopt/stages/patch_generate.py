@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
@@ -29,6 +30,11 @@ from .patching_render import (
 from .patching_results import selected_patch_result as _selected_patch_result
 from .patching_results import skip_patch_result as _skip_patch_result
 from .patching_templates import build_template_plan_patch as _build_template_plan_patch
+from .patch_generate_llm import (
+    generate_template_patch_suggestion as _generate_template_patch_suggestion,
+    attach_llm_suggestion_to_patch as _attach_llm_suggestion,
+    save_template_suggestion as _save_template_suggestion,
+)
 
 
 def _check_patch_applicable(patch_file: Path, workdir: Path) -> tuple[bool, str | None]:
@@ -204,7 +210,7 @@ def _finalize_generated_patch(
     )
 
 
-def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: ContractValidator) -> dict:
+def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: ContractValidator, config: dict[str, Any] | None = None) -> dict:
     status = acceptance["status"]
     sql_key = sql_unit["sqlKey"]
     statement_key = _statement_key(sql_key)
@@ -317,6 +323,48 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 )
 
     patch = _attach_patch_diagnostics(patch, sql_unit, acceptance)
+
+    # Phase 5: LLM 模板辅助（可选）
+    patch_cfg = (config or {}).get("patch", {}) or {}
+    llm_assist_cfg = patch_cfg.get("llm_assist", {})
+    llm_assist_enabled = bool(llm_assist_cfg.get("enabled", False))
+    only_for_dynamic_sql = bool(llm_assist_cfg.get("only_for_dynamic_sql", True))
+
+    llm_suggestion = None
+    if llm_assist_enabled:
+        # 判断是否需要 LLM 辅助
+        dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
+        is_dynamic_sql = bool(dynamic_features)
+
+        # 仅在动态 SQL 或配置允许时调用
+        if not only_for_dynamic_sql or is_dynamic_sql:
+            # 当 patch 被跳过或需要人工审查时，调用 LLM 辅助
+            selection_reason = patch.get("selectionReason") or {}
+            reason_code = str(selection_reason.get("code") or "")
+            should_call_llm = (
+                patch.get("applicable") is not True or
+                reason_code in {
+                    "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+                    "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+                    "PATCH_NOT_APPLICABLE",
+                }
+            )
+
+            if should_call_llm:
+                llm_cfg = (config or {}).get("llm", {}) or {}
+                llm_suggestion = _generate_template_patch_suggestion(
+                    sql_unit=sql_unit,
+                    acceptance=acceptance,
+                    patch_result=patch,
+                    llm_cfg=llm_cfg,
+                )
+
+                if llm_suggestion:
+                    # 保存建议到文件
+                    _save_template_suggestion(run_dir, sql_key, llm_suggestion)
+                    # 附加到 patch 结果
+                    patch = _attach_llm_suggestion(patch, llm_suggestion)
+
     validator.validate("patch_result", patch)
     append_jsonl(run_dir / "patches" / "patch.results.jsonl", patch)
     selection_reason = dict(patch.get("selectionReason") or {})
