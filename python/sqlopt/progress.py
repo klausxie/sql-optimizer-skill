@@ -28,7 +28,7 @@ class ProgressReporter:
         """
         if not self.enabled:
             return
-        msg = f"▶ Starting phase: {phase}"
+        msg = f"▶ 开始阶段：{phase}"
         if description:
             msg += f" - {description}"
         self._write(msg)
@@ -41,7 +41,7 @@ class ProgressReporter:
         """
         if not self.enabled:
             return
-        self._write(f"✓ Completed phase: {phase}")
+        self._write(f"✓ 完成阶段：{phase}")
 
     def report_statement_progress(self, current: int, total: int, sql_key: str = "") -> None:
         """Report progress on statement processing.
@@ -53,7 +53,7 @@ class ProgressReporter:
         """
         if not self.enabled:
             return
-        msg = f"  Processing statement {current}/{total}"
+        msg = f"  处理语句 {current}/{total}"
         if sql_key:
             msg += f" ({sql_key})"
         self._write(msg)

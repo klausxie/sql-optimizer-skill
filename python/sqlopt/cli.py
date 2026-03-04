@@ -302,22 +302,22 @@ def _format_verify_text(payload: dict[str, Any]) -> str:
     command = next_step.get("command") or "n/a"
     lines = [
         f"SQL: {payload.get('sql_key')}",
-        f"Decision: {payload.get('decision_summary')}",
-        f"Why Now: {payload.get('why_now')}",
-        f"Delivery: {payload.get('delivery_assessment')}",
-        f"Evidence State: {payload.get('evidence_state')}",
-        "Evidence: "
-        f"VERIFIED={status_counts.get('VERIFIED', 0)} "
-        f"PARTIAL={status_counts.get('PARTIAL', 0)} "
-        f"UNVERIFIED={status_counts.get('UNVERIFIED', 0)} "
-        f"SKIPPED={status_counts.get('SKIPPED', 0)}",
-        f"Top Gaps: {', '.join(gaps) if gaps else 'none'}",
+        f"决策：{payload.get('decision_summary')}",
+        f"当前原因：{payload.get('why_now')}",
+        f"交付评估：{payload.get('delivery_assessment')}",
+        f"证据状态：{payload.get('evidence_state')}",
+        "证据统计："
+        f"已验证={status_counts.get('VERIFIED', 0)} "
+        f"部分={status_counts.get('PARTIAL', 0)} "
+        f"未验证={status_counts.get('UNVERIFIED', 0)} "
+        f"跳过={status_counts.get('SKIPPED', 0)}",
+        f"主要差距：{', '.join(gaps) if gaps else '无'}",
     ]
     if warnings:
-        lines.append(f"Warnings: {', '.join(warnings)}")
+        lines.append(f"警告：{', '.join(warnings)}")
     if repair_hints:
-        lines.append(f"Top Hint: {repair_hints[0].get('title')}")
-    lines.append(f"Next Step: {next_step.get('action')} ({command})")
+        lines.append(f"首要提示：{repair_hints[0].get('title')}")
+    lines.append(f"下一步：{next_step.get('action')} ({command})")
     return "\n".join(lines)
 
 
@@ -434,117 +434,117 @@ def cmd_apply(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sqlopt",
-        description="SQL Optimizer - Analyze and optimize MyBatis SQL statements",
-        epilog="For more information, see: https://github.com/your-org/sql-optimizer/docs",
+        description="SQL Optimizer - 分析和优化 MyBatis SQL 语句",
+        epilog="更多信息请参阅：https://github.com/your-org/sql-optimizer/docs",
     )
     p.add_argument(
         "--quiet",
         "-q",
         action="store_true",
-        help="Suppress progress messages (only output JSON results)",
+        help="抑制进度消息（仅输出 JSON 结果）",
     )
-    sub = p.add_subparsers(dest="cmd", required=True, help="Available commands")
+    sub = p.add_subparsers(dest="cmd", required=True, help="可用命令")
 
     p_run = sub.add_parser(
         "run",
-        help="Start a new optimization run",
-        description="Start a new optimization run from the beginning or a specific stage",
+        help="开始新的优化运行",
+        description="从头开始或从特定阶段开始新的优化运行",
     )
     p_run.add_argument(
         "--config",
         required=True,
-        help="Path to sqlopt.yml configuration file",
+        help="sqlopt.yml 配置文件路径",
     )
     p_run.add_argument(
         "--run-id",
-        help="Custom run ID (default: auto-generated timestamp-based ID)",
+        help="自定义运行 ID（默认：自动生成的基于时间戳的 ID）",
     )
     p_run.add_argument(
         "--to-stage",
         default="patch_generate",
         choices=STAGE_ORDER,
-        help="Target stage to run until (default: patch_generate). Stages: " + ", ".join(STAGE_ORDER),
+        help="目标运行阶段（默认：patch_generate）。可用阶段：" + ", ".join(STAGE_ORDER),
     )
     p_run.set_defaults(func=cmd_run)
 
     p_resume = sub.add_parser(
         "resume",
-        help="Resume an existing run",
-        description="Resume an existing optimization run from where it left off",
+        help="恢复现有运行",
+        description="从中断处恢复现有的优化运行",
     )
     p_resume.add_argument(
         "--run-id",
         required=True,
-        help="Run ID to resume (use 'status' command to list available runs)",
+        help="要恢复的运行 ID（使用 'status' 命令列出可用运行）",
     )
     p_resume.set_defaults(func=cmd_resume)
 
     p_status = sub.add_parser(
         "status",
-        help="Check run status",
-        description="Display the current status and progress of an optimization run",
+        help="检查运行状态",
+        description="显示优化运行的当前状态和进度",
     )
     p_status.add_argument(
         "--run-id",
         required=True,
-        help="Run ID to check status for",
+        help="要检查状态的运行 ID",
     )
     p_status.set_defaults(func=cmd_status)
 
     p_verify = sub.add_parser(
         "verify",
-        help="Inspect verification evidence for one SQL",
-        description="Display verification ledger records and related outputs for a single sqlKey",
+        help="检查单个 SQL 的验证证据",
+        description="显示单个 sqlKey 的验证账簿记录和相关输出",
     )
     p_verify.add_argument(
         "--run-id",
         required=True,
-        help="Run ID to inspect",
+        help="要检查的运行 ID",
     )
     p_verify.add_argument(
         "--sql-key",
         required=True,
-        help="sqlKey to inspect in the verification ledger",
+        help="要在验证账簿中检查的 sqlKey",
     )
     p_verify.add_argument(
         "--phase",
         choices=["scan", "optimize", "validate", "patch_generate"],
-        help="Optional phase filter for verification records",
+        help="验证记录的可选阶段过滤器",
     )
     p_verify.add_argument(
         "--summary-only",
         action="store_true",
-        help="Return only the compact decision summary instead of full verification records",
+        help="仅返回紧凑的决策摘要，而非完整验证记录",
     )
     p_verify.add_argument(
         "--format",
         choices=["json", "text"],
         default="json",
-        help="Output format for verification details (default: json)",
+        help="验证细节的输出格式（默认：json）",
     )
     p_verify.set_defaults(func=cmd_verify)
 
     p_apply = sub.add_parser(
         "apply",
-        help="Apply generated patches",
-        description="Apply the generated XML patches to your source files",
+        help="应用生成的补丁",
+        description="将生成的 XML 补丁应用到源文件",
     )
     p_apply.add_argument(
         "--run-id",
         required=True,
-        help="Run ID whose patches to apply",
+        help="要应用其补丁的运行 ID",
     )
     p_apply.set_defaults(func=cmd_apply)
 
     p_validate = sub.add_parser(
         "validate-config",
-        help="Validate configuration file",
-        description="Check if the configuration file is valid and complete",
+        help="验证配置文件",
+        description="检查配置文件是否有效且完整",
     )
     p_validate.add_argument(
         "--config",
         required=True,
-        help="Path to sqlopt.yml configuration file to validate",
+        help="要验证的 sqlopt.yml 配置文件路径",
     )
     p_validate.set_defaults(func=cmd_validate_config)
 

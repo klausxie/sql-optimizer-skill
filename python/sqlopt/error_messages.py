@@ -4,201 +4,201 @@ from __future__ import annotations
 
 ERROR_MESSAGES = {
     "RUN_NOT_FOUND": {
-        "title": "Run ID Not Found",
-        "description": "The specified run ID does not exist in the run index.",
+        "title": "未找到运行记录",
+        "description": "指定的运行 ID 不存在于运行索引中。",
         "causes": [
-            "The run ID was typed incorrectly",
-            "The run was created in a different project directory",
-            "The run index file is corrupted or missing"
+            "运行 ID 输入有误",
+            "运行记录创建于不同的项目目录",
+            "运行索引文件损坏或丢失"
         ],
         "suggestions": [
-            "Check the run ID for typos",
-            "Use 'status' command to list available runs",
-            "Verify you're in the correct project directory",
-            "Check if runs/ directory exists in your project"
+            "检查运行 ID 是否有拼写错误",
+            "使用 'status' 命令列出可用运行",
+            "验证当前项目目录是否正确",
+            "检查项目中是否存在 runs/ 目录"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#run-not-found"
     },
     "CONFIG_NOT_FOUND": {
-        "title": "Configuration File Not Found",
-        "description": "The specified configuration file does not exist.",
+        "title": "未找到配置文件",
+        "description": "指定的配置文件不存在。",
         "causes": [
-            "The config file path is incorrect",
-            "The config file has not been created yet",
-            "Insufficient permissions to read the file"
+            "配置文件路径不正确",
+            "配置文件尚未创建",
+            "没有足够的权限读取文件"
         ],
         "suggestions": [
-            "Verify the --config path is correct",
-            "Create sqlopt.yml from the template: cp templates/sqlopt.example.yml sqlopt.yml",
-            "Check file permissions",
-            "Use absolute path if relative path doesn't work"
+            "验证 --config 路径是否正确",
+            "从模板创建 sqlopt.yml：cp templates/sqlopt.example.yml sqlopt.yml",
+            "检查文件权限",
+            "如果相对路径不起作用，使用绝对路径"
         ],
         "doc_link": "docs/INSTALL.md#configuration"
     },
     "CONFIG_INVALID": {
-        "title": "Invalid Configuration",
-        "description": "The configuration file contains invalid or missing required fields.",
+        "title": "配置无效",
+        "description": "配置文件包含无效或缺失的必填字段。",
         "causes": [
-            "Required fields are missing",
-            "Field values are invalid",
-            "YAML syntax errors"
+            "必填字段缺失",
+            "字段值无效",
+            "YAML 语法错误"
         ],
         "suggestions": [
-            "Compare your config with templates/sqlopt.example.yml",
-            "Check for YAML syntax errors (indentation, colons, quotes)",
-            "Ensure all required fields are present: project.root_path, db.dsn, scan.mapper_globs",
-            "Run: python3 install/doctor.py --project <path> to validate config"
+            "将配置与 templates/sqlopt.example.yml 进行比较",
+            "检查 YAML 语法错误（缩进、冒号、引号）",
+            "确保所有必填字段存在：project.root_path, db.dsn, scan.mapper_globs",
+            "运行：python3 install/doctor.py --project <path> 验证配置"
         ],
         "doc_link": "docs/INSTALL.md#configuration"
     },
     "SCANNER_JAR_NOT_FOUND": {
-        "title": "Java Scanner JAR Not Found",
-        "description": "The Java scanner JAR file is missing or not accessible.",
+        "title": "未找到 Java Scanner JAR",
+        "description": "Java scanner JAR 文件丢失或无法访问。",
         "causes": [
-            "The JAR file was not built",
-            "The path in config is incorrect",
-            "The skill was not installed properly"
+            "JAR 文件未构建",
+            "配置中的路径不正确",
+            "技能安装不正确"
         ],
         "suggestions": [
-            "Check scan.java_scanner.jar_path in your config",
-            "Reinstall the skill: python3 install/install_skill.py --project <path>",
-            "Verify the JAR exists at the specified path",
-            "Build the JAR manually if needed: cd java/scan-agent && mvn package"
+            "检查配置中的 scan.java_scanner.jar_path",
+            "重新安装技能：python3 install/install_skill.py --project <path>",
+            "验证 JAR 文件在指定路径存在",
+            "如需手动构建 JAR：cd java/scan-agent && mvn package"
         ],
         "doc_link": "docs/INSTALL.md#java-scanner"
     },
     "DB_CONNECTION_FAILED": {
-        "title": "Database Connection Failed",
-        "description": "Unable to connect to the database.",
+        "title": "数据库连接失败",
+        "description": "无法连接到数据库。",
         "causes": [
-            "Database is not running",
-            "Connection string (DSN) is incorrect",
-            "Network connectivity issues",
-            "Authentication failed"
+            "数据库未运行",
+            "连接字符串 (DSN) 不正确",
+            "网络连通性问题",
+            "认证失败"
         ],
         "suggestions": [
-            "Verify database is running",
-            "Check db.dsn in your config file",
-            "Test connection manually: psql <connection_string>",
-            "Verify username, password, host, port, and database name",
-            "Check firewall and network settings",
-            "If DB is optional, set validate.allow_db_unreachable_fallback=true"
+            "验证数据库正在运行",
+            "检查配置文件中的 db.dsn",
+            "手动测试连接：psql <connection_string>",
+            "验证用户名、密码、主机、端口和数据库名称",
+            "检查防火墙和网络设置",
+            "如果 DB 是可选的，设置 validate.allow_db_unreachable_fallback=true"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#database-connection"
     },
     "SCHEMA_VALIDATION_FAILED": {
-        "title": "Schema Validation Failed",
-        "description": "Output data does not conform to the expected JSON schema.",
+        "title": "Schema 验证失败",
+        "description": "输出数据不符合预期的 JSON schema。",
         "causes": [
-            "Stage output is malformed",
-            "Schema version mismatch",
-            "Bug in stage implementation"
+            "阶段输出格式不正确",
+            "Schema 版本不匹配",
+            "阶段实现中存在 bug"
         ],
         "suggestions": [
-            "Check the error details for which field failed validation",
-            "Verify contract_version in runs/<run_id>/supervisor/meta.json",
-            "Review the stage output file mentioned in the error",
-            "Report this issue if it persists: https://github.com/your-org/sql-optimizer/issues"
+            "检查错误详情，了解哪个字段验证失败",
+            "验证 runs/<run_id>/supervisor/meta.json 中的 contract_version",
+            "查看错误中提到的阶段输出文件",
+            "如果问题持续，请报告：https://github.com/your-org/sql-optimizer/issues"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#schema-validation"
     },
     "RUNTIME_RETRY_EXHAUSTED": {
-        "title": "Runtime Retry Exhausted",
-        "description": "The operation failed after multiple retry attempts.",
+        "title": "重试次数已用尽",
+        "description": "操作在多次重试后仍失败。",
         "causes": [
-            "Persistent external service failure (LLM, database)",
-            "Resource constraints (timeout, memory)",
-            "Unrecoverable error in stage logic"
+            "持久性外部服务故障（LLM、数据库）",
+            "资源限制（超时、内存）",
+            "阶段逻辑中存在不可恢复的错误"
         ],
         "suggestions": [
-            "Check the detailed error in runs/<run_id>/manifest.jsonl",
-            "Verify external services (LLM provider, database) are accessible",
-            "Increase timeout: runtime.stage_timeout_ms in config",
-            "Increase retry attempts: runtime.stage_retry_max in config",
-            "Use 'resume' command to retry from the failed point"
+            "检查 runs/<run_id>/manifest.jsonl 中的详细错误",
+            "验证外部服务（LLM 提供商、数据库）可访问",
+            "在配置中增加超时：runtime.stage_timeout_ms",
+            "在配置中增加重试次数：runtime.stage_retry_max",
+            "使用 'resume' 命令从失败点重试"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#retry-exhausted"
     },
     "LLM_TIMEOUT": {
-        "title": "LLM Request Timeout",
-        "description": "The LLM request exceeded the timeout limit.",
+        "title": "LLM 请求超时",
+        "description": "LLM 请求超过超时限制。",
         "causes": [
-            "LLM service is slow or overloaded",
-            "Network latency",
-            "Request is too complex"
+            "LLM 服务缓慢或过载",
+            "网络延迟",
+            "请求过于复杂"
         ],
         "suggestions": [
-            "Increase llm.timeout_ms in config",
-            "Check LLM service status",
-            "Try a different LLM provider",
-            "Use runtime.profile=fast for simpler prompts",
-            "Check network connectivity to LLM endpoint"
+            "在配置中增加 llm.timeout_ms",
+            "检查 LLM 服务状态",
+            "尝试不同的 LLM 提供商",
+            "使用 runtime.profile=fast 获取更简单的提示",
+            "检查到 LLM 端点的网络连通性"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#llm-timeout"
     },
     "LLM_PROVIDER_ERROR": {
-        "title": "LLM Provider Error",
-        "description": "The LLM provider returned an error.",
+        "title": "LLM 提供商错误",
+        "description": "LLM 提供商返回错误。",
         "causes": [
-            "Invalid API key or credentials",
-            "Rate limit exceeded",
-            "Service unavailable",
-            "Invalid request format"
+            "API 密钥或凭据无效",
+            "超过速率限制",
+            "服务不可用",
+            "请求格式无效"
         ],
         "suggestions": [
-            "Verify llm.api_key in config (if using direct_openai_compatible)",
-            "Check LLM provider service status",
-            "Wait and retry if rate limited",
-            "Switch to a different provider: llm.provider=heuristic (no LLM needed)",
-            "Check llm.api_base URL is correct"
+            "验证配置中的 llm.api_key（如果使用 direct_openai_compatible）",
+            "检查 LLM 提供商服务状态",
+            "如果超过速率限制，请等待后重试",
+            "切换到不同的提供商：llm.provider=heuristic（不需要 LLM）",
+            "检查 llm.api_base URL 是否正确"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#llm-provider"
     },
     "PATCH_CONFLICT": {
-        "title": "Patch Conflict Detected",
-        "description": "The generated patch conflicts with existing code.",
+        "title": "检测到补丁冲突",
+        "description": "生成的补丁与现有代码冲突。",
         "causes": [
-            "Source file was modified after scan",
-            "Multiple patches target the same location",
-            "Template structure changed"
+            "源文件在扫描后被修改",
+            "多个补丁针对同一位置",
+            "模板结构已更改"
         ],
         "suggestions": [
-            "Review the conflict details in the patch result",
-            "Manually resolve conflicts in the source file",
-            "Re-run scan if source files changed significantly",
-            "Use 'apply' command with caution and review changes"
+            "查看补丁结果中的冲突详情",
+            "手动解决源文件中的冲突",
+            "如果源文件发生重大变化，重新运行扫描",
+            "谨慎使用 'apply' 命令并审查更改"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#patch-conflicts"
     },
     "VERIFICATION_GATE_FAILED": {
-        "title": "Verification Gate Failed",
-        "description": "A critical output was produced without complete verification evidence.",
+        "title": "验证门失败",
+        "description": "关键输出在没有完整验证证据的情况下生成。",
         "causes": [
-            "A PASS acceptance result is marked UNVERIFIED in the verification ledger",
-            "An applicable patch is marked UNVERIFIED in the verification ledger",
-            "Verification evidence is incomplete for a critical output"
+            "PASS 验收结果在验证账簿中被标记为 UNVERIFIED",
+            "可应用的补丁在验证账簿中被标记为 UNVERIFIED",
+            "关键输出的验证证据不完整"
         ],
         "suggestions": [
-            "Inspect runs/<run_id>/verification/ledger.jsonl for the failing phase evidence",
-            "Review report.json validation_warnings and evidence_confidence",
-            "Set verification.critical_output_policy=warn (or legacy verification.enforce_verified_outputs=false) only if you accept the risk",
-            "Fix the missing evidence path before re-running release acceptance"
+            "检查 runs/<run_id>/verification/ledger.jsonl 中失败阶段的证据",
+            "查看 report.json 中的 validation_warnings 和 evidence_confidence",
+            "仅当您接受风险时才设置 verification.critical_output_policy=warn（或 verification.enforce_verified_outputs=false）",
+            "在重新运行发布验收之前修复缺失的证据路径"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#verification"
     },
     "INSUFFICIENT_PERMISSIONS": {
-        "title": "Insufficient Permissions",
-        "description": "Unable to read or write required files.",
+        "title": "权限不足",
+        "description": "无法读取或写入所需的文件。",
         "causes": [
-            "File or directory permissions are too restrictive",
-            "Running as wrong user",
-            "Files are locked by another process"
+            "文件或目录权限过于严格",
+            "使用错误的用户运行",
+            "文件被另一个进程锁定"
         ],
         "suggestions": [
-            "Check file and directory permissions",
-            "Ensure you have read access to mapper XML files",
-            "Ensure you have write access to runs/ directory",
-            "Run with appropriate user permissions"
+            "检查文件和目录权限",
+            "确保对 mapper XML 文件有读取权限",
+            "确保对 runs/ 目录有写入权限",
+            "使用适当的用户权限运行"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#permissions"
     }
@@ -206,36 +206,36 @@ ERROR_MESSAGES = {
 
 
 def get_error_details(reason_code: str) -> dict[str, any]:
-    """Get detailed error information for a reason code.
+    """获取错误原因代码的详细信息。
 
     Args:
-        reason_code: The error reason code
+        reason_code: 错误原因代码
 
     Returns:
-        Dictionary with error details including title, description, causes, suggestions, and doc_link
+        包含错误详情的字典，包括标题、描述、原因和建议
     """
     return ERROR_MESSAGES.get(reason_code, {
-        "title": "Unknown Error",
-        "description": f"An error occurred with code: {reason_code}",
-        "causes": ["Unknown cause"],
+        "title": "未知错误",
+        "description": f"发生错误，代码：{reason_code}",
+        "causes": ["未知原因"],
         "suggestions": [
-            "Check the error message for more details",
-            "Review runs/<run_id>/manifest.jsonl for detailed logs",
-            "Report this issue: https://github.com/your-org/sql-optimizer/issues"
+            "检查错误消息获取更多信息",
+            "查看 runs/<run_id>/manifest.jsonl 获取详细日志",
+            "报告此问题：https://github.com/your-org/sql-optimizer/issues"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md"
     })
 
 
 def format_error_message(reason_code: str, original_message: str) -> dict[str, any]:
-    """Format an error message with detailed information.
+    """格式化带有详细信息的错误消息。
 
     Args:
-        reason_code: The error reason code
-        original_message: The original error message
+        reason_code: 错误原因代码
+        original_message: 原始错误消息
 
     Returns:
-        Dictionary with formatted error information
+        包含格式化错误信息的字典
     """
     details = get_error_details(reason_code)
     return {

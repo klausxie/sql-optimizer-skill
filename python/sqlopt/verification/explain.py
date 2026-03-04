@@ -6,17 +6,17 @@ from typing import Any
 def action_reason(action_id: str) -> str:
     normalized = str(action_id or "").strip()
     mapping = {
-        "review-evidence": "critical verification evidence is incomplete",
-        "check-db": "validation evidence is degraded and needs a DB-backed recheck",
-        "restore-db-validation": "validation evidence is degraded and needs a DB-backed recheck",
-        "refactor-mapper": "the rewrite is valid, but the mapper needs template-aware refactoring before patch generation",
-        "resolve-patch-conflict": "the patch is plausible, but it needs manual conflict resolution",
-        "review-patchability": "the rewrite is validated, but the patch still needs manual review",
-        "apply": "a validated patch is ready to land",
-        "resume": "no ready optimization exists yet, continue the run",
-        "remove-dollar": "unsafe SQL substitution blocks optimization",
+        "review-evidence": "关键验证证据不完整",
+        "check-db": "验证证据已降级，需要数据库重新检查",
+        "restore-db-validation": "验证证据已降级，需要数据库重新检查",
+        "refactor-mapper": "重写已验证，但 mapper 需要模板感知重构才能生成补丁",
+        "resolve-patch-conflict": "补丁可能有效，但需要手动解决冲突",
+        "review-patchability": "重写已验证，但补丁仍需人工审查",
+        "apply": "验证过的补丁已就绪可应用",
+        "resume": "尚无就绪的优化，继续运行",
+        "remove-dollar": "不安全的 SQL 替换阻塞了优化",
     }
-    return mapping.get(normalized, normalized or "action required")
+    return mapping.get(normalized, normalized or "需要操作")
 
 
 def delivery_rank(tier: str) -> int:

@@ -65,10 +65,10 @@ def default_next_actions(
             actions,
                 {
                     "action_id": "review-evidence",
-                    "title": "QA: review missing verification evidence",
+                    "title": "QA：审查缺失的验证证据",
                     "reason": action_reason("review-evidence"),
-                    "applicability": "verification gate warnings present",
-                    "expected_outcome": "restore confidence before applying or refactoring",
+                    "applicability": "存在验证门警告",
+                    "expected_outcome": "在应用或重构前恢复置信度",
                     "commands": [],
                 },
             )
@@ -86,10 +86,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "review-evidence",
-                    "title": "QA: review missing verification evidence",
+                    "title": "QA：审查缺失的验证证据",
                     "reason": action_reason("review-evidence"),
-                    "applicability": "top actionable sql is marked CRITICAL_GAP",
-                    "expected_outcome": "restore confidence before rollout or manual intervention",
+                    "applicability": "优先处理的 SQL 被标记为 CRITICAL_GAP",
+                    "expected_outcome": "在发布或手动干预前恢复置信度",
                     "commands": [],
                 },
             )
@@ -98,10 +98,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "check-db",
-                    "title": "DBA: verify DB connectivity",
+                    "title": "DBA：验证数据库连接",
                     "reason": action_reason("check-db"),
-                    "applicability": "decisionLayers indicates DB-backed validation is incomplete",
-                    "expected_outcome": "restore semantic and perf checks for the highest-value item",
+                    "applicability": "决策层表明数据库验证不完整",
+                    "expected_outcome": "为最高价值项恢复语义和性能检查",
                     "commands": ['psql "$DSN" -c "select 1;"'],
                 },
             )
@@ -110,10 +110,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "refactor-mapper",
-                    "title": "Backend: refactor mapper for template-aware rewrite",
+                    "title": "后端：重构 mapper 以支持模板感知重写",
                     "reason": action_reason("refactor-mapper"),
-                    "applicability": "top actionable sql requires template-aware rewrite",
-                    "expected_outcome": "unlock automated patch generation for the highest-value item",
+                    "applicability": "优先处理的 SQL 需要模板感知重写",
+                    "expected_outcome": "为最高价值项解锁自动补丁生成",
                     "commands": [hint_command] if hint_command else [],
                 },
             )
@@ -122,10 +122,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "resolve-patch-conflict",
-                    "title": "Backend: resolve patch conflict manually",
+                    "title": "后端：手动解决补丁冲突",
                     "reason": action_reason("resolve-patch-conflict"),
-                    "applicability": "top actionable sql is in MANUAL_REVIEW state",
-                    "expected_outcome": "land the highest-value patch after manual conflict resolution",
+                    "applicability": "优先处理的 SQL 处于 MANUAL_REVIEW 状态",
+                    "expected_outcome": "在手动冲突解决后应用最高价值补丁",
                     "commands": [hint_command] if hint_command else [],
                 },
             )
@@ -134,10 +134,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "review-patchability",
-                    "title": "Backend: review patchability details",
+                    "title": "后端：审查补丁可应用性",
                     "reason": action_reason("review-patchability"),
-                    "applicability": "top actionable sql is validated without a ready patch",
-                    "expected_outcome": "decide whether to patch manually or adjust the mapper shape",
+                    "applicability": "优先处理的 SQL 已验证但没有就绪补丁",
+                    "expected_outcome": "决定是手动补丁还是调整 mapper 结构",
                     "commands": [],
                 },
             )
@@ -146,10 +146,10 @@ def default_next_actions(
                 actions,
                 {
                     "action_id": "apply",
-                    "title": "Backend: apply generated patches",
+                    "title": "后端：应用生成的补丁",
                     "reason": action_reason("apply"),
-                    "applicability": "healthy run with applicable patches available",
-                    "expected_outcome": "land safe SQL improvements",
+                    "applicability": "健康的运行且有可用补丁",
+                    "expected_outcome": "应用安全的 SQL 改进",
                     "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
                 },
             )
@@ -159,10 +159,10 @@ def default_next_actions(
             actions,
             {
                 "action_id": "check-db",
-                "title": "DBA: verify DB connectivity",
+                "title": "DBA：验证数据库连接",
                 "reason": action_reason("check-db"),
-                "applicability": "VALIDATE_DB_UNREACHABLE present",
-                "expected_outcome": "semantic and perf checks become executable",
+                "applicability": "存在 VALIDATE_DB_UNREACHABLE",
+                "expected_outcome": "语义和性能检查可执行",
                 "commands": ['psql "$DSN" -c "select 1;"'],
             },
         )
@@ -171,10 +171,10 @@ def default_next_actions(
             actions,
             {
                 "action_id": "remove-dollar",
-                "title": "Backend: remove ${} dynamic SQL",
+                "title": "后端：移除 ${} 动态 SQL",
                 "reason": action_reason("remove-dollar"),
-                "applicability": "security warnings in validation",
-                "expected_outcome": "statement becomes patchable",
+                "applicability": "验证中存在安全警告",
+                "expected_outcome": "语句变为可补丁",
                 "commands": ['rg -n "\\$\\{" src/main/resources/**/*.xml'],
             },
         )
@@ -183,10 +183,10 @@ def default_next_actions(
             actions,
             {
                 "action_id": "resume",
-                "title": "Platform: resume run",
+                "title": "平台：恢复运行",
                 "reason": action_reason("resume"),
-                "applicability": "pending or degraded pipeline",
-                "expected_outcome": "continue or finalize processing",
+                "applicability": "等待中或降级的流水线",
+                "expected_outcome": "继续或最终确定处理",
                 "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"],
             },
         )
@@ -195,10 +195,10 @@ def default_next_actions(
             actions,
             {
                 "action_id": "apply",
-                "title": "Backend: apply generated patches",
+                "title": "后端：应用生成的补丁",
                 "reason": action_reason("apply"),
-                "applicability": "applicable patches available",
-                "expected_outcome": "land safe SQL improvements",
+                "applicability": "有可用补丁",
+                "expected_outcome": "应用安全的 SQL 改进",
                 "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
             },
         )
@@ -405,40 +405,40 @@ def build_top_actionable_sql(
         if str(delivery_outcome.get("summary") or "").strip():
             summary = str(delivery_outcome.get("summary") or "").strip()
         elif evidence_state == "CRITICAL_GAP":
-            summary = "critical verification evidence is missing; review evidence before rollout"
+            summary = "缺失关键验证证据；发布前请审查证据"
         elif bool(outcome.get("db_recheck_recommended")) or (
             bool(evidence_layer.get("degraded")) and str((acceptance_layer.get("feedbackReasonCode") or "")).strip() in {
             "VALIDATE_PARAM_INSUFFICIENT",
             "VALIDATE_DB_UNREACHABLE",
         }):
-            summary = "validation evidence is degraded and needs a DB-backed recheck"
+            summary = "验证证据已降级，需要数据库重新检查"
         elif patch_row.get("applicable") is True:
-            summary = "ready to apply patch"
+            summary = "补丁已就绪可应用"
         elif readiness_tier == "READY" or status == "PASS":
-            summary = "validated rewrite exists but patch is not directly applicable"
+            summary = "重写已验证但补丁不可直接应用"
         elif readiness_tier == "NEEDS_TEMPLATE_REWRITE":
-            summary = "validated path exists but mapper needs template-aware refactoring"
+            summary = "验证路径存在但 mapper 需要模板感知重构"
         elif str(actionability.get("tier") or "") in {"HIGH", "MEDIUM"}:
-            summary = "high-value optimization identified but not yet validated"
+            summary = "识别出高价值优化但尚未验证"
         else:
-            summary = "low-confidence or blocked optimization candidate"
+            summary = "低置信度或被阻塞的优化候选"
 
         if evidence_state == "CRITICAL_GAP":
-            why_now = "critical evidence is missing, so this stays high priority until the gap is closed"
+            why_now = "缺失关键证据，因此在差距消除前保持高优先级"
         elif bool(outcome.get("db_recheck_recommended")):
-            why_now = "the main blocker is degraded DB-backed validation, not the rewrite itself"
+            why_now = "主要阻塞是降级的数据库验证，而非重写本身"
         elif delivery_tier == "READY_TO_APPLY":
-            why_now = "this is the fastest safe win because the patch is already ready"
+            why_now = "这是最快的安全收益，因为补丁已就绪"
         elif delivery_tier == "PATCHABLE_WITH_REWRITE":
-            why_now = "this becomes high-value immediately after template-safe mapper refactoring"
+            why_now = "在模板安全的 mapper 重构后立即成为高价值"
         elif delivery_tier == "MANUAL_REVIEW":
-            why_now = "the SQL is promising and only manual patch conflict handling remains"
+            why_now = "SQL 有前景，只需手动处理补丁冲突"
         elif delivery_tier == "NEEDS_REVIEW":
-            why_now = "the rewrite is validated, but patchability still needs a manual call"
+            why_now = "重写已验证，但补丁可应用性仍需人工决定"
         elif str(actionability.get("tier") or "") in {"HIGH", "MEDIUM"}:
-            why_now = "this has strong upside, but it still needs stronger downstream validation"
+            why_now = "具有强大潜力，但仍需更强的下游验证"
         else:
-            why_now = "this is currently lower-confidence than the leading candidates"
+            why_now = "当前置信度低于领先候选"
 
         if not delivery_tier:
             if patch_row.get("applicable") is True:
