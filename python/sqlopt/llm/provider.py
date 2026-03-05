@@ -54,6 +54,11 @@ def _extract_json_events(stdout: str) -> tuple[list[str], str | None]:
             payload = json.loads(line)
         except Exception:
             continue
+
+        # 跳过配置 JSON（包含 $schema 字段）
+        if payload.get("$schema"):
+            continue
+
         event_type = payload.get("type")
         if event_type == "error":
             error = payload.get("error")
@@ -119,6 +124,24 @@ def _parse_text_json(text: str) -> dict[str, Any]:
     raise ValueError("unexpected llm output")
 
 
+def _build_llm_user_prompt(prompt: dict[str, Any]) -> str:
+    """构建 LLM 的 user_prompt，统一 opencode_run 和 direct_openai_compatible 的上下文。"""
+    compact_prompt = {
+        "sqlKey": prompt.get("sqlKey"),
+        "sql": ((prompt.get("requiredContext") or {}).get("sql")),
+        "riskFlags": ((prompt.get("requiredContext") or {}).get("riskFlags")),
+        "issues": ((prompt.get("requiredContext") or {}).get("issues")),
+        "tables": ((prompt.get("requiredContext") or {}).get("tables")),
+        "indexes": ((prompt.get("requiredContext") or {}).get("indexes")),
+        "planSummary": ((prompt.get("optionalContext") or {}).get("planSummary")),
+    }
+    return (
+        "Generate concise SQL optimize candidates.\n"
+        "Return JSON only: {\"candidates\": [{\"id\":...,\"source\":\"llm\",\"rewrittenSql\":...,\"rewriteStrategy\":...,\"semanticRisk\":...,\"confidence\":...}]}\n"
+        f"Input:\n{json.dumps(compact_prompt, ensure_ascii=False)}"
+    )
+
+
 def _run_opencode(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not shutil.which("opencode"):
         raise RuntimeError("opencode command not found")
@@ -133,20 +156,7 @@ def _run_opencode(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any])
     variant = str(llm_cfg.get("variant", "minimal")).strip()
     if variant:
         cmd.extend(["--variant", variant])
-    compact_prompt = {
-        "sqlKey": prompt.get("sqlKey"),
-        "sql": ((prompt.get("requiredContext") or {}).get("sql")),
-        "riskFlags": ((prompt.get("requiredContext") or {}).get("riskFlags")),
-        "issues": ((prompt.get("requiredContext") or {}).get("issues")),
-        "tables": ((prompt.get("requiredContext") or {}).get("tables")),
-        "indexes": ((prompt.get("requiredContext") or {}).get("indexes")),
-        "planSummary": ((prompt.get("optionalContext") or {}).get("planSummary")),
-    }
-    user_prompt = (
-        "Generate concise SQL optimize candidates.\n"
-        "Return JSON only: {\"candidates\": [{\"id\":...,\"source\":\"llm\",\"rewrittenSql\":...,\"rewriteStrategy\":...,\"semanticRisk\":...,\"confidence\":...}]}\n"
-        f"Input:\n{json.dumps(compact_prompt, ensure_ascii=False)}"
-    )
+    user_prompt = _build_llm_user_prompt(prompt)
     cmd.append(user_prompt)
     proc = run_capture_text(
         cmd,
@@ -254,20 +264,7 @@ def _extract_openai_message_content(row: dict[str, Any]) -> str:
 
 def _run_direct_openai_compatible(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     model = str(llm_cfg.get("api_model") or "").strip()
-    compact_prompt = {
-        "sqlKey": prompt.get("sqlKey"),
-        "sql": ((prompt.get("requiredContext") or {}).get("sql")),
-        "riskFlags": ((prompt.get("requiredContext") or {}).get("riskFlags")),
-        "issues": ((prompt.get("requiredContext") or {}).get("issues")),
-        "tables": ((prompt.get("requiredContext") or {}).get("tables")),
-        "indexes": ((prompt.get("requiredContext") or {}).get("indexes")),
-        "planSummary": ((prompt.get("optionalContext") or {}).get("planSummary")),
-    }
-    user_prompt = (
-        "Generate concise SQL optimize candidates.\n"
-        "Return JSON only: {\"candidates\": [{\"id\":...,\"source\":\"llm\",\"rewrittenSql\":...,\"rewriteStrategy\":...,\"semanticRisk\":...,\"confidence\":...}]}\n"
-        f"Input:\n{json.dumps(compact_prompt, ensure_ascii=False)}"
-    )
+    user_prompt = _build_llm_user_prompt(prompt)
     payload = {
         "model": model,
         "temperature": 0.2,
