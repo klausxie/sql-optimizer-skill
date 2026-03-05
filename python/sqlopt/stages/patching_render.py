@@ -5,9 +5,11 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from ..utils import statement_key
 
-def statement_key(sql_key: str) -> str:
-    return sql_key.split("#", 1)[0]
+# 预编译正则表达式
+_WHITESPACE_RE = re.compile(r"\s*")
+
 
 
 def render_sql_block(sql: str) -> str:
@@ -22,10 +24,12 @@ def render_template_body(existing_body: str, replacement_body: str) -> str:
     replacement = str(replacement_body or "").strip()
     if not replacement:
         return existing
-    leading = re.match(r"\s*", existing)
-    trailing = re.search(r"\s*$", existing)
+    leading = _WHITESPACE_RE.match(existing)
+    trailing = _WHITESPACE_RE.search(existing[::-1])  # 反转字符串匹配末尾空白
     lead = leading.group(0) if leading else ""
-    tail = trailing.group(0) if trailing else ""
+    # 计算尾部空白（反转后匹配开头）
+    tail_len = len(trailing.group(0)) if trailing else 0
+    tail = existing[-tail_len:] if tail_len > 0 else ""
     return lead + replacement + tail
 
 

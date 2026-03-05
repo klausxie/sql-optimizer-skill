@@ -7,12 +7,9 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
 from ..manifest import log_event
 from ..platforms.sql.validator_sql import validate_proposal
+from ..utils import statement_key
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
-
-
-def _statement_key(sql_key: str) -> str:
-    return sql_key.split("#", 1)[0]
 
 
 def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: ContractValidator, db_reachable: bool, config: dict) -> dict:
@@ -103,7 +100,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
         VerificationRecord(
             run_id=run_dir.name,
             sql_key=sql_key,
-            statement_key=_statement_key(sql_key),
+            statement_key=statement_key(sql_key),
             phase="validate",
             status=verification_status,
             reason_code=verification_reason_code,

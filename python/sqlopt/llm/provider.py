@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import urllib.error
 import urllib.request
@@ -77,38 +78,63 @@ def _extract_json_events(stdout: str) -> tuple[list[str], str | None]:
     return texts, error_message
 
 
-def _parse_text_json(text: str) -> dict[str, Any]:
-    candidates: list[str] = []
-    stripped = text.strip()
-    if stripped:
-        candidates.append(stripped)
-    if "```" in stripped:
-        parts = stripped.split("```")
-        for i, part in enumerate(parts):
-            if i % 2 == 1:
-                part = part.strip()
-                if part.lower().startswith("json"):
-                    part = part[4:].strip()
-                if part:
-                    candidates.append(part)
-    start_obj, end_obj = stripped.find("{"), stripped.rfind("}")
-    if start_obj >= 0 and end_obj > start_obj:
-        candidates.append(stripped[start_obj : end_obj + 1])
-    start_arr, end_arr = stripped.find("["), stripped.rfind("]")
-    if start_arr >= 0 and end_arr > start_arr:
-        candidates.append(stripped[start_arr : end_arr + 1])
+# 预编译正则表达式，用于 _parse_text_json
+_CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+_JSON_OBJ_RE = re.compile(r"(\{.*\})", re.DOTALL)
+_JSON_ARR_RE = re.compile(r"(\[.*\])", re.DOTALL)
 
+
+def _parse_text_json(text: str) -> dict[str, Any]:
+    """从 LLM 输出文本中解析 JSON。
+
+    性能优化版本：
+    1. 优先尝试直接解析（最常见情况）
+    2. 使用预编译正则提取代码块
+    3. 减少字符串拷贝和重复操作
+    """
+    stripped = text.strip()
+    if not stripped:
+        raise ValueError("empty llm output")
+
+    candidates: list[str] = []
+
+    # 1. 首先尝试直接解析（最常见情况）
+    candidates.append(stripped)
+
+    # 2. 提取 markdown 代码块中的内容
+    code_blocks = _CODE_BLOCK_RE.findall(stripped)
+    candidates.extend(code_blocks)
+
+    # 3. 尝试提取最外层的大括号或方括号内容
+    # 使用 finditer 找到最后一个匹配（最外层）
+    obj_match = None
+    for m in _JSON_OBJ_RE.finditer(stripped):
+        obj_match = m
+    if obj_match:
+        candidates.append(obj_match.group(1))
+
+    arr_match = None
+    for m in _JSON_ARR_RE.finditer(stripped):
+        arr_match = m
+    if arr_match:
+        candidates.append(arr_match.group(1))
+
+    # 4. 按优先级尝试解析
     for raw in candidates:
+        if not raw:
+            continue
         try:
             payload = json.loads(raw)
-        except Exception:
+        except json.JSONDecodeError:
             continue
         if isinstance(payload, dict):
             return payload
         if isinstance(payload, list):
             return {"candidates": payload}
-    # Last fallback: treat output as a single rewritten SQL string.
-    if stripped and ("\n" not in stripped or len(stripped.splitlines()) <= 3):
+
+    # 5. 最后的回退：将输出视为单个 SQL 字符串
+    # 只有输出是单行或非常短的多行时才使用此策略
+    if "\n" not in stripped or len(stripped) < 500:
         return {
             "candidates": [
                 {

@@ -41,3 +41,72 @@ def read_jsonl(path: Path) -> list[Any]:
             if line:
                 out.append(json.loads(line))
     return out
+
+
+class JsonlWriter:
+    """批量 JSONL 写入器，减少文件打开次数。
+
+    使用缓冲区批量写入，适合高频写入场景。
+    需要显式调用 flush() 或 close() 确保数据落盘。
+
+    Example:
+        with JsonlWriter(path) as writer:
+            for row in rows:
+                writer.append(row)
+            # 自动 flush 和 close
+    """
+
+    def __init__(self, path: Path, buffer_size: int = 100) -> None:
+        """初始化写入器。
+
+        Args:
+            path: 目标文件路径
+            buffer_size: 缓冲区大小，达到此数量时自动刷新
+        """
+        self.path = path
+        self.buffer_size = buffer_size
+        self._buffer: list[Any] = []
+        self._file: Any = None
+        self._opened = False
+
+    def _ensure_open(self) -> None:
+        if not self._opened:
+            ensure_dir(self.path.parent)
+            self._file = self.path.open("a", encoding="utf-8")
+            self._opened = True
+
+    def append(self, row: Any) -> None:
+        """添加一行数据到缓冲区。"""
+        self._buffer.append(row)
+        if len(self._buffer) >= self.buffer_size:
+            self.flush()
+
+    def extend(self, rows: Iterable[Any]) -> None:
+        """添加多行数据到缓冲区。"""
+        for row in rows:
+            self._buffer.append(row)
+            if len(self._buffer) >= self.buffer_size:
+                self.flush()
+
+    def flush(self) -> None:
+        """将缓冲区数据写入文件。"""
+        if not self._buffer:
+            return
+        self._ensure_open()
+        lines = [json.dumps(row, ensure_ascii=False) + "\n" for row in self._buffer]
+        self._file.writelines(lines)
+        self._buffer.clear()
+
+    def close(self) -> None:
+        """关闭写入器，刷新剩余数据。"""
+        self.flush()
+        if self._file:
+            self._file.close()
+            self._file = None
+        self._opened = False
+
+    def __enter__(self) -> JsonlWriter:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
