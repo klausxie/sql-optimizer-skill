@@ -20,7 +20,7 @@
    - `llm.provider=opencode_run`：`opencode` 命令可用；
    - `llm.provider=direct_openai_compatible`：`api_base/api_key/api_model` 可用且网络可达。
 
-若要验证 MySQL 8.0+，建议先从 `tests/fixtures/project/sqlopt.mysql.yml` 复制一份到临时目录，并先保持：
+若要验证 MySQL 5.6+（含 5.7、8.0+），建议先从 `tests/fixtures/project/sqlopt.mysql.yml` 复制一份到临时目录，并先保持：
 - `llm.enabled=false`
 - `llm.provider=heuristic`
 
@@ -240,5 +240,6 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 
 当前 MySQL 方言边界：
 - 不做 PostgreSQL 方言兼容转换
+- MySQL 5.6 不支持 `MAX_EXECUTION_TIME` 时会自动降级，不阻塞 evidence / compare
 - 若原 SQL 或候选包含 `ILIKE` 等 MySQL 不支持语法，optimize 的 DB evidence / compare 会按语法错误处理
 - 原始错误保留在 proposal 的 `dbEvidenceSummary.explainError`

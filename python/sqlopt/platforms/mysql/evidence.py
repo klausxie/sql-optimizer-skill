@@ -5,6 +5,8 @@ import re
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlparse
 
+from .compat import set_timeout_best_effort
+
 
 def _prepare_explain_sql(sql: str) -> str:
     converted = re.sub(r"(?i)\border\s+by\s+\$\{[^}]+\}", "ORDER BY 1", sql)
@@ -88,10 +90,6 @@ def _quote_identifier(value: str) -> str:
     return "`" + str(value or "").replace("`", "``") + "`"
 
 
-def _set_timeout(cur: Any, timeout_ms: int) -> None:
-    cur.execute(f"SET SESSION MAX_EXECUTION_TIME = {max(1, int(timeout_ms))}")
-
-
 def _normalize_plan_lines(raw: Any) -> list[str]:
     if isinstance(raw, str):
         return [raw]
@@ -144,7 +142,7 @@ def check_db_connectivity(config: dict[str, Any]) -> dict[str, Any]:
     try:
         with connect(**_build_connect_kwargs(str(dsn))) as conn:
             with conn.cursor() as cur:
-                _set_timeout(cur, timeout)
+                set_timeout_best_effort(cur, timeout)
                 cur.execute("SELECT 1")
                 _ = cur.fetchone()
         return {"name": "db", "enabled": True, "ok": True}
@@ -174,7 +172,7 @@ def _collect_metadata(config: dict[str, Any], sql: str) -> dict[str, Any]:
     try:
         with connect(**_build_connect_kwargs(str(dsn))) as conn:
             with conn.cursor() as cur:
-                _set_timeout(cur, timeout)
+                set_timeout_best_effort(cur, timeout)
                 for table in tables:
                     cur.execute(f"SHOW INDEX FROM {_quote_identifier(table)} FROM {_quote_identifier(database)}")
                     for row in cur.fetchall():
@@ -247,7 +245,7 @@ def _collect_explain(config: dict[str, Any], sql: str) -> dict[str, Any]:
     try:
         with connect(**_build_connect_kwargs(str(dsn))) as conn:
             with conn.cursor() as cur:
-                _set_timeout(cur, timeout)
+                set_timeout_best_effort(cur, timeout)
                 cur.execute(f"EXPLAIN FORMAT=JSON {prepared_sql}")
                 row = cur.fetchone()
                 plan_raw = row[0] if row else "{}"

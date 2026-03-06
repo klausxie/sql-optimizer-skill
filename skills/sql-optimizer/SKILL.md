@@ -12,7 +12,7 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 4. 当 `report.enabled=true`（默认）时，即使 `to_stage` 更早，运行收尾也会完成 report。
 5. 生成报告并检查 ops 产物。
 6. 若用户当前只在改 scanner/scan verification，优先先做一次 scan-only smoke，再决定是否继续全流程。
-7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 仅支持 8.0+，不支持 MariaDB。
+7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 支持 5.6+（含 5.7、8.0+），不支持 MariaDB。
 8. MySQL 不做 PostgreSQL 方言兼容；若 SQL 含 `ILIKE` 等不支持语法，应按语法错误处理，并检查 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
 
 ## LLM 增强功能（Phase 1-6）

@@ -5,7 +5,7 @@
 ## 前置条件
 
 - Python 3.9 或更高版本
-- PostgreSQL 或 MySQL 8.0+ 数据库（真实验证时需要；首轮离线 smoke 可先禁用）
+- PostgreSQL 或 MySQL 5.6+ 数据库（含 5.7、8.0+；真实验证时需要；首轮离线 smoke 可先禁用）
 - MyBatis XML mapper 文件
 
 ## 快速开始（5 分钟）
@@ -62,8 +62,9 @@ db:
 ```
 
 当前边界：
-- MySQL 仅支持 8.0+
+- MySQL 支持 5.6+（含 5.7、8.0+）
 - 不支持 MariaDB
+- MySQL 5.6 不支持 `MAX_EXECUTION_TIME` 时会自动降级，不阻塞 evidence / compare
 - 若原 SQL 或候选 SQL 带 PostgreSQL 方言（例如 `ILIKE`），当前不会自动兼容；MySQL evidence / compare 会按语法错误处理，并上报 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
 
 **如果只是先验证安装链路**，建议先改成：
@@ -277,7 +278,7 @@ python3 scripts/run_until_budget.py \
 
 ### Q: 如何在本地准备 MySQL 测试库？
 
-仓库内置了 MySQL 8.0+ fixture schema：
+仓库内置了 MySQL 5.6+ fixture schema（含 5.7、8.0+）：
 
 ```bash
 mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql

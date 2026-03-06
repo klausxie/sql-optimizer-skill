@@ -8,8 +8,9 @@ from sqlopt.platforms.mysql import evidence
 
 
 class _Cursor:
-    def __init__(self, script: list[object]) -> None:
+    def __init__(self, script: list[object], execute_errors: list[Exception] | None = None) -> None:
         self._script = list(script)
+        self._execute_errors = list(execute_errors or [])
         self.executed: list[tuple[str, object | None]] = []
 
     def __enter__(self) -> "_Cursor":
@@ -20,6 +21,8 @@ class _Cursor:
 
     def execute(self, sql: str, params: object | None = None) -> None:
         self.executed.append((sql, params))
+        if self._execute_errors:
+            raise self._execute_errors.pop(0)
 
     def fetchone(self):
         if not self._script:
@@ -68,6 +71,12 @@ class MySqlEvidenceTest(unittest.TestCase):
 
     def test_check_db_connectivity_succeeds(self) -> None:
         cursor = _Cursor([(1,)])
+        with patch("sqlopt.platforms.mysql.evidence._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor), "pymysql")):
+            result = evidence.check_db_connectivity({"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}})
+        self.assertTrue(result["ok"])
+
+    def test_check_db_connectivity_tolerates_unsupported_timeout_setting(self) -> None:
+        cursor = _Cursor([(1,)], execute_errors=[RuntimeError("Unknown system variable 'MAX_EXECUTION_TIME'")])
         with patch("sqlopt.platforms.mysql.evidence._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor), "pymysql")):
             result = evidence.check_db_connectivity({"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}})
         self.assertTrue(result["ok"])

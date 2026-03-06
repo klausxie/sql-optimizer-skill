@@ -1,9 +1,9 @@
--- Local MySQL 8.0+ test schema for sql-optimize
+-- Local MySQL 5.6+ test schema for sql-optimize
 -- Usage:
 --   mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
 --
 -- Notes:
---   1. This script targets MySQL 8.0+ only.
+--   1. This script targets MySQL 5.6+ (including 5.7 and 8.0+).
 --   2. Table creation and seed inserts are idempotent for repeated local runs.
 --   3. It assumes the target database already exists and is selected.
 
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_email (email),
   KEY idx_users_name (name),
-  KEY idx_users_status_created (status, created_at DESC)
+  KEY idx_users_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_orders_order_no (order_no),
-  KEY idx_orders_user_created (user_id, created_at DESC),
+  KEY idx_orders_user_created (user_id, created_at),
   KEY idx_orders_status (status),
   CONSTRAINT fk_orders_user_id FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -43,28 +43,45 @@ CREATE TABLE IF NOT EXISTS shipments (
   shipped_at TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (id),
   KEY idx_shipments_order (order_id),
-  KEY idx_shipments_status_shipped (status, shipped_at DESC),
+  KEY idx_shipments_status_shipped (status, shipped_at),
   CONSTRAINT fk_shipments_order_id FOREIGN KEY (order_id) REFERENCES orders(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TEMPORARY TABLE IF EXISTS _sqlopt_digits;
+CREATE TEMPORARY TABLE _sqlopt_digits (
+  d TINYINT NOT NULL PRIMARY KEY
+) ENGINE=MEMORY;
+
+INSERT INTO _sqlopt_digits (d)
+VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9);
+
+DROP TEMPORARY TABLE IF EXISTS _sqlopt_seq;
+CREATE TEMPORARY TABLE _sqlopt_seq (
+  n INT NOT NULL PRIMARY KEY
+) ENGINE=MEMORY;
+
+INSERT INTO _sqlopt_seq (n)
+SELECT ones.d + tens.d * 10 + hundreds.d * 100 + 1 AS n
+FROM _sqlopt_digits AS ones
+CROSS JOIN _sqlopt_digits AS tens
+CROSS JOIN _sqlopt_digits AS hundreds
+WHERE ones.d + tens.d * 10 + hundreds.d * 100 < 360
+ORDER BY 1;
+
 -- seed users: medium dataset for stable optimizer behavior
 INSERT INTO users (name, email, status, created_at, updated_at)
-WITH RECURSIVE seq AS (
-  SELECT 1 AS n
-  UNION ALL
-  SELECT n + 1 FROM seq WHERE n < 120
-)
 SELECT
-  CONCAT('User', n),
-  CONCAT('user', LPAD(CAST(n AS CHAR), 3, '0'), '@example.com'),
+  CONCAT('User', seq.n),
+  CONCAT('user', LPAD(CAST(seq.n AS CHAR), 3, '0'), '@example.com'),
   CASE
-    WHEN MOD(n, 10) = 0 THEN 'LOCKED'
-    WHEN MOD(n, 3) = 0 THEN 'INACTIVE'
+    WHEN MOD(seq.n, 10) = 0 THEN 'LOCKED'
+    WHEN MOD(seq.n, 3) = 0 THEN 'INACTIVE'
     ELSE 'ACTIVE'
   END,
-  TIMESTAMPADD(DAY, -MOD(n, 90), CURRENT_TIMESTAMP),
-  TIMESTAMPADD(DAY, -MOD(n, 10), CURRENT_TIMESTAMP)
-FROM seq
+  TIMESTAMPADD(DAY, -MOD(seq.n, 90), CURRENT_TIMESTAMP),
+  TIMESTAMPADD(DAY, -MOD(seq.n, 10), CURRENT_TIMESTAMP)
+FROM _sqlopt_seq AS seq
+WHERE seq.n <= 120
 ON DUPLICATE KEY UPDATE updated_at = updated_at;
 
 INSERT INTO users (name, email, status)
@@ -78,23 +95,19 @@ ON DUPLICATE KEY UPDATE updated_at = updated_at;
 
 -- seed orders: around 360 rows
 INSERT INTO orders (user_id, order_no, amount, status, created_at)
-WITH RECURSIVE seq AS (
-  SELECT 1 AS n
-  UNION ALL
-  SELECT n + 1 FROM seq WHERE n < 360
-)
 SELECT
-  MOD(n - 1, 120) + 1,
-  CONCAT('ORD-', LPAD(CAST(n AS CHAR), 6, '0')),
-  ROUND(10 + MOD(n, 250) * 1.37, 2),
+  MOD(seq.n - 1, 120) + 1,
+  CONCAT('ORD-', LPAD(CAST(seq.n AS CHAR), 6, '0')),
+  ROUND(10 + MOD(seq.n, 250) * 1.37, 2),
   CASE
-    WHEN MOD(n, 11) = 0 THEN 'CANCELLED'
-    WHEN MOD(n, 5) = 0 THEN 'SHIPPED'
-    WHEN MOD(n, 2) = 0 THEN 'PAID'
+    WHEN MOD(seq.n, 11) = 0 THEN 'CANCELLED'
+    WHEN MOD(seq.n, 5) = 0 THEN 'SHIPPED'
+    WHEN MOD(seq.n, 2) = 0 THEN 'PAID'
     ELSE 'CREATED'
   END,
-  TIMESTAMPADD(DAY, -MOD(n, 180), CURRENT_TIMESTAMP)
-FROM seq
+  TIMESTAMPADD(DAY, -MOD(seq.n, 180), CURRENT_TIMESTAMP)
+FROM _sqlopt_seq AS seq
+WHERE seq.n <= 360
 ON DUPLICATE KEY UPDATE order_no = order_no;
 
 INSERT INTO orders (user_id, order_no, amount, status, created_at)
@@ -117,32 +130,31 @@ ON DUPLICATE KEY UPDATE order_no = order_no;
 
 -- seed shipments: around 220 rows
 INSERT INTO shipments (order_id, carrier, tracking_no, status, shipped_at)
-WITH picked AS (
-  SELECT
-    o.id,
-    o.status,
-    o.created_at,
-    ROW_NUMBER() OVER (ORDER BY o.id) AS rn
-  FROM orders o
-)
 SELECT
-  p.id,
+  o.id,
   CASE
-    WHEN MOD(p.id, 3) = 0 THEN 'UPS'
-    WHEN MOD(p.id, 3) = 1 THEN 'DHL'
+    WHEN MOD(o.id, 3) = 0 THEN 'UPS'
+    WHEN MOD(o.id, 3) = 1 THEN 'DHL'
     ELSE 'FEDEX'
   END,
-  CONCAT('TRK-', LPAD(CAST(p.id AS CHAR), 8, '0')),
+  CONCAT('TRK-', LPAD(CAST(o.id AS CHAR), 8, '0')),
   CASE
-    WHEN p.status = 'CANCELLED' THEN 'CANCELLED'
-    WHEN p.status IN ('PAID', 'SHIPPED') THEN 'SHIPPED'
+    WHEN o.status = 'CANCELLED' THEN 'CANCELLED'
+    WHEN o.status IN ('PAID', 'SHIPPED') THEN 'SHIPPED'
     ELSE 'INIT'
   END,
   CASE
-    WHEN p.status IN ('PAID', 'SHIPPED') THEN TIMESTAMPADD(DAY, 1, p.created_at)
+    WHEN o.status IN ('PAID', 'SHIPPED') THEN TIMESTAMPADD(DAY, 1, o.created_at)
     ELSE NULL
   END
-FROM picked p
-LEFT JOIN shipments s ON s.order_id = p.id
-WHERE p.rn <= 220
-  AND s.order_id IS NULL;
+FROM (
+  SELECT id, status, created_at
+  FROM orders
+  ORDER BY id
+  LIMIT 220
+) AS o
+LEFT JOIN shipments AS s ON s.order_id = o.id
+WHERE s.order_id IS NULL;
+
+DROP TEMPORARY TABLE IF EXISTS _sqlopt_seq;
+DROP TEMPORARY TABLE IF EXISTS _sqlopt_digits;

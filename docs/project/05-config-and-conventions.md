@@ -67,9 +67,10 @@
 2. `mysql`
 
 边界：
-1. MySQL 仅支持 8.0+
+1. MySQL 支持 5.6+（含 5.7、8.0+）
 2. 不支持 MariaDB
-3. 若 SQL 或候选含 MySQL 不支持的 PostgreSQL 方言（例如 `ILIKE`），按语法错误处理并在报告中暴露
+3. MySQL 5.6 不支持 `MAX_EXECUTION_TIME` 时会自动降级，不阻塞 evidence / compare
+4. 若 SQL 或候选含 MySQL 不支持的 PostgreSQL 方言（例如 `ILIKE`），按语法错误处理并在报告中暴露
 
 ## 6. 运行目录规范
 统一路径：

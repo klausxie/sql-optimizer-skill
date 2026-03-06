@@ -9,8 +9,9 @@ from sqlopt.platforms.mysql import compare
 
 
 class _Cursor:
-    def __init__(self, script: list[object]) -> None:
+    def __init__(self, script: list[object], execute_errors: list[Exception] | None = None) -> None:
         self._script = list(script)
+        self._execute_errors = list(execute_errors or [])
 
     def __enter__(self) -> "_Cursor":
         return self
@@ -19,6 +20,8 @@ class _Cursor:
         return None
 
     def execute(self, sql: str, params: object | None = None) -> None:
+        if self._execute_errors:
+            raise self._execute_errors.pop(0)
         return None
 
     def fetchone(self):
@@ -83,6 +86,26 @@ class MySqlCompareTest(unittest.TestCase):
         self.assertEqual(result["beforeSummary"]["totalCost"], 15.0)
         self.assertEqual(result["afterSummary"]["totalCost"], 7.5)
 
+    def test_compare_plan_tolerates_unsupported_timeout_setting(self) -> None:
+        cfg = {
+            "db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"},
+            "validate": {},
+            "policy": {"cost_threshold_pct": 0},
+        }
+        cursor = _Cursor(
+            [
+                ('{"query_block":{"cost_info":{"query_cost":"15.0"}}}',),
+                ('{"query_block":{"cost_info":{"query_cost":"7.5"}}}',),
+            ],
+            execute_errors=[RuntimeError("Unknown system variable 'MAX_EXECUTION_TIME'")],
+        )
+        with tempfile.TemporaryDirectory(prefix="sqlopt_mysql_compare_") as td:
+            with patch("sqlopt.platforms.mysql.compare._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor), "pymysql")):
+                result = compare.compare_plan(cfg, "SELECT 1", "SELECT 1", Path(td))
+
+        self.assertTrue(result["checked"])
+        self.assertTrue(result["improved"])
+
     def test_compare_plan_supports_db_unreachable_fallback(self) -> None:
         cfg = {
             "db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"},
@@ -145,6 +168,15 @@ class MySqlCompareTest(unittest.TestCase):
             fallback = compare.compare_semantics(cfg_fallback, "SELECT 1", "SELECT 1", Path("."))
         self.assertEqual(fallback["reasonCategory"], "DB_UNREACHABLE")
         self.assertEqual(fallback["rowCount"]["status"], "SKIPPED")
+
+    def test_compare_semantics_tolerates_unsupported_timeout_setting(self) -> None:
+        cfg = {"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}, "validate": {}}
+        cursor = _Cursor([(5,), (5,)], execute_errors=[RuntimeError("Unknown system variable 'MAX_EXECUTION_TIME'")])
+        with tempfile.TemporaryDirectory(prefix="sqlopt_mysql_semantics_") as td:
+            with patch("sqlopt.platforms.mysql.compare._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor), "pymysql")):
+                result = compare.compare_semantics(cfg, "SELECT 1", "SELECT 1", Path(td))
+        self.assertTrue(result["checked"])
+        self.assertEqual(result["rowCount"]["status"], "MATCH")
 
 
 if __name__ == "__main__":

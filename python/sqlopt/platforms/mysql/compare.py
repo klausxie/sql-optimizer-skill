@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote, urlparse
 
 from ...io_utils import write_json
+from .compat import set_timeout_best_effort
 
 
 def _parse_mysql_dsn(dsn: str) -> dict[str, Any]:
@@ -91,10 +92,6 @@ def _get_sql_connect() -> tuple[Any | None, str | None]:
         return None, None
 
 
-def _set_timeout(cur: Any, timeout_ms: int) -> None:
-    cur.execute(f"SET SESSION MAX_EXECUTION_TIME = {max(1, int(timeout_ms))}")
-
-
 def _extract_total_cost(raw: Any) -> float | None:
     payload = raw
     if isinstance(payload, str):
@@ -159,7 +156,7 @@ def compare_plan(config: dict[str, Any], original_sql: str, rewritten_sql: str, 
     try:
         with connect(**_build_connect_kwargs(str(dsn))) as conn:
             with conn.cursor() as cur:
-                _set_timeout(cur, timeout)
+                set_timeout_best_effort(cur, timeout)
                 cur.execute(f"EXPLAIN FORMAT=JSON {o_sql}")
                 before_raw = (cur.fetchone() or ["{}"])[0]
                 cur.execute(f"EXPLAIN FORMAT=JSON {r_sql}")
@@ -236,7 +233,7 @@ def compare_semantics(config: dict[str, Any], original_sql: str, rewritten_sql: 
     try:
         with connect(**_build_connect_kwargs(str(dsn))) as conn:
             with conn.cursor() as cur:
-                _set_timeout(cur, timeout)
+                set_timeout_best_effort(cur, timeout)
                 cur.execute(f"SELECT COUNT(*) FROM ({o_sql}) q")
                 before_count = int((cur.fetchone() or [0])[0])
                 cur.execute(f"SELECT COUNT(*) FROM ({r_sql}) q")
