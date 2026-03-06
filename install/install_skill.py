@@ -74,6 +74,7 @@ def _generate_command_doc(
     exec_command: str,
     *,
     usage_hint: str | None = None,
+    examples: list[str] | None = None,
 ) -> str:
     """Generate markdown template for an OpenCode command.
 
@@ -85,20 +86,45 @@ def _generate_command_doc(
         f"description: {description}",
         "---",
         "",
-        "你是命令执行器。不要调用 skill 工具，不要读取/修改文件，不要先提问。",
-        "你必须立刻调用一次 bash 工具，且只调用这一次。",
-        "当使用 `$ARGUMENTS` 时，必须按原样直接拼接，不要整体加引号。",
-        "当 `$ARGUMENTS` 为空时，执行：",
-        f"`{exec_command}`",
-        "当 `$ARGUMENTS` 非空时，执行：",
-        f"`{exec_command} $ARGUMENTS`",
-        "命令结束后，仅返回 bash 的原始输出。",
+        "# 执行指令",
+        "",
+        "你是命令执行器。遵循以下规则：",
+        "",
+        "1. **立即执行**：不要调用 skill 工具，不要读取/修改文件，不要先提问",
+        "2. **单次调用**：必须立刻调用一次 bash 工具，且只调用这一次",
+        "3. **参数处理**：当使用 `$ARGUMENTS` 时，必须按原样直接拼接，不要整体加引号",
+        "",
+        "## 执行命令",
+        "",
+        "- 当 `$ARGUMENTS` 为空时：",
+        f"  ```bash",
+        f"  {exec_command}",
+        f"  ```",
+        "",
+        "- 当 `$ARGUMENTS` 非空时：",
+        f"  ```bash",
+        f"  {exec_command} $ARGUMENTS",
+        f"  ```",
+        "",
+        "## 输出规则",
+        "",
+        "命令结束后，仅返回 bash 的原始输出，不要添加额外说明。",
     ]
     if usage_hint:
         lines.extend([
             "",
-            f"参数示例：{usage_hint}",
+            "## 常用参数",
+            "",
+            f"{usage_hint}",
         ])
+    if examples:
+        lines.extend([
+            "",
+            "## 使用示例",
+            "",
+        ])
+        for example in examples:
+            lines.append(f"- {example}")
     lines.append("")
     return "\n".join(lines)
 
@@ -148,24 +174,61 @@ def _write_commands(target_skill: Path) -> None:
             "description": "为项目执行一次 SQL 优化时间片（单次调用不保证跑完）",
             "exec_command": f"{py_cmd} {run_budget_script}",
             "usage_hint": "--config ./sqlopt.yml --to-stage patch_generate --run-id run_xxx --max-steps 200 --max-seconds 95",
+            "examples": [
+                "开始运行直到完成：--config ./sqlopt.yml",
+                "继续指定运行直到完成：--config ./sqlopt.yml --run-id run_xxx",
+            ],
         },
         {
             "name": "sql-optimizer-status",
-            "description": "查询 sql-optimizer 运行状态（省略 run_id 时默认使用最近一次）",
+            "description": "查询优化运行状态和进度（省略 run-id 时使用最近一次运行）",
             "exec_command": f"{py_cmd} {resolved_id_script} status",
-            "usage_hint": "--run-id run_xxx --project .",
+            "usage_hint": "--project . [--run-id run_xxx]",
+            "examples": [
+                "查看最近运行：--project .",
+                "查看指定运行：--project . --run-id run_xxx",
+            ],
         },
         {
             "name": "sql-optimizer-resume",
-            "description": "继续推进一次 sql-optimizer 运行（省略 run_id 时默认使用最近一次）",
-            "exec_command": f"{py_cmd} {resolved_id_script} resume",
-            "usage_hint": "--run-id run_xxx --project .",
+            "description": "继续执行未完成的优化运行直到完成或失败（省略 run-id 时使用最近一次运行）",
+            "exec_command": f"{py_cmd} {run_budget_script}",
+            "usage_hint": "--config ./sqlopt.yml [--run-id run_xxx] --max-seconds 95",
+            "examples": [
+                "继续最近运行直到完成：--config ./sqlopt.yml",
+                "继续指定运行直到完成：--config ./sqlopt.yml --run-id run_xxx",
+            ],
         },
         {
             "name": "sql-optimizer-apply",
-            "description": "对 sql-optimizer 运行执行 apply（省略 run_id 时默认使用最近一次）",
+            "description": "应用生成的 SQL 优化补丁到项目文件（省略 run-id 时使用最近一次运行）",
             "exec_command": f"{py_cmd} {resolved_id_script} apply",
-            "usage_hint": "--run-id run_xxx --project .",
+            "usage_hint": "--project . [--run-id run_xxx] [--mode APPLY_IN_PLACE]",
+            "examples": [
+                "应用最近运行的补丁：--project .",
+                "应用指定运行的补丁：--project . --run-id run_xxx",
+                "直接修改文件：--project . --mode APPLY_IN_PLACE",
+            ],
+        },
+        {
+            "name": "sql-optimizer-verify",
+            "description": "验证优化运行的数据契约和输出完整性",
+            "exec_command": f"{py_cmd} {resolved_id_script} verify",
+            "usage_hint": "--project . [--run-id run_xxx] [--phase validate]",
+            "examples": [
+                "验证最近运行：--project .",
+                "验证指定阶段：--project . --phase validate",
+            ],
+        },
+        {
+            "name": "sql-optimizer-report",
+            "description": "生成或查看优化运行的详细报告",
+            "exec_command": f"{py_cmd} {resolved_id_script} report",
+            "usage_hint": "--project . [--run-id run_xxx] [--format markdown]",
+            "examples": [
+                "查看最近报告：--project .",
+                "生成 JSON 报告：--project . --format json",
+            ],
         },
     ]
 
@@ -175,6 +238,7 @@ def _write_commands(target_skill: Path) -> None:
             description=cmd["description"],
             exec_command=str(cmd["exec_command"]).strip(),
             usage_hint=str(cmd.get("usage_hint") or "").strip() or None,
+            examples=cmd.get("examples"),
         )
         output_file = cmd_dir / f"{cmd['name']}.md"
         output_file.write_text(doc_content, encoding="utf-8")
