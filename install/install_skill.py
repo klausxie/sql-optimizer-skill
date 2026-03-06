@@ -71,78 +71,59 @@ def _get_python_command(target_skill: Path) -> str:
 
 def _generate_command_doc(
     description: str,
-    argument_hint: str,
-    command_template: str,
-    parameters: list[dict] | None = None,
-    examples: list[str] | None = None,
-    notes: list[str] | None = None,
+    exec_command: str,
+    *,
+    usage_hint: str | None = None,
 ) -> str:
-    """Generate markdown documentation for a single command.
+    """Generate markdown template for an OpenCode command.
 
-    Args:
-        description: Command description for the frontmatter
-        argument_hint: Argument hint string for the frontmatter
-        command_template: Full command template with placeholders
-        parameters: Optional list of parameter definitions with name, required, default, description
-        examples: Optional list of usage examples
-        notes: Optional list of additional notes
-
-    Returns:
-        Markdown documentation string
+    The template is written as explicit tool instructions so the model executes
+    the command directly instead of asking follow-up questions.
     """
     lines = [
         "---",
         f"description: {description}",
-        f"argument-hint: {argument_hint}",
         "---",
         "",
-        "## 命令格式",
-        "",
-        f"`{command_template}`",
-        "",
+        "你是命令执行器。不要调用 skill 工具，不要读取/修改文件，不要先提问。",
+        "你必须立刻调用一次 bash 工具，且只调用这一次。",
+        "当使用 `$ARGUMENTS` 时，必须按原样直接拼接，不要整体加引号。",
+        "当 `$ARGUMENTS` 为空时，执行：",
+        f"`{exec_command}`",
+        "当 `$ARGUMENTS` 非空时，执行：",
+        f"`{exec_command} $ARGUMENTS`",
+        "命令结束后，仅返回 bash 的原始输出。",
     ]
-
-    if parameters:
+    if usage_hint:
         lines.extend([
-            "## 参数说明",
             "",
+            f"参数示例：{usage_hint}",
         ])
-        for param in parameters:
-            name = param["name"]
-            required = param.get("required", True)
-            default = param.get("default")
-            desc = param.get("description", "")
-
-            if required:
-                lines.append(f"- `{name}` **(必需)**: {desc}")
-            else:
-                if default:
-                    lines.append(f"- `{name}` (可选，默认: `{default}`): {desc}")
-                else:
-                    lines.append(f"- `{name}` (可选): {desc}")
-        lines.append("")
-
-    if examples:
-        lines.extend([
-            "## 使用示例",
-            "",
-        ])
-        for example in examples:
-            lines.append(f"```bash")
-            lines.append(example)
-            lines.append("```")
-            lines.append("")
-
-    if notes:
-        lines.extend([
-            "## 注意事项",
-            "",
-        ])
-        for note in notes:
-            lines.append(f"- {note}")
-        lines.append("")
-
+    lines.append("")
     return "\n".join(lines)
+
+
+def _retire_legacy_skill_backups(skills_root: Path) -> int:
+    """Disable legacy backup skills under ~/.opencode/skills.
+
+    OpenCode scans folders under ~/.opencode/skills and treats each SKILL.md as
+    an active skill. Historical backup folders like `sql-optimizer.bak.*` may
+    shadow the latest version and cause command routing to stale instructions.
+    We keep backup files but disable skill discovery by renaming SKILL.md.
+    """
+    retired = 0
+    for backup in sorted(skills_root.glob(f"{SKILL_NAME}.bak.*")):
+        if not backup.is_dir():
+            continue
+        marker = backup / "SKILL.md"
+        if not marker.exists():
+            continue
+        disabled = backup / "SKILL.md.disabled"
+        if disabled.exists():
+            disabled.unlink()
+        marker.rename(disabled)
+        retired += 1
+    return retired
 
 
 def _write_commands(target_skill: Path) -> None:
@@ -165,128 +146,35 @@ def _write_commands(target_skill: Path) -> None:
         {
             "name": "sql-optimizer-run",
             "description": "为项目执行一次 SQL 优化时间片（单次调用不保证跑完）",
-            "argument_hint": "config=./sqlopt.yml to_stage=patch_generate run_id=RUN_ID max_steps=200 max_seconds=95",
-            "script": run_budget_script,
-            "args": "--config <config> --to-stage <to_stage> --run-id <run_id> --max-steps <max_steps> --max-seconds <max_seconds>",
-            "parameters": [
-                {"name": "config", "required": False, "default": "./sqlopt.yml", "description": "配置文件路径"},
-                {"name": "to_stage", "required": False, "default": "patch_generate", "description": "目标阶段，可选值: preflight, scan, optimize, validate, patch_generate, report"},
-                {"name": "run_id", "required": False, "default": "自动生成", "description": "运行 ID，省略时自动生成新的 run_id"},
-                {"name": "max_steps", "required": False, "default": "200", "description": "最大执行步数"},
-                {"name": "max_seconds", "required": False, "default": "95", "description": "最大执行时间（秒）"},
-            ],
-            "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {run_budget_script}",
-                "",
-                "# 指定配置文件和目标阶段",
-                f"{py_cmd} {run_budget_script} --config ./sqlopt.yml --to-stage patch_generate",
-                "",
-                "# 继续已有的运行",
-                f"{py_cmd} {run_budget_script} --run-id run_abc123",
-            ],
-            "notes": [
-                "单次调用约 95 秒，不保证完成所有 SQL 优化",
-                "需要循环调用直到返回 complete=true",
-                "返回 JSON 格式包含 run_id、complete、phase 等信息",
-                "可选参数不传时使用默认值",
-            ],
+            "exec_command": f"{py_cmd} {run_budget_script}",
+            "usage_hint": "--config ./sqlopt.yml --to-stage patch_generate --run-id run_xxx --max-steps 200 --max-seconds 95",
         },
         {
             "name": "sql-optimizer-status",
             "description": "查询 sql-optimizer 运行状态（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "status --run-id <run_id> --project <project>",
-            "parameters": [
-                {"name": "project", "required": False, "default": ".", "description": "项目根目录路径"},
-                {"name": "run_id", "required": False, "default": "最近一次运行", "description": "运行 ID，省略时自动使用最近一次运行"},
-            ],
-            "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} status",
-                "",
-                "# 查询最近一次运行的状态",
-                f"{py_cmd} {resolved_id_script} status --project .",
-                "",
-                "# 查询指定 run_id 的状态",
-                f"{py_cmd} {resolved_id_script} status --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "返回 JSON 格式包含 current_phase、remaining_statements、complete 等信息",
-                "可选参数不传时使用默认值",
-            ],
+            "exec_command": f"{py_cmd} {resolved_id_script} status",
+            "usage_hint": "--run-id run_xxx --project .",
         },
         {
             "name": "sql-optimizer-resume",
             "description": "继续推进一次 sql-optimizer 运行（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "resume --run-id <run_id> --project <project>",
-            "parameters": [
-                {"name": "project", "required": False, "default": ".", "description": "项目根目录路径"},
-                {"name": "run_id", "required": False, "default": "最近一次运行", "description": "运行 ID，省略时自动使用最近一次运行"},
-            ],
-            "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} resume",
-                "",
-                "# 继续最近一次运行",
-                f"{py_cmd} {resolved_id_script} resume --project .",
-                "",
-                "# 继续指定 run_id 的运行",
-                f"{py_cmd} {resolved_id_script} resume --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "从上次中断的地方继续执行",
-                "返回 JSON 格式包含执行结果",
-                "可选参数不传时使用默认值",
-            ],
+            "exec_command": f"{py_cmd} {resolved_id_script} resume",
+            "usage_hint": "--run-id run_xxx --project .",
         },
         {
             "name": "sql-optimizer-apply",
             "description": "对 sql-optimizer 运行执行 apply（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "apply --run-id <run_id> --project <project>",
-            "parameters": [
-                {"name": "project", "required": False, "default": ".", "description": "项目根目录路径"},
-                {"name": "run_id", "required": False, "default": "最近一次运行", "description": "运行 ID，省略时自动使用最近一次运行"},
-            ],
-            "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} apply",
-                "",
-                "# 应用最近一次运行的补丁",
-                f"{py_cmd} {resolved_id_script} apply --project .",
-                "",
-                "# 应用指定 run_id 的补丁",
-                f"{py_cmd} {resolved_id_script} apply --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "默认模式为 PATCH_ONLY（生成补丁文件，不修改源文件）",
-                "如需直接修改源文件，在 sqlopt.yml 中设置 apply.mode: APPLY_IN_PLACE",
-                "可选参数不传时使用默认值",
-            ],
+            "exec_command": f"{py_cmd} {resolved_id_script} apply",
+            "usage_hint": "--run-id run_xxx --project .",
         },
     ]
 
     # Generate and write documentation for each command
     for cmd in commands:
-        command_template = f"{py_cmd} {cmd['script']} {cmd['args']}"
         doc_content = _generate_command_doc(
             description=cmd["description"],
-            argument_hint=cmd["argument_hint"],
-            command_template=command_template,
-            parameters=cmd.get("parameters"),
-            examples=cmd.get("examples"),
-            notes=cmd.get("notes"),
+            exec_command=str(cmd["exec_command"]).strip(),
+            usage_hint=str(cmd.get("usage_hint") or "").strip() or None,
         )
         output_file = cmd_dir / f"{cmd['name']}.md"
         output_file.write_text(doc_content, encoding="utf-8")
@@ -310,16 +198,23 @@ def main() -> None:
     project_dir = Path(args.project).resolve()
     source_skill = find_skill_source(root_dir)
     target_skill = skill_dir()
+    skills_root = target_skill.parent
     opencode_home().mkdir(parents=True, exist_ok=True)
-    (opencode_home() / "skills").mkdir(parents=True, exist_ok=True)
+    skills_root.mkdir(parents=True, exist_ok=True)
 
     if target_skill.exists():
         if args.force:
             safe_rmtree(target_skill)
         else:
-            backup = target_skill.parent / f"{SKILL_NAME}.bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            backup_root = opencode_home() / "skill_backups" / SKILL_NAME
+            backup_root.mkdir(parents=True, exist_ok=True)
+            backup = backup_root / datetime.now().strftime('%Y%m%d_%H%M%S')
             target_skill.rename(backup)
             print(f"existing skill moved to: {backup}")
+
+    retired_count = _retire_legacy_skill_backups(skills_root)
+    if retired_count:
+        print(f"disabled {retired_count} legacy backup skill marker(s)")
 
     target_skill.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_skill, target_skill, dirs_exist_ok=True)

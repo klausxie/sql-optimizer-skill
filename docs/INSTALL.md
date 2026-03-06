@@ -115,17 +115,9 @@ Before switching to real DB / external LLM, verify one offline-safe run first.
 Recommended config overrides for the project under test:
 
 ```yaml
-validate:
-  db_reachable: false
-  allow_db_unreachable_fallback: true
-  plan_compare_enabled: false
-
 llm:
   enabled: true
   provider: opencode_builtin
-
-apply:
-  mode: PATCH_ONLY
 ```
 
 Then run from the project root:

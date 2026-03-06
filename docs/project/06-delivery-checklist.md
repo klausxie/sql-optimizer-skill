@@ -21,8 +21,8 @@
 
 ## 3. 模板感知专项回归
 1. 默认配置下：
-   - `scan.enable_fragment_catalog=true` 生效
-   - `patch.template_rewrite.enable_fragment_materialization=false` 仍保持关闭
+   - fragment catalog 生成能力生效（`scan.fragments.jsonl` 存在）
+   - fragment 自动物化保持关闭（无显式自动落地）
 2. statement-level include-safe 模板 patch 仍要求 `replayVerified=true`
 3. fragment 自动物化默认不会误触发
 4. 动态 statement 仍不会被扁平 SQL 直接覆盖
@@ -43,10 +43,7 @@
 1. 将 `tests/fixtures/project` 复制到临时目录，避免污染仓库内 fixture
 2. 在临时项目中覆盖一份离线安全配置：
    - `llm.enabled=false`
-   - `validate.db_reachable=false`
-   - `validate.allow_db_unreachable_fallback=true`
-   - `validate.plan_compare_enabled=false`
-   - `apply.mode=PATCH_ONLY`
+   - `llm.provider=heuristic`
 3. 执行 `run --to-stage patch_generate`，随后循环执行 `status/resume` 直到 `complete=true`
 4. 验证以下文件存在且内容一致：
    - `supervisor/state.json`

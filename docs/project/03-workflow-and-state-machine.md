@@ -46,14 +46,14 @@
 
 ## 5. 失败与恢复策略
 1. 失败分类：`fatal | retryable | degradable`。
-2. retry 策略：由 `runtime.stage_retry_*` 控制。
+2. retry 策略：由内置运行时策略控制（不再通过外部 `sqlopt.yml` 暴露）。
 3. 可恢复原则：已完成 statement 不重复执行；失败 statement 可定点重试。
 4. DB 不可达属于高风险事件，需在报告和 ops 健康中显式统计。
 5. 若已完成 run 的 `report` 重建失败，运行级状态保持 `COMPLETED`，但 `report_rebuild_required=true`，提示后续仅重建 report。
 
 ## 6. 完成判定
 1. 当 `to_stage` 无 pending statement，`complete=true`。
-2. 若 `report.enabled=true`（默认），运行结束时会触发 report finalization（即使 `to_stage` 早于 `report`）。
+2. 若 report 开启（默认），运行结束时会触发 report finalization（即使 `to_stage` 早于 `report`）。
 3. `apply` 不改变 analyze/validate/patch_generate 的完成定义，只增加应用态产物。
 4. `status.next_action` 语义固定为：
    - `resume`：继续推进主流程

@@ -90,7 +90,7 @@ class Doctor:
         self.check_skill_installation()
         self.check_config_file()
         self.check_config_validity()
-        self.check_java_scanner()
+        self.check_scanner_runtime()
         self.check_mapper_files()
         self.check_database_connection()
         self.check_opencode_available()
@@ -180,6 +180,7 @@ class Doctor:
                 ("scan", "mapper_globs"),
                 ("db", "platform"),
                 ("db", "dsn"),
+                ("llm", "provider"),
             ]
 
             missing = []
@@ -216,51 +217,21 @@ class Doctor:
                 "Fix YAML syntax errors in sqlopt.yml"
             ))
 
-    def check_java_scanner(self) -> None:
-        """Check if Java scanner JAR exists."""
-        config = self.project_dir / "sqlopt.yml"
-
-        if not config.exists():
-            return
-
-        try:
-            import yaml
-            with open(config, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
-
-            jar_path = data.get("scan", {}).get("java_scanner", {}).get("jar_path", "")
-
-            if jar_path == "__SCANNER_JAR__":
-                self.add_result(DiagnosticResult(
-                    "Java Scanner JAR",
-                    False,
-                    "Placeholder not replaced",
-                    "Run: python3 install/install_skill.py --project <path>",
-                    fixable=True
-                ))
-                return
-
-            jar = Path(jar_path).expanduser()
-            if jar.exists():
-                self.add_result(DiagnosticResult(
-                    "Java Scanner JAR",
-                    True,
-                    f"Found at {jar}"
-                ))
-            else:
-                self.add_result(DiagnosticResult(
-                    "Java Scanner JAR",
-                    False,
-                    f"Not found at {jar}",
-                    "Reinstall skill or build JAR manually: cd java/scan-agent && mvn package"
-                ))
-
-        except Exception as e:
+    def check_scanner_runtime(self) -> None:
+        """Check optional scanner runtime artifact shipped with skill."""
+        jar = self.skill_root / "runtime" / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
+        if jar.exists():
             self.add_result(DiagnosticResult(
-                "Java Scanner JAR",
-                False,
-                f"Error checking: {e}"
+                "Scanner Runtime",
+                True,
+                f"Optional scanner artifact found: {jar}"
             ))
+            return
+        self.add_result(DiagnosticResult(
+            "Scanner Runtime",
+            True,
+            "Optional scanner artifact not found; Python fallback scanner will be used"
+        ))
 
     def check_mapper_files(self) -> None:
         """Check if mapper files exist."""
@@ -325,16 +296,6 @@ class Doctor:
             import yaml
             with open(config, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-
-            db_reachable = data.get("validate", {}).get("db_reachable", True)
-
-            if not db_reachable:
-                self.add_result(DiagnosticResult(
-                    "Database Connection",
-                    True,
-                    "Skipped (db_reachable=false)"
-                ))
-                return
 
             dsn = data.get("db", {}).get("dsn", "")
             platform = data.get("db", {}).get("platform", "")

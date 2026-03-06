@@ -22,12 +22,6 @@ validate:
   validation_profile: balanced
   allow_db_unreachable_fallback: false
 
-policy:
-  require_perf_improvement: false
-  cost_threshold_pct: 0
-  allow_seq_scan_if_rows_below: 0
-  semantic_strict_mode: true
-
 runtime:
   profile: balanced
 

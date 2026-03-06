@@ -7,7 +7,7 @@
 - 测试项目固定路径：`tests/fixtures/project`
 - 配置文件固定：`tests/fixtures/project/sqlopt.yml`
 - scan-only 配置：`tests/fixtures/project/sqlopt.scan.local.yml`
-- MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.example.yml`
+- MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.yml`
 - MySQL 本地 schema：`tests/fixtures/sql_local/schema.mysql.sql`
 - run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
 - 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer`
@@ -19,11 +19,10 @@
 3. 若启用在线 LLM：
    - `llm.provider=opencode_run`：`opencode` 命令可用；
    - `llm.provider=direct_openai_compatible`：`api_base/api_key/api_model` 可用且网络可达。
-4. Java scanner jar 已存在：`java/scan-agent/target/scan-agent-1.0.0.jar`。
 
-若要验证 MySQL 8.0+，建议先从 `tests/fixtures/project/sqlopt.mysql.example.yml` 复制一份到临时目录，并先保持：
-- `validate.db_reachable=false`
+若要验证 MySQL 8.0+，建议先从 `tests/fixtures/project/sqlopt.mysql.yml` 复制一份到临时目录，并先保持：
 - `llm.enabled=false`
+- `llm.provider=heuristic`
 
 确认离线链路通过后，再切换成真实 `mysql://` DSN 打开 compare。
 
@@ -195,7 +194,7 @@ cat tests/fixtures/project/runs/<run_id>/patches/patch.results.jsonl
 PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 ```
 
-注意：当前默认 `apply.mode: PATCH_ONLY`，主要用于产出 patch 文件与可应用性检查。
+注意：当前 `apply` 语义为内置 `PATCH_ONLY`，主要用于产出 patch 文件与可应用性检查。
 
 ## 6. 常见问题排查
 
@@ -209,9 +208,8 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 2. 检查 `~/.opencode/opencode.json` 的 `provider/options/baseURL/apiKey/model`。
 3. 如果网络不稳定，可在 `sqlopt.yml` 调高：
    - `llm.timeout_ms`
-   - `runtime.stage_retry_max.optimize`
-   - `runtime.stage_retry_backoff_ms`
-4. 当前策略为 LLM 严格模式：`opencode_run` 或 `direct_openai_compatible` 不可达都直接失败，不做降级。
+4. 当前运行时超时/重试参数已内置，不再通过 `runtime.*` 暴露
+5. 当前策略为 LLM 严格模式：`opencode_run` 或 `direct_openai_compatible` 不可达都直接失败，不做降级。
 
 ## 6.2 数据库未连通
 

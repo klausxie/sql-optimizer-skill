@@ -56,6 +56,45 @@ PHASE_POLICIES = {
     "report": PhaseExecutionPolicy("report", allow_regenerate=True),
 }
 
+PHASE_TRANSITIONS = {
+    "preflight": "scan",
+    "scan": "optimize",
+    "optimize": "validate",
+    "validate": "patch_generate",
+    "patch_generate": "report",
+    "report": None,
+}
+
+STATEMENT_PHASE_TARGETS = {
+    "optimize": {"optimize", "validate", "patch_generate", "report"},
+    "validate": {"validate", "patch_generate", "report"},
+    "patch_generate": {"patch_generate", "report"},
+}
+
+
+@dataclass(frozen=True)
+class LoadedStageIndex:
+    units: dict[str, Any]
+    proposals: dict[str, Any]
+    acceptance: dict[str, Any]
+
+
+@dataclass
+class AdvanceContext:
+    run_dir: Path
+    config: dict[str, Any]
+    to_stage: str
+    validator: ContractValidator
+    repo: RunRepository
+    state: dict[str, Any]
+    plan: dict[str, Any]
+    db_reachable: bool
+    progress: Any
+    phase_action: RunPhaseAction
+    on_failure: RecordFailure
+    finalize_report: Callable[..., bool]
+    finalize_without: Callable[..., None]
+
 
 def runs_root(config: dict[str, Any]) -> Path:
     project_root = Path(str(config["project"]["root_path"])).resolve()
@@ -301,6 +340,237 @@ def finalize_without_report(
     repo.set_meta_status(final_meta_status)
 
 
+def _mark_updated(state: dict[str, Any]) -> None:
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+
+def _complete_phase_result(ctx: AdvanceContext, phase: str) -> dict[str, Any]:
+    return {
+        "complete": is_complete_to_stage(ctx.state, ctx.to_stage, include_report=report_enabled(ctx.config)),
+        "phase": phase,
+    }
+
+
+def _finalize_completed_run(ctx: AdvanceContext) -> None:
+    if report_enabled(ctx.config):
+        ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status="COMPLETED")
+    else:
+        ctx.finalize_without(ctx.run_dir, ctx.state, final_meta_status="COMPLETED")
+
+
+def _handle_phase_failure(ctx: AdvanceContext, phase: str, exc: StageError) -> None:
+    ctx.on_failure(ctx.run_dir, ctx.state, phase, exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
+    if report_enabled(ctx.config):
+        ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status="FAILED")
+    else:
+        ctx.repo.set_meta_status("FAILED")
+
+
+def _advance_preflight(ctx: AdvanceContext) -> dict[str, Any] | None:
+    if ctx.state["phase_status"]["preflight"] == "DONE":
+        return None
+    ctx.progress.report_phase_start("preflight", "Checking configuration and environment")
+    try:
+        _, attempts = ctx.phase_action(ctx.config, "preflight", lambda: preflight_stage.execute(ctx.config, ctx.run_dir))
+        ctx.state["attempts_by_phase"]["preflight"] += attempts
+    except StageError as exc:
+        _handle_phase_failure(ctx, "preflight", exc)
+        raise
+    ctx.state["phase_status"]["preflight"] = "DONE"
+    ctx.state["current_phase"] = str(PHASE_TRANSITIONS["preflight"])
+    _mark_updated(ctx.state)
+    ctx.repo.save_state(ctx.state)
+    ctx.repo.append_step_result("preflight", "DONE", artifact_refs=[str(ctx.run_dir / "ops" / "preflight.json")])
+    ctx.progress.report_phase_complete("preflight")
+    if ctx.to_stage == "preflight":
+        _finalize_completed_run(ctx)
+    return _complete_phase_result(ctx, "preflight")
+
+
+def _advance_scan(ctx: AdvanceContext) -> dict[str, Any] | None:
+    if ctx.state["phase_status"]["scan"] == "DONE":
+        return None
+    ctx.progress.report_phase_start("scan", "Scanning MyBatis mapper files")
+    try:
+        units, attempts = ctx.phase_action(ctx.config, "scan", lambda: scan_stage.execute(ctx.config, ctx.run_dir, ctx.validator))
+        ctx.state["attempts_by_phase"]["scan"] += attempts
+    except StageError as exc:
+        _handle_phase_failure(ctx, "scan", exc)
+        raise
+    ctx.plan["sql_keys"] = [u["sqlKey"] for u in units]
+    ctx.repo.set_plan(ctx.plan)
+    ctx.state["phase_status"]["scan"] = "DONE"
+    ctx.state["current_phase"] = str(PHASE_TRANSITIONS["scan"])
+    ctx.state["statements"] = {
+        k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"} for k in ctx.plan["sql_keys"]
+    }
+    _mark_updated(ctx.state)
+    ctx.repo.save_state(ctx.state)
+    ctx.repo.append_step_result(
+        "scan",
+        "DONE",
+        artifact_refs=[str(ctx.run_dir / "scan.sqlunits.jsonl")],
+        detail={"sql_keys": ctx.plan["sql_keys"]},
+    )
+    ctx.progress.report_phase_complete("scan")
+    ctx.progress.report_info(f"Found {len(units)} SQL statements to analyze")
+    if ctx.to_stage == "scan":
+        _finalize_completed_run(ctx)
+    return _complete_phase_result(ctx, "scan")
+
+
+def _advance_optimize(ctx: AdvanceContext, index: LoadedStageIndex) -> dict[str, Any] | None:
+    phase = "optimize"
+    if ctx.to_stage not in STATEMENT_PHASE_TARGETS[phase] or ctx.state["phase_status"][phase] == "DONE":
+        return None
+    key = next_pending_sql(ctx.state, phase)
+    if key is None:
+        ctx.state["phase_status"][phase] = "DONE"
+        ctx.state["current_phase"] = str(PHASE_TRANSITIONS[phase])
+        ctx.repo.save_state(ctx.state)
+        ctx.repo.append_step_result(phase, "DONE")
+        ctx.progress.report_phase_complete(phase)
+        if ctx.to_stage == phase:
+            ctx.state["phase_status"]["validate"] = "SKIPPED"
+            ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
+            ctx.repo.save_state(ctx.state)
+            _finalize_completed_run(ctx)
+        return _complete_phase_result(ctx, phase)
+
+    total_statements = len(ctx.plan["sql_keys"])
+    completed = sum(1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE")
+    ctx.progress.report_statement_progress(completed + 1, total_statements, key)
+
+    try:
+        _, attempts = ctx.phase_action(
+            ctx.config,
+            phase,
+            lambda: optimize_stage.execute_one(index.units[key], ctx.run_dir, ctx.validator, config=ctx.config),
+        )
+        ctx.state["attempts_by_phase"][phase] += attempts
+    except StageError as exc:
+        _handle_phase_failure(ctx, phase, exc)
+        raise
+    ctx.state["statements"][key][phase] = "DONE"
+    _mark_updated(ctx.state)
+    ctx.repo.save_state(ctx.state)
+    ctx.repo.append_step_result(
+        phase,
+        "DONE",
+        sql_key=key,
+        artifact_refs=[str(ctx.run_dir / "proposals" / "optimization.proposals.jsonl")],
+    )
+    return {"complete": False, "phase": phase, "sql_key": key}
+
+
+def _advance_validate(ctx: AdvanceContext, index: LoadedStageIndex) -> dict[str, Any] | None:
+    phase = "validate"
+    if ctx.to_stage not in STATEMENT_PHASE_TARGETS[phase] or ctx.state["phase_status"][phase] == "DONE":
+        return None
+    key = next_pending_sql(ctx.state, phase)
+    if key is None:
+        ctx.state["phase_status"][phase] = "DONE"
+        ctx.state["current_phase"] = str(PHASE_TRANSITIONS[phase])
+        ctx.repo.save_state(ctx.state)
+        ctx.repo.append_step_result(phase, "DONE")
+        if ctx.to_stage == phase:
+            ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
+            ctx.repo.save_state(ctx.state)
+            _finalize_completed_run(ctx)
+        return _complete_phase_result(ctx, phase)
+
+    try:
+        _, attempts = ctx.phase_action(
+            ctx.config,
+            phase,
+            lambda: validate_stage.execute_one(
+                index.units[key],
+                index.proposals.get(key, {}),
+                ctx.run_dir,
+                ctx.validator,
+                db_reachable=ctx.db_reachable,
+                config=ctx.config,
+            ),
+        )
+        ctx.state["attempts_by_phase"][phase] += attempts
+    except StageError as exc:
+        _handle_phase_failure(ctx, phase, exc)
+        raise
+    ctx.state["statements"][key][phase] = "DONE"
+    _mark_updated(ctx.state)
+    ctx.repo.save_state(ctx.state)
+    ctx.repo.append_step_result(
+        phase,
+        "DONE",
+        sql_key=key,
+        artifact_refs=[str(ctx.run_dir / "acceptance" / "acceptance.results.jsonl")],
+    )
+    return {"complete": False, "phase": phase, "sql_key": key}
+
+
+def _advance_patch_generate(ctx: AdvanceContext, index: LoadedStageIndex) -> dict[str, Any] | None:
+    phase = "patch_generate"
+    if ctx.to_stage not in STATEMENT_PHASE_TARGETS[phase] or ctx.state["phase_status"][phase] == "DONE":
+        return None
+    key = next_pending_sql(ctx.state, phase)
+    if key is None:
+        ctx.state["phase_status"][phase] = "DONE"
+        ctx.state["current_phase"] = str(PHASE_TRANSITIONS[phase])
+        ctx.repo.save_state(ctx.state)
+        ctx.repo.append_step_result(phase, "DONE")
+        ctx.repo.set_meta_status("READY_TO_FINALIZE")
+        if ctx.to_stage == phase:
+            _finalize_completed_run(ctx)
+        return _complete_phase_result(ctx, phase)
+
+    try:
+        _, attempts = ctx.phase_action(
+            ctx.config,
+            "apply",
+            lambda: patch_stage.execute_one(
+                index.units[key],
+                index.acceptance.get(key, {"status": "NEED_MORE_PARAMS"}),
+                ctx.run_dir,
+                ctx.validator,
+            ),
+        )
+        ctx.state["attempts_by_phase"][phase] += attempts
+    except StageError as exc:
+        _handle_phase_failure(ctx, phase, exc)
+        raise
+    ctx.state["statements"][key][phase] = "DONE"
+    _mark_updated(ctx.state)
+    ctx.repo.save_state(ctx.state)
+    ctx.repo.append_step_result(
+        phase,
+        "DONE",
+        sql_key=key,
+        artifact_refs=[str(ctx.run_dir / "patches" / "patch.results.jsonl")],
+    )
+    return {"complete": False, "phase": phase, "sql_key": key}
+
+
+def _advance_report(ctx: AdvanceContext) -> dict[str, Any] | None:
+    report_resume = resolve_report_resume_decision(ctx.state, ctx.to_stage, ctx.config)
+    if report_resume is None:
+        return None
+    if report_enabled(ctx.config):
+        report_ok = ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status=report_resume.final_meta_status)
+        if ctx.to_stage == "report" and not report_ok:
+            raise StageError(
+                "report finalization failed",
+                reason_code=ctx.state.get("last_reason_code") or "RUNTIME_RETRY_EXHAUSTED",
+            )
+    else:
+        ctx.finalize_without(ctx.run_dir, ctx.state, final_meta_status=report_resume.final_meta_status)
+    return {"complete": report_phase_complete_for_result(ctx.state, ctx.to_stage, ctx.config), "phase": report_resume.phase}
+
+
+PRE_INDEX_HANDLERS = (_advance_preflight, _advance_scan)
+INDEXED_HANDLERS = (_advance_optimize, _advance_validate, _advance_patch_generate)
+REPORT_HANDLER = _advance_report
+
+
 def advance_one_step(
     run_dir: Path,
     config: dict[str, Any],
@@ -331,239 +601,42 @@ def advance_one_step_request(request: AdvanceStepRequest) -> dict[str, Any]:
     run_dir = request.run_dir
     config = request.config
     to_stage = request.to_stage
-    validator = request.validator
     repo = request.repository or RunRepository(run_dir)
     state = repo.load_state()
     plan = repo.get_plan()
-    db_reachable = bool(config.get("validate", {}).get("db_reachable", False))
-    progress = get_progress_reporter()
-    phase_action = request.run_phase_action_fn or run_phase_action
-    on_failure = request.record_failure_fn or record_failure
-    finalize_report = request.finalize_report_if_enabled_fn or finalize_report_if_enabled
-    finalize_without = request.finalize_without_report_fn or finalize_without_report
+    ctx = AdvanceContext(
+        run_dir=run_dir,
+        config=config,
+        to_stage=to_stage,
+        validator=request.validator,
+        repo=repo,
+        state=state,
+        plan=plan,
+        db_reachable=bool(config.get("validate", {}).get("db_reachable", False)),
+        progress=get_progress_reporter(),
+        phase_action=request.run_phase_action_fn or run_phase_action,
+        on_failure=request.record_failure_fn or record_failure,
+        finalize_report=request.finalize_report_if_enabled_fn or finalize_report_if_enabled,
+        finalize_without=request.finalize_without_report_fn or finalize_without_report,
+    )
 
-    if state["phase_status"]["preflight"] != "DONE":
-        progress.report_phase_start("preflight", "Checking configuration and environment")
-        try:
-            _, attempts = phase_action(config, "preflight", lambda: preflight_stage.execute(config, run_dir))
-            state["attempts_by_phase"]["preflight"] += attempts
-        except StageError as exc:
-            on_failure(run_dir, state, "preflight", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="FAILED")
-            else:
-                repo.set_meta_status("FAILED")
-            raise
-        state["phase_status"]["preflight"] = "DONE"
-        state["current_phase"] = "scan"
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        repo.save_state(state)
-        repo.append_step_result("preflight", "DONE", artifact_refs=[str(run_dir / "ops" / "preflight.json")])
-        progress.report_phase_complete("preflight")
-        if to_stage == "preflight":
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-            else:
-                finalize_without(run_dir, state, final_meta_status="COMPLETED")
-        return {"complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)), "phase": "preflight"}
-
-    if state["phase_status"]["scan"] != "DONE":
-        progress.report_phase_start("scan", "Scanning MyBatis mapper files")
-        try:
-            units, attempts = phase_action(config, "scan", lambda: scan_stage.execute(config, run_dir, validator))
-            state["attempts_by_phase"]["scan"] += attempts
-        except StageError as exc:
-            on_failure(run_dir, state, "scan", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="FAILED")
-            else:
-                repo.set_meta_status("FAILED")
-            raise
-        plan["sql_keys"] = [u["sqlKey"] for u in units]
-        repo.set_plan(plan)
-        state["phase_status"]["scan"] = "DONE"
-        state["current_phase"] = "optimize"
-        state["statements"] = {
-            k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"} for k in plan["sql_keys"]
-        }
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        repo.save_state(state)
-        repo.append_step_result(
-            "scan",
-            "DONE",
-            artifact_refs=[str(run_dir / "scan.sqlunits.jsonl")],
-            detail={"sql_keys": plan["sql_keys"]},
-        )
-        progress.report_phase_complete("scan")
-        progress.report_info(f"Found {len(units)} SQL statements to analyze")
-        if to_stage == "scan":
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-            else:
-                finalize_without(run_dir, state, final_meta_status="COMPLETED")
-        return {"complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)), "phase": "scan"}
+    for handler in PRE_INDEX_HANDLERS:
+        result = handler(ctx)
+        if result is not None:
+            return result
 
     units, proposals, acceptance = load_index(run_dir)
+    index = LoadedStageIndex(units=units, proposals=proposals, acceptance=acceptance)
+    for handler in INDEXED_HANDLERS:
+        result = handler(ctx, index)
+        if result is not None:
+            return result
 
-    if to_stage in ("optimize", "validate", "patch_generate", "report") and state["phase_status"]["optimize"] != "DONE":
-        key = next_pending_sql(state, "optimize")
-        if key is None:
-            state["phase_status"]["optimize"] = "DONE"
-            state["current_phase"] = "validate"
-            repo.save_state(state)
-            repo.append_step_result("optimize", "DONE")
-            progress.report_phase_complete("optimize")
-            if to_stage == "optimize":
-                state["phase_status"]["validate"] = "SKIPPED"
-                state["phase_status"]["patch_generate"] = "SKIPPED"
-                repo.save_state(state)
-                if report_enabled(config):
-                    finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-                else:
-                    finalize_without(run_dir, state, final_meta_status="COMPLETED")
-            return {"complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)), "phase": "optimize"}
+    report_result = REPORT_HANDLER(ctx)
+    if report_result is not None:
+        return report_result
 
-        total_statements = len(plan["sql_keys"])
-        completed = sum(1 for v in state["statements"].values() if v.get("optimize") == "DONE")
-        current_index = completed + 1
-        progress.report_statement_progress(current_index, total_statements, key)
-
-        try:
-            _, attempts = phase_action(
-                config,
-                "optimize",
-                lambda: optimize_stage.execute_one(units[key], run_dir, validator, config=config),
-            )
-            state["attempts_by_phase"]["optimize"] += attempts
-        except StageError as exc:
-            on_failure(run_dir, state, "optimize", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="FAILED")
-            else:
-                repo.set_meta_status("FAILED")
-            raise
-        state["statements"][key]["optimize"] = "DONE"
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        repo.save_state(state)
-        repo.append_step_result(
-            "optimize",
-            "DONE",
-            sql_key=key,
-            artifact_refs=[str(run_dir / "proposals" / "optimization.proposals.jsonl")],
-        )
-        return {"complete": False, "phase": "optimize", "sql_key": key}
-
-    if to_stage in ("validate", "patch_generate", "report") and state["phase_status"]["validate"] != "DONE":
-        key = next_pending_sql(state, "validate")
-        if key is None:
-            state["phase_status"]["validate"] = "DONE"
-            state["current_phase"] = "patch_generate"
-            repo.save_state(state)
-            repo.append_step_result("validate", "DONE")
-            if to_stage == "validate":
-                state["phase_status"]["patch_generate"] = "SKIPPED"
-                repo.save_state(state)
-                if report_enabled(config):
-                    finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-                else:
-                    finalize_without(run_dir, state, final_meta_status="COMPLETED")
-            return {"complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)), "phase": "validate"}
-        try:
-            _, attempts = phase_action(
-                config,
-                "validate",
-                lambda: validate_stage.execute_one(
-                    units[key],
-                    proposals.get(key, {}),
-                    run_dir,
-                    validator,
-                    db_reachable=db_reachable,
-                    config=config,
-                ),
-            )
-            state["attempts_by_phase"]["validate"] += attempts
-        except StageError as exc:
-            on_failure(run_dir, state, "validate", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="FAILED")
-            else:
-                repo.set_meta_status("FAILED")
-            raise
-        state["statements"][key]["validate"] = "DONE"
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        repo.save_state(state)
-        repo.append_step_result(
-            "validate",
-            "DONE",
-            sql_key=key,
-            artifact_refs=[str(run_dir / "acceptance" / "acceptance.results.jsonl")],
-        )
-        return {"complete": False, "phase": "validate", "sql_key": key}
-
-    if to_stage in ("patch_generate", "report") and state["phase_status"]["patch_generate"] != "DONE":
-        key = next_pending_sql(state, "patch_generate")
-        if key is None:
-            state["phase_status"]["patch_generate"] = "DONE"
-            state["current_phase"] = "report"
-            repo.save_state(state)
-            repo.append_step_result("patch_generate", "DONE")
-            repo.set_meta_status("READY_TO_FINALIZE")
-            if to_stage == "patch_generate":
-                if report_enabled(config):
-                    finalize_report(run_dir, config, validator, state, final_meta_status="COMPLETED")
-                else:
-                    finalize_without(run_dir, state, final_meta_status="COMPLETED")
-            return {
-                "complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)),
-                "phase": "patch_generate",
-            }
-        try:
-            _, attempts = phase_action(
-                config,
-                "apply",
-                lambda: patch_stage.execute_one(
-                    units[key],
-                    acceptance.get(key, {"status": "NEED_MORE_PARAMS"}),
-                    run_dir,
-                    validator,
-                ),
-            )
-            state["attempts_by_phase"]["patch_generate"] += attempts
-        except StageError as exc:
-            on_failure(run_dir, state, "patch_generate", exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
-            if report_enabled(config):
-                finalize_report(run_dir, config, validator, state, final_meta_status="FAILED")
-            else:
-                repo.set_meta_status("FAILED")
-            raise
-        state["statements"][key]["patch_generate"] = "DONE"
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        repo.save_state(state)
-        repo.append_step_result(
-            "patch_generate",
-            "DONE",
-            sql_key=key,
-            artifact_refs=[str(run_dir / "patches" / "patch.results.jsonl")],
-        )
-        return {"complete": False, "phase": "patch_generate", "sql_key": key}
-
-    report_resume = resolve_report_resume_decision(state, to_stage, config)
-    if report_resume is not None:
-        if report_enabled(config):
-            report_ok = finalize_report(run_dir, config, validator, state, final_meta_status=report_resume.final_meta_status)
-            if to_stage == "report" and not report_ok:
-                raise StageError(
-                    "report finalization failed",
-                    reason_code=state.get("last_reason_code") or "RUNTIME_RETRY_EXHAUSTED",
-                )
-        else:
-            finalize_without(run_dir, state, final_meta_status=report_resume.final_meta_status)
-        return {"complete": report_phase_complete_for_result(state, to_stage, config), "phase": report_resume.phase}
-
-    return {
-        "complete": is_complete_to_stage(state, to_stage, include_report=report_enabled(config)),
-        "phase": state["current_phase"],
-    }
+    return _complete_phase_result(ctx, ctx.state["current_phase"])
 
 
 def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:

@@ -6,6 +6,8 @@ from typing import Callable
 
 from ..io_utils import read_json, write_json
 
+_INDEX_CACHE: dict[Path, tuple[int, dict[str, dict]]] = {}
+
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
@@ -23,14 +25,28 @@ def load_run_index(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
     try:
+        mtime_ns = path.stat().st_mtime_ns
+    except Exception:
+        mtime_ns = -1
+    cached = _INDEX_CACHE.get(path)
+    if cached is not None and cached[0] == mtime_ns:
+        return dict(cached[1])
+    try:
         data = read_json(path)
     except Exception:
         return {}
-    return data if isinstance(data, dict) else {}
+    normalized = data if isinstance(data, dict) else {}
+    _INDEX_CACHE[path] = (mtime_ns, normalized)
+    return dict(normalized)
 
 
 def save_run_index(path: Path, index: dict[str, dict]) -> None:
     write_json(path, index)
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except Exception:
+        mtime_ns = -1
+    _INDEX_CACHE[path] = (mtime_ns, dict(index))
 
 
 def remember_run(run_id: str, run_dir: Path, config_path: Path, runs_root: Path) -> None:

@@ -7,15 +7,8 @@ ROOT_KEYS = {
     "project",
     "scan",
     "db",
-    "validate",
-    "policy",
-    "apply",
-    "patch",
-    "diagnostics",
-    "runtime",
-    "report",
     "llm",
-    "verification",
+    "report",
     "config_version",
 }
 

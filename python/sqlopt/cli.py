@@ -20,56 +20,8 @@ def _repo_root() -> Path:
     return run_index.repo_root()
 
 
-def _legacy_run_index_path() -> Path:
-    return run_index.legacy_run_index_path()
-
-
-def _run_index_path_for_runs_root(runs_root: Path) -> Path:
-    return run_index.run_index_path_for_runs_root(runs_root)
-
-
-def _load_run_index(path: Path) -> dict[str, dict]:
-    return run_index.load_run_index(path)
-
-
-def _save_run_index(path: Path, index: dict[str, dict]) -> None:
-    run_index.save_run_index(path, index)
-
-
-def _remember_run(run_id: str, run_dir: Path, config_path: Path, runs_root: Path) -> None:
-    run_index.remember_run(run_id, run_dir, config_path, runs_root)
-
-
 def _resolve_run_dir(run_id: str) -> Path:
     return run_index.resolve_run_dir(run_id, repo_root_fn=_repo_root)
-
-
-def _runs_root(config: dict) -> Path:
-    return workflow_engine.runs_root(config)
-
-
-def _next_pending_sql(state: dict, phase: str) -> str | None:
-    return workflow_engine.next_pending_sql(state, phase)
-
-
-def _pending_by_phase(state: dict) -> dict[str, int]:
-    return workflow_engine.pending_by_phase(state)
-
-
-def _report_enabled(config: dict) -> bool:
-    return workflow_engine.report_enabled(config)
-
-
-def _is_complete_to_stage(state: dict, to_stage: str, *, report_enabled: bool = False) -> bool:
-    return workflow_engine.is_complete_to_stage(state, to_stage, include_report=report_enabled)
-
-
-def _load_index(run_dir: Path) -> tuple[dict, dict, dict]:
-    return workflow_engine.load_index(run_dir)
-
-
-def _runtime_cfg(config: dict, phase: str) -> tuple[int, int, int]:
-    return workflow_engine.runtime_cfg(config, phase)
 
 
 def _record_failure(run_dir: Path, state: dict, phase: str, reason_code: str, message: str) -> None:

@@ -4,48 +4,14 @@ project:
 scan:
   mapper_globs:
     - src/main/resources/**/*.xml
-  max_variants_per_statement: 3
-  java_scanner:
-    jar_path: ../../../java/scan-agent/target/scan-agent-1.0.0.jar
 
 db:
   platform: mysql
   dsn: mysql://root:Aa28012801.@127.0.0.1:3306/sqloptimizer
 
-validate:
-  db_reachable: true
-  validation_profile: balanced
-  allow_db_unreachable_fallback: false
-  plan_compare_enabled: true
-
-apply:
-  mode: PATCH_ONLY
-
-policy:
-  require_perf_improvement: false
-  cost_threshold_pct: 0
-  allow_seq_scan_if_rows_below: 0
-  semantic_strict_mode: true
-
-runtime:
-  profile: balanced
-  stage_timeout_ms:
-    preflight: 12000
-    scan: 180000
-    optimize: 180000
-    validate: 300000
-    apply: 120000
-    report: 60000
-  stage_retry_max:
-    scan: 1
-    optimize: 1
-    validate: 1
-    apply: 1
-    report: 1
-  stage_retry_backoff_ms: 1000
-
 llm:
   enabled: false
+  provider: heuristic
 
 report:
   enabled: true

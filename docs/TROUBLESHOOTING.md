@@ -30,7 +30,7 @@ Provider 专项检查：
 1. `opencode_run`：命令可用，且 opencode profile/model 配置正确。
 2. `direct_openai_compatible`：HTTP endpoint 可达，凭据与 model 有效。
 
-## 3. preflight 阶段 scanner jar 缺失
+## 3. preflight 阶段 scanner 检查失败
 
 现象：
 
@@ -38,8 +38,9 @@ Provider 专项检查：
 
 检查项：
 
-1. 检查 `sqlopt.yml` 中的 `scan.java_scanner.jar_path`
-2. 确认该文件在本地磁盘存在
+1. 当前默认使用 Python fallback scanner，不再需要配置 `scan.java_scanner.jar_path`
+2. 若你使用的是旧配置，请移除 `scan.java_scanner` 段
+3. 确认 `scan.mapper_globs` 能匹配到 mapper XML 文件
 
 ## 4. run_id 未找到
 
@@ -61,9 +62,9 @@ Provider 专项检查：
 
 检查项：
 
-1. 提高 `runtime.profile` 或各阶段 timeout/retry 设置
+1. 当前运行时参数已内置，不再通过 `sqlopt.yml` 暴露 `runtime.*` 调整项
 2. 使用时间片循环命令：`python scripts/run_until_budget.py --config ./sqlopt.yml --max-seconds 95`
-3. 重复执行同一命令，直到输出出现 `"complete": True`
+3. 或持续执行 `resume`，直到输出出现 `"complete": True`
 
 ## 6. Windows 找不到 sqlopt-cli
 

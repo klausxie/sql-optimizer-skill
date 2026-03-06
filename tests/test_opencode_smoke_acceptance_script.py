@@ -43,12 +43,9 @@ class OpencodeSmokeAcceptanceScriptTest(unittest.TestCase):
 
             text = module._local_config_text(repo_root)
 
-        self.assertIn(f"jar_path: {jar_path.resolve()}", text)
         self.assertIn("provider: opencode_builtin", text)
-        self.assertIn("db_reachable: false", text)
-        self.assertIn("allow_db_unreachable_fallback: true", text)
-        self.assertIn("plan_compare_enabled: false", text)
-        self.assertIn("mode: PATCH_ONLY", text)
+        self.assertIn("mapper_globs:", text)
+        self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable", text)
 
     def test_latest_run_id_picks_most_recent_directory(self) -> None:
         module = _load_module()

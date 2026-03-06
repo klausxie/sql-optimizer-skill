@@ -4,31 +4,14 @@ project:
 scan:
   mapper_globs:
     - scan_samples/dynamic_tags_mapper.xml
-  max_variants_per_statement: 3
-  java_scanner:
-    jar_path: ../../../java/scan-agent/target/scan-agent-1.0.0.jar
 
 db:
-  platform: postgresql
-
-validate:
-  db_reachable: false
-  allow_db_unreachable_fallback: true
-
-apply:
-  mode: PATCH_ONLY
-
-policy:
-  require_perf_improvement: false
-  cost_threshold_pct: 0
-  allow_seq_scan_if_rows_below: 0
-  semantic_strict_mode: true
-
-runtime:
-  profile: fast
-
-report:
-  enabled: false
+  platform: mysql
+  dsn: mysql://root:Aa28012801.@127.0.0.1:3306/sqloptimizer
 
 llm:
+  enabled: false
+  provider: heuristic
+
+report:
   enabled: false

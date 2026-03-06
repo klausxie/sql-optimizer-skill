@@ -24,7 +24,6 @@ def _scanner_jar(repo_root: Path) -> Path:
 
 
 def _config_text(repo_root: Path) -> str:
-    jar_path = _scanner_jar(repo_root).resolve()
     return "\n".join(
         [
             "project:",
@@ -33,46 +32,10 @@ def _config_text(repo_root: Path) -> str:
             "scan:",
             "  mapper_globs:",
             "    - src/main/resources/**/*.xml",
-            "  max_variants_per_statement: 3",
-            "  java_scanner:",
-            f"    jar_path: {jar_path}",
             "",
             "db:",
             "  platform: postgresql",
             "  dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable",
-            "  schema: public",
-            "",
-            "validate:",
-            "  db_reachable: false",
-            "  validation_profile: balanced",
-            "  allow_db_unreachable_fallback: true",
-            "  plan_compare_enabled: false",
-            "",
-            "apply:",
-            "  mode: PATCH_ONLY",
-            "",
-            "policy:",
-            "  require_perf_improvement: false",
-            "  cost_threshold_pct: 0",
-            "  allow_seq_scan_if_rows_below: 0",
-            "  semantic_strict_mode: true",
-            "",
-            "runtime:",
-            "  profile: balanced",
-            "  stage_timeout_ms:",
-            "    preflight: 12000",
-            "    scan: 180000",
-            "    optimize: 600000",
-            "    validate: 300000",
-            "    apply: 120000",
-            "    report: 60000",
-            "  stage_retry_max:",
-            "    scan: 1",
-            "    optimize: 1",
-            "    validate: 1",
-            "    apply: 1",
-            "    report: 1",
-            "  stage_retry_backoff_ms: 1000",
             "",
             "llm:",
             "  enabled: true",
@@ -141,11 +104,8 @@ def _run_until_complete(repo_root: Path, config_path: Path) -> str:
 def main() -> None:
     repo_root = _repo_root()
     fixture = _fixture_project(repo_root)
-    scanner_jar = _scanner_jar(repo_root)
     if not fixture.exists():
         raise SystemExit(f"missing fixture project: {fixture}")
-    if not scanner_jar.exists():
-        raise SystemExit(f"missing scanner jar: {scanner_jar}")
 
     with tempfile.TemporaryDirectory(prefix="sqlopt_degraded_accept_") as td:
         temp_root = Path(td)

@@ -24,11 +24,11 @@ class ConfigServiceTest(unittest.TestCase):
                         "scan:",
                         "  mapper_globs:",
                         "    - src/main/resources/**/*.xml",
-                        "  java_scanner:",
-                        "    jar_path: __SCANNER_JAR__",
                         "db:",
                         "  platform: postgresql",
                         "  dsn: postgresql://user:pass@localhost:5432/demo",
+                        "llm:",
+                        "  provider: heuristic",
                     ]
                 )
                 + "\n",
@@ -42,7 +42,6 @@ class ConfigServiceTest(unittest.TestCase):
         self.assertEqual(checks["project.root_path"]["status"], "ok")
         self.assertEqual(checks["db.platform"]["status"], "ok")
         self.assertEqual(checks["scan.mapper_globs"]["status"], "ok")
-        self.assertEqual(checks["scan.java_scanner.jar_path"]["status"], "warning")
 
     def test_validate_config_accepts_mysql_platform(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_config_invalid_") as td:
@@ -58,6 +57,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "db:",
                         "  platform: mysql",
                         "  dsn: mysql://user:pass@localhost:3306/demo",
+                        "llm:",
+                        "  provider: heuristic",
                     ]
                 )
                 + "\n",
@@ -84,6 +85,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "db:",
                         "  platform: sqlite",
                         "  dsn: sqlite:///tmp/demo.db",
+                        "llm:",
+                        "  provider: heuristic",
                     ]
                 )
                 + "\n",

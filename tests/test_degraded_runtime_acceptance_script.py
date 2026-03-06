@@ -42,13 +42,8 @@ class DegradedRuntimeAcceptanceScriptTest(unittest.TestCase):
 
             text = module._config_text(repo_root)
 
-        self.assertIn(f"jar_path: {jar_path.resolve()}", text)
         self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable", text)
-        self.assertIn("db_reachable: false", text)
-        self.assertIn("allow_db_unreachable_fallback: true", text)
-        self.assertIn("plan_compare_enabled: false", text)
         self.assertIn("provider: opencode_builtin", text)
-        self.assertIn("mode: PATCH_ONLY", text)
 
 
 if __name__ == "__main__":

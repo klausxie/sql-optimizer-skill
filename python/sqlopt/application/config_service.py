@@ -19,6 +19,7 @@ def validate_config(config_path: Path) -> dict[str, Any]:
         ("scan", "mapper_globs"),
         ("db", "platform"),
         ("db", "dsn"),
+        ("llm", "provider"),
     ]
 
     for *path, field in required_fields:
@@ -61,16 +62,6 @@ def validate_config(config_path: Path) -> dict[str, Any]:
                 "field": "db.dsn",
                 "status": "warning",
                 "message": "DSN contains placeholders, please replace with actual values",
-            }
-        )
-
-    jar_path = config.get("scan", {}).get("java_scanner", {}).get("jar_path", "")
-    if jar_path == "__SCANNER_JAR__":
-        results["checks"].append(
-            {
-                "field": "scan.java_scanner.jar_path",
-                "status": "warning",
-                "message": "JAR path is placeholder, run install_skill.py to fix",
             }
         )
 

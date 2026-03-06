@@ -91,8 +91,8 @@ python3 install/doctor.py --project <your_project_path>
 
 Windows 用户请使用 `python` 替代 `python3`。
 
-安装后，推荐先用 `llm.provider=opencode_builtin`、`validate.db_reachable=false` 做一轮离线 smoke run，再切回真实 LLM/DB 配置。
-如果是 MySQL 项目，建议先用 `db.platform=mysql` + `validate.db_reachable=false` 做一轮离线 smoke，再打开真实 compare。
+安装后，推荐先用 `llm.provider=opencode_builtin` 做一轮离线 smoke run，再切回真实 LLM/DB 配置。
+如果是 MySQL 项目，建议先用 `db.platform=mysql` + 测试 DSN 做一轮 smoke，再打开真实 compare。
 
 ### 使用 Skill
 
@@ -176,49 +176,31 @@ mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysq
 3. `opencode_builtin` - 本地内置策略
 4. `heuristic` - 本地简化启发式策略
 
-### LLM 增强功能配置
-
-所有 LLM 增强功能默认启用，可通过配置控制：
+### 配置最小集（v1）
 
 ```yaml
+config_version: v1
+
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+
+db:
+  platform: postgresql
+  dsn: postgresql://user:pass@127.0.0.1:5432/db?sslmode=disable
+
 llm:
   enabled: true
   provider: opencode_run
 
-  # Phase 1: 输出质量控制
-  output_validation:
-    enabled: true
-    syntax_check: true
-    heuristic_check: true
-    schema_check: false
-
-  # Phase 2: 重试机制
-  retry:
-    enabled: true
-    max_retries: 2
-    include_error_context: true
-
-validate:
-  # Phase 3: LLM 语义检查
-  llm_semantic_check:
-    enabled: true
-    only_on_db_mismatch: true
-
-diagnostics:
-  # Phase 4: LLM 反馈收集
-  llm_feedback:
-    enabled: true
-    log_detected_issues: true
-    auto_learn_patterns: false
-
-patch:
-  # Phase 5: patch_generate 阶段 LLM 辅助
-  llm_assist:
-    enabled: true
-    only_for_dynamic_sql: true
-    generate_template_suggestions: true
+report:
+  enabled: true
 ```
 
+已移除且不再接受的配置根键：`validate`、`policy`、`apply`、`patch`、`diagnostics`、`runtime`、`verification`。  
 配置示例见 `templates/sqlopt.example.yml`。
 
 ## 📋 详细文档

@@ -11,6 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkflowEngineRequestsTest(unittest.TestCase):
+    def test_handler_registry_keeps_expected_phase_order(self) -> None:
+        pre = [handler.__name__ for handler in workflow_engine.PRE_INDEX_HANDLERS]
+        indexed = [handler.__name__ for handler in workflow_engine.INDEXED_HANDLERS]
+        self.assertEqual(pre, ["_advance_preflight", "_advance_scan"])
+        self.assertEqual(indexed, ["_advance_optimize", "_advance_validate", "_advance_patch_generate"])
+        self.assertEqual(workflow_engine.REPORT_HANDLER.__name__, "_advance_report")
+
     def test_build_status_snapshot_uses_request_object(self) -> None:
         request = RunStatusRequest(
             run_id="run_demo",

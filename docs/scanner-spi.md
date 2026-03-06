@@ -34,7 +34,7 @@ Current:
 3. 执行视图可以存在于下游 validate 内部，但不能替代模板视图成为 patch 源
 
 ## fragment catalog（当前默认开启）
-当 `scan.enable_fragment_catalog=true` 时，scanner 还应输出：
+当 fragment catalog 内置开关开启（当前默认）时，scanner 还应输出：
 1. `scan.fragments.jsonl`
 2. 每条 fragment 的稳定键
 3. statement / fragment 的源码 range locator

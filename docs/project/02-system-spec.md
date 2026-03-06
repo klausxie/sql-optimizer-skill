@@ -16,14 +16,14 @@
 ### 2.1 `scan`
 Current:
 1. 输出 `scan.sqlunits.jsonl`。
-2. 默认额外输出 `scan.fragments.jsonl`（由 `scan.enable_fragment_catalog=true` 控制）。
+2. 默认额外输出 `scan.fragments.jsonl`（内部默认开启）。
 3. 对动态 MyBatis mapper statement 同时保留两种视图：
    - `templateSql`：模板视图，保留 `<foreach> / <include>` 等标签
    - `sql`：逻辑分析视图，可用于 optimize / validate
 4. 输出 statement / fragment 的源码 range locator，以及 `<include><property>` 绑定信息。
 
 Default:
-1. `scan.enable_fragment_catalog=true`
+1. fragment catalog 内部默认开启
 2. schema 校验失败会终止本次运行
 
 ### 2.2 `optimize`
@@ -43,7 +43,7 @@ Current:
 4. 片段级模板物化能力默认关闭，但判定结果仍会写出
 
 Default:
-1. `patch.template_rewrite.enable_fragment_materialization=false`
+1. fragment 级模板物化由内部策略保持默认关闭
 
 ### 2.4 `patch_generate`
 Current:
@@ -84,10 +84,10 @@ Current:
    - 不落盘，不得作为 patch 源
 
 ## 4. 默认开关与兼容性
-1. `scan.enable_fragment_catalog=true`
-   - 低风险观测能力，默认开启
-2. `patch.template_rewrite.enable_fragment_materialization=false`
-   - 高风险行为开关，默认关闭
+1. fragment catalog
+   - 低风险观测能力，内部默认开启
+2. fragment 模板物化
+   - 高风险行为路径，内部默认关闭
 3. 新增字段全部按加法兼容，不改变已有主干契约
 
 ## 5. 外部稳定面

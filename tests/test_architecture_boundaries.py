@@ -4,6 +4,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from sqlopt.application import workflow_engine
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -60,6 +62,33 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         path = ROOT / "python" / "sqlopt" / "stages" / "report_interfaces.py"
         imports = set(_import_targets(path))
         self.assertEqual(imports, {"__future__", ".report_models"})
+
+    def test_cli_adapter_does_not_import_stage_modules_directly(self) -> None:
+        path = ROOT / "python" / "sqlopt" / "cli.py"
+        imports = set(_import_targets(path))
+        stage_imports = {target for target in imports if target.endswith("stages") or ".stages." in target or target.startswith(".stages")}
+        self.assertEqual(stage_imports, set(), "cli.py should delegate stage orchestration via application layer only")
+
+    def test_workflow_engine_declares_explicit_phase_transition_table(self) -> None:
+        self.assertEqual(
+            workflow_engine.PHASE_TRANSITIONS,
+            {
+                "preflight": "scan",
+                "scan": "optimize",
+                "optimize": "validate",
+                "validate": "patch_generate",
+                "patch_generate": "report",
+                "report": None,
+            },
+        )
+        self.assertEqual(set(workflow_engine.PHASE_TRANSITIONS.keys()), set(workflow_engine.STAGE_ORDER))
+
+    def test_config_module_delegates_parsing_to_configuration_package(self) -> None:
+        path = ROOT / "python" / "sqlopt" / "config.py"
+        imports = set(_import_targets(path))
+        self.assertIn(".configuration.common", imports)
+        self.assertIn(".configuration.defaults", imports)
+        self.assertIn(".configuration.versioning", imports)
 
 
 if __name__ == "__main__":

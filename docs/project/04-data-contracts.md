@@ -44,8 +44,8 @@
 文件：`scan.fragments.jsonl`
 
 当前默认：
-1. 在 `scan.enable_fragment_catalog=true` 时生成
-2. 默认开启
+1. 在 fragment catalog 内置开关开启时生成
+2. 当前默认开启
 
 字段：
 1. `fragmentKey`

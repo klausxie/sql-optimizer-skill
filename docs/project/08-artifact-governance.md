@@ -18,6 +18,7 @@
 - `supervisor/meta.json`
 - `supervisor/state.json`
 - `supervisor/plan.json`
+- `config.resolved.json`
 - `report.json`
 - `ops/topology.json`
 - `ops/health.json`
@@ -80,10 +81,11 @@
 明确职责如下：
 
 1. 运行是否完成：看 `supervisor/state.json` + `supervisor/meta.json`
-2. 阶段执行历史：看 `supervisor/results/*.jsonl`
-3. 外部汇总结论：看 `report.json`
-4. 运维诊断：看 `ops/*.json`
-5. 人类阅读摘要：看 `report.summary.md` / `report.md`
+2. 运行时解析配置：看 `config.resolved.json`（由 `sqlopt.yml` 推导生成）
+3. 阶段执行历史：看 `supervisor/results/*.jsonl`
+4. 外部汇总结论：看 `report.json`
+5. 运维诊断：看 `ops/*.json`
+6. 人类阅读摘要：看 `report.summary.md` / `report.md`
 
 任何新逻辑如果需要“当前 phase 状态”，必须先读 `supervisor/state.json`，而不是从 report 或 markdown 反推。
 

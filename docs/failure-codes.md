@@ -107,6 +107,6 @@
 
 ## 4. 备注
 1. `SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD`
-   - 触发条件：`parsed_count / discovered_count < scan.class_resolution.min_success_ratio`
+   - 触发条件：`parsed_count / discovered_count` 低于内置阈值（当前固定为 `0.9`）
 2. `PREFLIGHT_LLM_UNREACHABLE`
    - 同时适用于 `opencode_run` 与 `direct_openai_compatible`

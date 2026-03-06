@@ -69,17 +69,9 @@ db:
 **如果只是先验证安装链路**，建议先改成：
 
 ```yaml
-validate:
-  db_reachable: false
-  allow_db_unreachable_fallback: true
-  plan_compare_enabled: false
-
 llm:
-  enabled: true
   provider: opencode_builtin
-
-apply:
-  mode: PATCH_ONLY
+  enabled: true
 ```
 
 这样可以先完成一次离线 smoke run，再切回真实 DB / 外部 LLM。
@@ -221,11 +213,7 @@ cat runs/<run_id>/report.md
 
 1. 检查数据库是否运行：`psql <connection_string>`
 2. 验证 `db.dsn` 配置是否正确
-3. 如果数据库不可用，可以设置：
-   ```yaml
-   validate:
-     allow_db_unreachable_fallback: true
-   ```
+3. 如果只做离线 smoke，可先使用测试 DSN 并将 `llm.provider` 设为 `opencode_builtin` 或 `heuristic`
 
 ### Q: 找不到 Java scanner JAR？
 
@@ -334,31 +322,18 @@ project:
 scan:
   mapper_globs:
     - src/main/resources/**/*.xml
-  class_resolution:
-    mode: tolerant
-    enable_classpath_probe: true
-    statement_level_recovery: true
 
 db:
   platform: postgresql
   dsn: postgresql://user:pass@localhost:5432/db
 
-validate:
-  db_reachable: true
-  validation_profile: balanced
-  allow_db_unreachable_fallback: false
-
-policy:
-  require_perf_improvement: false
-  semantic_strict_mode: true
-
-runtime:
-  profile: balanced
-
 llm:
   enabled: true
   provider: opencode_run
   timeout_ms: 80000
+
+report:
+  enabled: true
 ```
 
 ## 下一步

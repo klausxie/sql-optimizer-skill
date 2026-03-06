@@ -16,15 +16,9 @@ scan:
     - src/main/resources/**/*.xml
 db:
   platform: postgresql
-policy:
-  require_perf_improvement: false
-  cost_threshold_pct: 0
-  allow_seq_scan_if_rows_below: 0
-  semantic_strict_mode: true
-runtime:
-  profile: fast
+  dsn: postgresql://user:pass@localhost:5432/demo
 llm:
-  enabled: false
+  provider: opencode_builtin
 """
 
 
@@ -36,33 +30,73 @@ class ConfigRemovedKeysTest(unittest.TestCase):
         cfg.write_text(BASE_YAML + extra, encoding="utf-8")
         return cfg
 
-    def test_removed_validate_key_rejected(self) -> None:
+    def test_removed_root_sections_are_rejected(self) -> None:
+        for section in ("validate", "policy", "apply", "patch", "diagnostics", "runtime", "verification"):
+            cfg = self._write_cfg(f"{section}: {{}}\n")
+            with self.assertRaises(ConfigError):
+                load_config(cfg)
+
+    def test_removed_scan_keys_are_rejected(self) -> None:
         cfg = self._write_cfg(
             """\
-validate:
-  sample_count: 50
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+  java_scanner:
+    jar_path: /tmp/demo.jar
 """
         )
         with self.assertRaises(ConfigError):
             load_config(cfg)
 
-    def test_removed_llm_key_rejected(self) -> None:
+    def test_removed_db_timeout_key_is_rejected(self) -> None:
         cfg = self._write_cfg(
             """\
-llm:
-  enabled: true
-  provider: opencode_run
-  strict_required: true
+db:
+  platform: postgresql
+  dsn: postgresql://user:pass@localhost:5432/demo
+  statement_timeout_ms: 5000
 """
         )
         with self.assertRaises(ConfigError):
             load_config(cfg)
+
+    def test_db_schema_is_accepted(self) -> None:
+        cfg = self._write_cfg(
+            """\
+db:
+  platform: postgresql
+  dsn: postgresql://user:pass@localhost:5432/demo
+  schema: public
+"""
+        )
+        loaded = load_config(cfg)
+        self.assertEqual(loaded["db"]["schema"], "public")
+
+    def test_removed_llm_keys_are_rejected(self) -> None:
+        cfg = self._write_cfg(
+            """\
+llm:
+  provider: opencode_builtin
+  retry:
+    enabled: true
+"""
+        )
+        with self.assertRaises(ConfigError):
+            load_config(cfg)
+
+    def test_minimal_config_loads_and_internal_defaults_are_injected(self) -> None:
+        loaded = load_config(self._write_cfg(""))
+        self.assertEqual(loaded["llm"]["provider"], "opencode_builtin")
+        self.assertEqual(loaded["apply"]["mode"], "PATCH_ONLY")
+        self.assertFalse(loaded["validate"]["db_reachable"])
+        self.assertEqual(loaded["verification"]["critical_output_policy"], "warn")
+        self.assertTrue(loaded["report"]["enabled"])
 
     def test_direct_openai_provider_requires_fields(self) -> None:
         cfg = self._write_cfg(
             """\
 llm:
-  enabled: true
   provider: direct_openai_compatible
 """
         )
@@ -73,168 +107,33 @@ llm:
         cfg = self._write_cfg(
             """\
 llm:
-  enabled: true
   provider: direct_openai_compatible
   api_base: https://example.com/v1
   api_key: k
   api_model: m
-  api_timeout_ms: 5000
-  api_headers:
-    x-env: prod
 """
         )
         loaded = load_config(cfg)
         self.assertEqual(loaded["llm"]["provider"], "direct_openai_compatible")
         self.assertEqual(loaded["llm"]["api_model"], "m")
 
-    def test_verification_gate_policy_defaults_warn_and_accepts_block(self) -> None:
+    def test_report_enabled_can_be_overridden(self) -> None:
         cfg = self._write_cfg(
             """\
-verification:
-  critical_output_policy: block
+report:
+  enabled: false
 """
         )
         loaded = load_config(cfg)
-        self.assertEqual(loaded["verification"]["critical_output_policy"], "block")
+        self.assertFalse(loaded["report"]["enabled"])
 
-        default_cfg = self._write_cfg("")
-        default_loaded = load_config(default_cfg)
-        self.assertFalse(default_loaded["verification"]["enforce_verified_outputs"])
-        self.assertIsNone(default_loaded["verification"]["critical_output_policy"])
-
-    def test_verification_gate_policy_rejects_invalid_value(self) -> None:
-        cfg = self._write_cfg(
-            """\
-verification:
-  critical_output_policy: strict
-"""
-        )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
-
-    def test_diagnostics_defaults_and_overrides_are_loaded(self) -> None:
-        cfg = self._write_cfg(
-            """\
-diagnostics:
-  severity_overrides:
-    SELECT_STAR: error
-  disabled_rules:
-    - FULL_SCAN_RISK
-"""
-        )
+    def test_config_version_alias_is_normalized(self) -> None:
+        cfg = self._write_cfg("config_version: 1.0\n")
         loaded = load_config(cfg)
-        self.assertEqual(loaded["diagnostics"]["rulepacks"], [{"builtin": "core"}, {"builtin": "performance"}])
-        self.assertEqual(loaded["diagnostics"]["severity_overrides"]["SELECT_STAR"], "error")
-        self.assertEqual(loaded["diagnostics"]["disabled_rules"], ["FULL_SCAN_RISK"])
+        self.assertEqual(loaded["config_version"], "v1")
 
-    def test_diagnostics_reject_invalid_rulepack(self) -> None:
-        cfg = self._write_cfg(
-            """\
-diagnostics:
-  rulepacks:
-    - builtin: custom
-"""
-        )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
-
-    def test_diagnostics_reject_invalid_override_severity(self) -> None:
-        cfg = self._write_cfg(
-            """\
-diagnostics:
-  severity_overrides:
-    SELECT_STAR: urgent
-"""
-        )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
-
-    def test_diagnostics_loads_external_rule_file(self) -> None:
-        td = tempfile.TemporaryDirectory(prefix="sqlopt_cfg_rules_file_")
-        self.addCleanup(td.cleanup)
-        root = Path(td.name)
-        rules = root / "project_rules.yml"
-        rules.write_text(
-            """\
-rules:
-  - rule_id: REQUIRE_LIMIT
-    message: add limit for list queries
-    default_severity: warn
-    match:
-      statement_type_is: SELECT
-      sql_contains: from users
-    action:
-      suggestion_sql_template: SELECT id FROM users LIMIT 100
-      block_actionability: true
-""",
-            encoding="utf-8",
-        )
-        cfg = root / "sqlopt.yml"
-        cfg.write_text(
-            BASE_YAML
-            + """\
-diagnostics:
-  rulepacks:
-    - file: project_rules.yml
-""",
-            encoding="utf-8",
-        )
-        loaded = load_config(cfg)
-        self.assertEqual(loaded["diagnostics"]["rulepacks"], [{"file": str(rules.resolve())}])
-        self.assertEqual(loaded["diagnostics"]["loaded_rulepacks"][0]["rules"][0]["rule_id"], "REQUIRE_LIMIT")
-        self.assertTrue(loaded["diagnostics"]["loaded_rulepacks"][0]["rules"][0]["action"]["block_actionability"])
-
-    def test_diagnostics_rejects_invalid_external_rule_file(self) -> None:
-        td = tempfile.TemporaryDirectory(prefix="sqlopt_cfg_rules_bad_")
-        self.addCleanup(td.cleanup)
-        root = Path(td.name)
-        rules = root / "project_rules.yml"
-        rules.write_text(
-            """\
-rules:
-  - rule_id: bad_name
-    message: invalid
-    match:
-      sql_contains: select
-""",
-            encoding="utf-8",
-        )
-        cfg = root / "sqlopt.yml"
-        cfg.write_text(
-            BASE_YAML
-            + """\
-diagnostics:
-  rulepacks:
-    - file: project_rules.yml
-""",
-            encoding="utf-8",
-        )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
-
-    def test_validate_strategy_defaults_are_loaded(self) -> None:
-        loaded = load_config(self._write_cfg(""))
-        self.assertEqual(loaded["validate"]["selection_mode"], "patchability_first")
-        self.assertTrue(loaded["validate"]["require_semantic_match"])
-        self.assertFalse(loaded["validate"]["require_perf_evidence_for_pass"])
-        self.assertFalse(loaded["validate"]["require_verified_evidence_for_pass"])
-        self.assertEqual(loaded["validate"]["delivery_bias"], "conservative")
-
-    def test_mysql_platform_is_accepted(self) -> None:
-        td = tempfile.TemporaryDirectory(prefix="sqlopt_cfg_mysql_")
-        self.addCleanup(td.cleanup)
-        cfg = Path(td.name) / "sqlopt.yml"
-        cfg.write_text(BASE_YAML.replace("platform: postgresql", "platform: mysql"), encoding="utf-8")
-        loaded = load_config(cfg)
-        self.assertEqual(loaded["db"]["platform"], "mysql")
-
-    def test_validate_strategy_rejects_invalid_values(self) -> None:
-        cfg = self._write_cfg(
-            """\
-validate:
-  selection_mode: perf_first
-"""
-        )
+    def test_config_version_rejects_unknown_version(self) -> None:
+        cfg = self._write_cfg("config_version: v2\n")
         with self.assertRaises(ConfigError):
             load_config(cfg)
 
