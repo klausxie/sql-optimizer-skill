@@ -10,7 +10,7 @@
 - MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.yml`
 - MySQL 本地 schema：`tests/fixtures/sql_local/schema.mysql.sql`
 - run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
-- 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer`
+- 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer-skill`
 
 前提环境：
 

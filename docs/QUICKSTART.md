@@ -17,7 +17,7 @@
 cd /path/to/sql-optimizer-skill-bundle-v<version>
 
 # 安装到你的项目
-python3 install/install_skill.py --project /path/to/your/project
+python3 install/install_skill.py
 ```
 
 安装脚本会：
@@ -170,7 +170,7 @@ cat runs/run_20260301_123456/report.md
 
 ```bash
 # 1. 安装
-python3 install/install_skill.py --project ~/my-project
+python3 install/install_skill.py
 
 # 2. 进入项目目录
 cd ~/my-project
@@ -221,7 +221,7 @@ cat runs/<run_id>/report.md
 重新安装 skill：
 
 ```bash
-python3 install/install_skill.py --project /path/to/your/project
+python3 install/install_skill.py
 ```
 
 或手动构建：

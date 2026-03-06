@@ -63,9 +63,9 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 - `python scripts/run_with_resolved_id.py resume --project . [--run-id <run_id>]`
 - `python scripts/run_with_resolved_id.py apply --project . [--run-id <run_id>]`
 - 推荐先做首轮检查：`python scripts/sqlopt_cli.py run --config <path> --to-stage preflight`
-- MySQL 项目建议先用 `validate.db_reachable=false` 做一轮离线 smoke，再打开真实 compare。
+- MySQL 项目建议先设置 `llm.enabled=false` + `llm.provider=heuristic` 做一轮离线 smoke，再切换真实 `mysql://` DSN 打开 compare。
 - MySQL 本地测试库可用：`mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql`
-- 如需在 apply 阶段直接修改项目文件，在 `sqlopt.yml` 中设置 `apply.mode: APPLY_IN_PLACE`（默认是 `PATCH_ONLY`）。
+- apply 行为为内置 `PATCH_ONLY`（不通过 `sqlopt.yml` 暴露 `apply.mode` 配置）。
 
 ## 参考资料
 - `references/contracts.md`

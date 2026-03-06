@@ -36,14 +36,14 @@ dist/sql-optimizer-skill-bundle-v<version>.tar.gz
 Linux/macOS:
 
 ```bash
-python3 install/install_skill.py --project /path/to/your/project
+python3 install/install_skill.py
 python3 install/doctor.py --project /path/to/your/project
 ```
 
 Windows PowerShell:
 
 ```powershell
-python install/install_skill.py --project C:\path\to\your\project
+python install/install_skill.py
 python install/doctor.py --project C:\path\to\your\project
 ```
 
@@ -81,13 +81,13 @@ $env:USERPROFILE\.opencode\skills\sql-optimizer\bin\sqlopt-cli.cmd --help
 Linux/macOS:
 
 ```bash
-python3 install/install_skill.py --project /path/to/your/project --force
+python3 install/install_skill.py --force
 ```
 
 Windows PowerShell:
 
 ```powershell
-python install/install_skill.py --project C:\path\to\your\project --force
+python install/install_skill.py --force
 ```
 
 4. 如果 preflight 报 `PREFLIGHT_LLM_UNREACHABLE`：

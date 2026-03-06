@@ -32,14 +32,14 @@ Linux/macOS:
 
 ```bash
 cd /path/to/sql-optimizer-skill-bundle-v<version>
-python3 install/install_skill.py --project /path/to/your/project
+python3 install/install_skill.py
 ```
 
 Windows PowerShell:
 
 ```powershell
 cd C:\path\to\sql-optimizer-skill-bundle-v<version>
-python install/install_skill.py --project C:\path\to\your\project
+python install/install_skill.py
 ```
 
 What this does:

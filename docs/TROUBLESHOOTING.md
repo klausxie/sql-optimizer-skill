@@ -75,7 +75,7 @@ Provider 专项检查：
 检查项：
 
 1. 使用完整路径执行：`%USERPROFILE%\.opencode\skills\sql-optimizer\bin\sqlopt-cli.cmd`
-2. 重新安装：`python install/install_skill.py --project <project>`
+2. 重新安装：`python install/install_skill.py`
 3. 执行 doctor：`python install/doctor.py --project <project>`
 
 ## 7. Windows doctor 出现 UnicodeDecodeError

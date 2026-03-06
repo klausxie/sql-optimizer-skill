@@ -83,7 +83,7 @@
 python3 install/build_bundle.py
 
 # 2. 安装到项目
-python3 install/install_skill.py --project <your_project_path>
+python3 install/install_skill.py
 
 # 3. 验证安装
 python3 install/doctor.py --project <your_project_path>

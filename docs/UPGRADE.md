@@ -4,14 +4,14 @@
 
 ```bash
 cd /path/to/new/sql-optimizer-skill-bundle-v<new_version>
-python3 install/install_skill.py --project /path/to/your/project
+python3 install/install_skill.py
 ```
 
 Windows PowerShell:
 
 ```powershell
 cd C:\path\to\new\sql-optimizer-skill-bundle-v<new_version>
-python install/install_skill.py --project C:\path\to\your\project
+python install/install_skill.py
 ```
 
 Installer behavior:
