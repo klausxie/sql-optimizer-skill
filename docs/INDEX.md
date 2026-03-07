@@ -54,7 +54,7 @@
 
 - [安装指南](INSTALL.md) - 完整安装步骤
 - [快速入门](QUICKSTART.md) - 快速开始
-- [配置说明](project/05-config-and-conventions.md) - 配置选项详解
+- [配置参考](CONFIG.md) - 完整配置说明
 - [配置示例](../templates/sqlopt.example.yml) - 带注释的配置文件
 
 ### 使用和操作
@@ -87,7 +87,7 @@
 - ➡️ [安装指南](INSTALL.md) → 第 2-4 节
 
 **配置数据库连接：**
-- ➡️ [配置示例](../templates/sqlopt.example.yml) → 数据库配置部分
+- ➡️ [配置参考](CONFIG.md) - 完整配置说明
 - ➡️ [故障排查](TROUBLESHOOTING.md) → 数据库连接问题
 
 **理解错误消息：**
@@ -130,6 +130,7 @@
 | [failure-codes.md](failure-codes.md) | 失败码说明 | 所有用户 |
 | [scanner-spi.md](scanner-spi.md) | 扫描器接口 | 高级用户 |
 | [skill-trigger-examples.md](skill-trigger-examples.md) | 使用示例 | 所有用户 |
+| [CONFIG.md](CONFIG.md) | 配置参考 | 所有用户 |
 
 ### 项目文档
 

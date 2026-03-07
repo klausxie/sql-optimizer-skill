@@ -29,30 +29,39 @@ LEGACY_DOTTED_KEYS = {
     "runtime.report_retry_max",
 }
 
-REMOVED_KEYS = {
-    "validate",
-    "policy",
-    "apply",
-    "patch",
-    "diagnostics",
-    "runtime",
-    "verification",
-    "validate.sample_count",
-    "validate.min_sample_rows_for_hash",
-    "validate.db_unreachable_high_rate_threshold",
-    "validate.key_columns",
-    "validate.compare_columns",
-    "scan.max_variants_per_statement",
-    "scan.java_scanner",
-    "scan.class_resolution",
-    "scan.enable_fragment_catalog",
-    "db.statement_timeout_ms",
-    "db.allow_explain_analyze",
-    "llm.retry",
-    "llm.output_validation",
-    "llm.executor",
-    "llm.strict_required",
+# Removed keys with migration hints
+REMOVED_KEYS_WITH_HINTS = {
+    # Root sections - now auto-injected internally
+    "validate": "This section is now auto-injected internally. Remove it from your config file.",
+    "policy": "This section is now auto-injected internally. Remove it from your config file.",
+    "apply": "This section is now auto-injected internally. Remove it from your config file.",
+    "patch": "This section is now auto-injected internally. Remove it from your config file.",
+    "diagnostics": "This section is now auto-injected internally. Remove it from your config file.",
+    "runtime": "This section is now auto-injected internally. Remove it from your config file.",
+    "verification": "This section is now auto-injected internally. Remove it from your config file.",
+    # Validate section keys
+    "validate.sample_count": "Validation settings are now managed internally. Remove this key.",
+    "validate.min_sample_rows_for_hash": "Validation settings are now managed internally. Remove this key.",
+    "validate.db_unreachable_high_rate_threshold": "Validation settings are now managed internally. Remove this key.",
+    "validate.key_columns": "Validation settings are now managed internally. Remove this key.",
+    "validate.compare_columns": "Validation settings are now managed internally. Remove this key.",
+    # Scan section keys
+    "scan.max_variants_per_statement": "Scanner settings are now managed internally. Remove this key.",
+    "scan.java_scanner": "Scanner configuration is now managed internally. Remove this key.",
+    "scan.class_resolution": "Scanner configuration is now managed internally. Remove this key.",
+    "scan.enable_fragment_catalog": "Fragment catalog is now managed internally. Remove this key.",
+    # Database section keys
+    "db.statement_timeout_ms": "Database timeout settings are now managed internally. Remove this key.",
+    "db.allow_explain_analyze": "EXPLAIN ANALYZE settings are now managed internally. Remove this key.",
+    # LLM section keys
+    "llm.retry": "LLM retry is always enabled. Remove this key.",
+    "llm.output_validation": "LLM output validation is always enabled. Remove this key.",
+    "llm.executor": "LLM executor settings are now managed internally. Remove this key.",
+    "llm.strict_required": "LLM strict mode is now managed internally. Remove this key.",
 }
+
+# Backward compatibility: keep REMOVED_KEYS as a set for existing code
+REMOVED_KEYS = set(REMOVED_KEYS_WITH_HINTS.keys())
 
 
 def check_snake_case(obj: Any, path: str = "") -> None:
@@ -112,3 +121,19 @@ def has_key(config: dict[str, Any], dotted: str) -> bool:
             return False
         node = node[part]
     return True
+
+
+def check_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
+    """Check for removed configuration keys and return warnings with hints.
+
+    Args:
+        config: Configuration dictionary to check
+
+    Returns:
+        List of tuples (key, hint) for each removed key found
+    """
+    warnings = []
+    for dotted_key, hint in sorted(REMOVED_KEYS_WITH_HINTS.items()):
+        if has_key(config, dotted_key):
+            warnings.append((dotted_key, hint))
+    return warnings

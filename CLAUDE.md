@@ -6,34 +6,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SQL Optimizer is a Python-based tool that analyzes MyBatis SQL statements, generates optimization proposals using LLM, validates them against a database, and produces XML patches for dynamic mapper templates. It's designed as an installable skill for the OpenCode platform.
 
+Supported databases: PostgreSQL, MySQL 5.6+ (including 5.7, 8.0+; MariaDB not supported)
+
 ## Core Commands
 
 ### Development & Testing
 
 ```bash
-# Run all tests
-python3 -m pytest
+# Run all tests (from repository root)
+python3 -m pytest -q
 
 # Run specific test
-python3 -m pytest tests/test_<name>.py
+python3 -m pytest tests/test_<name>.py -v
+
+# Run unified release acceptance
+python3 scripts/ci/release_acceptance.py
 
 # Validate all JSON schemas
 python3 scripts/schema_validate_all.py
+
+# Scan-only smoke test (validates scanner coverage)
+python3 scripts/run_until_budget.py \
+  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --to-stage scan \
+  --max-steps 10 \
+  --max-seconds 30
 ```
 
 ### CLI Usage
 
-The main CLI entry point is `scripts/sqlopt_cli.py`:
+The main CLI entry point is `scripts/sqlopt_cli.py`. When installed as a skill, use `~/.opencode/skills/sql-optimizer/bin/sqlopt-cli`:
 
 ```bash
 # Start a new optimization run
-python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage patch_generate
+python3 scripts/sqlopt_cli.py run --config sqlopt.yml
 
 # Check run status
 python3 scripts/sqlopt_cli.py status --run-id <run_id>
 
 # Resume an existing run
 python3 scripts/sqlopt_cli.py resume --run-id <run_id>
+
+# Rebuild report only (when status.next_action=report-rebuild)
+python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run_id>
+
+# View verification evidence chain for a SQL statement
+python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey>
+
+# View compressed diagnostics (warnings/why_now/recommended_next_step)
+python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
 
 # Apply generated patches
 python3 scripts/sqlopt_cli.py apply --run-id <run_id>
@@ -56,9 +77,22 @@ python3 install/doctor.py --project /path/to/project
 
 ### Three-Layer Design
 
-1. **Orchestrator** (`python/sqlopt/cli.py`, `supervisor.py`): Command routing, stage orchestration, state management, timeout/retry handling
+1. **Orchestrator** (`python/sqlopt/application/`): Command routing, stage orchestration, state management, timeout/retry handling
+   - `cli.py`: CLI adapter and compatibility wrapper (delegates to application layer)
+   - `workflow_engine.py`: Core workflow orchestration and phase transitions
+   - `run_service.py`: Run lifecycle management
+   - `run_repository.py`: Run state persistence
+   - `config_service.py`: Configuration loading and validation
 2. **Stage Core** (`python/sqlopt/stages/`): Domain logic for each phase (scan, optimize, validate, patch_generate, report)
 3. **Contracts & Artifacts** (`contracts/*.schema.json`): Schema validation, run artifacts, reporting
+
+### Key Architectural Boundaries
+
+- CLI layer (`cli.py`) only contains adapter logic; core orchestration is in `application/workflow_engine.py`
+- Orchestration boundary: `run_service → workflow_engine → run_repository/stages`
+- Platform differences handled via strategy pattern in `preflight` and `validate` stages
+- Document models: `sqlopt.platforms.sql.models` (SQL-side), `sqlopt.stages.report_interfaces` (report-side)
+- External contracts exported via `to_contract()` methods
 
 ### Stage Pipeline
 
@@ -107,17 +141,48 @@ Default: Fragment materialization is OFF (`enable_fragment_materialization=false
 
 ## Configuration
 
-Primary config file: `sqlopt.yml` at project root
+Primary config file: `sqlopt.yml` at project root. See `templates/sqlopt.example.yml` for reference.
 
-Key sections:
+### Minimal Configuration (v1)
+
+```yaml
+config_version: v1
+
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+
+db:
+  platform: postgresql  # or mysql
+  dsn: postgresql://user:pass@127.0.0.1:5432/db?sslmode=disable
+
+llm:
+  enabled: true
+  provider: opencode_run  # recommended
+```
+
+### Key Configuration Sections
+
 - `project.root_path`: Project base directory
 - `scan.mapper_globs`: MyBatis XML file patterns
 - `scan.java_scanner.jar_path`: Path to Java scanner JAR
-- `db.platform`: Database type (postgresql, mysql, etc.)
+- `scan.class_resolution.mode`: Class resolution strategy (tolerant/strict)
+- `db.platform`: Database type (postgresql, mysql)
 - `db.dsn`: Database connection string
 - `llm.provider`: LLM provider (`opencode_run`, `direct_openai_compatible`, `opencode_builtin`, `heuristic`)
-- `runtime.profile`: Execution profile (balanced, fast, thorough)
-- `patch.template_rewrite.enable_fragment_materialization`: Fragment-level template rewrite (default: false)
+- `llm.timeout_ms`: LLM request timeout (default: 80000ms)
+
+### Removed Configuration Keys
+
+The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated or removed in the current version.
+
+### MySQL-Specific Notes
+
+- MySQL 5.6 does not support `MAX_EXECUTION_TIME`; the system automatically degrades without blocking evidence/compare execution
+- PostgreSQL dialect SQL (e.g., `ILIKE`) is not automatically rewritten for MySQL; syntax errors are reported as `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
 
 ## Data Contracts
 
@@ -176,16 +241,141 @@ Retry behavior controlled by `runtime.stage_retry_*` config. Completed statement
 4. Template-level patches require `rewriteMaterialization.replayVerified=true`
 5. Each run advances one statement step per invocation to respect 120s timeout
 6. Schema validation is strict by default and will fail the run on violations
+7. Report phase has `allow_regenerate=True`; other phases do not allow regeneration
+8. Completed statements are never re-executed; only failed statements can be retried on resume
+9. When `status.next_action=report-rebuild`, main pipeline is complete and only report needs regeneration
+
+## Verification System
+
+The verification system provides evidence chains and diagnostics for each SQL statement:
+
+### Verification Commands
+
+```bash
+# View full evidence chain
+sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
+
+# View compressed diagnostics only
+sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only
+
+# JSON format output
+sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
+```
+
+### Verification Artifacts
+
+- `verification/ledger.jsonl`: Per-statement verification records
+- `verification/summary.json`: Aggregated verification summary
+- Each record includes: phase, status, reason_code, evidence_refs, checks, verdict
+
+### Verification Status Codes
+
+- `COMPLETE`: Phase completed successfully with full verification
+- `PARTIAL`: Phase completed but with degraded verification (e.g., DB unreachable)
+- `FAILED`: Phase failed with error
+- `SKIPPED`: Phase skipped due to upstream failure
+
+Common reason codes:
+- `VALIDATE_DB_UNREACHABLE`: Database connection failed during validation
+- `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`: SQL syntax error during EXPLAIN
+- `RUNTIME_STAGE_TIMEOUT`: Stage exceeded timeout limit
 
 ## LLM Provider Options
 
-- `opencode_run`: External `opencode run` command (default)
+- `opencode_run`: External `opencode run` command (recommended for production)
 - `direct_openai_compatible`: Direct OpenAI-compatible API endpoint
-- `opencode_builtin`: Local built-in strategy
+- `opencode_builtin`: Local built-in strategy (recommended for offline smoke testing)
 - `heuristic`: Local simplified heuristic strategy
+
+### LLM Enhancement Features (Phase 1-6)
+
+All LLM enhancement phases are fully implemented and tested:
+
+1. **Phase 1: Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
+2. **Phase 2: Retry Mechanism** - Automatic retry with feedback on validation failures
+3. **Phase 3: Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
+4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `ops/llm_feedback.jsonl`)
+5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
+6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
+
+Configuration:
+- `llm.output_validation.enabled`: Enable Phase 1 quality control
+- `llm.retry.enabled`: Enable Phase 2 retry mechanism
+- `validate.llm_semantic_check.enabled`: Enable Phase 3 semantic checking
+- `diagnostics.llm_feedback.enabled`: Enable Phase 4 feedback collection
+- `patch.llm_assist.enabled`: Enable Phase 5 patch assistance
+
+Test coverage: 84 new tests covering all LLM enhancement features
 
 ## Testing Notes
 
 - Tests use fixtures in `tests/fixtures/project/`
+- 64 test files covering all stages and LLM enhancements
+- Run from repository root: `python3 -m pytest -q`
+- Unified acceptance: `python3 scripts/ci/release_acceptance.py`
+- Individual acceptance tests:
+  - `python3 scripts/ci/opencode_smoke_acceptance.py`
+  - `python3 scripts/ci/degraded_runtime_acceptance.py`
+  - `python3 scripts/ci/report_rebuild_acceptance.py`
+- Schema validation before committing: `python3 scripts/schema_validate_all.py`
 - Some tests may fail on import if dependencies are missing (e.g., test_apply_mode.py)
-- Run schema validation before committing: `python3 scripts/schema_validate_all.py`
+
+### Scanner Coverage Validation
+
+The scanner supports these MyBatis dynamic tags (validated in fixtures):
+- `bind`
+- `choose/when/otherwise`
+- `where`
+- `if`
+- `foreach`
+- `include`
+- `trim`
+- `set`
+
+Verify scanner output:
+- `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
+- `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
+- `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
+
+### MySQL Local Testing
+
+Quick MySQL test database setup:
+
+```bash
+mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
+```
+
+This creates and populates tables: `users`, `orders`, `shipments`
+
+## PYTHONPATH Setup
+
+When running scripts directly (not via installed skill), set PYTHONPATH:
+
+```bash
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
+```
+
+The repository root contains `python/sqlopt/` as the main package directory.
+
+## Documentation References
+
+For detailed information, refer to:
+- `docs/QUICKSTART.md`: 10-minute getting started guide
+- `docs/INDEX.md`: Complete documentation index organized by role and topic
+- `docs/INSTALL.md`: Detailed installation instructions
+- `docs/project/01-product-requirements.md`: Product requirements and goals
+- `docs/project/02-system-spec.md`: System specification
+- `docs/project/03-workflow-and-state-machine.md`: Workflow and state management
+- `docs/project/04-data-contracts.md`: Data contracts and schemas
+- `docs/project/05-config-and-conventions.md`: Configuration options detailed reference
+- `docs/project/06-delivery-checklist.md`: Delivery and deployment checklist
+- `docs/project/08-artifact-governance.md`: Run artifacts and source-of-truth rules
+- `docs/TROUBLESHOOTING.md`: Common issues and solutions
+- `docs/UPGRADE.md`: Version upgrade guide
+- `docs/DISTRIBUTION.md`: Packaging and distribution guide
+
+## Priority Rules (in case of conflicts)
+
+1. `contracts/*.schema.json` (highest priority)
+2. Current code verifiable behavior (`python/sqlopt`, `scripts/sqlopt_cli.py`)
+3. Historical documentation (`docs/*.md`)

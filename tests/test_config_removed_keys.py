@@ -89,7 +89,7 @@ llm:
         loaded = load_config(self._write_cfg(""))
         self.assertEqual(loaded["llm"]["provider"], "opencode_builtin")
         self.assertEqual(loaded["apply"]["mode"], "PATCH_ONLY")
-        self.assertFalse(loaded["validate"]["db_reachable"])
+        self.assertTrue(loaded["validate"]["db_reachable"])
         self.assertEqual(loaded["verification"]["critical_output_policy"], "warn")
         self.assertTrue(loaded["report"]["enabled"])
 
