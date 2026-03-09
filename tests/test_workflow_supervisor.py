@@ -1,19 +1,35 @@
 from __future__ import annotations
 
-import ast
 import json
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
+
+from sqlopt.application import run_service
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_cli(*args: str) -> dict:
-    out = subprocess.check_output(["python3", "scripts/sqlopt_cli.py", *args], cwd=ROOT, text=True).strip()
-    return ast.literal_eval(out)
+    cmd = args[0]
+    if cmd == "run":
+        config = Path(args[args.index("--config") + 1]).resolve()
+        to_stage = args[args.index("--to-stage") + 1]
+        run_id = args[args.index("--run-id") + 1]
+        with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
+            resolved_run_id, result = run_service.start_run(config, to_stage, run_id, repo_root=ROOT)
+        return {"run_id": resolved_run_id, "result": result}
+    if cmd == "resume":
+        run_id = args[args.index("--run-id") + 1]
+        with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
+            result = run_service.resume_run(run_id, repo_root=ROOT)
+        return {"run_id": run_id, "result": result}
+    if cmd == "status":
+        run_id = args[args.index("--run-id") + 1]
+        return run_service.get_status(run_id, repo_root=ROOT)
+    raise ValueError(f"unsupported test command: {cmd}")
 
 
 class WorkflowSupervisorTest(unittest.TestCase):

@@ -13,10 +13,6 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-def legacy_run_index_path() -> Path:
-    return repo_root() / ".sqlopt-run-index.json"
-
-
 def run_index_path_for_runs_root(runs_root: Path) -> Path:
     return runs_root / "index.json"
 
@@ -59,16 +55,11 @@ def remember_run(run_id: str, run_dir: Path, config_path: Path, runs_root: Path)
     }
     save_run_index(index_path, index)
 
-    legacy_path = legacy_run_index_path()
-    legacy = load_run_index(legacy_path)
-    legacy[run_id] = index[run_id]
-    save_run_index(legacy_path, legacy)
-
 
 def resolve_run_dir(run_id: str, *, repo_root_fn: Callable[[], Path] | None = None) -> Path:
     root_fn = repo_root_fn or repo_root
     root = root_fn()
-    candidates: list[Path] = [root / ".sqlopt-run-index.json", *sorted(root.glob("**/runs/index.json"))]
+    candidates: list[Path] = sorted(root.glob("**/runs/index.json"))
     for index_path in candidates:
         row = load_run_index(index_path).get(run_id, {})
         run_dir = Path(str(row.get("run_dir", ""))) if row else Path("")

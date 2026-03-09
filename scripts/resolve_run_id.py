@@ -35,7 +35,6 @@ def _index_candidates(repo_root: Path, project: Path | None) -> list[Path]:
     items: list[Path] = []
     if project is not None:
         items.append(project / "runs" / "index.json")
-    items.append(repo_root / ".sqlopt-run-index.json")
     items.extend(sorted(repo_root.glob("**/runs/index.json")))
     out: list[Path] = []
     seen: set[str] = set()

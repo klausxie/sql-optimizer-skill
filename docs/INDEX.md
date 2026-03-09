@@ -9,7 +9,7 @@
 - **[快速入门指南](QUICKSTART.md)** - 10 分钟完成首次运行
 - **[安装指南](INSTALL.md)** - 详细的安装步骤
 - **[配置示例](../templates/sqlopt.example.yml)** - 带详细注释的配置文件
-- **配置边界提示**：外部仅支持 `project / scan / db / llm / report / config_version`
+- **配置边界提示**：主根键为 `project / scan / db / llm / report / config_version`，并支持扩展键 `rules / prompt_injections`
 
 ## 📚 按用户角色分类
 

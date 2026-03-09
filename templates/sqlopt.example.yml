@@ -1,7 +1,8 @@
 # SQL Optimizer 极简配置模板（v1）
 # 复制为项目根目录 sqlopt.yml 后按需修改。
 #
-# 外部可配置根键仅保留：project / scan / db / llm / report / config_version
+# 外部可配置主根键：project / scan / db / llm / report / config_version
+# 外部可配置扩展键：rules / prompt_injections
 # 以下历史键已移除（出现即报错）：
 # validate, policy, apply, patch, diagnostics, runtime, verification
 

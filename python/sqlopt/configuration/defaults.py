@@ -8,12 +8,17 @@ Configuration Flow:
 │                         User Config File                            │
 │                      (sqlopt.yml / sqlopt.json)                     │
 │                                                                      │
-│  User-Facing Sections (5 root keys):                                │
+│  User-Facing Main Sections (6 root keys):                           │
+│    • config_version: Schema version marker                          │
 │    • project:  Project root path                                    │
 │    • scan:     Mapper file patterns                                 │
 │    • db:       Database connection                                  │
 │    • llm:      LLM provider settings                                │
 │    • report:   Report generation                                    │
+│                                                                      │
+│  User-Facing Extensibility Sections (optional):                     │
+│    • rules: Rule toggles and custom rules                           │
+│    • prompt_injections: Prompt hints for optimization                │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
                     load_config() + validation
@@ -40,7 +45,7 @@ Configuration Flow:
 └─────────────────────────────────────────────────────────────────────┘
 
 Key Design Principles:
-1. User config is minimal and stable (only 5 root keys)
+1. User config keeps a stable main surface (6 root keys + 2 optional extensibility keys)
 2. Internal config is comprehensive and flexible (7 additional keys)
 3. Users never need to specify internal sections
 4. Internal sections are auto-injected with sensible defaults
@@ -92,6 +97,7 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
     2. Injecting internal sections (apply, policy, validate, patch, diagnostics, runtime, verification)
 
     User-Facing Sections (with defaults):
+    - config_version: Optional schema version marker (defaults handled by migration)
     - project.root_path: Resolved to absolute path
     - scan.mapper_globs: Defaults to ["**/*Mapper.xml", "**/*.xml"]
     - db.schema: Defaults to None
@@ -127,7 +133,7 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
         ...     "llm": {"provider": "opencode_run"}
         ... }
         >>> apply_minimal_defaults(cfg, config_path=Path("sqlopt.yml"))
-        >>> # cfg now contains 12 root keys (5 user + 7 internal)
+        >>> # cfg now contains resolved keys (main user keys + optional extensions + 7 internal)
         >>> assert "apply" in cfg
         >>> assert "policy" in cfg
         >>> assert "runtime" in cfg

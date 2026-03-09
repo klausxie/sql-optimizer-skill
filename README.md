@@ -204,6 +204,7 @@ report:
 ```
 
 已移除且不再接受的配置根键：`validate`、`policy`、`apply`、`patch`、`diagnostics`、`runtime`、`verification`。  
+可选扩展根键：`rules`、`prompt_injections`。  
 配置示例见 `templates/sqlopt.example.yml`。
 
 ## 📋 详细文档

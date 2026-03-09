@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import json
 import os
 import subprocess
 import sys
@@ -61,20 +60,6 @@ def _resolve_run(repo_root: Path, run_id: str | None, project: str) -> tuple[str
     return rid, run_dir
 
 
-def _ensure_cli_index(repo_root: Path, run_id: str, run_dir: Path) -> None:
-    index_path = repo_root / ".sqlopt-run-index.json"
-    data: dict[str, dict] = {}
-    if index_path.exists():
-        try:
-            raw = json.loads(index_path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                data = raw
-        except Exception:
-            data = {}
-    data[run_id] = {"run_dir": str(run_dir)}
-    index_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     p.add_argument("command", choices=["status", "resume", "apply"])
@@ -86,8 +71,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = _build_parser().parse_args()
     repo_root = _repo_root()
-    rid, run_dir = _resolve_run(repo_root, args.run_id, args.project)
-    _ensure_cli_index(repo_root, rid, run_dir)
+    rid, _ = _resolve_run(repo_root, args.run_id, args.project)
     cmd = [sys.executable, str(repo_root / "scripts" / "sqlopt_cli.py"), args.command, "--run-id", rid]
     proc = subprocess.run(cmd, env=_env(repo_root), text=True)
     raise SystemExit(proc.returncode)

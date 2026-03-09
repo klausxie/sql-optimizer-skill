@@ -10,6 +10,8 @@ ROOT_KEYS = {
     "llm",
     "report",
     "config_version",
+    "rules",
+    "prompt_injections",
 }
 
 RUNTIME_PROFILE_DEFAULTS = {
