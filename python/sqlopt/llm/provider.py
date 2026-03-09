@@ -15,6 +15,10 @@ from ..subprocess_utils import run_capture_text
 from .retry_context import RetryContext, build_retry_prompt
 
 
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
 def _hash_payload(payload: Any) -> str:
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
@@ -175,7 +179,7 @@ def _run_opencode(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any])
     timeout_ms = int(llm_cfg.get("timeout_ms", 15000))
     cmd = ["opencode", "run", "--format", "json"]
     opencode_workdir = str(llm_cfg.get("opencode_workdir") or "").strip()
-    if opencode_workdir:
+    if opencode_workdir and not _is_windows():
         cmd.extend(["--dir", opencode_workdir])
     if opencode_model:
         cmd.extend(["-m", opencode_model])
