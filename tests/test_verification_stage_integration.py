@@ -108,6 +108,65 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         check_codes = {check.get("reason_code") for check in rows[0]["checks"]}
         self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", check_codes)
 
+    def test_optimize_stage_persists_trace_even_when_llm_candidates_empty(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_trace_empty_") as td:
+            run_dir = Path(td)
+            proposal = {
+                "sqlKey": "demo.user.listUsers#v1",
+                "issues": [{"code": "SEQ_SCAN"}],
+                "dbEvidenceSummary": {},
+                "planSummary": {},
+                "suggestions": [{"strategy": "index"}],
+                "verdict": "ACTIONABLE",
+                "actionability": {"score": 85, "tier": "HIGH", "autoPatchLikelihood": "HIGH", "reasons": [], "blockedBy": []},
+                "recommendedSuggestionIndex": 0,
+            }
+            with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
+                with patch(
+                    "sqlopt.stages.optimize.generate_llm_candidates",
+                    return_value=([], {"executor": "opencode_run", "provider": "opencode_run"}),
+                ):
+                    optimize.execute_one(
+                        _sql_unit(),
+                        run_dir,
+                        self._validator(),
+                        config={"llm": {"enabled": True, "provider": "opencode_run"}, "project": {}},
+                    )
+
+            proposal_row = json.loads((run_dir / "proposals" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            trace_ref = (proposal_row.get("llmTraceRefs") or [None])[0]
+            self.assertTrue(trace_ref)
+            trace_path = run_dir / str(trace_ref)
+            self.assertTrue(trace_path.exists())
+            trace = json.loads(trace_path.read_text(encoding="utf-8"))
+            self.assertEqual(trace.get("executor"), "opencode_run")
+
+    def test_optimize_stage_persists_skip_trace_for_dollar_substitution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_trace_skip_") as td:
+            run_dir = Path(td)
+            sql_unit = _sql_unit()
+            sql_unit["sql"] = "SELECT * FROM users WHERE id = ${id}"
+            proposal = {
+                "sqlKey": "demo.user.listUsers#v1",
+                "issues": [{"code": "DOLLAR_SUBSTITUTION"}],
+                "dbEvidenceSummary": {},
+                "planSummary": {},
+                "suggestions": [],
+                "verdict": "NOOP",
+                "actionability": {"score": 10, "tier": "LOW", "autoPatchLikelihood": "LOW", "reasons": [], "blockedBy": []},
+                "recommendedSuggestionIndex": None,
+            }
+            with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
+                optimize.execute_one(sql_unit, run_dir, self._validator(), config={"llm": {"enabled": True, "provider": "opencode_run"}, "project": {}})
+
+            proposal_row = json.loads((run_dir / "proposals" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            trace_ref = (proposal_row.get("llmTraceRefs") or [None])[0]
+            self.assertTrue(trace_ref)
+            trace_path = run_dir / str(trace_ref)
+            self.assertTrue(trace_path.exists())
+            trace = json.loads(trace_path.read_text(encoding="utf-8"))
+            self.assertEqual(trace.get("degrade_reason"), "RISKY_DOLLAR_SUBSTITUTION")
+
     def test_validate_stage_writes_verification_record(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_") as td:
             run_dir = Path(td)

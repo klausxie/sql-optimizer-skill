@@ -51,10 +51,10 @@ python3 install/doctor.py --project .
 
 ---
 
-## PREFLIGHT_SCANNER_MISSING
+## PREFLIGHT_SCANNER_MISSING（仅旧版本/旧 run）
 
 现象：
-- preflight 提示 scanner 检查失败
+- 旧版本或历史 run 的 preflight 提示 scanner 检查失败
 
 诊断命令：
 
@@ -66,6 +66,7 @@ sqlopt-cli validate-config --config sqlopt.yml
 修复动作：
 - 当前默认 Python fallback scanner，无需 `scan.java_scanner.jar_path`
 - 移除旧配置里的 `scan.java_scanner` 段
+- 升级并重装最新 skill 后重试（新版本默认不再做 scanner jar preflight）
 - 校验 `scan.mapper_globs` 能匹配到 mapper XML
 
 ---

@@ -1,4 +1,4 @@
-"""Tests for improved removed keys error messages."""
+"""Tests for removed/deprecated config key compatibility handling."""
 
 from __future__ import annotations
 
@@ -8,11 +8,10 @@ from pathlib import Path
 
 from sqlopt.config import load_config
 from sqlopt.configuration.common import check_removed_keys
-from sqlopt.errors import ConfigError
 
 
 class ImprovedRemovedKeysTest(unittest.TestCase):
-    """Test improved error messages for removed configuration keys."""
+    """Test removed key detection hints and compatibility behavior."""
 
     def test_check_removed_keys_returns_warnings_with_hints(self) -> None:
         """Test that check_removed_keys returns helpful hints."""
@@ -42,8 +41,8 @@ class ImprovedRemovedKeysTest(unittest.TestCase):
         warnings = check_removed_keys(cfg)
         self.assertEqual(len(warnings), 0)
 
-    def test_removed_key_error_includes_hint(self) -> None:
-        """Test that ConfigError for removed keys includes helpful hint."""
+    def test_removed_key_is_ignored_when_loading(self) -> None:
+        """Removed keys should be ignored for backward compatibility."""
         td = tempfile.TemporaryDirectory(prefix="sqlopt_removed_key_")
         self.addCleanup(td.cleanup)
 
@@ -66,18 +65,11 @@ validate:
             encoding="utf-8",
         )
 
-        with self.assertRaises(ConfigError) as ctx:
-            load_config(cfg_path)
+        loaded = load_config(cfg_path)
+        self.assertTrue(loaded["validate"]["db_reachable"])
 
-        error_msg = str(ctx.exception)
-        # Check that error message contains the key
-        self.assertIn("validate", error_msg)
-        # Check that error message contains a hint
-        self.assertIn("Hint:", error_msg)
-        self.assertIn("auto-injected", error_msg.lower())
-
-    def test_multiple_removed_keys_shows_count(self) -> None:
-        """Test that multiple removed keys show total count."""
+    def test_multiple_removed_keys_are_all_ignored(self) -> None:
+        """Multiple removed keys should all be ignored."""
         td = tempfile.TemporaryDirectory(prefix="sqlopt_multiple_removed_")
         self.addCleanup(td.cleanup)
 
@@ -101,15 +93,13 @@ runtime: {}
             encoding="utf-8",
         )
 
-        with self.assertRaises(ConfigError) as ctx:
-            load_config(cfg_path)
+        loaded = load_config(cfg_path)
+        self.assertEqual(loaded["policy"]["cost_threshold_pct"], 0)
+        self.assertEqual(loaded["runtime"]["stage_retry_backoff_ms"], 1000)
+        self.assertTrue(loaded["validate"]["db_reachable"])
 
-        error_msg = str(ctx.exception)
-        # Check that error message mentions multiple keys
-        self.assertIn("removed key(s)", error_msg.lower())
-
-    def test_nested_removed_key_error_includes_hint(self) -> None:
-        """Test that nested removed keys also get helpful hints."""
+    def test_nested_removed_key_is_ignored(self) -> None:
+        """Nested removed keys should be ignored."""
         td = tempfile.TemporaryDirectory(prefix="sqlopt_nested_removed_")
         self.addCleanup(td.cleanup)
 
@@ -132,14 +122,8 @@ llm:
             encoding="utf-8",
         )
 
-        with self.assertRaises(ConfigError) as ctx:
-            load_config(cfg_path)
-
-        error_msg = str(ctx.exception)
-        # Check that error message contains the nested key
-        self.assertIn("scan.java_scanner", error_msg)
-        # Check that error message contains a hint
-        self.assertIn("Hint:", error_msg)
+        loaded = load_config(cfg_path)
+        self.assertNotIn("java_scanner", loaded["scan"])
 
 
 if __name__ == "__main__":

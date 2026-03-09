@@ -80,8 +80,8 @@ REASON_CODES = {
         code="PREFLIGHT_SCANNER_MISSING",
         category="preflight",
         severity="fatal",
-        description="Java scanner JAR file not found",
-        user_message="Scanner JAR file is missing. Run the installation script to set up the scanner.",
+        description="Legacy Java scanner JAR file not found",
+        user_message="Legacy scanner JAR file is missing. Current versions use Python fallback scanner by default.",
     ),
     "PREFLIGHT_MISSING_SCANNER_JAR": ReasonCode(
         code="PREFLIGHT_MISSING_SCANNER_JAR",

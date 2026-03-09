@@ -187,6 +187,8 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 
     proposal = generate_proposal(sql_unit, config=config)
 
+    llm_trace_ref = f"traces/{sql_unit['sqlKey']}.optimize.llm.json"
+
     # 判断是否需要跳过 LLM 生成
     if "${" in str(sql_unit.get("sql", "")):
         trace = _build_dollar_skip_trace(sql_unit["sqlKey"])
@@ -204,13 +206,17 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 
         if candidates:
             proposal["llmCandidates"] = candidates
-            proposal["llmTraceRefs"] = [f"traces/{sql_unit['sqlKey']}.optimize.llm.json"]
             if retry_traces:
                 proposal["llmRetryTraces"] = retry_traces
                 proposal["llmRetryStats"] = {
                     "total_attempts": len(retry_traces) + 1,
                     "successful_attempt": len(retry_traces) + 1,
                 }
+
+    # LLM trace should be persisted whenever an LLM/skip execution trace exists,
+    # even if candidate validation filtered all candidates.
+    if trace and any(trace.get(key) for key in ("executor", "provider", "task_id")):
+        proposal["llmTraceRefs"] = [llm_trace_ref]
 
     # 添加验证结果到 proposal
     if validation_results:

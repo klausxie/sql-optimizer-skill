@@ -30,13 +30,24 @@ class ConfigRemovedKeysTest(unittest.TestCase):
         cfg.write_text(BASE_YAML + extra, encoding="utf-8")
         return cfg
 
-    def test_removed_root_sections_are_rejected(self) -> None:
-        for section in ("validate", "policy", "apply", "patch", "diagnostics", "runtime", "verification"):
-            cfg = self._write_cfg(f"{section}: {{}}\n")
-            with self.assertRaises(ConfigError):
-                load_config(cfg)
+    def test_removed_root_sections_are_ignored(self) -> None:
+        cfg = self._write_cfg(
+            """\
+policy:
+  cost_threshold_pct: 99
+runtime:
+  stage_retry_backoff_ms: 9999
+verification:
+  critical_output_policy: block
+"""
+        )
+        loaded = load_config(cfg)
+        # Removed sections should be ignored and replaced by internal defaults.
+        self.assertEqual(loaded["policy"]["cost_threshold_pct"], 0)
+        self.assertEqual(loaded["runtime"]["stage_retry_backoff_ms"], 1000)
+        self.assertEqual(loaded["verification"]["critical_output_policy"], "warn")
 
-    def test_removed_scan_keys_are_rejected(self) -> None:
+    def test_removed_scan_keys_are_ignored(self) -> None:
         cfg = self._write_cfg(
             """\
 scan:
@@ -46,10 +57,10 @@ scan:
     jar_path: /tmp/demo.jar
 """
         )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
+        loaded = load_config(cfg)
+        self.assertNotIn("java_scanner", loaded["scan"])
 
-    def test_removed_db_timeout_key_is_rejected(self) -> None:
+    def test_removed_db_timeout_key_is_ignored(self) -> None:
         cfg = self._write_cfg(
             """\
 db:
@@ -58,8 +69,8 @@ db:
   statement_timeout_ms: 5000
 """
         )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
+        loaded = load_config(cfg)
+        self.assertEqual(loaded["db"]["statement_timeout_ms"], 3000)
 
     def test_db_schema_is_accepted(self) -> None:
         cfg = self._write_cfg(
@@ -73,7 +84,7 @@ db:
         loaded = load_config(cfg)
         self.assertEqual(loaded["db"]["schema"], "public")
 
-    def test_removed_llm_keys_are_rejected(self) -> None:
+    def test_removed_llm_keys_are_ignored(self) -> None:
         cfg = self._write_cfg(
             """\
 llm:
@@ -82,8 +93,8 @@ llm:
     enabled: true
 """
         )
-        with self.assertRaises(ConfigError):
-            load_config(cfg)
+        loaded = load_config(cfg)
+        self.assertNotIn("retry", loaded["llm"])
 
     def test_minimal_config_loads_and_internal_defaults_are_injected(self) -> None:
         loaded = load_config(self._write_cfg(""))

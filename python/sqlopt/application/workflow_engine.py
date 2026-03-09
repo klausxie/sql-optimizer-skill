@@ -439,6 +439,8 @@ def _advance_optimize(ctx: AdvanceContext, index: LoadedStageIndex) -> dict[str,
 
     total_statements = len(ctx.plan["sql_keys"])
     completed = sum(1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE")
+    if int(ctx.state["attempts_by_phase"].get(phase, 0)) == 0:
+        ctx.progress.report_phase_start("optimize", "Generating optimization proposals")
     ctx.progress.report_statement_progress(completed + 1, total_statements, key)
 
     try:
@@ -473,11 +475,18 @@ def _advance_validate(ctx: AdvanceContext, index: LoadedStageIndex) -> dict[str,
         ctx.state["current_phase"] = str(PHASE_TRANSITIONS[phase])
         ctx.repo.save_state(ctx.state)
         ctx.repo.append_step_result(phase, "DONE")
+        ctx.progress.report_phase_complete(phase)
         if ctx.to_stage == phase:
             ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
             ctx.repo.save_state(ctx.state)
             _finalize_completed_run(ctx)
         return _complete_phase_result(ctx, phase)
+
+    total_statements = len(ctx.plan["sql_keys"])
+    completed = sum(1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE")
+    if int(ctx.state["attempts_by_phase"].get(phase, 0)) == 0:
+        ctx.progress.report_phase_start("validate", "Validating optimized SQL candidates")
+    ctx.progress.report_statement_progress(completed + 1, total_statements, key)
 
     try:
         _, attempts = ctx.phase_action(
@@ -518,10 +527,17 @@ def _advance_patch_generate(ctx: AdvanceContext, index: LoadedStageIndex) -> dic
         ctx.state["current_phase"] = str(PHASE_TRANSITIONS[phase])
         ctx.repo.save_state(ctx.state)
         ctx.repo.append_step_result(phase, "DONE")
+        ctx.progress.report_phase_complete(phase)
         ctx.repo.set_meta_status("READY_TO_FINALIZE")
         if ctx.to_stage == phase:
             _finalize_completed_run(ctx)
         return _complete_phase_result(ctx, phase)
+
+    total_statements = len(ctx.plan["sql_keys"])
+    completed = sum(1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE")
+    if int(ctx.state["attempts_by_phase"].get(phase, 0)) == 0:
+        ctx.progress.report_phase_start("patch_generate", "Generating patch files")
+    ctx.progress.report_statement_progress(completed + 1, total_statements, key)
 
     try:
         _, attempts = ctx.phase_action(

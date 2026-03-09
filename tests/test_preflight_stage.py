@@ -102,6 +102,21 @@ class PreflightStageTest(unittest.TestCase):
             llm_check = next(row for row in result["checks"] if row.get("name") == "llm")
             self.assertEqual(llm_check.get("reason"), "provider=opencode_builtin")
 
+    def test_preflight_scanner_check_stays_skipped_even_with_legacy_java_scanner_key(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
+            run_dir = Path(td) / "runs" / "run_pf_scanner_legacy"
+            (run_dir / "ops").mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(Path(td).resolve())},
+                "validate": {"db_reachable": False},
+                "scan": {"java_scanner": {"jar_path": str(Path(td) / "missing.jar")}},
+                "llm": {"enabled": False},
+            }
+            result = preflight.execute(config, run_dir)
+            scanner_check = next(row for row in result["checks"] if row.get("name") == "scanner")
+            self.assertTrue(scanner_check.get("ok"))
+            self.assertFalse(scanner_check.get("enabled"))
+
     def test_preflight_direct_openai_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
             run_dir = Path(td) / "runs" / "run_pf_direct_ok"

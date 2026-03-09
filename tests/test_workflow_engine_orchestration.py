@@ -63,6 +63,22 @@ class _DummyProgress:
         pass
 
 
+class _CaptureProgress(_DummyProgress):
+    def __init__(self) -> None:
+        self.starts: list[tuple[str, str]] = []
+        self.completes: list[str] = []
+        self.statements: list[tuple[int, int, str]] = []
+
+    def report_phase_start(self, phase: str, message: str) -> None:
+        self.starts.append((phase, message))
+
+    def report_phase_complete(self, phase: str) -> None:
+        self.completes.append(phase)
+
+    def report_statement_progress(self, current_index: int, total_statements: int, key: str) -> None:
+        self.statements.append((current_index, total_statements, key))
+
+
 def _initial_state() -> dict:
     return {
         "current_phase": "preflight",
@@ -469,6 +485,93 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
 
         self.assertEqual(result, {"complete": True, "phase": "report"})
         finalize_without_report.assert_called_once()
+
+    def test_advance_validate_reports_phase_statement_and_complete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_validate_progress_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["phase_status"]["preflight"] = "DONE"
+            state["phase_status"]["scan"] = "DONE"
+            state["phase_status"]["optimize"] = "DONE"
+            state["current_phase"] = "validate"
+            state["statements"] = {
+                "demo.user.find#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}
+            }
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            progress = _CaptureProgress()
+            finalize_without_report = Mock()
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=progress):
+                with patch(
+                    "sqlopt.application.workflow_engine.load_index",
+                    return_value=({"demo.user.find#v1": {}}, {"demo.user.find#v1": {}}, {}),
+                ):
+                    workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": False}, "validate": {}},
+                        "validate",
+                        self._validator(),
+                        repository=repo,
+                        run_phase_action_fn=lambda _config, _phase, _fn: ({}, 1),
+                        finalize_without_report_fn=finalize_without_report,
+                    )
+                    workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": False}, "validate": {}},
+                        "validate",
+                        self._validator(),
+                        repository=repo,
+                        run_phase_action_fn=lambda _config, _phase, _fn: ({}, 1),
+                        finalize_without_report_fn=finalize_without_report,
+                    )
+
+        self.assertIn(("validate", "Validating optimized SQL candidates"), progress.starts)
+        self.assertIn((1, 1, "demo.user.find#v1"), progress.statements)
+        self.assertIn("validate", progress.completes)
+
+    def test_advance_patch_generate_reports_phase_statement_and_complete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_patch_progress_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["phase_status"]["preflight"] = "DONE"
+            state["phase_status"]["scan"] = "DONE"
+            state["phase_status"]["optimize"] = "DONE"
+            state["phase_status"]["validate"] = "DONE"
+            state["current_phase"] = "patch_generate"
+            state["statements"] = {
+                "demo.user.find#v1": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
+            }
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            progress = _CaptureProgress()
+            finalize_without_report = Mock()
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=progress):
+                with patch(
+                    "sqlopt.application.workflow_engine.load_index",
+                    return_value=({"demo.user.find#v1": {}}, {}, {"demo.user.find#v1": {"status": "PASS"}}),
+                ):
+                    workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": False}, "validate": {}},
+                        "patch_generate",
+                        self._validator(),
+                        repository=repo,
+                        run_phase_action_fn=lambda _config, _phase, _fn: ({}, 1),
+                        finalize_without_report_fn=finalize_without_report,
+                    )
+                    workflow_engine.advance_one_step(
+                        run_dir,
+                        {"report": {"enabled": False}, "validate": {}},
+                        "patch_generate",
+                        self._validator(),
+                        repository=repo,
+                        run_phase_action_fn=lambda _config, _phase, _fn: ({}, 1),
+                        finalize_without_report_fn=finalize_without_report,
+                    )
+
+        self.assertIn(("patch_generate", "Generating patch files"), progress.starts)
+        self.assertIn((1, 1, "demo.user.find#v1"), progress.statements)
+        self.assertIn("patch_generate", progress.completes)
 
 
 if __name__ == "__main__":

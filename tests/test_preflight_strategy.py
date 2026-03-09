@@ -50,11 +50,13 @@ class PreflightStrategyTest(unittest.TestCase):
         self.assertFalse(builtin.llm.enabled)
         self.assertEqual(builtin.llm.reason, "provider=opencode_builtin")
 
-    def test_scanner_policy_skips_when_jar_not_set(self) -> None:
-        policy = build_preflight_policy({"scan": {}})
+    def test_scanner_policy_always_skips_jar_preflight(self) -> None:
+        without_jar = build_preflight_policy({"scan": {}})
+        with_jar = build_preflight_policy({"scan": {"java_scanner": {"jar_path": "/tmp/missing.jar"}}})
 
-        self.assertFalse(policy.scanner.enabled)
-        self.assertEqual(policy.scanner.reason, "scan.java_scanner.jar_path not set")
+        self.assertFalse(without_jar.scanner.enabled)
+        self.assertFalse(with_jar.scanner.enabled)
+        self.assertIn("scanner preflight check disabled", str(without_jar.scanner.reason))
 
 
 if __name__ == "__main__":

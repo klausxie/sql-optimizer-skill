@@ -70,11 +70,14 @@ def _build_llm_policy(config: dict[str, Any] | None) -> LlmCheckPolicy:
 
 
 def _build_scanner_policy(config: dict[str, Any] | None) -> ScannerCheckPolicy:
-    java_cfg = (((config or {}).get("scan", {}) or {}).get("java_scanner", {}) or {})
-    jar_path = str(java_cfg.get("jar_path") or "").strip()
-    if not jar_path:
-        return ScannerCheckPolicy(enabled=False, reason="scan.java_scanner.jar_path not set")
-    return ScannerCheckPolicy(enabled=True, reason=None)
+    # Scanner preflight jar checks are deprecated:
+    # runtime uses Python fallback scanner by default and no longer requires
+    # scan.java_scanner.jar_path in user config.
+    _ = config
+    return ScannerCheckPolicy(
+        enabled=False,
+        reason="scanner preflight check disabled (python fallback scanner is default)",
+    )
 
 
 def build_preflight_policy(config: dict[str, Any] | None) -> PreflightPolicy:

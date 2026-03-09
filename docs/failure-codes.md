@@ -79,7 +79,7 @@
 1. `PREFLIGHT_CHECK_FAILED` -> `fatal`
 2. `PREFLIGHT_DB_UNREACHABLE` -> `fatal`
 3. `PREFLIGHT_LLM_UNREACHABLE` -> `fatal`
-4. `PREFLIGHT_SCANNER_MISSING` -> `fatal`
+4. `PREFLIGHT_SCANNER_MISSING` -> `fatal`（legacy，仅旧版本路径）
 
 ### Validate
 1. `VALIDATE_DB_UNREACHABLE` -> `degradable`

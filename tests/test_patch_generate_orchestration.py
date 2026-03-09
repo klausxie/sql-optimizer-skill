@@ -129,11 +129,11 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         unified_mock.assert_not_called()
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE")
 
-    def test_no_effective_change_path_returns_skip_reason(self) -> None:
+    def test_no_effective_change_short_circuits_before_patch_build(self) -> None:
         acceptance = {
             "sqlKey": "demo.user.find#v1",
             "status": "PASS",
-            "rewrittenSql": "SELECT * FROM users",
+            "rewrittenSql": "  SELECT   *   FROM users   ",
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
@@ -148,12 +148,16 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "locators": {"statementId": "listUsersSorted"},
         }
 
-        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(None, 0, None)):
-            with patch("sqlopt.stages.patch_generate._build_unified_patch", return_value=("", 0)):
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch") as template_mock:
+            with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
                 patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
+        template_mock.assert_not_called()
+        unified_mock.assert_not_called()
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_NO_EFFECTIVE_CHANGE")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
+        patch_file = run_dir / "patches" / "demo.user.find#v1.patch"
+        self.assertFalse(patch_file.exists())
 
 
 if __name__ == "__main__":

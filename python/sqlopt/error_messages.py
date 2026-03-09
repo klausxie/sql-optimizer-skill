@@ -53,14 +53,14 @@ ERROR_MESSAGES = {
     },
     "SCANNER_JAR_NOT_FOUND": {
         "title": "未找到 Java Scanner JAR",
-        "description": "Java scanner JAR 文件丢失或无法访问。",
+        "description": "Java scanner JAR 文件丢失或无法访问（仅 legacy Java scanner 路径）。",
         "causes": [
             "JAR 文件未构建",
             "配置中的路径不正确",
             "技能安装不正确"
         ],
         "suggestions": [
-            "检查配置中的 scan.java_scanner.jar_path",
+            "优先使用默认 Python fallback scanner（无需配置 scan.java_scanner.jar_path）",
             "重新安装技能：python3 install/install_skill.py --project <path>",
             "验证 JAR 文件在指定路径存在",
             "如需手动构建 JAR：cd java/scan-agent && mvn package"

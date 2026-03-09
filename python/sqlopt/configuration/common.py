@@ -127,6 +127,33 @@ def has_key(config: dict[str, Any], dotted: str) -> bool:
     return True
 
 
+def remove_key(config: dict[str, Any], dotted: str) -> bool:
+    """Remove a dotted key from config if it exists.
+
+    Args:
+        config: Configuration dictionary
+        dotted: Dotted key path, e.g. "scan.java_scanner"
+
+    Returns:
+        True if key existed and was removed, False otherwise
+    """
+    parts = dotted.split(".")
+    if not parts:
+        return False
+    node: Any = config
+    for part in parts[:-1]:
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    if not isinstance(node, dict):
+        return False
+    leaf = parts[-1]
+    if leaf in node:
+        del node[leaf]
+        return True
+    return False
+
+
 def check_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
     """Check for removed configuration keys and return warnings with hints.
 
@@ -141,3 +168,15 @@ def check_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
         if has_key(config, dotted_key):
             warnings.append((dotted_key, hint))
     return warnings
+
+
+def strip_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
+    """Remove removed/deprecated keys from config and return what was stripped.
+
+    This keeps backward compatibility with older configs by silently ignoring
+    known removed keys.
+    """
+    removed = check_removed_keys(config)
+    for dotted_key, _ in sorted(removed, key=lambda item: item[0].count("."), reverse=True):
+        remove_key(config, dotted_key)
+    return removed

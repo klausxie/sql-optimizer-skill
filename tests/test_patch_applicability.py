@@ -61,6 +61,41 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "READY_TO_APPLY")
         self.assertTrue(patch_row.get("patchability", {}).get("applyCheckPassed"))
 
+    def test_patch_not_created_for_whitespace_only_rewrite(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_noop_whitespace_") as td:
+            run_dir = Path(td)
+            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
+            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
+            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            acceptance = {
+                "sqlKey": "demo.user.listUsersSorted#v1",
+                "status": "PASS",
+                "rewrittenSql": " SELECT  *   FROM   users   ORDER   BY created_at DESC ",
+                "equivalence": {},
+                "perfComparison": {},
+                "securityChecks": {},
+                "selectedCandidateId": "c-pass-1",
+            }
+            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+                json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+
+            with patch("sqlopt.stages.patch_generate._build_template_plan_patch") as template_mock:
+                with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
+                    patch_row = execute_one(
+                        run_dir=run_dir,
+                        sql_unit=self._base_unit(),
+                        acceptance=acceptance,
+                        validator=ContractValidator(ROOT),
+                    )
+
+            template_mock.assert_not_called()
+            unified_mock.assert_not_called()
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_NO_EFFECTIVE_CHANGE")
+            self.assertEqual(patch_row.get("patchFiles"), [])
+            patch_file = run_dir / "patches" / "demo.user.listUsersSorted#v1.patch"
+            self.assertFalse(patch_file.exists())
+
     def test_patch_skips_statement_level_include_change_without_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_include_safe_") as td:
             run_dir = Path(td)

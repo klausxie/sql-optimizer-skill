@@ -156,16 +156,12 @@ class ValidationModuleTest(unittest.TestCase):
         }
         validate_user_config(cfg)  # Should not raise
 
-    def test_validate_user_config_rejects_removed_keys(self) -> None:
-        """Test that removed keys are rejected in user config."""
+    def test_validate_user_config_ignores_removed_keys(self) -> None:
+        """Test that removed keys are ignored for backward compatibility."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["validate"] = {}
-        with self.assertRaises(ConfigError) as ctx:
-            validate_user_config(cfg)
-        # Check that error message contains helpful information
-        error_msg = str(ctx.exception)
-        self.assertIn("validate", error_msg)
-        self.assertIn("no longer supported", error_msg.lower())
+        validate_user_config(cfg)
+        self.assertNotIn("validate", cfg)
 
     def test_validate_user_config_rejects_unknown_root_keys(self) -> None:
         """Test that unknown root keys are rejected."""

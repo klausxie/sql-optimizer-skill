@@ -13,9 +13,8 @@ from ..constants import ROOT_KEYS
 from ..errors import ConfigError
 from .common import (
     LEGACY_DOTTED_KEYS,
-    REMOVED_KEYS_WITH_HINTS,
-    check_removed_keys,
     has_key as _has_key,
+    strip_removed_keys,
 )
 
 
@@ -204,15 +203,9 @@ def validate_user_config(cfg: dict[str, Any]) -> None:
         if _has_key(cfg, dotted):
             raise ConfigError(f"legacy config key not supported: {dotted}")
 
-    # Check for removed keys with helpful hints
-    removed_warnings = check_removed_keys(cfg)
-    if removed_warnings:
-        # Format error message with hints
-        key, hint = removed_warnings[0]  # Show first removed key
-        error_msg = f"Config key '{key}' is no longer supported.\nHint: {hint}"
-        if len(removed_warnings) > 1:
-            error_msg += f"\n\nFound {len(removed_warnings)} removed key(s) in total. Please remove all of them."
-        raise ConfigError(error_msg)
+    # Strip known removed keys for backward compatibility.
+    # These keys are now auto-injected internally by defaults.
+    strip_removed_keys(cfg)
 
     # Check for unknown root keys
     unknown = sorted(set(cfg.keys()) - ROOT_KEYS)
