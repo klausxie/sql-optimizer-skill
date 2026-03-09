@@ -138,18 +138,30 @@ def _build_parser() -> argparse.ArgumentParser:
 def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, Any]) -> NextInvocation:
     next_action = str(status_payload.get("next_action") or "resume")
     if next_action == "report-rebuild":
-        recovery_cmd = f"python scripts/sqlopt_cli.py run --config {config_path} --to-stage report --run-id {run_id}"
+        recovery_cmd = (
+            f"python scripts/sqlopt_cli.py run --config {config_path} --to-stage report --run-id {run_id} --max-steps 1"
+        )
         return NextInvocation(
             mode="report-rebuild",
-            cli_args=["run", "--config", str(config_path), "--to-stage", "report", "--run-id", run_id],
+            cli_args=[
+                "run",
+                "--config",
+                str(config_path),
+                "--to-stage",
+                "report",
+                "--run-id",
+                run_id,
+                "--max-steps",
+                "1",
+            ],
             recovery_cmd=recovery_cmd,
             error_reason="REPORT_REBUILD_FAILED",
         )
     if next_action in {"resume", ""}:
-        recovery_cmd = f"python scripts/sqlopt_cli.py resume --run-id {run_id}"
+        recovery_cmd = f"python scripts/sqlopt_cli.py resume --run-id {run_id} --max-steps 1"
         return NextInvocation(
             mode="resume",
-            cli_args=["resume", "--run-id", run_id],
+            cli_args=["resume", "--run-id", run_id, "--max-steps", "1"],
             recovery_cmd=recovery_cmd,
             error_reason="RESUME_FAILED",
         )
@@ -177,7 +189,7 @@ def main() -> None:
         raise SystemExit(2)
 
     repo_root = _repo_root()
-    run_cmd = ["run", "--config", str(config_path), "--to-stage", args.to_stage]
+    run_cmd = ["run", "--config", str(config_path), "--to-stage", args.to_stage, "--max-steps", "1"]
     if args.run_id:
         run_cmd.extend(["--run-id", args.run_id])
 

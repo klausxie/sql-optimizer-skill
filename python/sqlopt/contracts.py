@@ -25,9 +25,21 @@ SCHEMA_MAP = {
 }
 
 
+def _resolve_contract_dir(repo_root: Path) -> Path:
+    """Resolve contracts directory for both repo-local and installed runtime layouts."""
+    candidates = [
+        repo_root / "contracts",
+        Path(__file__).resolve().parents[2] / "contracts",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 class ContractValidator:
     def __init__(self, repo_root: Path):
-        self.contract_dir = repo_root / "contracts"
+        self.contract_dir = _resolve_contract_dir(repo_root)
         self._schemas: dict[str, dict[str, Any]] = {}
 
     def _schema(self, name: str) -> dict[str, Any]:

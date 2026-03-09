@@ -87,9 +87,12 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                         with redirect_stdout(buf):
                             mod.main()
 
-        self.assertEqual(calls[0], ("run", "--config", str(resolved_config), "--to-stage", "patch_generate"))
+        self.assertEqual(calls[0], ("run", "--config", str(resolved_config), "--to-stage", "patch_generate", "--max-steps", "1"))
         self.assertEqual(calls[1], ("status", "--run-id", "run_demo"))
-        self.assertEqual(calls[2], ("run", "--config", str(resolved_config), "--to-stage", "report", "--run-id", "run_demo"))
+        self.assertEqual(
+            calls[2],
+            ("run", "--config", str(resolved_config), "--to-stage", "report", "--run-id", "run_demo", "--max-steps", "1"),
+        )
         self.assertEqual(calls[3], ("status", "--run-id", "run_demo"))
         lines = [line.strip() for line in buf.getvalue().splitlines() if line.strip()]
         payload = ast.literal_eval(lines[-1])
@@ -130,6 +133,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         self.assertEqual(payload["next_mode"], "report-rebuild")
         self.assertIn("--to-stage report", payload["next_action"])
         self.assertIn("--run-id run_demo", payload["next_action"])
+        self.assertIn("--max-steps 1", payload["next_action"])
 
     def test_main_reports_pipeline_completion_mode_by_default(self) -> None:
         mod = _load_module()
@@ -205,6 +209,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         self.assertEqual(payload["next_mode"], "report-rebuild")
         self.assertEqual(payload["error"]["reason_code"], "REPORT_FAILED")
         self.assertIn("--to-stage report", payload["details"]["next_recovery"])
+        self.assertIn("--max-steps 1", payload["details"]["next_recovery"])
 
 
 if __name__ == "__main__":

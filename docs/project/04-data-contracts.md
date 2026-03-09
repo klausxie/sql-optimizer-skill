@@ -89,7 +89,7 @@
 3. 当数据库 `EXPLAIN` 在 optimize 证据收集阶段因 SQL 语法失败时：
    - 原始错误保留在 `dbEvidenceSummary.explainError`
    - verification 会产出 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
-   - report / verify 会把它提升为用户可见 warning
+   - report / 诊断摘要会把它提升为用户可见 warning
 
 ## 3. `AcceptanceResult`
 文件：`acceptance/acceptance.results.jsonl`
@@ -119,7 +119,7 @@
 ### 3.0 `decisionLayers`
 当前行为：
 1. 这是 validate 的分层决策摘要，不取代顶层 `status`
-2. 用于解释“为什么通过/为什么未通过”，并给 `report` / `verify` 更稳定的内部依据
+2. 用于解释“为什么通过/为什么未通过”，并给 `report` 与内部诊断聚合更稳定的依据
 
 当前四层：
 1. `feasibility`
@@ -131,8 +131,8 @@
 4. `acceptance`
    - 最终 `status` 与 validate 策略口径（profile / strategy flags）
 
-### 3.0.1 `verify` 摘要相关输出
-当前 CLI `verify --summary-only` 会基于 `AcceptanceResult`、`PatchResult` 与 verification ledger 聚合：
+### 3.0.1 诊断摘要相关输出
+当前内部诊断聚合会基于 `AcceptanceResult`、`PatchResult` 与 verification ledger 生成：
 1. `delivery_assessment`
 2. `evidence_state`
 3. `decision_summary`

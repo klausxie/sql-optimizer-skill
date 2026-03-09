@@ -119,7 +119,7 @@
 2. 校验用户配置根键与字段（含已移除键拦截）
 3. 补齐默认值
 4. 注入内部节
-5. 写入 `runs/<run_id>/config.resolved.json`
+5. 写入 `runs/<run-id>/config.resolved.json`
 
 ## 6. 示例
 

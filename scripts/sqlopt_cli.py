@@ -9,4 +9,9 @@ from sqlopt.cli import main
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        # Final safety net: keep Ctrl+C output compact even if lower layers miss it.
+        print({"interrupted": True, "message": "Interrupted by user (Ctrl+C)"})
+        raise SystemExit(130)

@@ -33,6 +33,7 @@ Linux/macOS:
 ```bash
 cd /path/to/sql-optimizer-skill-bundle-v<version>
 python3 install/install_skill.py
+python3 install/install_skill.py --verify
 ```
 
 Windows PowerShell:
@@ -40,7 +41,10 @@ Windows PowerShell:
 ```powershell
 cd C:\path\to\sql-optimizer-skill-bundle-v<version>
 python install/install_skill.py
+python install/install_skill.py --verify
 ```
+
+By default installer auto-updates PATH. Use `--no-auto-path` to disable it.
 
 What this does:
 
@@ -73,14 +77,23 @@ Note for Windows:
 Linux/macOS:
 
 ```bash
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli --help
+sqlopt-cli --help
 ```
 
 Windows PowerShell:
 
 ```powershell
-$env:USERPROFILE\.opencode\skills\sql-optimizer\bin\sqlopt-cli.cmd --help
+sqlopt-cli --help
 ```
+
+If PATH is still missing (auto-update failed or was disabled), installer prints exact PATH parameter and fix commands. Typical Windows fix:
+
+```powershell
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+[Environment]::SetEnvironmentVariable('Path', "$env:USERPROFILE\.opencode\skills\sql-optimizer\bin;$userPath", 'User')
+```
+
+Then reopen PowerShell.
 
 ## 6. Optional: Direct LLM API mode
 
@@ -110,9 +123,7 @@ python3 -m pytest -q
 
 ## 8. Recommended Post-Install Smoke Run
 
-Before switching to real DB / external LLM, verify one offline-safe run first.
-
-Recommended config overrides for the project under test:
+在切换到真实 DB / 外部 LLM 前，先跑一轮离线 smoke：
 
 ```yaml
 llm:
@@ -120,45 +131,24 @@ llm:
   provider: opencode_builtin
 ```
 
-Then run from the project root:
-
 ```bash
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli status --run-id <run_id>
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli resume --run-id <run_id>
+sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
+sqlopt-cli status
+sqlopt-cli resume
 ```
 
-Repeat `resume` until `complete=true`, then verify:
-
-1. `runs/<run_id>/supervisor/state.json`
-2. `runs/<run_id>/report.json`
-3. `runs/<run_id>/report.summary.md`
-
-All three should agree that `report` is `DONE`.
-
-If `status.next_action=report-rebuild`, the main pipeline is already complete and only the report artifacts need to be regenerated:
+若 `status.next_action=report-rebuild`，执行：
 
 ```bash
-$HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run_id>
+sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
-Preferred release gate from this repository:
+发布前推荐统一验收入口：
 
 ```bash
 python3 scripts/ci/release_acceptance.py
 ```
 
-This runs both:
-
-1. install-to-opencode path (skill install, command docs, installed runtime)
-2. repository-local degraded path (DB unreachable but fallback allowed)
-3. explicit report rebuild path (re-generate report without duplicating completion state)
-
-You can still run them individually:
-
-```bash
-python3 scripts/ci/opencode_smoke_acceptance.py
-python3 scripts/ci/degraded_runtime_acceptance.py
-python3 scripts/ci/report_rebuild_acceptance.py
-```
+更详细的运行流程与故障排查请看：
+- `docs/QUICKSTART.md`
+- `docs/TROUBLESHOOTING.md`

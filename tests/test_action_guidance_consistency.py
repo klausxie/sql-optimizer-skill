@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sqlopt.cli import _build_verify_payload
+from sqlopt.application.diagnostics_summary import build_verify_payload
 from sqlopt.stages.report_builder import build_report_artifacts
 from sqlopt.stages.report_interfaces import ReportInputs, ReportStateSnapshot
 
@@ -76,7 +76,7 @@ class ActionGuidanceConsistencyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="guidance_consistency_") as td:
             run_dir = Path(td)
             artifacts = build_report_artifacts("run_demo", "analyze", config, run_dir, inputs)
-            verify_payload = _build_verify_payload(
+            verify_payload = build_verify_payload(
                 "run_demo",
                 run_dir,
                 "demo.user.findIncluded#v1",

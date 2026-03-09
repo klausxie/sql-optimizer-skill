@@ -1,6 +1,6 @@
 # 运行产物治理（Artifacts Governance）
 
-本项目的运行产物以 `runs/<run_id>/` 为中心。为了避免后续演进中出现语义漂移、重复 source-of-truth 或历史 run 不可比较的问题，所有产物按以下规则治理。
+本项目的运行产物以 `runs/<run-id>/` 为中心。为了避免后续演进中出现语义漂移、重复 source-of-truth 或历史 run 不可比较的问题，所有产物按以下规则治理。
 
 ## 1. 基本原则
 

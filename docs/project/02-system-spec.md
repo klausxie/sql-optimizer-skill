@@ -92,7 +92,7 @@ Current:
 
 ## 5. 外部稳定面
 1. CLI：`run / status / resume / apply`
-2. 运行目录：`runs/<run_id>/...`
+2. 运行目录：`runs/<run-id>/...`
 3. 核心契约主干：
    - `SqlUnit`
    - `OptimizationProposal`

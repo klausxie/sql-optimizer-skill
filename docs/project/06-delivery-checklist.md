@@ -3,7 +3,7 @@
 ## 1. 启动前
 1. `contracts/*.schema.json` 已确认是公开契约
 2. CLI 稳定面仍是：`run / status / resume / apply`
-3. 默认运行目录仍是：`runs/<run_id>/`
+3. 默认运行目录仍是：`runs/<run-id>/`
 
 ## 2. 必测回归
 1. 正常全流程到 `patch_generate`

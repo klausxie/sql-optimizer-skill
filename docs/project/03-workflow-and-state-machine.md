@@ -21,10 +21,10 @@
 
 ## 3. 监督状态文件（Supervisor）
 运行时必须维护：
-1. `runs/<run_id>/supervisor/meta.json`
-2. `runs/<run_id>/supervisor/plan.json`
-3. `runs/<run_id>/supervisor/state.json`
-4. `runs/<run_id>/supervisor/results/*.jsonl`
+1. `runs/<run-id>/supervisor/meta.json`
+2. `runs/<run-id>/supervisor/plan.json`
+3. `runs/<run-id>/supervisor/state.json`
+4. `runs/<run-id>/supervisor/results/*.jsonl`
 
 要求：
 1. `plan` 固化 statement 列表与顺序。

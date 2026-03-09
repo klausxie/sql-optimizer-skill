@@ -9,7 +9,7 @@
 - 接手本系统的 Agent/平台开发者
 
 ## 2. V1 必须交付能力
-1. 初始化运行上下文，生成 `run_id` 和 `runs/<run_id>/`。
+1. 初始化运行上下文，生成 `run_id` 和 `runs/<run-id>/`。
 2. 扫描 mapper SQL，产出标准化 `SqlUnit` 列表。
 3. 对 SQL 生成 `OptimizationProposal`（问题、证据、建议、结论）。
 4. 对候选改写做验收，产出 `AcceptanceResult`。

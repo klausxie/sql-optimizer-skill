@@ -123,7 +123,7 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
 
     Note:
         This function modifies cfg in-place. The resulting configuration is
-        saved to runs/<run_id>/config.resolved.json for reference.
+        saved to runs/<run-id>/config.resolved.json for reference.
 
     Example:
         >>> cfg = {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,71 @@ def _load_install_skill_module():
 
 
 class InstallSkillCommandsTest(unittest.TestCase):
+    def test_parse_args_supports_verify_flag(self) -> None:
+        module = _load_install_skill_module()
+        with patch.object(module.sys, "argv", ["install_skill.py", "--verify"]):
+            args = module._parse_args()
+        self.assertTrue(args.verify)
+        self.assertEqual(args.project, ".")
+
+    def test_parse_args_supports_no_auto_path_flag(self) -> None:
+        module = _load_install_skill_module()
+        with patch.object(module.sys, "argv", ["install_skill.py", "--no-auto-path"]):
+            args = module._parse_args()
+        self.assertTrue(args.no_auto_path)
+
+    def test_is_dir_on_path_windows_case_insensitive(self) -> None:
+        module = _load_install_skill_module()
+        target = Path(r"C:\Users\A\.opencode\skills\sql-optimizer\bin")
+        path_env = r'"C:\Tools\bin";C:\USERS\a\.opencode\skills\sql-optimizer\bin'
+        with patch.object(module, "is_windows", return_value=True):
+            self.assertTrue(module._is_dir_on_path(target, path_env))
+
+    def test_is_dir_on_path_unix(self) -> None:
+        module = _load_install_skill_module()
+        target = Path("/tmp/sqlopt/bin")
+        path_env = "/usr/local/bin:/tmp/sqlopt/bin:/usr/bin"
+        with patch.object(module, "is_windows", return_value=False):
+            self.assertTrue(module._is_dir_on_path(target, path_env))
+
+    def test_prepend_path_entry_deduplicates_windows_paths(self) -> None:
+        module = _load_install_skill_module()
+        entry = Path(r"C:\Users\A\.opencode\skills\sql-optimizer\bin")
+        merged = module._prepend_path_entry(
+            r"C:\TOOLS\BIN;C:\Users\a\.opencode\skills\sql-optimizer\bin",
+            entry,
+            windows=True,
+        )
+        self.assertEqual(
+            merged,
+            r"C:\TOOLS\BIN;C:\Users\a\.opencode\skills\sql-optimizer\bin",
+        )
+
+    def test_choose_shell_rc_file_prefers_shell_type(self) -> None:
+        module = _load_install_skill_module()
+        home = Path("/tmp/home")
+        zsh_rc = module._choose_shell_rc_file(home, "/bin/zsh")
+        bash_rc = module._choose_shell_rc_file(home, "/bin/bash")
+        self.assertEqual(zsh_rc, home / ".zshrc")
+        self.assertEqual(bash_rc, home / ".bashrc")
+
+    def test_run_cli_self_check_success(self) -> None:
+        module = _load_install_skill_module()
+        with tempfile.TemporaryDirectory(prefix="sqlopt_wrapper_") as td:
+            wrapper = Path(td) / "sqlopt-cli"
+            wrapper.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            completed = subprocess.CompletedProcess(
+                args=["sqlopt-cli", "--help"],
+                returncode=0,
+                stdout="usage: sqlopt-cli\n",
+                stderr="",
+            )
+            with patch.object(module, "cli_run_command", return_value=["sqlopt-cli", "--help"]):
+                with patch.object(module.subprocess, "run", return_value=completed):
+                    ok, detail = module._run_cli_self_check(wrapper)
+        self.assertTrue(ok)
+        self.assertIn("usage: sqlopt-cli", detail)
+
     def test_write_commands_runs_script_via_template_shell_execution(self) -> None:
         module = _load_install_skill_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_cmd_docs_") as td:

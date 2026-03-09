@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,8 +25,10 @@ _bootstrap()
 
 from sqlopt.install_support import (  # noqa: E402
     SKILL_NAME,
+    cli_run_command,
     commands_dir,
     find_skill_source,
+    is_windows,
     normalize_jar_path_for_yaml,
     opencode_home,
     replace_template_var,
@@ -41,7 +45,200 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--project", default=".")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--verify", action="store_true", help="verify installed CLI and PATH only")
+    p.add_argument("--no-auto-path", action="store_true", help="skip automatic PATH update during install")
     return p.parse_args()
+
+
+def _cli_wrapper_path(target_skill: Path) -> Path:
+    return target_skill / "bin" / ("sqlopt-cli.cmd" if is_windows() else "sqlopt-cli")
+
+
+def _normalize_path_text(raw_path: str, *, windows: bool) -> str:
+    clean = raw_path.strip().strip("\"").strip("'")
+    if not clean:
+        return ""
+    normalized = os.path.normpath(clean)
+    if windows:
+        normalized = normalized.lower()
+    return normalized.rstrip("\\/")
+
+
+def _is_dir_on_path(target_dir: Path, env_path: str | None = None) -> bool:
+    windows = is_windows()
+    path_value = env_path if env_path is not None else os.environ.get("PATH", "")
+    target_norm = _normalize_path_text(str(target_dir), windows=windows)
+    if not target_norm:
+        return False
+    separator = ";" if windows else os.pathsep
+    for entry in path_value.split(separator):
+        if _normalize_path_text(entry, windows=windows) == target_norm:
+            return True
+    return False
+
+
+def _prepend_path_entry(path_value: str, entry: Path, *, windows: bool) -> str:
+    separator = ";" if windows else os.pathsep
+    entries = [item for item in path_value.split(separator) if item.strip()]
+    entry_text = str(entry)
+    target_norm = _normalize_path_text(entry_text, windows=windows)
+    for item in entries:
+        if _normalize_path_text(item, windows=windows) == target_norm:
+            return separator.join(entries)
+    return separator.join([entry_text, *entries]).strip(separator)
+
+
+def _choose_shell_rc_file(home: Path, shell: str) -> Path:
+    shell_name = Path(shell).name.lower()
+    if "zsh" in shell_name:
+        return home / ".zshrc"
+    if "bash" in shell_name:
+        return home / ".bashrc"
+    zsh_rc = home / ".zshrc"
+    if zsh_rc.exists():
+        return zsh_rc
+    return home / ".bashrc"
+
+
+def _auto_add_path_windows(bin_dir: Path) -> tuple[bool, str]:
+    try:
+        import winreg  # type: ignore
+    except Exception as exc:
+        return False, f"winreg unavailable: {exc}"
+
+    key = None
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            "Environment",
+            0,
+            winreg.KEY_READ | winreg.KEY_WRITE,
+        )
+        try:
+            current_user_path, _ = winreg.QueryValueEx(key, "Path")
+        except FileNotFoundError:
+            current_user_path = ""
+
+        updated_user_path = _prepend_path_entry(str(current_user_path or ""), bin_dir, windows=True)
+        if updated_user_path != str(current_user_path or ""):
+            winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, updated_user_path)
+
+        current_process = os.environ.get("PATH", "")
+        os.environ["PATH"] = _prepend_path_entry(current_process, bin_dir, windows=True)
+        return True, "updated user PATH in registry"
+    except Exception as exc:
+        return False, str(exc)
+    finally:
+        if key is not None:
+            winreg.CloseKey(key)
+
+
+def _auto_add_path_unix(bin_dir: Path) -> tuple[bool, str]:
+    home = Path.home()
+    rc_file = _choose_shell_rc_file(home, os.environ.get("SHELL", ""))
+    entry_text = str(bin_dir)
+    export_line = f'export PATH="{entry_text}:$PATH"'
+    try:
+        existing = rc_file.read_text(encoding="utf-8") if rc_file.exists() else ""
+        if entry_text not in existing:
+            prefix = "" if existing.endswith("\n") or not existing else "\n"
+            block = (
+                f"{prefix}# sql-optimizer skill\n"
+                f"{export_line}\n"
+            )
+            rc_file.parent.mkdir(parents=True, exist_ok=True)
+            with rc_file.open("a", encoding="utf-8") as fh:
+                fh.write(block)
+
+        current_process = os.environ.get("PATH", "")
+        os.environ["PATH"] = _prepend_path_entry(current_process, bin_dir, windows=False)
+        return True, f"updated {rc_file}"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _auto_add_path(bin_dir: Path) -> tuple[bool, str]:
+    if is_windows():
+        return _auto_add_path_windows(bin_dir)
+    return _auto_add_path_unix(bin_dir)
+
+
+def _print_path_hint(bin_dir: Path, *, auto_add: bool) -> bool:
+    print(f"path entry: {bin_dir}")
+    if _is_dir_on_path(bin_dir):
+        print(f"path: ok ({bin_dir})")
+        return True
+
+    print(f"path: missing ({bin_dir})")
+    if auto_add:
+        ok, detail = _auto_add_path(bin_dir)
+        if ok:
+            print(f"path auto: ok ({detail})")
+        else:
+            print(f"path auto: failed ({detail})")
+        if _is_dir_on_path(bin_dir):
+            print(f"path: ok ({bin_dir})")
+            return True
+
+    if is_windows():
+        escaped = str(bin_dir).replace("'", "''")
+        print("add to PATH parameter:")
+        print(f"  {bin_dir}")
+        print("add to PATH (PowerShell current session):")
+        print(f"  $env:Path = \"{bin_dir};$env:Path\"")
+        print("add to PATH (PowerShell persistent, new terminals):")
+        print("  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')")
+        print(f"  [Environment]::SetEnvironmentVariable('Path', '{escaped};' + $userPath, 'User')")
+        print("then reopen PowerShell")
+        print("cmd current session:")
+        print(f"  set PATH={bin_dir};%PATH%")
+        return False
+
+    shell = os.environ.get("SHELL", "")
+    rc_file = "~/.zshrc" if shell.endswith("zsh") else "~/.bashrc"
+    print("add to PATH parameter:")
+    print(f"  {bin_dir}")
+    print(f"add to PATH ({rc_file}):")
+    print(f"  echo 'export PATH=\"{bin_dir}:$PATH\"' >> {rc_file}")
+    print(f"  source {rc_file}")
+    return False
+
+
+def _run_cli_self_check(wrapper: Path) -> tuple[bool, str]:
+    if not wrapper.exists():
+        return False, f"wrapper missing: {wrapper}"
+    cmd = cli_run_command(wrapper, "--help")
+    try:
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=20)
+    except (FileNotFoundError, OSError) as exc:
+        return False, f"runtime missing: {exc}"
+    except subprocess.TimeoutExpired:
+        return False, "self-check timeout (>20s)"
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip() or f"exit code {proc.returncode}"
+        return False, detail
+    first_line = next((line.strip() for line in (proc.stdout or "").splitlines() if line.strip()), "ok")
+    return True, first_line
+
+
+def _verify_installed_cli(target_skill: Path) -> int:
+    wrapper = _cli_wrapper_path(target_skill)
+    print(f"verify skill: {target_skill}")
+    print(f"verify cli: {wrapper}")
+    path_ok = _print_path_hint(wrapper.parent, auto_add=False)
+    cli_ok, detail = _run_cli_self_check(wrapper)
+    if cli_ok:
+        print(f"self-check: ok ({detail})")
+    else:
+        print(f"self-check: failed ({detail})")
+    if path_ok and cli_ok:
+        print("verify result: OK (global command available)")
+        return 0
+    if cli_ok:
+        print("verify result: PARTIAL (runtime ok, PATH missing)")
+        return 1
+    print("verify result: FAILED")
+    return 1
 
 
 def _copy_runtime(root_dir: Path, target_skill: Path) -> None:
@@ -207,16 +404,6 @@ def _write_commands(target_skill: Path) -> None:
             ],
         },
         {
-            "name": "sql-optimizer-verify",
-            "description": "验证优化运行的数据契约和输出完整性",
-            "exec_command": f"{py_cmd} {resolved_id_script} verify",
-            "usage_hint": "--project . [--run-id run_xxx] [--phase validate]",
-            "examples": [
-                "验证最近运行：--project .",
-                "验证指定阶段：--project . --phase validate",
-            ],
-        },
-        {
             "name": "sql-optimizer-report",
             "description": "生成或查看优化运行的详细报告",
             "exec_command": f"{py_cmd} {resolved_id_script} report",
@@ -239,6 +426,9 @@ def _write_commands(target_skill: Path) -> None:
         output_file = cmd_dir / f"{cmd['name']}.md"
         output_file.write_text(doc_content, encoding="utf-8")
 
+    # Cleanup legacy command docs that are no longer supported.
+    (cmd_dir / "sql-optimizer-verify.md").unlink(missing_ok=True)
+
 
 def _create_project_config(root_dir: Path, target_skill: Path, project_dir: Path) -> None:
     template = root_dir / "templates" / "sqlopt.example.yml"
@@ -256,9 +446,14 @@ def main() -> None:
     script_dir = Path(__file__).resolve().parent
     root_dir = script_dir.parent
     project_dir = Path(args.project).resolve()
-    source_skill = find_skill_source(root_dir)
     target_skill = skill_dir()
     skills_root = target_skill.parent
+
+    if args.verify:
+        raise SystemExit(_verify_installed_cli(target_skill))
+
+    source_skill = find_skill_source(root_dir)
+
     opencode_home().mkdir(parents=True, exist_ok=True)
     skills_root.mkdir(parents=True, exist_ok=True)
 
@@ -295,9 +490,20 @@ def main() -> None:
     print(f"project dir: {project_dir}")
     if sys.platform.startswith("win"):
         print(f"next: python {root_dir / 'install' / 'doctor.py'} --project {project_dir}")
-        print(f"cli: {wrapper}")
     else:
         print(f"next: bash {root_dir / 'install' / 'doctor.sh'} --project {project_dir}")
+
+    print(f"cli: {wrapper}")
+    path_ok = _print_path_hint(wrapper.parent, auto_add=not args.no_auto_path)
+    cli_ok, detail = _run_cli_self_check(wrapper)
+    if cli_ok:
+        print(f"self-check: ok ({detail})")
+    else:
+        print(f"self-check: failed ({detail})")
+    if path_ok:
+        print("direct command: sqlopt-cli --help")
+    else:
+        print("direct command: pending PATH update")
 
 
 if __name__ == "__main__":

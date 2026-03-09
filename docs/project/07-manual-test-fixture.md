@@ -9,7 +9,7 @@
 - scan-only 配置：`tests/fixtures/project/sqlopt.scan.local.yml`
 - MySQL 示例配置：`tests/fixtures/project/sqlopt.mysql.yml`
 - MySQL 本地 schema：`tests/fixtures/sql_local/schema.mysql.sql`
-- run 数据目录固定：`tests/fixtures/project/runs/<run_id>`
+- run 数据目录固定：`tests/fixtures/project/runs/<run-id>`
 - 以下命令都在仓库根目录执行：`/Users/klaus/Desktop/sql-optimizer-skill`
 
 前提环境：
@@ -84,7 +84,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run \
 ## 3.2 查看状态
 
 ```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run_id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run-id>
 ```
 
 关键信息：
@@ -97,13 +97,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run_id>
 `next_action` 判定：
 
 - `resume`：继续推进未完成阶段
-- `report-rebuild`：主流程已完成，只需执行 `run --to-stage report --run-id <run_id>`
+- `report-rebuild`：主流程已完成，只需执行 `run --to-stage report --run-id <run-id>`
 - `none`：当前目标阶段已完成，无需继续
 
 ## 3.3 持续推进到完成
 
 ```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run_id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run-id>
 ```
 
 如未完成，重复执行 `resume` + `status`，直到 `complete: True`。
@@ -111,15 +111,15 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run_id>
 若 `status` 返回 `next_action: 'report-rebuild'`，改为执行：
 
 ```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config tests/fixtures/project/sqlopt.yml --to-stage report --run-id <run_id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config tests/fixtures/project/sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
 可用轮询命令：
 
 ```bash
 for i in {1..60}; do
-  PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run_id> >/tmp/sqlopt_resume.out
-  PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run_id>
+  PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run-id> >/tmp/sqlopt_resume.out
+  PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run-id>
   sleep 1
 done
 ```
@@ -166,7 +166,7 @@ python3 scripts/run_until_budget.py \
 run 目录：
 
 ```text
-tests/fixtures/project/runs/<run_id>/
+tests/fixtures/project/runs/<run-id>/
 ```
 
 核心文件：
@@ -180,10 +180,10 @@ tests/fixtures/project/runs/<run_id>/
 常用查看命令：
 
 ```bash
-tail -n 50 tests/fixtures/project/runs/<run_id>/manifest.jsonl
-cat tests/fixtures/project/runs/<run_id>/report.json
-cat tests/fixtures/project/runs/<run_id>/acceptance/acceptance.results.jsonl
-cat tests/fixtures/project/runs/<run_id>/patches/patch.results.jsonl
+tail -n 50 tests/fixtures/project/runs/<run-id>/manifest.jsonl
+cat tests/fixtures/project/runs/<run-id>/report.json
+cat tests/fixtures/project/runs/<run-id>/acceptance/acceptance.results.jsonl
+cat tests/fixtures/project/runs/<run-id>/patches/patch.results.jsonl
 ```
 
 ## 5. 手工应用 patch（可选）
@@ -191,7 +191,7 @@ cat tests/fixtures/project/runs/<run_id>/patches/patch.results.jsonl
 当 patch 阶段完成后，可执行：
 
 ```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 ```
 
 注意：当前 `apply` 语义为内置 `PATCH_ONLY`，主要用于产出 patch 文件与可应用性检查。
@@ -236,7 +236,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 2. 确认 `report.json` 存在且可解析。
 3. 确认 `patch.results.jsonl` 中至少有一条 `applicable: true`（针对可 patch SQL）。
 4. 抽查 `acceptance.results.jsonl` 中 `selectedCandidateSource/selectedCandidateId/warnings/riskFlags` 字段。
-5. 若是 MySQL run，抽查 `report.json.validation_warnings`、`report.summary.md` 或 `verify --summary-only` 的 `warnings`，确认是否出现 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+5. 若是 MySQL run，抽查 `report.json.validation_warnings` 或 `report.summary.md` 的 warnings，确认是否出现 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
 
 当前 MySQL 方言边界：
 - 不做 PostgreSQL 方言兼容转换

@@ -80,7 +80,7 @@
 
 ## 6. 运行目录规范
 统一路径：
-1. `<project.root_path>/runs/<run_id>/`
+1. `<project.root_path>/runs/<run-id>/`
 
 核心产物：
 1. `manifest.jsonl`

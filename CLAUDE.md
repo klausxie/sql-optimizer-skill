@@ -60,28 +60,26 @@ python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey> --summ
 python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 ```
 
-### Standalone Script
+### CLI Usage
 
-A standalone script `sql_optimizer_run.sh` is provided for running optimization without OpenCode:
+Use `sqlopt-cli` directly for optimization runs:
 
 ```bash
 # Navigate to project directory with sqlopt.yml
 cd /path/to/project
 
-# Run optimization (unlimited steps and time by default)
-../sql_optimizer_run.sh
+# Run optimization (unlimited steps/time by default)
+sqlopt-cli run
 
-# Limit steps
-../sql_optimizer_run.sh --max-steps 5
-
-# Limit time (seconds)
-../sql_optimizer_run.sh --max-seconds 300
+# Limit steps or time
+sqlopt-cli run --max-steps 5
+sqlopt-cli run --max-seconds 300
 
 # Resume previous run
-../sql_optimizer_run.sh --run-id run_xxx
+sqlopt-cli resume --run-id run_xxx
 
 # Target specific stage
-../sql_optimizer_run.sh --to-stage scan
+sqlopt-cli run --to-stage scan
 ```
 
 ### Skill Installation
