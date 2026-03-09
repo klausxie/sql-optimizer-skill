@@ -548,6 +548,7 @@ def _advance_patch_generate(ctx: AdvanceContext, index: LoadedStageIndex) -> dic
                 index.acceptance.get(key, {"status": "NEED_MORE_PARAMS"}),
                 ctx.run_dir,
                 ctx.validator,
+                config=ctx.config,
             ),
         )
         ctx.state["attempts_by_phase"][phase] += attempts

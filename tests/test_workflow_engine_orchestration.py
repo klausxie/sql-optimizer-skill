@@ -573,6 +573,42 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         self.assertIn((1, 1, "demo.user.find#v1"), progress.statements)
         self.assertIn("patch_generate", progress.completes)
 
+    def test_advance_patch_generate_passes_config_to_stage_execute_one(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_patch_cfg_") as td:
+            run_dir = Path(td)
+            state = _initial_state()
+            state["phase_status"]["preflight"] = "DONE"
+            state["phase_status"]["scan"] = "DONE"
+            state["phase_status"]["optimize"] = "DONE"
+            state["phase_status"]["validate"] = "DONE"
+            state["current_phase"] = "patch_generate"
+            state["statements"] = {
+                "demo.user.find#v1": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
+            }
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            cfg = {"report": {"enabled": False}, "validate": {}, "project": {"root_path": str(run_dir)}}
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
+                with patch(
+                    "sqlopt.application.workflow_engine.load_index",
+                    return_value=(
+                        {"demo.user.find#v1": {"sqlKey": "demo.user.find#v1"}},
+                        {},
+                        {"demo.user.find#v1": {"sqlKey": "demo.user.find#v1", "status": "PASS"}},
+                    ),
+                ):
+                    with patch("sqlopt.application.workflow_engine.patch_stage.execute_one", return_value={}) as execute_one_mock:
+                        workflow_engine.advance_one_step(
+                            run_dir,
+                            cfg,
+                            "patch_generate",
+                            self._validator(),
+                            repository=repo,
+                            run_phase_action_fn=lambda _config, _phase, fn: (fn(), 1),
+                        )
+
+        self.assertEqual(execute_one_mock.call_args.kwargs.get("config"), cfg)
+
 
 if __name__ == "__main__":
     unittest.main()
