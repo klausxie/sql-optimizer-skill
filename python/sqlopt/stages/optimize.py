@@ -45,7 +45,7 @@ def _execute_llm_with_retry(
     Returns:
         LLM 执行结果
     """
-    prompt = build_optimize_prompt(sql_unit, proposal)
+    prompt = build_optimize_prompt(sql_unit, proposal, config)
 
     retry_cfg = llm_cfg.get("retry", {}) or {}
     retry_enabled = bool(retry_cfg.get("enabled", False))

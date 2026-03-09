@@ -88,13 +88,46 @@ mysql://user:pass@host:port/dbname
 |--------|------|------|--------|------|
 | `enabled` | boolean | 否 | `true` | 是否生成报告 |
 
+### 6. rules - 规则配置
+
+| 配置项 | 类型 | 必需 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| `enabled` | boolean | 否 | `true` | 启用规则系统 |
+| `custom_rules_path` | string | 否 | `null` | 自定义规则 YAML 文件路径 |
+| `custom_rules` | object[] | 否 | `[]` | 内联自定义规则 |
+| `builtin_rules` | object | 否 | 见下文 | 控制内置规则启用状态 |
+
+**内置规则默认配置：**
+
+```yaml
+rules:
+  builtin_rules:
+    DOLLAR_SUBSTITUTION: true
+    SELECT_STAR: true
+    FULL_SCAN_RISK: true
+```
+
+可用内置规则：
+- `DOLLAR_SUBSTITUTION` - 检测 `${}` 动态替换
+- `SELECT_STAR` - 检测 SELECT * 用法
+- `FULL_SCAN_RISK` - 检测无 WHERE 子句的全表扫描
+- `SUBQUERY_IN_FROM` - 检测 FROM 子句子查询
+- `OR_CONDITION_NO_INDEX` - 检测 OR 条件
+- `FUNCTION_ON_INDEXED_COL` - 检测函数导致索引失效
+- `LIKE_WILDCARD_START` - 检测 LIKE % 开头
+- `NO_LIMIT` - 检测无 LIMIT
+- `JOIN_WITHOUT_ON` - 检测 JOIN 无 ON 条件
+- `DISTINCT_ABUSE` - 检测 DISTINCT 滥用
+- `ORDER_BY_RANDOM` - 检测 ORDER BY RAND()
+- `SENSITIVE_COLUMN_EXPOSED` - 检测敏感字段暴露
+
 ---
 
 ## 内部配置 (Internal - 自动注入)
 
 以下配置由系统自动注入，用户无需配置：
 
-### 6. apply - 应用模式
+### 7. apply - 应用模式
 
 ```yaml
 apply:
@@ -106,7 +139,7 @@ apply:
 | `PATCH_ONLY` | 仅生成补丁文件 |
 | `AUTO_APPLY` | 自动应用补丁 |
 
-### 7. policy - 优化策略
+### 8. policy - 优化策略
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -115,7 +148,7 @@ apply:
 | `allow_seq_scan_if_rows_below` | int | `0` | 允许顺序扫描的行数上限 |
 | `semantic_strict_mode` | boolean | `true` | 语义严格模式 (不允许语义差异) |
 
-### 8. validate - 验证策略
+### 9. validate - 验证策略
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -131,7 +164,7 @@ apply:
 | `llm_semantic_check.enabled` | boolean | `false` | 启用 LLM 语义检查 |
 | `llm_semantic_check.only_on_db_mismatch` | boolean | `true` | 仅在 DB 验证不匹配时使用 LLM |
 
-### 9. patch - 补丁生成
+### 10. patch - 补丁生成
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -139,7 +172,7 @@ apply:
 | `llm_assist.only_for_dynamic_sql` | boolean | `true` | 仅用于动态 SQL (含 foreach/if 等标签) |
 | `llm_assist.generate_template_suggestions` | boolean | `true` | 生成模板重写建议 |
 
-### 10. diagnostics - 诊断配置
+### 11. diagnostics - 诊断配置
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -158,7 +191,7 @@ rulepacks:
   - builtin: performance  # 性能规则
 ```
 
-### 11. runtime - 运行时配置
+### 12. runtime - 运行时配置
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -176,7 +209,7 @@ rulepacks:
 | `stage_retry_max.report` | int | `1` | report 最大重试次数 |
 | `stage_retry_backoff_ms` | int | `1000` | 重试退避时间 (毫秒) |
 
-### 12. verification - 验证配置
+### 13. verification - 验证配置
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|

@@ -83,9 +83,80 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     }
 
 
-def build_optimize_prompt(sql_unit: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
+def _get_matched_prompt_injections(
+    triggered_rules: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> list[str]:
+    """Get Prompt injections that match triggered rules.
+
+    Args:
+        triggered_rules: List of triggered rule definitions
+        config: Full configuration dictionary
+
+    Returns:
+        List of prompt strings to inject
+    """
+    prompt_cfg = dict(config.get("prompt_injections") or {})
+    by_rule = list(prompt_cfg.get("by_rule") or [])
+
+    if not by_rule:
+        return []
+
+    # Get triggered rule IDs
+    triggered_rule_ids = {str(r.get("ruleId") or "") for r in triggered_rules}
+
+    # Find matching prompts
+    matched_prompts = []
+    for injection in by_rule:
+        rule_id = str(injection.get("rule_id") or "").strip()
+        if rule_id and rule_id in triggered_rule_ids:
+            prompt = str(injection.get("prompt") or "").strip()
+            if prompt:
+                matched_prompts.append(prompt)
+
+    return matched_prompts
+
+
+def _get_system_prompts(config: dict[str, Any]) -> list[str]:
+    """Get system-level prompt injections.
+
+    Args:
+        config: Full configuration dictionary
+
+    Returns:
+        List of system prompt strings
+    """
+    prompt_cfg = dict(config.get("prompt_injections") or {})
+    system_prompts = list(prompt_cfg.get("system") or [])
+
+    prompts = []
+    for sp in system_prompts:
+        content = str(sp.get("content") or "").strip()
+        if content:
+            prompts.append(content)
+
+    return prompts
+
+
+def build_optimize_prompt(
+    sql_unit: dict[str, Any],
+    proposal: dict[str, Any],
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build optimization prompt with optional prompt injections.
+
+    Args:
+        sql_unit: SQL unit to analyze
+        proposal: Current proposal with issues and suggestions
+        config: Full configuration (optional, for prompt injections)
+
+    Returns:
+        Prompt dictionary for LLM
+    """
     db_summary = proposal.get("dbEvidenceSummary", {}) or {}
-    return {
+
+    # Build base prompt
+    prompt = {
         "task": "sql_optimize_candidate_generation",
         "sqlKey": sql_unit["sqlKey"],
         "requiredContext": {
@@ -111,6 +182,21 @@ def build_optimize_prompt(sql_unit: dict[str, Any], proposal: dict[str, Any]) ->
             "mustProduceCandidateTypes": ["SECURITY_FIX", "PLAN_IMPROVE", "CONSERVATIVE_NOOP_PLUS"],
         },
     }
+
+    # Inject prompts if config is provided
+    if config:
+        # Add system prompts
+        system_prompts = _get_system_prompts(config)
+        if system_prompts:
+            prompt["systemPrompts"] = system_prompts
+
+        # Add rule-matched prompts
+        triggered_rules = proposal.get("triggeredRules", [])
+        rule_matched_prompts = _get_matched_prompt_injections(triggered_rules, config)
+        if rule_matched_prompts:
+            prompt["ruleInjectedPrompts"] = rule_matched_prompts
+
+    return prompt
 
 
 def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:

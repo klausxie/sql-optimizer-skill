@@ -75,6 +75,10 @@ def check_snake_case(obj: Any, path: str = "") -> None:
             if path.endswith("diagnostics.severity_overrides."):
                 check_snake_case(value, path + key + ".")
                 continue
+            # Allow rule IDs (uppercase) under rules.builtin_rules.
+            if path.endswith("rules.builtin_rules."):
+                check_snake_case(value, path + key + ".")
+                continue
             if not SNAKE_CASE_RE.match(key):
                 raise ConfigError(f"config key not snake_case: {path + key}")
             check_snake_case(value, path + key + ".")

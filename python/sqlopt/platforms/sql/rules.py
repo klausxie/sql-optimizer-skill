@@ -23,12 +23,77 @@ def _has_full_scan_risk(sql_unit: dict[str, Any]) -> bool:
     return " where " not in sql and str(sql_unit.get("statementType") or "").upper() == "SELECT"
 
 
+def _has_subquery_in_from(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Match patterns like: SELECT ... FROM (SELECT ...), SELECT ... FROM (subquery)
+    return bool(re.search(r'from\s*\([^)]*select', sql, re.IGNORECASE))
+
+
+def _has_or_condition(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Match WHERE ... OR ... pattern (simple detection)
+    # This catches most OR conditions in WHERE clause
+    return bool(re.search(r'\bor\b', sql)) and bool(re.search(r'\bwhere\b', sql))
+
+
+def _has_function_on_column(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Match functions applied to columns: WHERE UPPER(name) = ?, WHERE LOWER(col) LIKE ?
+    return bool(re.search(r'where\s+\w+\([^)]+\)\s*(=|>|<|like)', sql, re.IGNORECASE))
+
+
+def _has_like_wildcard_start(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Match LIKE '%pattern' which cannot use index
+    return bool(re.search(r"like\s+['\"]%", sql))
+
+
+def _has_no_limit(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # SELECT without LIMIT
+    statement_type = str(sql_unit.get("statementType") or "").upper()
+    return statement_type == "SELECT" and " from " in sql and " limit " not in sql
+
+
+def _has_join_without_on(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Match JOIN without ON condition (comma-join or USING without ON)
+    return bool(re.search(r'join\s+\w+\s*$', sql)) or bool(re.search(r'join\s+\w+\s+using', sql))
+
+
+def _has_distinct_abuse(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    # Check if DISTINCT is used on many columns (likely abuse)
+    match = re.search(r'select\s+distinct\s+(.+?)\s+from', sql, re.IGNORECASE)
+    if match:
+        columns = match.group(1).split(',')
+        return len(columns) > 5  # More than 5 columns with DISTINCT is suspicious
+    return False
+
+
+def _has_order_by_random(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    return "order by random()" in sql or "order by rand()" in sql
+
+
+def _has_sensitive_columns(sql_unit: dict[str, Any]) -> bool:
+    sql = str(sql_unit.get("sql") or "").lower()
+    sensitive_patterns = [
+        r'\bpassword\b', r'\btoken\b', r'\bsecret\b', r'\bkey\b',
+        r'\bcredit_card\b', r'\bcard_number\b', r'\bid_card\b',
+        r'\bssn\b', r'\bpassport\b',
+    ]
+    return any(re.search(pattern, sql) for pattern in sensitive_patterns)
+
+
 def _select_star_suggestions(sql_unit: dict[str, Any]) -> list[dict[str, Any]]:
     sql = str(sql_unit.get("sql") or "")
     return [{"action": "PROJECT_COLUMNS", "sql": sql.replace("*", "id", 1)}]
 
 
+# Extended built-in rules registry
 _RULES: dict[str, dict[str, Any]] = {
+    # Core security rules
     "DOLLAR_SUBSTITUTION": {
         "builtin": "core",
         "default_severity": "error",
@@ -36,31 +101,213 @@ _RULES: dict[str, dict[str, Any]] = {
         "matcher": _has_dollar_substitution,
         "suggestions": None,
         "sets_verdict": True,
+        "category": "security",
     },
+    "SENSITIVE_COLUMN_EXPOSED": {
+        "builtin": "core",
+        "default_severity": "warn",
+        "message": "query may expose sensitive columns (password, token, secret, key, credit_card)",
+        "matcher": _has_sensitive_columns,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "security",
+    },
+    # Performance rules
     "SELECT_STAR": {
         "builtin": "performance",
         "default_severity": "warn",
-        "message": "avoid select *",
+        "message": "avoid select *, specify columns explicitly",
         "matcher": _has_select_star,
         "suggestions": _select_star_suggestions,
         "sets_verdict": True,
+        "category": "performance",
     },
     "FULL_SCAN_RISK": {
         "builtin": "performance",
         "default_severity": "warn",
-        "message": "no where filter",
+        "message": "no WHERE filter - potential full table scan",
         "matcher": _has_full_scan_risk,
         "suggestions": None,
         "sets_verdict": False,
+        "category": "performance",
+    },
+    "SUBQUERY_IN_FROM": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "subquery in FROM clause - consider using JOIN or CTE",
+        "matcher": _has_subquery_in_from,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "performance",
+    },
+    "OR_CONDITION_NO_INDEX": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "OR condition may result in poor performance without proper indexes",
+        "matcher": _has_or_condition,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "performance",
+    },
+    "FUNCTION_ON_INDEXED_COL": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "function on indexed column prevents index usage",
+        "matcher": _has_function_on_column,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "performance",
+    },
+    "LIKE_WILDCARD_START": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "LIKE with leading wildcard cannot use index efficiently",
+        "matcher": _has_like_wildcard_start,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "performance",
+    },
+    "NO_LIMIT": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "SELECT without LIMIT may return large result set",
+        "matcher": _has_no_limit,
+        "suggestions": None,
+        "sets_verdict": False,
+        "category": "performance",
+    },
+    "JOIN_WITHOUT_ON": {
+        "builtin": "performance",
+        "default_severity": "error",
+        "message": "JOIN without ON condition creates Cartesian product",
+        "matcher": _has_join_without_on,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "syntax",
+    },
+    "DISTINCT_ABUSE": {
+        "builtin": "performance",
+        "default_severity": "warn",
+        "message": "DISTINCT on many columns may indicate design issue",
+        "matcher": _has_distinct_abuse,
+        "suggestions": None,
+        "sets_verdict": False,
+        "category": "performance",
+    },
+    "ORDER_BY_RANDOM": {
+        "builtin": "performance",
+        "default_severity": "error",
+        "message": "ORDER BY RAND() is extremely inefficient",
+        "matcher": _has_order_by_random,
+        "suggestions": None,
+        "sets_verdict": True,
+        "category": "performance",
     },
 }
 
 _BUILTIN_RULEPACKS = {
-    "core": ["DOLLAR_SUBSTITUTION"],
-    "performance": ["SELECT_STAR", "FULL_SCAN_RISK"],
+    "core": ["DOLLAR_SUBSTITUTION", "SENSITIVE_COLUMN_EXPOSED"],
+    "performance": [
+        "SELECT_STAR", "FULL_SCAN_RISK", "SUBQUERY_IN_FROM",
+        "OR_CONDITION_NO_INDEX", "FUNCTION_ON_INDEXED_COL",
+        "LIKE_WILDCARD_START", "NO_LIMIT", "JOIN_WITHOUT_ON",
+        "DISTINCT_ABUSE", "ORDER_BY_RANDOM",
+    ],
+    "syntax": ["JOIN_WITHOUT_ON"],
 }
 
 DEFAULT_RULEPACKS = [{"builtin": "core"}, {"builtin": "performance"}]
+
+
+def load_custom_rules_from_file(config_path: Path, project_root: Path) -> list[dict[str, Any]]:
+    """Load custom rules from external YAML/JSON file.
+
+    Args:
+        config_path: Path to the main config file (sqlopt.yml)
+        project_root: Project root directory
+
+    Returns:
+        List of custom rule definitions
+    """
+    # This function is called from config loading, so we don't have access to
+    # the rules config yet. Custom rules are loaded at evaluation time.
+    return []
+
+
+def get_custom_rules_from_config(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract custom rules from configuration.
+
+    Args:
+        config: Full configuration dictionary
+
+    Returns:
+        List of custom rule definitions from config
+    """
+    rules_cfg = dict(config.get("rules") or {})
+    return list(rules_cfg.get("custom_rules") or [])
+
+
+def load_external_rules_from_file(project_root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Load custom rules from external YAML file.
+
+    Args:
+        project_root: Project root directory
+        config: Full configuration dictionary
+
+    Returns:
+        List of custom rule definitions from external file
+    """
+    rules_cfg = dict(config.get("rules") or {})
+    custom_rules_path = rules_cfg.get("custom_rules_path")
+
+    if not custom_rules_path:
+        return []
+
+    # Resolve relative path from project root
+    rules_file = project_root / custom_rules_path
+    if not rules_file.exists():
+        # Silently skip if file doesn't exist (user may have removed it)
+        return []
+
+    try:
+        import yaml
+        with open(rules_file, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            if data and isinstance(data, dict):
+                rules_list = data.get("rules", [])
+                if isinstance(rules_list, list):
+                    return rules_list
+    except Exception:
+        # Silently skip on parse error
+        pass
+
+    return []
+
+
+def get_builtin_rules_enabled(config: dict[str, Any]) -> dict[str, bool]:
+    """Get which built-in rules are enabled/disabled.
+
+    Args:
+        config: Full configuration dictionary
+
+    Returns:
+        Dict mapping rule_id to enabled status
+    """
+    rules_cfg = dict(config.get("rules") or {})
+    builtin_rules = dict(rules_cfg.get("builtin_rules", {}))
+
+    # If no explicit config, enable all by default
+    if not builtin_rules:
+        return {rule_id: True for rule_id in _RULES.keys()}
+
+    # Merge with defaults
+    enabled = {}
+    for rule_id in _RULES.keys():
+        if rule_id in builtin_rules:
+            enabled[rule_id] = bool(builtin_rules[rule_id])
+        else:
+            enabled[rule_id] = True  # Default to enabled
+    return enabled
 
 
 def _match_declared_rule(sql_unit: dict[str, Any], match: dict[str, Any]) -> bool:
@@ -89,7 +336,10 @@ def _evaluate_external_rule(sql_unit: dict[str, Any], rule: dict[str, Any], seve
     if not _match_declared_rule(sql_unit, match):
         return None
     action = dict(rule.get("action") or {})
-    rule_id = str(rule.get("rule_id") or "").strip()
+    # Support both "id" and "rule_id" keys
+    rule_id = str(rule.get("rule_id") or rule.get("id") or "").strip()
+    if not rule_id:
+        return None
     severity = severity_overrides.get(rule_id, str(rule.get("default_severity") or "warn"))
     suggestions: list[dict[str, Any]] = []
     suggestion_sql_template = str(action.get("suggestion_sql_template") or "").strip()
@@ -142,7 +392,13 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
     triggered_rules: list[dict[str, Any]] = []
     verdict = "NOOP"
 
+    # Get built-in rule enabled status from new rules config
+    builtin_rules_enabled = get_builtin_rules_enabled(config)
+
+    # Evaluate built-in rules (filtered by enabled status)
     for rule_id in configured_rule_ids(config):
+        if not builtin_rules_enabled.get(rule_id, True):
+            continue
         rule = _RULES.get(rule_id)
         if not rule:
             continue
@@ -165,6 +421,36 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
         if rule.get("sets_verdict"):
             verdict = "CAN_IMPROVE"
 
+    # Get project root from config
+    project_cfg = dict(config.get("project") or {})
+    project_root_str = project_cfg.get("root_path", ".")
+    project_root = Path(project_root_str)
+
+    # Evaluate external rules from YAML file
+    external_rules = load_external_rules_from_file(project_root, config)
+    for rule in external_rules:
+        result = _evaluate_external_rule(sql_unit, rule, severity_overrides)
+        if result is None:
+            continue
+        issues.append(result["issue"])
+        triggered_rules.append(result["triggered_rule"])
+        suggestions.extend(result["suggestions"])
+        if result.get("sets_verdict"):
+            verdict = "CAN_IMPROVE"
+
+    # Evaluate custom rules from config (inline)
+    custom_rules = get_custom_rules_from_config(config)
+    for rule in custom_rules:
+        result = _evaluate_external_rule(sql_unit, rule, severity_overrides)
+        if result is None:
+            continue
+        issues.append(result["issue"])
+        triggered_rules.append(result["triggered_rule"])
+        suggestions.extend(result["suggestions"])
+        if result.get("sets_verdict"):
+            verdict = "CAN_IMPROVE"
+
+    # Load external rulepacks (existing functionality)
     loaded_rulepacks = [row for row in (diagnostics_cfg.get("loaded_rulepacks") or []) if isinstance(row, dict)]
     loaded_by_file = {
         str(row.get("file") or "").strip(): [rule for rule in (row.get("rules") or []) if isinstance(rule, dict)]

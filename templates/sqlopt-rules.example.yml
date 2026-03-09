@@ -1,0 +1,121 @@
+# Custom Rules Example for SQL Optimizer
+#
+# This file demonstrates how to define custom rules for SQL optimization.
+# Add your rules here and reference this file in sqlopt.yml:
+#
+#   rules:
+#     custom_rules_path: "./sqlopt-rules.yml"
+#
+# Or inline rules directly in sqlopt.yml:
+#
+#   rules:
+#     custom_rules:
+#       - id: MY_CUSTOM_RULE
+#         ...
+
+version: 1
+
+# Global excludes - skip detection for certain SQL patterns
+excludes:
+  - sql_contains: "FOR UPDATE"
+    reason: "Locking queries may require full scan"
+  - sql_contains: "CREATE INDEX"
+    reason: "Index creation statements"
+  - sql_contains: "sys_"
+    reason: "System tables"
+
+# Custom rule definitions
+rules:
+  # ============================================
+  # Performance Rules
+  # ============================================
+
+  - id: MISSING_INDEX_IN_WHERE
+    severity: warn
+    category: performance
+    message: "WHERE clause field may be missing an index"
+    match:
+      sql_regex: "WHERE\\s+(\\w+)\\s*(=|>|<|>=|<=|LIKE|IN)"
+    action:
+      suggestion: "Consider creating an index on the WHERE clause field for better performance"
+
+  - id: LARGE_TABLE_SCAN
+    severity: error
+    category: performance
+    message: "Query may cause large table scan"
+    match:
+      sql_contains: "SELECT"
+    # This rule requires DB evidence - will be validated during analysis
+
+  - id: MULTIPLE_JOINS_SAME_TABLE
+    severity: warn
+    category: performance
+    message: "Multiple joins to the same table may indicate N+1 pattern"
+    match:
+      sql_regex: "JOIN\\s+\\w+\\s+\\w+\\s+ON.*JOIN\\s+\\w+\\s+\\w+\\s+ON"
+
+  # ============================================
+  # Security Rules
+  # ============================================
+
+  - id: SENSITIVE_COLUMN_IN_WHERE
+    severity: warn
+    category: security
+    message: "Sensitive column used in WHERE clause without proper handling"
+    match:
+      sql_regex: "(?i)WHERE\\s+.*\\b(ssn|passport|driver_license)\\b"
+
+  - id: UNENCRYPTED_PASSWORD_COMPARE
+    severity: error
+    category: security
+    message: "Comparing passwords without proper hashing"
+    match:
+      sql_regex: "(?i)WHERE.*password\\s*="
+
+  # ============================================
+  # Best Practice Rules
+  # ============================================
+
+  - id: ALWAYS_FALSE_WHERE
+    severity: warn
+    category: best_practice
+    message: "WHERE clause with always-false condition"
+    match:
+      sql_contains: "1=0"
+    action:
+      suggestion: "Remove the always-false condition or check logic"
+
+  - id: LIMIT_ZERO
+    severity: warn
+    category: best_practice
+    message: "LIMIT 0 returns no data"
+    match:
+      sql_contains: "LIMIT 0"
+
+  - id: COUNT_WITHOUT_WHERE
+    severity: warn
+    category: best_practice
+    message: "COUNT(*) without WHERE may be slow on large tables"
+    match:
+      sql_regex: "SELECT\\s+COUNT\\(\\*\\)\\s+FROM"
+
+# =============================================
+# Prompt Injections (referenced in sqlopt.yml)
+# =============================================
+#
+# To add prompt injections, configure in sqlopt.yml:
+#
+# prompt_injections:
+#   system:
+#     - role: system
+#       content: |
+#         Your custom system prompt here...
+#
+#   by_rule:
+#     - rule_id: MISSING_INDEX_IN_WHERE
+#       prompt: |
+#         When missing index is detected, analyze:
+#         1. Field selectivity
+#         2. Table size estimate
+#         3. Specific index recommendation
+#

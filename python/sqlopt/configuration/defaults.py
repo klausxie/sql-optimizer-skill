@@ -196,3 +196,25 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
     cfg["runtime"] = deepcopy(DEFAULT_RUNTIME)
     cfg["report"] = {"enabled": bool((cfg.get("report") or {}).get("enabled", True))}
     cfg["verification"] = {"enforce_verified_outputs": False, "critical_output_policy": "warn"}
+
+    # User-extensible rules configuration
+    # - rules.enabled: Enable custom rule system
+    # - rules.custom_rules_path: Path to external YAML rules file
+    # - rules.custom_rules: Inline custom rules
+    # - rules.builtin_rules: Control which built-in rules are active
+    rules_cfg = cfg.setdefault("rules", {})
+    rules_cfg.setdefault("enabled", True)
+    rules_cfg.setdefault("custom_rules_path", None)
+    rules_cfg.setdefault("custom_rules", [])
+    rules_cfg.setdefault("builtin_rules", {
+        "DOLLAR_SUBSTITUTION": True,
+        "SELECT_STAR": True,
+        "FULL_SCAN_RISK": True,
+    })
+
+    # User-extensible prompt injections for LLM enhancement
+    # - prompt_injections.system: Global prompts applied to all LLM calls
+    # - prompt_injections.by_rule: Rule-specific prompts injected when rules match
+    prompt_cfg = cfg.setdefault("prompt_injections", {})
+    prompt_cfg.setdefault("system", [])
+    prompt_cfg.setdefault("by_rule", [])

@@ -130,8 +130,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", default="sqlopt.yml")
     p.add_argument("--to-stage", default="patch_generate", choices=STAGE_ORDER)
     p.add_argument("--run-id")
-    p.add_argument("--max-steps", type=int, default=200)
-    p.add_argument("--max-seconds", type=int, default=95)
+    p.add_argument("--max-steps", type=int, default=0)  # 0 表示不限制
+    p.add_argument("--max-seconds", type=int, default=0)  # 0 表示不限制
     return p
 
 
@@ -158,11 +158,12 @@ def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, A
 
 def main() -> None:
     args = _build_parser().parse_args()
-    if args.max_steps <= 0:
-        _error("INVALID_ARGUMENT", "max_steps must be > 0")
+    # max_steps=0 表示不限制步数, max_seconds=0 表示不限制时间
+    if args.max_steps < 0:
+        _error("INVALID_ARGUMENT", "max_steps must be >= 0")
         raise SystemExit(2)
-    if args.max_seconds <= 0:
-        _error("INVALID_ARGUMENT", "max_seconds must be > 0")
+    if args.max_seconds < 0:
+        _error("INVALID_ARGUMENT", "max_seconds must be >= 0")
         raise SystemExit(2)
 
     config_path = Path(args.config).resolve()
@@ -205,7 +206,8 @@ def main() -> None:
         raise SystemExit(2)
 
     step_calls += 1
-    deadline = started + args.max_seconds
+    # 0 表示不限制时间
+    deadline = started + args.max_seconds if args.max_seconds > 0 else float("inf")
 
     while True:
         status_result = _run_cli(repo_root, "status", "--run-id", run_id)
@@ -251,7 +253,8 @@ def main() -> None:
         budget_next_mode = "report-rebuild" if str(status_payload.get("next_action") or "") == "report-rebuild" else "resume"
         budget_next_stage = "report" if budget_next_mode == "report-rebuild" else args.to_stage
 
-        if step_calls >= args.max_steps:
+        # 0 表示不限制步数
+        if args.max_steps > 0 and step_calls >= args.max_steps:
             print(
                 {
                     "run_id": run_id,
