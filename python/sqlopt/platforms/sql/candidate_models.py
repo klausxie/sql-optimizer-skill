@@ -45,15 +45,25 @@ class EquivalenceCheck:
     checked: bool | None
     method: str
     row_count: dict[str, Any] | None = None
+    key_set_hash: dict[str, Any] | None = None
+    row_sample_hash: dict[str, Any] | None = None
     evidence_refs: list[Any] | None = None
+    evidence_ref_objects: list[dict[str, Any]] | None = None
 
     def to_contract(self) -> dict[str, Any]:
-        return {
+        payload = {
             "checked": self.checked,
             "method": self.method,
             "rowCount": self.row_count,
             "evidenceRefs": list(self.evidence_refs or []),
         }
+        if self.key_set_hash is not None:
+            payload["keySetHash"] = self.key_set_hash
+        if self.row_sample_hash is not None:
+            payload["rowSampleHash"] = self.row_sample_hash
+        if self.evidence_ref_objects is not None:
+            payload["evidenceRefObjects"] = list(self.evidence_ref_objects)
+        return payload
 
 
 @dataclass(frozen=True)

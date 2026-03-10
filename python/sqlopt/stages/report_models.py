@@ -175,6 +175,10 @@ class ReportArtifacts:
     top_blockers: list[dict[str, Any]]
     sql_rows: list[dict[str, Any]]
     proposal_rows: list[dict[str, Any]]
+    diagnostics_sql_outcomes: list[dict[str, Any]] = field(default_factory=list)
+    diagnostics_sql_artifacts: list[dict[str, Any]] = field(default_factory=list)
+    diagnostics_blockers_summary: dict[str, Any] = field(default_factory=dict)
+    run_index: dict[str, Any] = field(default_factory=dict)
     verification_summary: dict[str, Any] = field(default_factory=dict)
 
     def failures_to_contract(self) -> list[dict[str, Any]]:

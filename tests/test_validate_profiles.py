@@ -42,6 +42,9 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertIn("VALIDATE_PERF_NOT_IMPROVED_WARN", result.get("warnings", []))
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "PASS")
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "balanced")
+        self.assertEqual((result.get("semanticEquivalence") or {}).get("status"), "UNCERTAIN")
+        self.assertEqual((result.get("semanticEquivalence") or {}).get("confidence"), "MEDIUM")
+        self.assertEqual((result.get("semanticEquivalence") or {}).get("evidenceLevel"), "DB_COUNT")
 
     def test_semantic_error_is_need_more_params(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
@@ -78,6 +81,8 @@ class ValidateProfilesTest(unittest.TestCase):
 
         self.assertEqual(result["status"], "NEED_MORE_PARAMS")
         self.assertEqual((result.get("feedback") or {}).get("reason_code"), "VALIDATE_SEMANTIC_ERROR")
+        self.assertEqual((result.get("semanticEquivalence") or {}).get("status"), "UNCERTAIN")
+        self.assertEqual((result.get("semanticEquivalence") or {}).get("confidence"), "LOW")
 
     def test_dollar_substitution_balanced_is_need_more_params(self) -> None:
         sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}

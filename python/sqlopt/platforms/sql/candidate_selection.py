@@ -217,7 +217,10 @@ def evaluate_candidate_selection(
                 checked=semantics.get("checked"),
                 method=semantics.get("method", "sql_semantic_compare_v1"),
                 row_count=semantics.get("rowCount"),
+                key_set_hash=semantics.get("keySetHash"),
+                row_sample_hash=semantics.get("rowSampleHash"),
                 evidence_refs=semantics.get("evidenceRefs", []),
+                evidence_ref_objects=semantics.get("evidenceRefObjects"),
             )
             perf = PerfComparison(
                 checked=bool(plan.get("checked")),
@@ -251,7 +254,10 @@ def evaluate_candidate_selection(
             checked=semantics.get("checked"),
             method=semantics.get("method", "sql_semantic_compare_v1"),
             row_count=semantics.get("rowCount"),
+            key_set_hash=semantics.get("keySetHash"),
+            row_sample_hash=semantics.get("rowSampleHash"),
             evidence_refs=semantics.get("evidenceRefs", []),
+            evidence_ref_objects=semantics.get("evidenceRefObjects"),
         )
         perf = PerfComparison(
             checked=bool(plan.get("checked")),

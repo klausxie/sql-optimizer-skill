@@ -50,11 +50,11 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_marked_applicable_when_git_apply_check_passes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_applicable_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = self._base_acceptance()
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             patch_row = execute_one(
@@ -75,14 +75,14 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_formats_single_line_sql_for_readability(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_format_readable_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 **self._base_acceptance(),
                 "rewrittenSql": "SELECT id, name FROM users WHERE deleted = 0 AND status = #{status} ORDER BY created_at DESC",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             with patch(
@@ -108,11 +108,11 @@ class PatchApplicabilityTest(unittest.TestCase):
             project_root = tmp / "project-root"
             run_dir.mkdir(parents=True, exist_ok=True)
             project_root.mkdir(parents=True, exist_ok=True)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = self._base_acceptance()
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             with patch(
@@ -132,9 +132,9 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_not_created_for_whitespace_only_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_noop_whitespace_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.listUsersSorted#v1",
                 "status": "PASS",
@@ -144,7 +144,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
 
@@ -161,7 +161,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             unified_mock.assert_not_called()
             self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_NO_EFFECTIVE_CHANGE")
             self.assertEqual(patch_row.get("patchFiles"), [])
-            patch_file = run_dir / "patches" / "demo.user.listUsersSorted#v1.patch"
+            patch_file = run_dir / "pipeline" / "patch_generate" / "files" / "demo.user.listUsersSorted#v1.patch"
             self.assertFalse(patch_file.exists())
 
     def test_patch_skips_statement_level_include_change_without_fragment_rewrite(self) -> None:
@@ -178,9 +178,9 @@ class PatchApplicabilityTest(unittest.TestCase):
 </mapper>""",
                 encoding="utf-8",
             )
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findIncluded#v1",
                 "status": "PASS",
@@ -190,7 +190,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
@@ -227,11 +227,11 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_not_applicable_when_git_apply_check_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_not_applicable_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = self._base_acceptance()
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             with patch(
@@ -270,9 +270,9 @@ class PatchApplicabilityTest(unittest.TestCase):
             body = """\n    SELECT * FROM users\n    <include refid="BaseWhere" />\n  """
             start = mapper.read_text(encoding="utf-8").index(body)
             end = start + len(body)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findIncluded#v1",
                 "status": "PASS",
@@ -295,7 +295,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
                 "sqlKey": "demo.user.findIncluded#v1",
                 "statementType": "SELECT",
@@ -340,10 +340,11 @@ class PatchApplicabilityTest(unittest.TestCase):
             start = mapper.read_text(encoding="utf-8").index(fragment_body)
             end = start + len(fragment_body)
             fragment_key = f"{mapper.resolve()}::demo.user.BaseWhere"
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
-            (run_dir / "scan.fragments.jsonl").write_text(
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": fragment_key,
@@ -388,7 +389,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
                 "sqlKey": "demo.user.findIncluded#v1",
                 "statementType": "SELECT",
@@ -428,9 +429,9 @@ class PatchApplicabilityTest(unittest.TestCase):
             body = """\n    SELECT <include refid="UserBaseColumns" />\n    FROM users\n  """
             start = mapper.read_text(encoding="utf-8").index(body)
             end = start + len(body)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.listUsers#v1",
                 "status": "PASS",
@@ -453,7 +454,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
                 "sqlKey": "demo.user.listUsers#v1",
                 "statementType": "SELECT",
@@ -478,9 +479,9 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_is_skipped_when_placeholder_semantics_mismatch(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_placeholder_mismatch_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findUsersByStatusRecent#v1",
                 "status": "PASS",
@@ -490,7 +491,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
@@ -511,9 +512,9 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_is_skipped_for_dynamic_template_statement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_xml_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findByList#v1",
                 "status": "PASS",
@@ -523,7 +524,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
@@ -549,9 +550,9 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_is_skipped_for_include_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_include_fragment_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findIncluded#v1",
                 "status": "PASS",
@@ -561,7 +562,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
@@ -592,9 +593,9 @@ class PatchApplicabilityTest(unittest.TestCase):
     def test_patch_is_skipped_for_dynamic_include_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_include_fragment_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
                 "sqlKey": "demo.user.findIncludedDynamic#v1",
                 "status": "PASS",
@@ -604,7 +605,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "securityChecks": {},
                 "selectedCandidateId": "c-pass-1",
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..contracts import ContractValidator
+from .models import ResolvedConfig, RunMeta, RunPlan, RunState
 from .run_repository import RunRepository
 
 RunPhaseAction = Callable[[dict[str, Any], str, Callable[[], object]], tuple[object, int]]
@@ -14,7 +15,7 @@ RecordFailure = Callable[[Path, dict[str, Any], str, str, str], None]
 @dataclass(frozen=True)
 class AdvanceStepRequest:
     run_dir: Path
-    config: dict[str, Any]
+    config: ResolvedConfig
     to_stage: str
     validator: ContractValidator
     repository: RunRepository | None = None
@@ -27,7 +28,7 @@ class AdvanceStepRequest:
 @dataclass(frozen=True)
 class RunStatusRequest:
     run_id: str
-    state: dict[str, Any]
-    plan: dict[str, Any]
-    meta: dict[str, Any]
-    config: dict[str, Any]
+    state: RunState
+    plan: RunPlan
+    meta: RunMeta
+    config: ResolvedConfig

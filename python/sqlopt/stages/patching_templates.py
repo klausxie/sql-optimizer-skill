@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..io_utils import read_jsonl
+from ..run_paths import canonical_paths
 from ..platforms.sql.materialization_constants import TEMPLATE_SAFE_MODES
 from .patching_render import build_range_patch
 
@@ -40,7 +41,7 @@ def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -
             "message": "fragment template rewrite op missing",
         }
     target_ref = str(op.get("targetRef") or materialization.get("targetRef") or "").strip()
-    fragment_rows = read_jsonl(run_dir / "scan.fragments.jsonl")
+    fragment_rows = read_jsonl(canonical_paths(run_dir).scan_fragments_path)
     fragment = next((row for row in fragment_rows if str(row.get("fragmentKey") or "") == target_ref), None)
     if fragment is None:
         return None, 0, {

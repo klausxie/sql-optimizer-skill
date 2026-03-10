@@ -153,12 +153,12 @@ python3 scripts/run_until_budget.py \
 
 建议至少检查：
 
-1. `scan.sqlunits.jsonl`
+1. `pipeline/scan/sqlunits.jsonl`
    - `searchUsersAdvanced.dynamicFeatures` 含 `FOREACH/INCLUDE/IF/CHOOSE/WHERE/BIND`
    - `patchUserStatusAdvanced.sql` 不含重复 `SET SET`
-2. `scan.fragments.jsonl`
+2. `pipeline/scan/fragments.jsonl`
    - `ActiveOnly` / `TenantGuard` 两个 fragment 都存在
-3. `verification/ledger.jsonl`
+3. `pipeline/verification/ledger.jsonl`
    - 两条 statement 都是 `SCAN_EVIDENCE_VERIFIED`
 
 ## 4. 查看输出结果
@@ -171,19 +171,19 @@ tests/fixtures/project/runs/<run-id>/
 
 核心文件：
 
-1. `manifest.jsonl`：阶段事件、失败原因。
-2. `proposals/optimization.proposals.jsonl`：优化候选。
-3. `acceptance/acceptance.results.jsonl`：validate 结论。
-4. `patches/patch.results.jsonl`：补丁生成与 apply-check 结果。
-5. `report.json`：汇总统计。
+1. `pipeline/manifest.jsonl`：阶段事件、失败原因。
+2. `pipeline/optimize/optimization.proposals.jsonl`：优化候选。
+3. `pipeline/validate/acceptance.results.jsonl`：validate 结论。
+4. `pipeline/patch_generate/patch.results.jsonl`：补丁生成与 apply-check 结果。
+5. `overview/report.json`：汇总统计。
 
 常用查看命令：
 
 ```bash
-tail -n 50 tests/fixtures/project/runs/<run-id>/manifest.jsonl
-cat tests/fixtures/project/runs/<run-id>/report.json
-cat tests/fixtures/project/runs/<run-id>/acceptance/acceptance.results.jsonl
-cat tests/fixtures/project/runs/<run-id>/patches/patch.results.jsonl
+tail -n 50 tests/fixtures/project/runs/<run-id>/pipeline/manifest.jsonl
+cat tests/fixtures/project/runs/<run-id>/overview/report.json
+cat tests/fixtures/project/runs/<run-id>/pipeline/validate/acceptance.results.jsonl
+cat tests/fixtures/project/runs/<run-id>/pipeline/patch_generate/patch.results.jsonl
 ```
 
 ## 5. 手工应用 patch（可选）
@@ -223,7 +223,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 ## 6.3 patch 文件无法 apply
 
-检查 `patches/patch.results.jsonl`：
+检查 `pipeline/patch_generate/patch.results.jsonl`：
 
 - `applicable: false` 表示 `git apply --check` 未通过。
 - `applyCheckError` 会给出具体冲突/上下文不匹配原因。
@@ -233,10 +233,10 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 每次改动后至少做一次：
 
 1. `run` + 多次 `resume` 到 `complete: True`。
-2. 确认 `report.json` 存在且可解析。
+2. 确认 `overview/report.json` 存在且可解析。
 3. 确认 `patch.results.jsonl` 中至少有一条 `applicable: true`（针对可 patch SQL）。
 4. 抽查 `acceptance.results.jsonl` 中 `selectedCandidateSource/selectedCandidateId/warnings/riskFlags` 字段。
-5. 若是 MySQL run，抽查 `report.json.validation_warnings` 或 `report.summary.md` 的 warnings，确认是否出现 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+5. 若是 MySQL run，抽查 `overview/report.json.validation_warnings` 或 `overview/report.summary.md` 的 warnings，确认是否出现 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
 
 当前 MySQL 方言边界：
 - 不做 PostgreSQL 方言兼容转换

@@ -8,6 +8,7 @@ from urllib.parse import parse_qsl, unquote, urlparse
 
 from ...io_utils import write_json
 from .compat import set_timeout_best_effort
+from ..sql.semantic_fingerprint import build_fingerprint_evidence
 
 
 def _parse_mysql_dsn(dsn: str) -> dict[str, Any]:
@@ -238,6 +239,95 @@ def compare_semantics(config: dict[str, Any], original_sql: str, rewritten_sql: 
                 before_count = int((cur.fetchone() or [0])[0])
                 cur.execute(f"SELECT COUNT(*) FROM ({r_sql}) q")
                 after_count = int((cur.fetchone() or [0])[0])
+                key_set_hash: dict[str, Any] = {"status": "SKIPPED", "reason": "row_count_mismatch"}
+                row_sample_hash: dict[str, Any] = {"status": "SKIPPED", "reason": "row_count_mismatch"}
+                evidence_ref_objects: list[dict[str, Any]] = []
+                if before_count == after_count:
+                    validate_cfg = config.get("validate", {}) or {}
+                    exact_max_rows = max(1, int(validate_cfg.get("semantic_fingerprint_exact_max_rows", 200)))
+                    sample_rows = max(1, int(validate_cfg.get("semantic_fingerprint_sample_rows", 50)))
+                    try:
+                        if before_count <= exact_max_rows:
+                            cur.execute(f"SELECT * FROM ({o_sql}) q")
+                            before_rows = list(cur.fetchall() or [])
+                            cur.execute(f"SELECT * FROM ({r_sql}) q")
+                            after_rows = list(cur.fetchall() or [])
+                            key_set_hash, key_set_evidence = build_fingerprint_evidence(
+                                fingerprint_key="key_set_hash",
+                                expected_rows=before_rows,
+                                observed_rows=after_rows,
+                                match_strength_on_match="EXACT",
+                                notes="full row-set fingerprint",
+                            )
+                            row_sample_hash = {
+                                "status": key_set_hash.get("status"),
+                                "before": key_set_hash.get("before"),
+                                "after": key_set_hash.get("after"),
+                                "sampleSize": key_set_hash.get("sampleSize"),
+                            }
+                            row_sample_evidence = {
+                                "source": "DB_FINGERPRINT",
+                                "fingerprint_key": "row_sample_hash",
+                                "observed": row_sample_hash.get("after"),
+                                "expected": row_sample_hash.get("before"),
+                                "match_strength": "EXACT" if row_sample_hash.get("status") == "MATCH" else "NONE",
+                                "evidence_level": "DB_FINGERPRINT",
+                                "notes": "derived from full row-set fingerprint",
+                            }
+                        else:
+                            fetch_limit = max(1, min(sample_rows, before_count))
+                            cur.execute(f"SELECT * FROM ({o_sql}) q LIMIT {fetch_limit}")
+                            before_rows = list(cur.fetchall() or [])
+                            cur.execute(f"SELECT * FROM ({r_sql}) q LIMIT {fetch_limit}")
+                            after_rows = list(cur.fetchall() or [])
+                            row_sample_hash, row_sample_evidence = build_fingerprint_evidence(
+                                fingerprint_key="row_sample_hash",
+                                expected_rows=before_rows,
+                                observed_rows=after_rows,
+                                match_strength_on_match="PARTIAL",
+                                notes=f"sampled fingerprint (limit={fetch_limit})",
+                            )
+                            key_set_hash = {
+                                "status": "SKIPPED",
+                                "reason": "row_count_above_exact_threshold",
+                                "threshold": exact_max_rows,
+                                "rowCount": before_count,
+                            }
+                            key_set_evidence = {
+                                "source": "DB_FINGERPRINT",
+                                "fingerprint_key": "key_set_hash",
+                                "observed": None,
+                                "expected": None,
+                                "match_strength": "NONE",
+                                "evidence_level": "DB_FINGERPRINT",
+                                "notes": "skipped: row count above exact fingerprint threshold",
+                            }
+                        evidence_ref_objects.extend([key_set_evidence, row_sample_evidence])
+                    except Exception as fingerprint_exc:
+                        key_set_hash = {"status": "ERROR", "error": str(fingerprint_exc)}
+                        row_sample_hash = {"status": "ERROR", "error": str(fingerprint_exc)}
+                        evidence_ref_objects.append(
+                            {
+                                "source": "DB_FINGERPRINT",
+                                "fingerprint_key": "fingerprint_runtime",
+                                "observed": None,
+                                "expected": None,
+                                "match_strength": "NONE",
+                                "evidence_level": "DB_FINGERPRINT",
+                                "notes": f"fingerprint collection failed: {fingerprint_exc}",
+                            }
+                        )
+                evidence_ref_objects.append(
+                    {
+                        "source": "DB_COUNT",
+                        "fingerprint_key": "row_count",
+                        "observed": after_count,
+                        "expected": before_count,
+                        "match_strength": "EXACT" if before_count == after_count else "NONE",
+                        "evidence_level": "DB_COUNT",
+                        "notes": "row count comparison",
+                    }
+                )
     except Exception as exc:
         if bool((config.get("validate", {}) or {}).get("allow_db_unreachable_fallback", False)) and _is_connectivity_error(str(exc)):
             return {
@@ -250,13 +340,16 @@ def compare_semantics(config: dict[str, Any], original_sql: str, rewritten_sql: 
 
     result = {
         "checked": True,
-        "method": "sql_semantic_compare_v1",
+        "method": "sql_semantic_compare_v2",
         "driver": driver,
         "rowCount": {
             "status": "MATCH" if before_count == after_count else "MISMATCH",
             "before": before_count,
             "after": after_count,
         },
+        "keySetHash": key_set_hash,
+        "rowSampleHash": row_sample_hash,
+        "evidenceRefObjects": evidence_ref_objects,
     }
     evidence_dir.mkdir(parents=True, exist_ok=True)
     eq_path = evidence_dir / "equivalence.json"

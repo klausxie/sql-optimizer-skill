@@ -29,8 +29,8 @@ class ResolveRunIdScriptTest(unittest.TestCase):
             project = repo / "project"
             run_old = project / "runs" / "run_old"
             run_new = project / "runs" / "run_new"
-            (run_old / "supervisor").mkdir(parents=True, exist_ok=True)
-            (run_new / "supervisor").mkdir(parents=True, exist_ok=True)
+            (run_old / "pipeline" / "supervisor").mkdir(parents=True, exist_ok=True)
+            (run_new / "pipeline" / "supervisor").mkdir(parents=True, exist_ok=True)
             (project / "runs" / "index.json").write_text(json.dumps({
                 "run_old": {"run_dir": str(run_old), "updated_at": "2026-02-01T00:00:00+00:00"},
                 "run_new": {"run_dir": str(run_new), "updated_at": "2026-02-02T00:00:00+00:00"},
@@ -46,8 +46,8 @@ class ResolveRunIdScriptTest(unittest.TestCase):
             repo = Path(td)
             run_id = "run_scan_1"
             run_dir = repo / "any" / "runs" / run_id
-            (run_dir / "supervisor").mkdir(parents=True, exist_ok=True)
-            (run_dir / "supervisor" / "meta.json").write_text('{"run_id": "run_scan_1"}', encoding="utf-8")
+            (run_dir / "pipeline" / "supervisor").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "supervisor" / "meta.json").write_text('{"run_id": "run_scan_1"}', encoding="utf-8")
             with patch.object(mod, "_repo_root", return_value=repo):
                 rid, resolved = mod.resolve_run_id(run_id, str(repo))
             self.assertEqual(rid, run_id)

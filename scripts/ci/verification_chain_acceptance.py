@@ -110,27 +110,27 @@ def main() -> None:
             raise SystemExit("verification chain acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        ledger_path = run_dir / "verification" / "ledger.jsonl"
-        summary_path = run_dir / "verification" / "summary.json"
-        report_path = run_dir / "report.json"
+        ledger_path = run_dir / "pipeline" / "verification" / "ledger.jsonl"
+        summary_path = run_dir / "pipeline" / "verification" / "summary.json"
+        report_path = run_dir / "overview" / "report.json"
         if not ledger_path.exists():
             raise SystemExit("verification chain acceptance failed: verification ledger missing")
         if not summary_path.exists():
             raise SystemExit("verification chain acceptance failed: verification summary missing")
         if not report_path.exists():
-            raise SystemExit("verification chain acceptance failed: report.json missing")
+            raise SystemExit("verification chain acceptance failed: overview/report.json missing")
 
         ledger_rows = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         report = json.loads(report_path.read_text(encoding="utf-8"))
         acceptance_rows = [
             json.loads(line)
-            for line in (run_dir / "acceptance" / "acceptance.results.jsonl").read_text(encoding="utf-8").splitlines()
+            for line in (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
         patch_rows = [
             json.loads(line)
-            for line in (run_dir / "patches" / "patch.results.jsonl").read_text(encoding="utf-8").splitlines()
+            for line in (run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl").read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
 
@@ -161,7 +161,7 @@ def main() -> None:
         stable_summary = {key: value for key, value in summary.items() if key != "generated_at"}
         projected_report_verification = {key: report_verification.get(key) for key in stable_summary}
         if projected_report_verification != stable_summary:
-            raise SystemExit("verification chain acceptance failed: report.json verification summary mismatch")
+            raise SystemExit("verification chain acceptance failed: overview/report.json verification summary mismatch")
 
         print(
             json.dumps(

@@ -109,16 +109,16 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 
 
 def _verify_outputs(run_dir: Path) -> dict[str, Any]:
-    state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
-    report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-    summary = (run_dir / "report.summary.md").read_text(encoding="utf-8")
+    state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
+    report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
+    summary = (run_dir / "overview" / "report.summary.md").read_text(encoding="utf-8")
 
     state_report = state["phase_status"]["report"]
     report_status = report["stats"]["pipeline_coverage"]["report"]
     summary_ok = "report `DONE`" in summary
     if state_report != "DONE" or report_status != "DONE" or not summary_ok:
         raise SystemExit(
-            "smoke verification failed: expected report DONE in state.json, report.json, and report.summary.md"
+            "smoke verification failed: expected report DONE in pipeline/supervisor/state.json, overview/report.json, and overview/report.summary.md"
         )
 
     return {

@@ -16,6 +16,7 @@ from .candidate_selection import (
     evaluate_candidate_selection,
     filter_valid_candidates,
 )
+from .semantic_equivalence import build_semantic_equivalence
 from .template_materializer import build_rewrite_materialization
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
@@ -195,6 +196,11 @@ def validate_proposal(
         feedback=decision.feedback,
         rewrite_materialization=rewrite_materialization,
     )
+    semantic_equivalence = build_semantic_equivalence(
+        original_sql=sql,
+        rewritten_sql=selection.rewritten_sql,
+        equivalence=selection.equivalence.to_contract(),
+    )
 
     # 合并警告
     all_warnings = list(decision.warnings) + llm_semantic_warnings
@@ -225,4 +231,5 @@ def validate_proposal(
         delivery_readiness=selection.delivery_readiness,
         decision_layers=decision_layers,
         llm_semantic_check=llm_semantic_result or None,
+        semantic_equivalence=semantic_equivalence,
     )

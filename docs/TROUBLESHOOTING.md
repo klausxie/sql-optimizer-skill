@@ -100,7 +100,7 @@ cat runs/index.json
 
 ```bash
 sqlopt-cli status --run-id <run-id>
-tail -n 80 runs/<run-id>/manifest.jsonl
+tail -n 80 runs/<run-id>/pipeline/manifest.jsonl
 python3 scripts/run_until_budget.py --config ./sqlopt.yml --max-seconds 95
 ```
 
@@ -173,8 +173,8 @@ python install/doctor.py --project .
 诊断命令：
 
 ```bash
-tail -n 100 runs/<run-id>/manifest.jsonl
-wc -l runs/<run-id>/scan.sqlunits.jsonl
+tail -n 100 runs/<run-id>/pipeline/manifest.jsonl
+wc -l runs/<run-id>/pipeline/scan/sqlunits.jsonl
 ```
 
 修复动作：

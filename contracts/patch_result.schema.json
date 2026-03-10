@@ -18,6 +18,15 @@
     "rejectedCandidates": {"type": ["array", "null"], "items": {"type": "object"}},
     "deliveryOutcome": {"type": ["object", "null"]},
     "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
-    "patchability": {"type": ["object", "null"]}
+    "patchability": {"type": ["object", "null"]},
+    "gates": {
+      "type": ["object", "null"],
+      "properties": {
+        "semanticEquivalenceStatus": {"type": ["string", "null"]},
+        "semanticEquivalenceBlocking": {"type": ["boolean", "null"]},
+        "semanticConfidence": {"type": ["string", "null"]},
+        "semanticEvidenceLevel": {"type": ["string", "null"]}
+      }
+    }
   }
 }

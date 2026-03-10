@@ -110,8 +110,8 @@ def main() -> None:
             raise SystemExit("report rebuild acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        report_before = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-        report_results_path = run_dir / "supervisor" / "results" / "report.jsonl"
+        report_before = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
+        report_results_path = run_dir / "pipeline" / "supervisor" / "results" / "report.jsonl"
         report_result_count_before = len([line for line in report_results_path.read_text(encoding="utf-8").splitlines() if line.strip()])
 
         rebuild_proc = _run(
@@ -132,10 +132,10 @@ def main() -> None:
         if rebuild_payload.get("result", {}).get("phase") != "report":
             raise SystemExit("report rebuild acceptance failed: explicit report rebuild did not finalize report")
 
-        report_after = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        report_after = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
         report_result_count_after = len([line for line in report_results_path.read_text(encoding="utf-8").splitlines() if line.strip()])
-        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
-        meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
+        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        meta = json.loads((run_dir / "pipeline" / "supervisor" / "meta.json").read_text(encoding="utf-8"))
 
         if report_before.get("stats") != report_after.get("stats"):
             raise SystemExit("report rebuild acceptance failed: report stats changed after rebuild")

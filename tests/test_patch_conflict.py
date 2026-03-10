@@ -15,14 +15,14 @@ class PatchConflictTest(unittest.TestCase):
     def test_multi_variant_pass_conflict_is_skipped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
-            (run_dir / "patches").mkdir(parents=True, exist_ok=True)
-            (run_dir / "manifest.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
             rows = [
                 {"sqlKey": "demo.user.findUsers#v1", "status": "PASS", "equivalence": {}, "perfComparison": {}, "securityChecks": {}},
                 {"sqlKey": "demo.user.findUsers#v2", "status": "PASS", "equivalence": {}, "perfComparison": {}, "securityChecks": {}},
             ]
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 "\n".join(json.dumps(x, ensure_ascii=False) for x in rows) + "\n", encoding="utf-8"
             )
             unit = {"sqlKey": "demo.user.findUsers#v1", "locators": {"statementId": "findUsers"}}

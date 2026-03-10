@@ -12,6 +12,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_PYTHON_ROOT = _REPO_ROOT / "python"
+if str(_PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PYTHON_ROOT))
+
+from sqlopt.application import lifecycle_policy
+
 STAGE_ORDER = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
 
 
@@ -32,7 +39,7 @@ class NextInvocation:
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return _REPO_ROOT
 
 
 def _cli_env(repo_root: Path) -> dict[str, str]:
@@ -136,8 +143,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, Any]) -> NextInvocation:
-    next_action = str(status_payload.get("next_action") or "resume")
-    if next_action == "report-rebuild":
+    if lifecycle_policy.status_requires_report_rebuild(status_payload):
         recovery_cmd = (
             f"python scripts/sqlopt_cli.py run --config {config_path} --to-stage report --run-id {run_id} --max-steps 1"
         )
@@ -157,15 +163,16 @@ def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, A
             recovery_cmd=recovery_cmd,
             error_reason="REPORT_REBUILD_FAILED",
         )
-    if next_action in {"resume", ""}:
-        recovery_cmd = f"python scripts/sqlopt_cli.py resume --run-id {run_id} --max-steps 1"
-        return NextInvocation(
-            mode="resume",
-            cli_args=["resume", "--run-id", run_id, "--max-steps", "1"],
-            recovery_cmd=recovery_cmd,
-            error_reason="RESUME_FAILED",
-        )
-    raise ValueError(f"unsupported next_action: {next_action}")
+    next_action = str(status_payload.get("next_action") or "resume")
+    if next_action not in {"resume", ""}:
+        raise ValueError(f"unsupported next_action: {next_action}")
+    recovery_cmd = f"python scripts/sqlopt_cli.py resume --run-id {run_id} --max-steps 1"
+    return NextInvocation(
+        mode="resume",
+        cli_args=["resume", "--run-id", run_id, "--max-steps", "1"],
+        recovery_cmd=recovery_cmd,
+        error_reason="RESUME_FAILED",
+    )
 
 
 def main() -> None:
@@ -262,7 +269,7 @@ def main() -> None:
             )
             raise SystemExit(2)
 
-        budget_next_mode = "report-rebuild" if str(status_payload.get("next_action") or "") == "report-rebuild" else "resume"
+        budget_next_mode = "report-rebuild" if lifecycle_policy.status_requires_report_rebuild(status_payload) else "resume"
         budget_next_stage = "report" if budget_next_mode == "report-rebuild" else args.to_stage
 
         # 0 表示不限制步数

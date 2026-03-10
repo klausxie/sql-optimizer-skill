@@ -63,6 +63,12 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         imports = set(_import_targets(path))
         self.assertEqual(imports, {"__future__", ".report_models"})
 
+    def test_report_builder_delegates_metrics_to_report_metrics_module(self) -> None:
+        path = ROOT / "python" / "sqlopt" / "stages" / "report_builder.py"
+        imports = set(_import_targets(path))
+        self.assertIn(".report_metrics", imports)
+        self.assertNotIn("..failure_classification", imports)
+
     def test_cli_adapter_does_not_import_stage_modules_directly(self) -> None:
         path = ROOT / "python" / "sqlopt" / "cli.py"
         imports = set(_import_targets(path))
@@ -89,6 +95,23 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         self.assertIn(".configuration.common", imports)
         self.assertIn(".configuration.defaults", imports)
         self.assertIn(".configuration.versioning", imports)
+
+    def test_workflow_engine_delegates_to_workflow_component_modules(self) -> None:
+        path = ROOT / "python" / "sqlopt" / "application" / "workflow_engine.py"
+        imports = set(_import_targets(path))
+        self.assertIn(".workflow_definition", imports)
+        self.assertIn(".workflow_facade", imports)
+        self.assertIn(".workflow_handlers_adapter", imports)
+        self.assertIn(".workflow_step_runner", imports)
+        forbidden_core = {"..runtime", "..io_utils", "..manifest", ".phase_runtime", ".stage_index"}
+        self.assertTrue(forbidden_core.isdisjoint(imports), f"workflow_engine should avoid low-level runtime/io modules: {imports & forbidden_core}")
+
+    def test_patch_generate_delegates_to_decision_and_verification_modules(self) -> None:
+        path = ROOT / "python" / "sqlopt" / "stages" / "patch_generate.py"
+        imports = set(_import_targets(path))
+        self.assertIn(".patch_decision_engine", imports)
+        self.assertIn(".patch_verification", imports)
+        self.assertIn(".patch_formatting", imports)
 
 
 if __name__ == "__main__":

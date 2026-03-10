@@ -53,6 +53,23 @@
     "deliveryReadiness": {"type": ["object", "null"]},
     "decisionLayers": {"type": ["object", "null"]},
     "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
-    "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}}
+    "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}},
+    "semanticEquivalence": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": {"type": ["string", "null"]},
+        "confidence": {"type": ["string", "null"]},
+        "confidenceBeforeUpgrade": {"type": ["string", "null"]},
+        "confidenceUpgradeApplied": {"type": ["boolean", "null"]},
+        "confidenceUpgradeReasons": {"type": ["array", "null"], "items": {"type": "string"}},
+        "confidenceUpgradeEvidenceSources": {"type": ["array", "null"], "items": {"type": "string"}},
+        "evidenceLevel": {"type": ["string", "null"]},
+        "checks": {"type": ["object", "null"]},
+        "reasons": {"type": ["array", "null"], "items": {"type": "string"}},
+        "hardConflicts": {"type": ["array", "null"], "items": {"type": "string"}},
+        "coverage": {"type": ["object", "null"]},
+        "evidence": {"type": ["object", "null"]}
+      }
+    }
   }
 }

@@ -118,6 +118,9 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
         self.assertEqual(report["stats"]["top_actionable_sql"][0]["evidence_state"], "CRITICAL_GAP")
         self.assertEqual(verify_payload["evidence_state"], "CRITICAL_GAP")
+        self.assertIn("semantic_gate_status", verify_payload)
+        self.assertIn("semantic_unupgraded_reason", verify_payload)
+        self.assertIn("semantic_blocked_reason", verify_payload)
         # 检查 why_now 包含证据相关关键词（中文或英文）
         why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
@@ -157,6 +160,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
         self.assertEqual(report["stats"]["top_actionable_sql"][0]["evidence_state"], "DEGRADED")
         self.assertEqual(verify_payload["evidence_state"], "DEGRADED")
+        self.assertIn("semantic_gate_confidence", verify_payload)
         # 检查 why_now 包含 DB/数据库相关关键词
         why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
@@ -198,6 +202,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(report["summary"]["next_actions"][0]["action_id"], "apply")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "apply")
         self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
+        self.assertIn("semantic_confidence_upgraded", verify_payload)
         # why_now 可能因语言不同而不同，但应该包含类似的概念（最快/安全/收益）
         why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
@@ -210,6 +215,69 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             "最快" in why_now_verify or "fastest" in why_now_verify.lower(),
             f"why_now should mention fastest: {why_now_verify}"
         )
+
+    def test_semantic_low_confidence_prefers_review_evidence_action(self) -> None:
+        sql_key = "demo.user.lowConfidence#v1"
+        report, verify_payload = _render_outputs(
+            sql_key=sql_key,
+            acceptance_rows=[
+                {
+                    "sqlKey": sql_key,
+                    "status": "PASS",
+                    "semanticEquivalence": {
+                        "status": "PASS",
+                        "confidence": "LOW",
+                        "confidenceBeforeUpgrade": "LOW",
+                        "confidenceUpgradeApplied": False,
+                        "confidenceUpgradeReasons": [],
+                        "confidenceUpgradeEvidenceSources": [],
+                    },
+                    "decisionLayers": {
+                        "evidence": {"degraded": False, "reasonCodes": []},
+                        "delivery": {"tier": "READY"},
+                        "acceptance": {"status": "PASS"},
+                    },
+                }
+            ],
+            patch_rows=[],
+            verification_rows=[],
+        )
+
+        self.assertEqual(report["stats"]["top_actionable_sql"][0]["semantic_blocked_reason"], "VALIDATE_SEMANTIC_CONFIDENCE_LOW")
+        self.assertEqual(verify_payload["semantic_blocked_reason"], "VALIDATE_SEMANTIC_CONFIDENCE_LOW")
+        self.assertEqual(verify_payload["recommended_next_step"]["action"], "review-evidence")
+        self.assertIn("semantic confidence is low", verify_payload["decision_summary"])
+        self.assertIn("evidence strength", verify_payload["why_now"])
+
+    def test_security_block_sets_primary_blocker_and_remove_dollar_action(self) -> None:
+        sql_key = "demo.user.findUsers#v2"
+        report, verify_payload = _render_outputs(
+            sql_key=sql_key,
+            acceptance_rows=[
+                {
+                    "sqlKey": sql_key,
+                    "status": "NEED_MORE_PARAMS",
+                    "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"},
+                    "equivalence": {"checked": True, "method": "static", "evidenceRefs": []},
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "UNKNOWN"},
+                    "decisionLayers": {
+                        "evidence": {"degraded": False, "reasonCodes": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"]},
+                        "delivery": {"tier": "BLOCKED"},
+                        "acceptance": {"status": "NEED_MORE_PARAMS", "feedbackReasonCode": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"},
+                    },
+                }
+            ],
+            patch_rows=[],
+            verification_rows=[],
+        )
+        top = report["stats"]["top_actionable_sql"][0]
+        self.assertEqual(top["blocker_primary_code"], "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION")
+        self.assertEqual(top["evidence_availability"], "MISSING")
+        self.assertEqual(top["evidence_missing_reason"], "SKIPPED_BY_SECURITY_BLOCK")
+        self.assertIn("${}", top["summary"])
+        self.assertEqual(verify_payload["blocker_primary_code"], "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION")
+        self.assertEqual(verify_payload["evidence_missing_reason"], "SKIPPED_BY_SECURITY_BLOCK")
+        self.assertEqual(verify_payload["recommended_next_step"]["action"], "remove-dollar")
 
 
 if __name__ == "__main__":

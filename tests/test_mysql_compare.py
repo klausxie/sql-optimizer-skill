@@ -32,6 +32,16 @@ class _Cursor:
             raise item
         return item
 
+    def fetchall(self):
+        if not self._script:
+            return []
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        if item is None:
+            return []
+        return item
+
 
 class _Conn:
     def __init__(self, cursor: _Cursor) -> None:
@@ -141,15 +151,19 @@ class MySqlCompareTest(unittest.TestCase):
     def test_compare_semantics_returns_match_and_mismatch(self) -> None:
         cfg = {"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}, "validate": {}}
         with tempfile.TemporaryDirectory(prefix="sqlopt_mysql_semantics_") as td:
-            cursor_match = _Cursor([(5,), (5,)])
+            cursor_match = _Cursor([(5,), (5,), [(1,), (2,)], [(1,), (2,)]])
             with patch("sqlopt.platforms.mysql.compare._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor_match), "pymysql")):
                 match = compare.compare_semantics(cfg, "SELECT 1", "SELECT 1", Path(td))
             self.assertEqual(match["rowCount"]["status"], "MATCH")
+            self.assertEqual((match.get("keySetHash") or {}).get("status"), "MATCH")
+            self.assertEqual((match.get("rowSampleHash") or {}).get("status"), "MATCH")
+            self.assertTrue(match.get("evidenceRefObjects"))
 
             cursor_mismatch = _Cursor([(5,), (3,)])
             with patch("sqlopt.platforms.mysql.compare._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor_mismatch), "pymysql")):
                 mismatch = compare.compare_semantics(cfg, "SELECT 1", "SELECT 2", Path(td))
             self.assertEqual(mismatch["rowCount"]["status"], "MISMATCH")
+            self.assertEqual((mismatch.get("keySetHash") or {}).get("status"), "SKIPPED")
 
     def test_compare_semantics_handles_prepare_and_connectivity_fallback(self) -> None:
         cfg = {"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}, "validate": {}}
@@ -171,7 +185,7 @@ class MySqlCompareTest(unittest.TestCase):
 
     def test_compare_semantics_tolerates_unsupported_timeout_setting(self) -> None:
         cfg = {"db": {"platform": "mysql", "dsn": "mysql://u:p@127.0.0.1:3306/demo"}, "validate": {}}
-        cursor = _Cursor([(5,), (5,)], execute_errors=[RuntimeError("Unknown system variable 'MAX_EXECUTION_TIME'")])
+        cursor = _Cursor([(5,), (5,), [(1,), (2,)], [(1,), (2,)]], execute_errors=[RuntimeError("Unknown system variable 'MAX_EXECUTION_TIME'")])
         with tempfile.TemporaryDirectory(prefix="sqlopt_mysql_semantics_") as td:
             with patch("sqlopt.platforms.mysql.compare._get_sql_connect", return_value=(lambda **kwargs: _Conn(cursor), "pymysql")):
                 result = compare.compare_semantics(cfg, "SELECT 1", "SELECT 1", Path(td))

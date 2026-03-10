@@ -35,7 +35,7 @@ Current:
 
 ## fragment catalog（当前默认开启）
 当 fragment catalog 内置开关开启（当前默认）时，scanner 还应输出：
-1. `scan.fragments.jsonl`
+1. `pipeline/scan/fragments.jsonl`
 2. 每条 fragment 的稳定键
 3. statement / fragment 的源码 range locator
 4. `<include><property>` 绑定信息

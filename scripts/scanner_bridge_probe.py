@@ -15,5 +15,5 @@ args = p.parse_args()
 cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
 run_dir = ROOT / "runs" / "probe"
 run_dir.mkdir(parents=True, exist_ok=True)
-units, warnings = run_scan(cfg, run_dir, run_dir / "manifest.jsonl")
+units, warnings = run_scan(cfg, run_dir, run_dir / "pipeline" / "manifest.jsonl")
 print({"units": len(units), "warnings": len(warnings)})

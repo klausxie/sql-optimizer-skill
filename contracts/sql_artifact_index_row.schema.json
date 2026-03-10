@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlArtifactIndexRow",
+  "type": "object",
+  "required": ["sql_key", "statement_key", "delivery_status", "artifact_refs"],
+  "properties": {
+    "sql_key": {"type": "string"},
+    "statement_key": {"type": "string"},
+    "delivery_status": {"type": "string"},
+    "blocker_primary_code": {"type": ["string", "null"]},
+    "evidence_availability": {"type": ["string", "null"]},
+    "artifact_refs": {
+      "type": "object",
+      "required": ["report", "acceptance", "patches", "proposals", "verification", "trace", "evidence_dir"],
+      "properties": {
+        "report": {"type": ["string", "null"]},
+        "acceptance": {"type": ["string", "null"]},
+        "patches": {"type": ["string", "null"]},
+        "proposals": {"type": ["string", "null"]},
+        "verification": {"type": ["string", "null"]},
+        "trace": {"type": ["string", "null"]},
+        "evidence_dir": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

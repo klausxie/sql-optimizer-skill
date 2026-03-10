@@ -4,11 +4,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..adapters.mybatis_xml import is_mybatis_mapper_root as _shared_is_mybatis_mapper_root
+from ..adapters.mybatis_xml import local_name as _shared_local_name
 from ..adapters.scanner_java import run_scan
 from ..contracts import ContractValidator
 from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
+from ..run_paths import canonical_paths
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
 import glob
@@ -16,13 +19,11 @@ import xml.etree.ElementTree as ET
 
 
 def _local_name(tag: str) -> str:
-    if "}" in tag:
-        return tag.rsplit("}", 1)[-1]
-    return tag
+    return _shared_local_name(tag)
 
 
 def _is_mybatis_mapper_root(root: ET.Element) -> bool:
-    return _local_name(str(root.tag)).lower() == "mapper" and bool(str(root.attrib.get("namespace") or "").strip())
+    return _shared_is_mybatis_mapper_root(root)
 
 
 def _statement_key(sql_key: str) -> str:
@@ -58,7 +59,11 @@ def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> in
 
 
 def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator) -> list[dict[str, Any]]:
-    units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+    paths = canonical_paths(run_dir)
+    manifest_path = paths.manifest_path
+    scan_units_path = paths.scan_units_path
+    fragments_path = paths.scan_fragments_path
+    units, warnings = run_scan(config, run_dir, manifest_path)
     scan_cfg = config.get("scan", {}) or {}
     class_resolution_cfg = scan_cfg.get("class_resolution", {}) or {}
     min_success_ratio = float(class_resolution_cfg.get("min_success_ratio", 0.9))
@@ -78,7 +83,7 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
         discovered_count = java_discovered
     if not units:
         for w in warnings:
-            log_event(run_dir / "manifest.jsonl", "scan", "failed", w)
+            log_event(manifest_path, "scan", "failed", w)
         reason_code = "SCAN_MAPPER_NOT_FOUND"
         for warning in warnings:
             code = warning.get("reason_code")
@@ -97,13 +102,12 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
                 "message": f"scan success ratio {success_ratio:.3f} below threshold {min_success_ratio:.3f}",
                 "detail": {"discovered_count": discovered_count, "parsed_count": parsed_count, "min_success_ratio": min_success_ratio},
             }
-            log_event(run_dir / "manifest.jsonl", "scan", "failed", payload)
+            log_event(manifest_path, "scan", "failed", payload)
             raise StageError("scan coverage below threshold", reason_code="SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD")
 
     for unit in units:
         validator.validate("sqlunit", unit)
-    write_jsonl(run_dir / "scan.sqlunits.jsonl", units)
-    fragments_path = run_dir / "scan.fragments.jsonl"
+    write_jsonl(scan_units_path, units)
     fragment_rows = read_jsonl(fragments_path)
     for fragment in fragment_rows:
         validator.validate("fragment_record", fragment)
@@ -178,7 +182,7 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
                 reason_code=reason_code,
                 reason_message=reason_message,
                 evidence_refs=[
-                    str(run_dir / "scan.sqlunits.jsonl"),
+                    str(scan_units_path),
                     *([str(fragments_path)] if fragments_path.exists() else []),
                 ],
                 inputs={
@@ -197,6 +201,6 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
             ),
         )
     for w in warnings:
-        log_event(run_dir / "manifest.jsonl", "scan", "warning", w)
-    log_event(run_dir / "manifest.jsonl", "scan", "done", {"sql_keys": [u["sqlKey"] for u in units]})
+        log_event(manifest_path, "scan", "warning", w)
+    log_event(manifest_path, "scan", "done", {"sql_keys": [u["sqlKey"] for u in units]})
     return units

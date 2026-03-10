@@ -145,10 +145,10 @@ def main() -> None:
             raise SystemExit("guidance consistency acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        report_path = run_dir / "report.json"
-        summary_md_path = run_dir / "report.summary.md"
+        report_path = run_dir / "overview" / "report.json"
+        summary_md_path = run_dir / "overview" / "report.summary.md"
         if not report_path.exists():
-            raise SystemExit("guidance consistency acceptance failed: report.json missing")
+            raise SystemExit("guidance consistency acceptance failed: overview/report.json missing")
         if not summary_md_path.exists():
             raise SystemExit("guidance consistency acceptance failed: report.summary.md missing")
 
@@ -169,17 +169,17 @@ def main() -> None:
 
         verification_rows = [
             row
-            for row in _read_jsonl(run_dir / "verification" / "ledger.jsonl")
+            for row in _read_jsonl(run_dir / "pipeline" / "verification" / "ledger.jsonl")
             if str(row.get("sql_key") or "") == sql_key
         ]
         acceptance_rows = [
             row
-            for row in _read_jsonl(run_dir / "acceptance" / "acceptance.results.jsonl")
+            for row in _read_jsonl(run_dir / "pipeline" / "validate" / "acceptance.results.jsonl")
             if str(row.get("sqlKey") or "") == sql_key
         ]
         patch_rows = [
             row
-            for row in _read_jsonl(run_dir / "patches" / "patch.results.jsonl")
+            for row in _read_jsonl(run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl")
             if str(row.get("sqlKey") or "") == sql_key
         ]
         verify_payload = build_verify_payload(
@@ -187,7 +187,7 @@ def main() -> None:
             run_dir,
             sql_key,
             None,
-            (run_dir / "verification" / "ledger.jsonl").exists(),
+            (run_dir / "pipeline" / "verification" / "ledger.jsonl").exists(),
             verification_rows,
             acceptance_rows,
             patch_rows,

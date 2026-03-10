@@ -167,6 +167,15 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         payload = ast.literal_eval(lines[-1])
         self.assertEqual(payload["completion_mode"], "pipeline")
 
+    def test_next_invocation_uses_lifecycle_policy_for_report_rebuild(self) -> None:
+        mod = _load_module()
+        cfg = Path("/tmp/demo_sqlopt.yml")
+        with patch.object(mod.lifecycle_policy, "status_requires_report_rebuild", return_value=True) as policy:
+            invocation = mod._next_invocation(cfg, "run_demo", {"next_action": "resume"})
+        self.assertEqual(invocation.mode, "report-rebuild")
+        self.assertIn("--to-stage report", " ".join(invocation.cli_args))
+        policy.assert_called_once_with({"next_action": "resume"})
+
     def test_follow_up_failure_reports_structured_next_mode(self) -> None:
         mod = _load_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_run_until_budget_") as td:

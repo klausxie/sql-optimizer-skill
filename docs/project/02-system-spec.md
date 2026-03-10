@@ -15,8 +15,8 @@
 
 ### 2.1 `scan`
 Current:
-1. 输出 `scan.sqlunits.jsonl`。
-2. 默认额外输出 `scan.fragments.jsonl`（内部默认开启）。
+1. 输出 `pipeline/scan/sqlunits.jsonl`。
+2. 默认额外输出 `pipeline/scan/fragments.jsonl`（内部默认开启）。
 3. 对动态 MyBatis mapper statement 同时保留两种视图：
    - `templateSql`：模板视图，保留 `<foreach> / <include>` 等标签
    - `sql`：逻辑分析视图，可用于 optimize / validate
@@ -29,14 +29,14 @@ Default:
 ### 2.2 `optimize`
 Current:
 1. 输入 `SqlUnit[]`
-2. 输出 `proposals/optimization.proposals.jsonl`
+2. 输出 `pipeline/optimize/optimization.proposals.jsonl`
 3. prompt 会看到 `sql`、`templateSql`、`dynamicFeatures`
 4. optimize 只生成分析候选，不直接生成 XML patch
 
 ### 2.3 `validate`
 Current:
 1. 输入 `SqlUnit[] + OptimizationProposal[]`
-2. 输出 `acceptance.results.jsonl`
+2. 输出 `pipeline/validate/acceptance.results.jsonl`
 3. 除语义 / 性能 / 安全判断外，还会输出模板物化判定：
    - `rewriteMaterialization`
    - `templateRewriteOps`
@@ -62,7 +62,7 @@ Current template paths:
 
 ### 2.5 `report`
 Current:
-1. 输出 `report.md`、`report.summary.md`、`report.json`
+1. 输出 `overview/report.md`、`overview/report.summary.md`、`overview/report.json`
 2. 报告会聚合：
    - phase 状态
    - acceptance / patch 统计

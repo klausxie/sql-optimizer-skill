@@ -268,6 +268,20 @@ REASON_CODES = {
         description="Template replay verification missing",
         user_message="Could not verify template rewrite by replaying. Proceeding with caution.",
     ),
+    "VALIDATE_SEMANTIC_GATE_NOT_PASS": ReasonCode(
+        code="VALIDATE_SEMANTIC_GATE_NOT_PASS",
+        category="validate",
+        severity="degradable",
+        description="Semantic equivalence gate is not PASS",
+        user_message="Semantic checks are not yet conclusive. Manual review is required before delivery.",
+    ),
+    "VALIDATE_SEMANTIC_CONFIDENCE_LOW": ReasonCode(
+        code="VALIDATE_SEMANTIC_CONFIDENCE_LOW",
+        category="validate",
+        severity="degradable",
+        description="Semantic equivalence confidence is LOW",
+        user_message="Semantic confidence is low. Collect stronger evidence before delivery.",
+    ),
     "VALIDATE_EVIDENCE_VERIFIED": ReasonCode(
         code="VALIDATE_EVIDENCE_VERIFIED",
         category="validate",
@@ -324,6 +338,20 @@ REASON_CODES = {
         severity="degradable",
         description="Template rewrite is unsafe",
         user_message="The template rewrite may not be safe to apply. Manual review required.",
+    ),
+    "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS": ReasonCode(
+        code="PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+        category="patch",
+        severity="degradable",
+        description="Patch generation blocked by semantic equivalence gate",
+        user_message="The rewrite did not pass semantic gate checks, so patch generation is blocked.",
+    ),
+    "PATCH_SEMANTIC_CONFIDENCE_LOW": ReasonCode(
+        code="PATCH_SEMANTIC_CONFIDENCE_LOW",
+        category="patch",
+        severity="degradable",
+        description="Patch generation blocked by low semantic confidence",
+        user_message="Semantic confidence is low, so patch generation is blocked until stronger evidence is available.",
     ),
     # Platform errors
     "UNSUPPORTED_PLATFORM": ReasonCode(

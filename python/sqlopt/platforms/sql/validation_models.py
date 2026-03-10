@@ -34,6 +34,7 @@ class ValidationResult:
     delivery_readiness: dict[str, Any] | None = None
     decision_layers: dict[str, Any] | None = None
     llm_semantic_check: dict[str, Any] | None = None
+    semantic_equivalence: dict[str, Any] | None = None
 
     def to_contract(self) -> dict[str, Any]:
         payload = {
@@ -68,6 +69,8 @@ class ValidationResult:
             payload["decisionLayers"] = self.decision_layers
         if self.llm_semantic_check is not None:
             payload["llmSemanticCheck"] = self.llm_semantic_check
+        if self.semantic_equivalence is not None:
+            payload["semanticEquivalence"] = self.semantic_equivalence
         return payload
 
     def __getitem__(self, key: str) -> Any:

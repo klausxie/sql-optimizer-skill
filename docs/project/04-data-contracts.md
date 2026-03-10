@@ -3,7 +3,7 @@
 本文件描述当前代码已经落地的字段语义。若与 `contracts/*.schema.json` 有冲突，以 schema 为准。
 
 ## 1. `SqlUnit`
-文件：`scan.sqlunits.jsonl`
+文件：`pipeline/scan/sqlunits.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -41,7 +41,7 @@
 3. `locators.range` 用于模板级局部替换 patch，优先使用 offset。
 
 ## 1.1 `FragmentRecord`
-文件：`scan.fragments.jsonl`
+文件：`pipeline/scan/fragments.jsonl`
 
 当前默认：
 1. 在 fragment catalog 内置开关开启时生成
@@ -66,7 +66,7 @@
 3. `includeBindings` 描述片段内部直接 include 的绑定信息
 
 ## 2. `OptimizationProposal`
-文件：`proposals/optimization.proposals.jsonl`
+文件：`pipeline/optimize/optimization.proposals.jsonl`
 
 主干：
 1. `sqlKey`
@@ -92,7 +92,7 @@
    - report / 诊断摘要会把它提升为用户可见 warning
 
 ## 3. `AcceptanceResult`
-文件：`acceptance/acceptance.results.jsonl`
+文件：`pipeline/validate/acceptance.results.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -175,7 +175,7 @@
 2. `replace_fragment_body`
 
 ## 4. `PatchResult`
-文件：`patches/patch.results.jsonl`
+文件：`pipeline/patch_generate/patch.results.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -199,7 +199,7 @@
 3. `git apply --check` 仍是 applicability 的最终验证
 
 ## 5. `RunReport`
-文件：`report.json`
+文件：`overview/report.json`
 
 必填主干：
 1. `run_id`
@@ -218,5 +218,5 @@
 
 ## 6. 兼容策略
 1. 新字段只做加法，不移除原有主干字段
-2. 旧 run 缺少新增字段时，report / schema 仍应尽量兼容读取
+2. 旧 run 缺少新增字段时，不再保证兼容读取；需要按当前 canonical 布局重跑
 3. 文档写的是当前行为，不代表未来所有预留字段都会立即生效

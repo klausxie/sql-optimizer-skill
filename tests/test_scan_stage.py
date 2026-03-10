@@ -55,7 +55,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "findByList")
             self.assertIn("#{item.id}", units[0]["sql"])
@@ -94,7 +94,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "findIncluded")
             self.assertIn("WHERE status = #{status}", units[0]["sql"])
@@ -102,7 +102,7 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("INCLUDE", units[0]["dynamicFeatures"])
             self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere"])
             self.assertEqual(units[0]["dynamicTrace"]["includeFragments"][0]["ref"], "demo.user.BaseWhere")
-            fragment_rows = [json.loads(line) for line in (run_dir / "scan.fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertEqual(warnings, [])
 
@@ -143,7 +143,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere", "demo.user.NameFilter"])
             include_fragments = {x["ref"]: x["dynamicFeatures"] for x in units[0]["dynamicTrace"]["includeFragments"]}
@@ -165,7 +165,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(units, [])
             self.assertEqual(warnings[0]["severity"], "fatal")
             self.assertEqual(warnings[0]["reason_code"], "SCAN_UNKNOWN_EXIT")
@@ -192,7 +192,8 @@ class ScannerAdapterTest(unittest.TestCase):
                 "sqlopt.adapters.scanner_java.run_capture_text",
                 return_value=_Proc(10, "", "{\"reason_code\":\"SCAN_TYPE_ATTR_SANITIZED\",\"severity\":\"degradable\"}\n"),
             ) as run_mock:
-                out_path = run_dir / "scan.sqlunits.jsonl"
+                out_path = run_dir / "pipeline" / "scan" / "sqlunits.jsonl"
+                out_path.parent.mkdir(parents=True, exist_ok=True)
                 out_path.write_text(
                     json.dumps(
                         {
@@ -213,7 +214,7 @@ class ScannerAdapterTest(unittest.TestCase):
                     + "\n",
                     encoding="utf-8",
                 )
-                units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(units, [])
             self.assertEqual(warnings[-1]["severity"], "fatal")
             self.assertIn("strict mode", warnings[-1]["message"])
@@ -254,11 +255,12 @@ class ScannerAdapterTest(unittest.TestCase):
                     "riskFlags": [],
                     "scanWarnings": None,
                 }
+                out_path.parent.mkdir(parents=True, exist_ok=True)
                 out_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
                 return _Proc(0, "", "")
 
             with patch("sqlopt.adapters.scanner_java.run_capture_text", side_effect=_fake_run):
-                units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["sqlKey"], "demo.user.findUsers#v1")
             self.assertEqual(warnings, [])
@@ -283,7 +285,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "a")
@@ -304,7 +306,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "a")
@@ -331,7 +333,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertIn("WHERE status = #{status}", units[0]["sql"])
@@ -368,13 +370,13 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertIn("range", units[0]["locators"])
             self.assertEqual(units[0]["templateTarget"], "SQL_FRAGMENT_DEPENDENT")
             self.assertEqual(units[0]["includeBindings"][0]["properties"][0]["name"], "alias")
-            fragment_rows = [json.loads(line) for line in (run_dir / "scan.fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(fragment_rows), 1)
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertIn("IF", fragment_rows[0]["dynamicFeatures"])
@@ -417,7 +419,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 2)
@@ -467,7 +469,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 }
             ]
             with patch.object(scanner_adapter, "_run_java_scanner", return_value=(java_rows, [])):
-                units, warnings = scanner_adapter.run_scan(config, run_dir, run_dir / "manifest.jsonl")
+                units, warnings = scanner_adapter.run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
@@ -492,7 +494,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "db": {"platform": "postgresql"},
             }
 
-            units, warnings = run_scan(config, run_dir, run_dir / "manifest.jsonl")
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 2)
@@ -519,7 +521,7 @@ class ScannerAdapterTest(unittest.TestCase):
 
             fragment_rows = [
                 json.loads(line)
-                for line in (run_dir / "scan.fragments.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ]
             self.assertEqual(len(fragment_rows), 2)
@@ -531,7 +533,8 @@ class ScanStageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_fragments_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_fragments"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "scan.fragments.jsonl").write_text(
+            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": "x.xml::demo.user.BaseWhere",
@@ -577,7 +580,8 @@ class ScanStageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_displayref_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_displayref"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "scan.fragments.jsonl").write_text(
+            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": "x.xml::demo.user.BaseWhere",
@@ -624,7 +628,7 @@ class ScanStageTest(unittest.TestCase):
 
             ledger_rows = [
                 json.loads(line)
-                for line in (run_dir / "verification" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (run_dir / "pipeline" / "verification" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ]
             self.assertEqual(len(units), 1)

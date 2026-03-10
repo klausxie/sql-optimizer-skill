@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Any, Callable
 
+from ...run_paths import canonical_paths
+
 
 RuleMatcher = Callable[[dict[str, Any]], bool]
 SuggestionBuilder = Callable[[dict[str, Any]], list[dict[str, Any]]]
@@ -493,7 +495,7 @@ def load_llm_feedback(run_dir: Path) -> list[dict[str, Any]]:
     Returns:
         反馈记录列表
     """
-    feedback_file = run_dir / "ops" / "llm_feedback.jsonl"
+    feedback_file = canonical_paths(run_dir).ops_dir / "llm_feedback.jsonl"
     if not feedback_file.exists():
         return []
 

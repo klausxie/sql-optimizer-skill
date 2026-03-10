@@ -24,6 +24,8 @@ def _semantics_skipped_result(reason_code: str) -> dict[str, Any]:
         "checked": False,
         "method": "capability_gate",
         "rowCount": {"status": "SKIPPED"},
+        "keySetHash": {"status": "SKIPPED", "reason": "semantics_capability_disabled"},
+        "rowSampleHash": {"status": "SKIPPED", "reason": "semantics_capability_disabled"},
         "evidenceRefs": [],
         "reasonCodes": [reason_code],
     }

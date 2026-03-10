@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..io_utils import read_json, read_jsonl, write_json
+from ..run_paths import canonical_paths
 
 
 def apply_patch_only(run_dir: Path) -> dict:
@@ -19,7 +20,7 @@ def apply_patch_only(run_dir: Path) -> dict:
 
 
 def _resolved_config(run_dir: Path) -> dict:
-    config_path = run_dir / "config.resolved.json"
+    config_path = canonical_paths(run_dir).config_resolved_path
     if not config_path.exists():
         return {}
     try:
@@ -30,7 +31,7 @@ def _resolved_config(run_dir: Path) -> dict:
 
 
 def _collect_patch_files(run_dir: Path) -> list[Path]:
-    rows = read_jsonl(run_dir / "patches" / "patch.results.jsonl")
+    rows = read_jsonl(canonical_paths(run_dir).patches_path)
     ordered: list[Path] = []
     seen: set[str] = set()
     for row in rows:

@@ -12,6 +12,7 @@ from ..errors import StageError
 from ..io_utils import write_json
 from ..llm.provider import _extract_json_events, _opencode_env
 from ..platforms.dispatch import check_db_connectivity
+from ..run_paths import canonical_paths
 from ..subprocess_utils import run_capture_text
 from ..utils import truncate_string
 from .preflight_strategy import DbCheckPolicy, LlmCheckPolicy, ScannerCheckPolicy, build_preflight_policy
@@ -234,7 +235,7 @@ def execute(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
         "ok": ok,
         "checks": checks,
     }
-    write_json(run_dir / "ops" / "preflight.json", result)
+    write_json(canonical_paths(run_dir).preflight_path, result)
     if not ok:
         failed = [row for row in checks if not row.get("ok")]
         details = []

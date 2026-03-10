@@ -36,7 +36,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         return ContractValidator(ROOT)
 
     def _ledger_rows(self, run_dir: Path) -> list[dict]:
-        ledger = run_dir / "verification" / "ledger.jsonl"
+        ledger = run_dir / "pipeline" / "verification" / "ledger.jsonl"
         return [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def test_scan_stage_writes_verification_record(self) -> None:
@@ -133,7 +133,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                         config={"llm": {"enabled": True, "provider": "opencode_run"}, "project": {}},
                     )
 
-            proposal_row = json.loads((run_dir / "proposals" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            proposal_row = json.loads((run_dir / "pipeline" / "optimize" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
             trace_ref = (proposal_row.get("llmTraceRefs") or [None])[0]
             self.assertTrue(trace_ref)
             trace_path = run_dir / str(trace_ref)
@@ -159,7 +159,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
                 optimize.execute_one(sql_unit, run_dir, self._validator(), config={"llm": {"enabled": True, "provider": "opencode_run"}, "project": {}})
 
-            proposal_row = json.loads((run_dir / "proposals" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            proposal_row = json.loads((run_dir / "pipeline" / "optimize" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
             trace_ref = (proposal_row.get("llmTraceRefs") or [None])[0]
             self.assertTrue(trace_ref)
             trace_path = run_dir / str(trace_ref)
@@ -195,7 +195,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
     def test_patch_stage_writes_verification_record(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_patch_") as td:
             run_dir = Path(td)
-            (run_dir / "acceptance").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
             acceptance = {
                 "sqlKey": "demo.user.listUsers#v1",
                 "status": "FAIL",
@@ -203,7 +203,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 "perfComparison": {"checked": True, "reasonCodes": []},
                 "securityChecks": {"dollar_substitution_removed": True},
             }
-            (run_dir / "acceptance" / "acceptance.results.jsonl").write_text(
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from ..config import load_config
 from ..contracts import ContractValidator
 from ..manifest import log_event
+from ..run_paths import canonical_paths
 from ..stages import apply as apply_stage
 from . import run_index, workflow_engine
+from .lifecycle_policy import LifecycleOutcome
+from . import lifecycle_policy
 from .requests import AdvanceStepRequest, RunStatusRequest
 from .run_repository import RunRepository
 
@@ -22,7 +25,7 @@ def start_run(config_path: Path, to_stage: str, run_id: str | None, *, repo_root
     if not run_dir.exists():
         repository.initialize(config, resolved_run_id)
         repository.write_resolved_config(config)
-        log_event(run_dir / "manifest.jsonl", "initialize", "done", {"run_id": resolved_run_id})
+        log_event(canonical_paths(run_dir).manifest_path, "initialize", "done", {"run_id": resolved_run_id})
     run_index.remember_run(resolved_run_id, run_dir, config_path, runs_root)
     repository.set_meta_status("RUNNING")
 
@@ -45,7 +48,8 @@ def start_run(config_path: Path, to_stage: str, run_id: str | None, *, repo_root
 
 def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
-    config = load_config(run_dir / "config.resolved.json")
+    paths = canonical_paths(run_dir)
+    config = load_config(paths.config_resolved_path)
     repository = RunRepository(run_dir)
     plan = repository.get_plan()
     validator = ContractValidator(repo_root)
@@ -62,11 +66,12 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
 
 def get_status(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
+    paths = canonical_paths(run_dir)
     repository = RunRepository(run_dir)
     state = repository.load_state()
     plan = repository.get_plan()
     meta = repository.load_meta()
-    config = load_config(run_dir / "config.resolved.json")
+    config = load_config(paths.config_resolved_path)
     return workflow_engine.build_status_snapshot(
         RunStatusRequest(
             run_id=run_id,
@@ -82,3 +87,32 @@ def apply_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
     state = apply_stage.apply_from_config(run_dir)
     return {"run_id": run_id, "apply": state}
+
+
+def advance_run_until_complete(
+    run_id: str,
+    initial_result: dict[str, Any],
+    *,
+    step_fn: Callable[[], dict[str, Any]],
+    max_steps: int,
+    max_seconds: int,
+) -> LifecycleOutcome:
+    # Keep run_id in signature so call sites stay explicit about lifecycle ownership.
+    return lifecycle_policy.advance_until_complete(
+        initial_result,
+        step_fn=step_fn,
+        max_steps=max_steps,
+        max_seconds=max_seconds,
+    )
+
+
+def build_progress_payload(run_id: str, outcome: LifecycleOutcome) -> dict[str, Any]:
+    return lifecycle_policy.build_progress_payload(run_id, outcome)
+
+
+def build_interrupt_payload(run_id: str, *, next_action: str | None = None) -> dict[str, Any]:
+    return lifecycle_policy.build_interrupt_payload(run_id, next_action=next_action)
+
+
+def status_requires_report_rebuild(status_snapshot: dict[str, Any]) -> bool:
+    return lifecycle_policy.status_requires_report_rebuild(status_snapshot)

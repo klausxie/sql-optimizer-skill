@@ -26,7 +26,7 @@ class VerificationWriterTest(unittest.TestCase):
                 status="PARTIAL",
                 reason_code="VALIDATE_DB_UNREACHABLE",
                 reason_message="validate used a degraded DB-unreachable fallback",
-                evidence_refs=["runs/run_demo/acceptance/acceptance.results.jsonl"],
+                evidence_refs=["runs/run_demo/pipeline/validate/acceptance.results.jsonl"],
                 inputs={"db_reachable": False},
                 checks=[VerificationCheck("perf_checked_or_explained", True, "warn")],
                 verdict={"status": "PASS"},
@@ -36,8 +36,8 @@ class VerificationWriterTest(unittest.TestCase):
             payload = append_verification_record(run_dir, validator, record)
             summary = summarize_records("run_demo", [payload], total_sql=1)
             summary_payload = write_verification_summary(run_dir, validator, summary)
-            ledger_path = run_dir / "verification" / "ledger.jsonl"
-            summary_path = run_dir / "verification" / "summary.json"
+            ledger_path = run_dir / "pipeline" / "verification" / "ledger.jsonl"
+            summary_path = run_dir / "pipeline" / "verification" / "summary.json"
             self.assertTrue(ledger_path.exists())
             self.assertTrue(summary_path.exists())
             ledger_rows = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines() if line.strip()]

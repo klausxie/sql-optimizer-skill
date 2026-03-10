@@ -30,6 +30,8 @@ PHASE_CLASSIFICATION = {
         "VALIDATE_PERF_NOT_IMPROVED": "degradable",
         "VALIDATE_PERF_NOT_IMPROVED_WARN": "degradable",
         "VALIDATE_SEMANTIC_ERROR": "degradable",
+        "VALIDATE_SEMANTIC_GATE_NOT_PASS": "degradable",
+        "VALIDATE_SEMANTIC_CONFIDENCE_LOW": "degradable",
         "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION": "degradable",
         "VALIDATE_EQUIVALENCE_MISMATCH": "fatal",
         "VALIDATE_TIMEOUT": "retryable",
@@ -37,6 +39,8 @@ PHASE_CLASSIFICATION = {
     "patch_generate": {
         "PATCH_CONFLICT_NO_CLEAR_WINNER": "degradable",
         "PATCH_LOCATOR_AMBIGUOUS": "degradable",
+        "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS": "degradable",
+        "PATCH_SEMANTIC_CONFIDENCE_LOW": "degradable",
         "PATCH_BLOCKED_BY_SEMANTIC_RISK": "fatal",
         "PATCH_GENERATION_ERROR": "retryable",
     },

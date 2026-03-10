@@ -12,6 +12,7 @@ from ..llm.provider import generate_llm_candidates
 from ..llm.retry_context import build_retry_context, should_retry, collect_validation_errors
 from ..manifest import log_event
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
+from ..run_paths import canonical_paths
 from ..utils import statement_key, is_sql_syntax_error
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
@@ -180,6 +181,7 @@ def _collect_validation_errors_for_feedback(val_results: list[Any]) -> list[dict
 
 
 def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
+    paths = canonical_paths(run_dir)
     llm_cfg = dict(config.get("llm", {}) or {})
     project_root = (config.get("project", {}) or {}).get("root_path")
     if isinstance(project_root, str) and project_root.strip():
@@ -187,7 +189,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 
     proposal = generate_proposal(sql_unit, config=config)
 
-    llm_trace_ref = f"traces/{sql_unit['sqlKey']}.optimize.llm.json"
+    llm_trace_ref = str(paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)).replace("\\", "/")
 
     # 判断是否需要跳过 LLM 生成
     if "${" in str(sql_unit.get("sql", "")):
@@ -230,7 +232,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 
     # 保存 proposal
     validator.validate("optimization_proposal", proposal)
-    append_jsonl(run_dir / "proposals" / "optimization.proposals.jsonl", proposal)
+    append_jsonl(paths.proposals_path, proposal)
 
     # 保存 trace
     if proposal.get("llmTraceRefs"):
@@ -247,7 +249,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     # 构建验证记录
     _append_verification(run_dir, validator, sql_unit["sqlKey"], proposal, trace, llm_feedback_enabled, validation_errors_for_feedback)
 
-    log_event(run_dir / "manifest.jsonl", "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
+    log_event(paths.manifest_path, "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
     return proposal
 
 
@@ -330,7 +332,7 @@ def _append_verification(
             status=verification_status,
             reason_code=verification_reason_code,
             reason_message=verification_reason_message,
-            evidence_refs=[str(run_dir / "proposals" / "optimization.proposals.jsonl"), *[str(run_dir / ref) for ref in llm_trace_refs]],
+            evidence_refs=[str(canonical_paths(run_dir).proposals_path), *[str(run_dir / ref) for ref in llm_trace_refs]],
             inputs={
                 "executor": str(trace.get("executor") or ("llm" if llm_candidate_count else "heuristic")),
                 "llm_candidate_count": llm_candidate_count,

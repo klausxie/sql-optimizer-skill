@@ -1,50 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .constants import CONTRACT_VERSION, SKILL_VERSION
-from .io_utils import append_jsonl, ensure_dir, read_json, write_json
+from .io_utils import append_jsonl, read_json, write_json
+from .run_paths import RunPaths, canonical_paths
 
 PHASES = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
 
 
-@dataclass
-class RunPaths:
-    run_dir: Path
-    supervisor_dir: Path
-    manifest_path: Path
-    scan_path: Path
-    proposals_path: Path
-    acceptance_path: Path
-    patches_path: Path
-    report_json_path: Path
-
-
 def get_run_paths(run_dir: Path) -> RunPaths:
-    return RunPaths(
-        run_dir=run_dir,
-        supervisor_dir=run_dir / "supervisor",
-        manifest_path=run_dir / "manifest.jsonl",
-        scan_path=run_dir / "scan.sqlunits.jsonl",
-        proposals_path=run_dir / "proposals" / "optimization.proposals.jsonl",
-        acceptance_path=run_dir / "acceptance" / "acceptance.results.jsonl",
-        patches_path=run_dir / "patches" / "patch.results.jsonl",
-        report_json_path=run_dir / "report.json",
-    )
+    return canonical_paths(run_dir)
 
 
 def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
     p = get_run_paths(run_dir)
-    ensure_dir(p.run_dir)
-    ensure_dir(p.supervisor_dir)
-    ensure_dir(p.run_dir / "supervisor" / "results")
-    ensure_dir(p.run_dir / "proposals")
-    ensure_dir(p.run_dir / "acceptance")
-    ensure_dir(p.run_dir / "patches")
-    ensure_dir(p.run_dir / "ops")
+    p.ensure_layout()
 
     write_json(
         p.supervisor_dir / "meta.json",
@@ -73,27 +46,27 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
 
 
 def load_state(run_dir: Path) -> dict[str, Any]:
-    return read_json(run_dir / "supervisor" / "state.json")
+    return read_json(get_run_paths(run_dir).state_path)
 
 
 def save_state(run_dir: Path, state: dict[str, Any]) -> None:
-    write_json(run_dir / "supervisor" / "state.json", state)
+    write_json(get_run_paths(run_dir).state_path, state)
 
 
 def set_plan(run_dir: Path, plan: dict[str, Any]) -> None:
-    write_json(run_dir / "supervisor" / "plan.json", plan)
+    write_json(get_run_paths(run_dir).plan_path, plan)
 
 
 def get_plan(run_dir: Path) -> dict[str, Any]:
-    return read_json(run_dir / "supervisor" / "plan.json")
+    return read_json(get_run_paths(run_dir).plan_path)
 
 
 def load_meta(run_dir: Path) -> dict[str, Any]:
-    return read_json(run_dir / "supervisor" / "meta.json")
+    return read_json(get_run_paths(run_dir).meta_path)
 
 
 def save_meta(run_dir: Path, meta: dict[str, Any]) -> None:
-    write_json(run_dir / "supervisor" / "meta.json", meta)
+    write_json(get_run_paths(run_dir).meta_path, meta)
 
 
 def set_meta_status(run_dir: Path, status: str) -> None:
@@ -114,7 +87,7 @@ def append_step_result(
     detail: dict[str, Any] | None = None,
 ) -> None:
     append_jsonl(
-        run_dir / "supervisor" / "results" / f"{phase}.jsonl",
+        get_run_paths(run_dir).supervisor_result_path(phase),
         {
             "ts": datetime.now(timezone.utc).isoformat(),
             "phase": phase,

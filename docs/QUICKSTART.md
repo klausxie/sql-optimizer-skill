@@ -70,17 +70,17 @@ sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 
 ```bash
 sqlopt-cli status --run-id <run-id>
-cat runs/<run-id>/report.summary.md
-cat runs/<run-id>/report.md
+cat runs/<run-id>/overview/report.summary.md
+cat runs/<run-id>/overview/report.md
 sqlopt-cli apply --run-id <run-id>
 ```
 
 重点产物：
-- `runs/<run-id>/supervisor/state.json`
-- `runs/<run-id>/report.json`
-- `runs/<run-id>/report.summary.md`（摘要）
-- `runs/<run-id>/report.md`（详细版）
-- `runs/<run-id>/patches/patch.results.jsonl`
+- `runs/<run-id>/pipeline/supervisor/state.json`
+- `runs/<run-id>/overview/report.json`
+- `runs/<run-id>/overview/report.summary.md`（摘要）
+- `runs/<run-id>/overview/report.md`（详细版）
+- `runs/<run-id>/pipeline/patch_generate/patch.results.jsonl`
 
 ## 6. 常见分支
 

@@ -72,17 +72,17 @@ class WorkflowSupervisorTest(unittest.TestCase):
                 run_cli("resume", "--run-id", run_id)
 
         run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertTrue((run_dir / "report.json").exists())
-        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        self.assertTrue((run_dir / "overview" / "report.json").exists())
+        report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
         self.assertEqual(report["stats"]["pipeline_coverage"]["report"], "DONE")
-        meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
+        meta = json.loads((run_dir / "pipeline" / "supervisor" / "meta.json").read_text(encoding="utf-8"))
         self.assertEqual(meta.get("status"), "COMPLETED")
-        self.assertTrue((run_dir / "supervisor" / "results" / "scan.jsonl").exists())
-        self.assertTrue((run_dir / "supervisor" / "results" / "preflight.jsonl").exists())
-        self.assertTrue((run_dir / "supervisor" / "results" / "optimize.jsonl").exists())
-        self.assertTrue((run_dir / "supervisor" / "results" / "validate.jsonl").exists())
-        self.assertTrue((run_dir / "supervisor" / "results" / "patch_generate.jsonl").exists())
-        self.assertTrue((run_dir / "supervisor" / "results" / "report.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "scan.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "preflight.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "optimize.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "validate.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "patch_generate.jsonl").exists())
+        self.assertTrue((run_dir / "pipeline" / "supervisor" / "results" / "report.jsonl").exists())
 
     def test_optimize_stage_still_generates_report_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
@@ -96,10 +96,10 @@ class WorkflowSupervisorTest(unittest.TestCase):
                 run_cli("resume", "--run-id", run_id)
 
         run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertTrue((run_dir / "report.json").exists())
-        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        self.assertTrue((run_dir / "overview" / "report.json").exists())
+        report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
         self.assertEqual(report["stats"]["pipeline_coverage"]["report"], "DONE")
-        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
         self.assertEqual(state["phase_status"]["optimize"], "DONE")
         self.assertEqual(state["phase_status"]["validate"], "SKIPPED")
         self.assertEqual(state["phase_status"]["patch_generate"], "SKIPPED")
@@ -117,10 +117,10 @@ class WorkflowSupervisorTest(unittest.TestCase):
                 run_cli("resume", "--run-id", run_id)
 
         run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertFalse((run_dir / "report.json").exists())
-        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        self.assertFalse((run_dir / "overview" / "report.json").exists())
+        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
         self.assertEqual(state["phase_status"]["report"], "SKIPPED")
-        meta = json.loads((run_dir / "supervisor" / "meta.json").read_text(encoding="utf-8"))
+        meta = json.loads((run_dir / "pipeline" / "supervisor" / "meta.json").read_text(encoding="utf-8"))
         self.assertEqual(meta.get("status"), "COMPLETED")
 
     def test_explicit_report_rebuild_does_not_append_duplicate_done_result(self) -> None:
@@ -135,13 +135,13 @@ class WorkflowSupervisorTest(unittest.TestCase):
                 run_cli("resume", "--run-id", run_id)
 
             run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-            report_results = run_dir / "supervisor" / "results" / "report.jsonl"
+            report_results = run_dir / "pipeline" / "supervisor" / "results" / "report.jsonl"
             before_lines = report_results.read_text(encoding="utf-8").strip().splitlines()
 
             run_cli("run", "--config", str(cfg), "--to-stage", "report", "--run-id", run_id)
 
         after_lines = report_results.read_text(encoding="utf-8").strip().splitlines()
-        state = json.loads((run_dir / "supervisor" / "state.json").read_text(encoding="utf-8"))
+        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
         self.assertEqual(len(before_lines), 1)
         self.assertEqual(len(after_lines), 1)
         self.assertFalse(state.get("report_rebuild_required", False))

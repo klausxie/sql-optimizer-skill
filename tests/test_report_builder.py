@@ -35,6 +35,7 @@ class ReportBuilderTest(unittest.TestCase):
                     "status": "NEED_MORE_PARAMS",
                     "feedback": {"reason_code": "VALIDATE_PARAM_INSUFFICIENT"},
                     "perfComparison": {"reasonCodes": ["VALIDATE_DB_UNREACHABLE"]},
+                    "semanticEquivalence": {"status": "UNCERTAIN", "reasons": ["SEMANTIC_ROW_COUNT_UNVERIFIED"]},
                     "deliveryReadiness": {"tier": "NEEDS_TEMPLATE_REWRITE"},
                     "riskFlags": [],
                 }
@@ -90,6 +91,16 @@ class ReportBuilderTest(unittest.TestCase):
 
         self.assertEqual(artifacts.report.stats["sql_units"], 1)
         self.assertEqual(artifacts.report.stats["acceptance_need_more_params"], 1)
+        self.assertEqual(artifacts.report.stats["semantic_gate_uncertain_count"], 1)
+        self.assertEqual(artifacts.report.stats["semantic_gate_pass_count"], 0)
+        self.assertEqual(artifacts.report.stats["semantic_gate_fail_count"], 0)
+        self.assertEqual(artifacts.report.stats["semantic_gate_reason_counts"]["SEMANTIC_ROW_COUNT_UNVERIFIED"], 1)
+        self.assertEqual(artifacts.report.stats["semantic_confidence_distribution"]["UNKNOWN"], 1)
+        self.assertEqual(artifacts.report.stats["semantic_evidence_level_distribution"]["UNKNOWN"], 1)
+        self.assertEqual(artifacts.report.stats["semantic_hard_conflict_top_codes"], {})
+        self.assertEqual(artifacts.report.stats["confidence_upgraded_count"], 0)
+        self.assertEqual(artifacts.report.stats["confidence_upgrade_rate"], 0.0)
+        self.assertEqual(artifacts.report.stats["confidence_upgrade_by_evidence_source"], {})
         self.assertEqual(artifacts.report.stats["preflight_failure_count"], 1)
         self.assertEqual(artifacts.report.stats["pipeline_coverage"]["report"], "DONE")
         self.assertEqual(len(artifacts.failures), 2)
@@ -102,14 +113,42 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertIn("top_actionable_sql", artifacts.report.stats)
         self.assertEqual(len(artifacts.report.stats["top_actionable_sql"]), 1)
         self.assertIn("priority", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("delivery_status", artifacts.report.stats["top_actionable_sql"][0])
         self.assertEqual(artifacts.report.stats["top_actionable_sql"][0]["delivery_tier"], "READY_TO_APPLY")
         self.assertIn("summary", artifacts.report.stats["top_actionable_sql"][0])
         self.assertIn("why_now", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("blocker_primary_code", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("evidence_availability", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("semantic_gate_status", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("semantic_confidence_upgraded", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("semantic_unupgraded_reason", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertIn("semantic_blocked_reason", artifacts.report.stats["top_actionable_sql"][0])
+        self.assertGreaterEqual(len(artifacts.diagnostics_sql_outcomes), 1)
+        self.assertGreaterEqual(len(artifacts.diagnostics_sql_artifacts), 1)
+        sql_artifact = artifacts.diagnostics_sql_artifacts[0]
+        self.assertEqual(sql_artifact["artifact_refs"]["report"], "overview/report.json")
+        self.assertEqual(sql_artifact["artifact_refs"]["proposals"], "pipeline/optimize/optimization.proposals.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["acceptance"], "pipeline/validate/acceptance.results.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["patches"], "pipeline/patch_generate/patch.results.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["verification"], "pipeline/verification/ledger.jsonl")
+        self.assertIn("top_blockers", artifacts.diagnostics_blockers_summary)
+        self.assertIn("authoritative", artifacts.run_index)
+        self.assertIn("integrity", artifacts.run_index)
+        self.assertIn("status", artifacts.run_index["integrity"])
+        self.assertIn("warning_codes", artifacts.run_index["integrity"])
+        self.assertTrue(artifacts.run_index["integrity"]["sql_key_alignment_ok"])
+        self.assertEqual(artifacts.run_index["groups"]["sql"]["catalog"], "sql/catalog.jsonl")
+        self.assertIn("pipeline/scan/sqlunits.jsonl", artifacts.run_index["groups"]["pipeline"])
+        self.assertIn("pipeline/optimize/optimization.proposals.jsonl", artifacts.run_index["groups"]["pipeline"])
         self.assertEqual(artifacts.report.evidence_confidence, "MEDIUM")
         self.assertIsNone(artifacts.report.validation_warnings)
         self.assertEqual(artifacts.verification_summary["coverage_by_phase"]["validate"]["ratio"], 1.0)
         self.assertEqual(artifacts.topology.runtime_policy["stage_timeout_ms"]["report"], 300)
-        self.assertEqual(artifacts.health.report_json, str(Path(td) / "report.json"))
+        self.assertEqual(artifacts.health.report_json, str(Path(td) / "overview" / "report.json"))
+        self.assertEqual(artifacts.sql_rows[0]["semantic_gate_status"], "UNCERTAIN")
+        self.assertIn("semantic_confidence_upgraded", artifacts.sql_rows[0])
+        self.assertIn("semantic_unupgraded_reason", artifacts.sql_rows[0])
+        self.assertIn("semantic_blocked_reason", artifacts.sql_rows[0])
 
     def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
         inputs = ReportInputs(
@@ -229,6 +268,48 @@ class ReportBuilderTest(unittest.TestCase):
 
         self.assertEqual(artifacts.next_actions[0]["action_id"], "refactor-mapper")
         self.assertIn("模板", artifacts.next_actions[0]["reason"])
+
+    def test_run_index_integrity_warns_when_validate_done_without_acceptance_ref(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.findUsers#v1"}],
+            proposals=[
+                {
+                    "sqlKey": "demo.user.findUsers#v1",
+                    "issues": [],
+                    "dbEvidenceSummary": {},
+                    "planSummary": {},
+                    "suggestions": [],
+                    "verdict": "NOOP",
+                    "actionability": {"score": 10, "tier": "LOW", "autoPatchLikelihood": "LOW", "reasons": [], "blockedBy": []},
+                }
+            ],
+            acceptance=[],
+            patches=[],
+            state=ReportStateSnapshot(
+                phase_status={"optimize": "DONE", "validate": "DONE", "patch_generate": "DONE", "report": "DONE"},
+                attempts_by_phase={"report": 1},
+            ),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
+                "stage_retry_max": {"scan": 1, "report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+        with tempfile.TemporaryDirectory(prefix="report_builder_index_warn_") as td:
+            artifacts = build_report_artifacts("run_demo_warn", "analyze", config, Path(td), inputs)
+
+        integrity = artifacts.run_index["integrity"]
+        self.assertEqual(integrity["status"], "WARN")
+        self.assertIn("MISSING_ACCEPTANCE_REF", integrity["warning_codes"])
+        self.assertIn("MISSING_PATCH_REF", integrity["warning_codes"])
+        self.assertIn("MISSING_VERIFICATION_REF", integrity["warning_codes"])
+        self.assertGreaterEqual(len(integrity["sql_ref_issues"]), 1)
 
     def test_action_plan_prefers_decision_layers_degraded_db_recheck(self) -> None:
         inputs = ReportInputs(

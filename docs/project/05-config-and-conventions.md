@@ -82,18 +82,30 @@
 统一路径：
 1. `<project.root_path>/runs/<run-id>/`
 
-核心产物：
-1. `manifest.jsonl`
-2. `scan.sqlunits.jsonl`
-3. `scan.fragments.jsonl`
-4. `proposals/optimization.proposals.jsonl`
-5. `acceptance/acceptance.results.jsonl`
-6. `patches/patch.results.jsonl`
-7. `report.md`
-8. `report.summary.md`
-9. `report.json`
-10. `ops/health.json`
-11. `ops/topology.json`
+分层主路径（canonical）：
+1. `run.index.json`（目录索引）
+2. `overview/report.json`
+3. `overview/report.md`
+4. `overview/report.summary.md`
+5. `overview/config.resolved.json`
+6. `pipeline/manifest.jsonl`
+7. `pipeline/scan/sqlunits.jsonl`
+8. `pipeline/scan/fragments.jsonl`
+9. `pipeline/optimize/optimization.proposals.jsonl`
+10. `pipeline/validate/acceptance.results.jsonl`
+11. `pipeline/patch_generate/patch.results.jsonl`
+12. `pipeline/supervisor/*`
+13. `pipeline/ops/*`
+14. `pipeline/verification/*`
+15. `sql/catalog.jsonl`
+16. `sql/<sql-key>/index.json`
+17. `diagnostics/sql_outcomes.jsonl`
+18. `diagnostics/sql_artifacts.jsonl`
+19. `diagnostics/blockers.summary.json`
+
+兼容策略：
+1. 不再保留 legacy 路径写入。
+2. 运行目录读取默认仅认 canonical 路径。
 
 ## 7. 补丁与回滚约定
 1. 默认 `PATCH_ONLY`，`apply` 不会隐式修改源码

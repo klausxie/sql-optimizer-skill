@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sqlopt.application import run_service
+from sqlopt.application.lifecycle_policy import LifecycleOutcome
 from sqlopt.application.requests import AdvanceStepRequest, RunStatusRequest
 
 
@@ -158,6 +159,58 @@ class RunServiceTest(unittest.TestCase):
 
         self.assertEqual(result, {"run_id": "run_apply", "apply": {"applied": False}})
         apply_mock.assert_called_once_with(run_dir)
+
+    def test_advance_run_until_complete_uses_lifecycle_policy(self) -> None:
+        expected = LifecycleOutcome(
+            result={"complete": False, "phase": "scan"},
+            steps_executed=1,
+            reason="step_budget_exhausted",
+            complete=False,
+            retryable=True,
+        )
+        with patch("sqlopt.application.run_service.lifecycle_policy.advance_until_complete", return_value=expected) as advance:
+            result = run_service.advance_run_until_complete(
+                "run_demo",
+                {"complete": False, "phase": "scan"},
+                step_fn=lambda: {"complete": True, "phase": "report"},
+                max_steps=1,
+                max_seconds=0,
+            )
+
+        self.assertEqual(result, expected)
+        advance.assert_called_once()
+
+    def test_build_progress_and_interrupt_payload_delegate_to_lifecycle_policy(self) -> None:
+        outcome = LifecycleOutcome(
+            result={"complete": True, "phase": "report"},
+            steps_executed=2,
+            reason="completed",
+            complete=True,
+            retryable=False,
+        )
+        with patch(
+            "sqlopt.application.run_service.lifecycle_policy.build_progress_payload",
+            return_value={"run_id": "run_done", "complete": True},
+        ) as build_progress:
+            payload = run_service.build_progress_payload("run_done", outcome)
+        self.assertEqual(payload, {"run_id": "run_done", "complete": True})
+        build_progress.assert_called_once_with("run_done", outcome)
+
+        with patch(
+            "sqlopt.application.run_service.lifecycle_policy.build_interrupt_payload",
+            return_value={"run_id": "run_done", "interrupted": True, "retryable": True},
+        ) as build_interrupt:
+            interrupt_payload = run_service.build_interrupt_payload("run_done", next_action="sqlopt-cli resume --run-id run_done")
+        self.assertTrue(interrupt_payload["interrupted"])
+        build_interrupt.assert_called_once_with("run_done", next_action="sqlopt-cli resume --run-id run_done")
+
+    def test_status_requires_report_rebuild_delegates_to_lifecycle_policy(self) -> None:
+        with patch(
+            "sqlopt.application.run_service.lifecycle_policy.status_requires_report_rebuild",
+            return_value=True,
+        ) as requires:
+            self.assertTrue(run_service.status_requires_report_rebuild({"next_action": "report-rebuild"}))
+        requires.assert_called_once_with({"next_action": "report-rebuild"})
 
 
 if __name__ == "__main__":

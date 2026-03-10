@@ -5,15 +5,16 @@ from typing import Any
 
 from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl, write_json
+from ..run_paths import canonical_paths
 from .models import VerificationRecord, VerificationSummary
 
 
 def verification_ledger_path(run_dir: Path) -> Path:
-    return run_dir / "verification" / "ledger.jsonl"
+    return canonical_paths(run_dir).verification_ledger_path
 
 
 def verification_summary_path(run_dir: Path) -> Path:
-    return run_dir / "verification" / "summary.json"
+    return canonical_paths(run_dir).verification_summary_path
 
 
 def append_verification_record(run_dir: Path, validator: ContractValidator, record: VerificationRecord) -> dict[str, Any]:

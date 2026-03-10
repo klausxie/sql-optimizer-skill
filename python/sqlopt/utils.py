@@ -20,6 +20,13 @@ def statement_key(sql_key: str) -> str:
     return sql_key.split("#", 1)[0]
 
 
+def sql_key_path_component(sql_key: str) -> str:
+    """将 sql_key 规范化为可用于路径段的稳定字符串。"""
+    normalized = "".join(ch if ch.isalnum() else "_" for ch in str(sql_key or ""))
+    compact = "_".join(part for part in normalized.split("_") if part)
+    return compact or "unknown_sql"
+
+
 def is_sql_syntax_error(message: str | None) -> bool:
     """检查错误消息是否为 SQL 语法错误。
 

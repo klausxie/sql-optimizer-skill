@@ -21,7 +21,13 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
 
         def fake_semantics(_cfg, _orig, _rewritten, _dir):
-            return {"checked": True, "method": "sql_semantic_compare_v1", "rowCount": {"status": "MATCH"}, "evidenceRefs": []}
+            return {
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            }
 
         def fake_plan(_cfg, _orig, rewritten, _dir):
             if rewritten == "SELECT id FROM users":
@@ -60,6 +66,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("tier"), "READY")
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "PASS")
         self.assertGreaterEqual(len(result.get("candidateEvaluations") or []), 2)
+        self.assertEqual((result.get("equivalence") or {}).get("keySetHash", {}).get("status"), "MATCH")
 
     def test_prefers_more_patchable_candidate_before_best_cost(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
