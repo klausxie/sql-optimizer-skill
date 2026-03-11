@@ -20,6 +20,7 @@
 - 系统规格：[`project/02-system-spec.md`](project/02-system-spec.md)
 - 数据契约：[`project/04-data-contracts.md`](project/04-data-contracts.md)
 - 产物治理：[`project/08-artifact-governance.md`](project/08-artifact-governance.md)
+- SQL 补丁能力架构：[`project/10-sql-patchability-architecture.md`](project/10-sql-patchability-architecture.md)
 
 ## 测试与验收
 

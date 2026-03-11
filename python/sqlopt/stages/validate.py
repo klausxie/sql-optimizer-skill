@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..contracts import ContractValidator
-from ..io_utils import append_jsonl, read_jsonl
+from ..io_utils import append_jsonl, read_jsonl, write_json
 from ..manifest import log_event
 from ..platforms.sql.validator_sql import validate_proposal
 from ..run_paths import canonical_paths
@@ -30,6 +30,17 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     validator.validate("acceptance_result", payload)
     acceptance_path = paths.acceptance_path
     append_jsonl(acceptance_path, payload)
+    sql_artifact_dir = paths.sql_artifact_dir(sql_unit["sqlKey"])
+    if result.rewrite_facts is not None:
+        write_json(sql_artifact_dir / "rewrite_facts.json", result.rewrite_facts)
+    if result.patchability is not None:
+        write_json(sql_artifact_dir / "patchability.assessment.json", result.patchability)
+    if result.patch_strategy_candidates is not None:
+        write_json(sql_artifact_dir / "patch.strategy.plan.json", result.patch_strategy_candidates)
+    if result.canonicalization_assessment is not None:
+        write_json(sql_artifact_dir / "canonicalization.assessment.json", result.canonicalization_assessment)
+    if result.candidate_selection_trace is not None:
+        write_json(sql_artifact_dir / "candidate.selection.trace.json", result.candidate_selection_trace)
     sql_key = str(payload.get("sqlKey") or sql_unit["sqlKey"])
     perf = dict(payload.get("perfComparison") or {})
     equivalence = dict(payload.get("equivalence") or {})

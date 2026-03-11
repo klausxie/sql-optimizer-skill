@@ -17,6 +17,23 @@ def _extract_select_list(sql: str) -> str | None:
     return _normalize_sql(match.group(1))
 
 
+def _normalize_projection_alias(expr: str) -> str:
+    value = str(expr or "").strip().lower()
+    # Remove trailing alias styles: "count(*) as c" / "count(*) c"
+    value = re.sub(r"\s+as\s+[a-z_][a-z0-9_]*$", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\s+[a-z_][a-z0-9_]*$", "", value, flags=re.IGNORECASE)
+    return _normalize_sql(value)
+
+
+def _is_count_star_one_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    normalized_before = _normalize_projection_alias(before)
+    normalized_after = _normalize_projection_alias(after)
+    pair = {normalized_before, normalized_after}
+    return pair == {"count(1)", "count(*)"}
+
+
 def _extract_where_clause(sql: str) -> str | None:
     match = re.search(
         r"\bwhere\b(.*?)(\border\s+by\b|\blimit\b|\boffset\b|\bfetch\b|$)",
@@ -186,6 +203,7 @@ def build_semantic_equivalence(
 
     projection_before = _extract_select_list(original_sql)
     projection_after = _extract_select_list(rewritten_sql)
+    count_projection_equivalent = _is_count_star_one_equivalent(projection_before, projection_after)
     if projection_before is None or projection_after is None:
         projection_check = _build_check(
             status="UNCERTAIN",
@@ -288,6 +306,37 @@ def build_semantic_equivalence(
             status = "UNCERTAIN"
         reasons.append("SEMANTIC_FINGERPRINT_ERROR")
 
+    equivalence_override_applied = False
+    equivalence_override_rule: str | None = None
+    only_projection_uncertain = (
+        str(projection_check.get("status") or "").upper() == "UNCERTAIN"
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "projection"
+        )
+    )
+    if (
+        status == "UNCERTAIN"
+        and count_projection_equivalent
+        and only_projection_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_COUNT_STAR_ONE"
+        status = "PASS"
+        checks["projection"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_COUNT_EQUIVALENT",
+            detail="count(1) and count(*) are treated as equivalent with exact DB fingerprint evidence",
+            before=projection_before,
+            after=projection_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
     if fingerprint_status in {"MATCH", "MISMATCH", "SAMPLE_MATCH", "MISMATCH_SAMPLE"}:
         evidence_level = "DB_FINGERPRINT"
     elif row_count_status in {"MATCH", "MISMATCH"}:
@@ -362,6 +411,8 @@ def build_semantic_equivalence(
         "confidenceUpgradeApplied": confidence_upgrade_applied,
         "confidenceUpgradeReasons": confidence_upgrade_reasons,
         "confidenceUpgradeEvidenceSources": confidence_upgrade_sources,
+        "equivalenceOverrideApplied": equivalence_override_applied,
+        "equivalenceOverrideRule": equivalence_override_rule,
         "evidenceLevel": evidence_level,
         "checks": checks,
         "reasons": dedup_reasons,

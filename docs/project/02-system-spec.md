@@ -37,20 +37,34 @@ Current:
 Current:
 1. 输入 `SqlUnit[] + OptimizationProposal[]`
 2. 输出 `pipeline/validate/acceptance.results.jsonl`
-3. 除语义 / 性能 / 安全判断外，还会输出模板物化判定：
+3. 除语义 / 性能 / 安全判断外，还会输出补丁规划摘要：
+   - `patchability`
+   - `selectedPatchStrategy`
+   - `canonicalization`
+4. 仍会输出模板物化判定：
    - `rewriteMaterialization`
    - `templateRewriteOps`
-4. 片段级模板物化能力默认关闭，但判定结果仍会写出
+5. 还会输出每条 SQL 的内部诊断 artifacts：
+   - `rewrite_facts.json`
+   - `patchability.assessment.json`
+   - `patch.strategy.plan.json`
+   - `canonicalization.assessment.json`
+   - `candidate.selection.trace.json`
+6. 片段级模板物化能力默认关闭，但判定结果仍会写出
 
 Default:
 1. fragment 级模板物化由内部策略保持默认关闭
 
 ### 2.4 `patch_generate`
 Current:
-1. 优先消费 validate 已批准的模板级计划（`templateRewriteOps`）
-2. 只有当 `rewriteMaterialization.replayVerified=true` 时，才允许真正落地模板级 patch
-3. 若没有模板级计划，则回退到原有静态 SQL patch 路径
-4. 对动态模板 statement，不允许直接用扁平 SQL 覆盖 mapper XML
+1. 优先消费 validate 已规划的 `selectedPatchStrategy`
+2. 当前策略选择由内部 planner 统一产出：
+   - `SAFE_WRAPPER_COLLAPSE`
+   - `EXACT_TEMPLATE_EDIT`
+3. `templateRewriteOps` 仍是 patch_generate 的直接执行输入
+4. 只有当 `rewriteMaterialization.replayVerified=true` 时，才允许真正落地模板级 patch
+5. 若没有模板级计划，则回退到原有静态 SQL patch 路径
+6. 对动态模板 statement，不允许直接用扁平 SQL 覆盖 mapper XML
 
 Current template paths:
 1. `STATEMENT_TEMPLATE_SAFE`
@@ -67,6 +81,8 @@ Current:
    - phase 状态
    - acceptance / patch 统计
    - materialization mode / reason / grouped action 统计
+   - patch strategy 分布
+   - canonical rule 命中与采用统计
 3. 即使上游失败，也会尽量收口 report
 
 ## 3. SQL 视图约束
@@ -104,3 +120,5 @@ Current:
 1. scan 依赖 Java MyBatis 渲染，但只读取 mapper 文件；类解析失败时必须降级而不是中断整轮扫描。
 2. `<include>` 指向的 `<sql id>` 片段可能继续包含其他动态标签，且调用点可能带 `<property>` 绑定；因此系统必须同时维护模板视图、逻辑视图、递归依赖链和源码定位信息，不能只保留扁平 SQL。
 3. 模板级 patch 不能依赖扁平 SQL 直接覆盖 XML；必须先通过 deterministic materializer 生成模板替换计划，并通过 replay 校验后才允许落地。
+4. 候选选择不能直接依赖自然语言 LLM fallback；系统必须先经过 SQL 候选词法门，再进入 semantic / canonical / patchability 评估链。
+5. 候选规范化、候选 patchability、patch safety、patch strategy planning 已拆成独立内部层；后续新增规则时不应继续把判断塞回 `candidate_selection` 或 `validate` 主流程。

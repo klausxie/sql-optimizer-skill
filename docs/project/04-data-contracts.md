@@ -110,11 +110,14 @@
 6. `candidateEval`
 7. `warnings`
 8. `riskFlags`
-9. `rewriteMaterialization`
-10. `templateRewriteOps`
-11. `selectionRationale`
-12. `deliveryReadiness`
-13. `decisionLayers`
+9. `patchability`
+10. `selectedPatchStrategy`
+11. `canonicalization`
+12. `rewriteMaterialization`
+13. `templateRewriteOps`
+14. `selectionRationale`
+15. `deliveryReadiness`
+16. `decisionLayers`
 
 ### 3.0 `decisionLayers`
 当前行为：
@@ -174,6 +177,34 @@
 1. `replace_statement_body`
 2. `replace_fragment_body`
 
+### 3.3 `patchability`
+当前行为：
+1. 这是 validate 输出的补丁能力摘要，不暴露内部 capability rule 细节
+2. 当前字段：
+   - `eligible`
+   - `allowedCapabilities`
+   - `blockingReason`
+   - `blockingReasons`
+
+### 3.4 `selectedPatchStrategy`
+当前行为：
+1. 这是 validate 输出的最终策略摘要
+2. 当前字段：
+   - `strategyType`
+   - `mode`
+   - `reasonCode`
+   - `fallbackFrom`
+
+### 3.5 `canonicalization`
+当前行为：
+1. 这是 validate 输出的 canonical preference 摘要
+2. 当前字段：
+   - `preferred`
+   - `ruleId`
+   - `score`
+   - `reason`
+   - `matchedRules`
+
 ## 4. `PatchResult`
 文件：`pipeline/patch_generate/patch.results.jsonl`
 
@@ -192,6 +223,8 @@
 5. `rejectedCandidates`
 6. `applicable`
 7. `applyCheckError`
+8. `strategyType`
+9. `fallbackApplied`
 
 语义约束：
 1. 动态模板 statement 不能直接用扁平 SQL 覆盖 XML
@@ -212,6 +245,10 @@
 1. `stats.materialization_mode_counts`
 2. `stats.materialization_reason_counts`
 3. `stats.materialization_reason_group_counts`
+4. `stats.patch_strategy_counts`
+5. `stats.wrapper_collapse_recovered_count`
+6. `stats.canonical_rule_match_counts`
+7. `stats.canonical_preference_applied_count`
 
 说明：
 1. `materialization_reason_group_counts` 是将 `reasonCode` 汇总成更可执行的操作分组。
@@ -220,3 +257,18 @@
 1. 新字段只做加法，不移除原有主干字段
 2. 旧 run 缺少新增字段时，不再保证兼容读取；需要按当前 canonical 布局重跑
 3. 文档写的是当前行为，不代表未来所有预留字段都会立即生效
+
+## 7. 当前 SQL 诊断产物
+
+每个 SQL 目录下当前常见 diagnostics：
+
+1. `rewrite_facts.json`
+2. `patchability.assessment.json`
+3. `patch.strategy.plan.json`
+4. `canonicalization.assessment.json`
+5. `candidate.selection.trace.json`
+
+约束：
+
+1. 这些文件属于内部诊断产物，不承诺外部稳定 schema
+2. 它们用于解释 candidate 选择、canonicalization 命中、patchability 放行/阻断与最终 strategy 规划

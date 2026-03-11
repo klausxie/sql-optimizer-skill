@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from ..constants import CONTRACT_VERSION
+from ..platforms.sql.materialization_constants import FRAGMENT_TEMPLATE_SAFE_AUTO
 from ..run_paths import (
     REL_DIAGNOSTICS_BLOCKERS_SUMMARY,
     REL_DIAGNOSTICS_SQL_ARTIFACTS,
@@ -271,6 +272,19 @@ def build_report_artifacts(
     materialization_counts = materialization_mode_counts(inputs.acceptance)
     materialization_reason_counts_map = materialization_reason_counts(inputs.acceptance)
     materialization_reason_group_counts_map = materialization_reason_group_counts(materialization_reason_counts_map)
+    patch_strategy_counts: dict[str, int] = {}
+    canonical_rule_match_counts: dict[str, int] = {}
+    canonical_preference_applied_count = 0
+    for row in inputs.acceptance:
+        strategy_type = str(((row.get("selectedPatchStrategy") or {}).get("strategyType") or "")).strip()
+        if strategy_type:
+            patch_strategy_counts[strategy_type] = patch_strategy_counts.get(strategy_type, 0) + 1
+        canonical = dict(row.get("canonicalization") or {})
+        canonical_rule = str(canonical.get("ruleId") or "").strip()
+        if canonical_rule:
+            canonical_rule_match_counts[canonical_rule] = canonical_rule_match_counts.get(canonical_rule, 0) + 1
+        if bool(canonical.get("preferred")):
+            canonical_preference_applied_count += 1
     semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
     semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (
         summarize_semantic_gate_quality(inputs.acceptance)
@@ -288,6 +302,17 @@ def build_report_artifacts(
         and str(((row.get("semanticEquivalence") or {}).get("status") or "")).strip().upper() == "PASS"
         and str(((row.get("semanticEquivalence") or {}).get("confidenceBeforeUpgrade") or "LOW")).strip().upper() in {"LOW", "UNKNOWN"}
     )
+    semantic_false_block_recovered_count = sum(
+        1
+        for row in inputs.acceptance
+        if bool(((row.get("semanticEquivalence") or {}).get("equivalenceOverrideApplied")))
+    )
+    include_safe_materialized_count = sum(
+        1
+        for row in inputs.acceptance
+        if str(((row.get("rewriteMaterialization") or {}).get("mode") or "")).strip() == FRAGMENT_TEMPLATE_SAFE_AUTO
+    )
+    wrapper_collapse_recovered_count = patch_strategy_counts.get("SAFE_WRAPPER_COLLAPSE", 0)
     patchability_lift_rate = (
         repairable_blocked_count / blocked_sql_count
         if blocked_sql_count > 0
@@ -321,11 +346,17 @@ def build_report_artifacts(
         "materialization_mode_counts": materialization_counts,
         "materialization_reason_counts": materialization_reason_counts_map,
         "materialization_reason_group_counts": materialization_reason_group_counts_map,
+        "patch_strategy_counts": patch_strategy_counts,
+        "canonical_rule_match_counts": canonical_rule_match_counts,
+        "canonical_preference_applied_count": canonical_preference_applied_count,
         "perf_improved_count": perf_improved_count,
         "perf_compared_but_not_improved_count": perf_not_improved_count,
         "blocked_sql_count": blocked_sql_count,
         "repairable_blocked_count": repairable_blocked_count,
         "uncertain_upgrade_count": uncertain_upgrade_count,
+        "semantic_false_block_recovered_count": semantic_false_block_recovered_count,
+        "include_safe_materialized_count": include_safe_materialized_count,
+        "wrapper_collapse_recovered_count": wrapper_collapse_recovered_count,
         "patchability_lift_rate": round(patchability_lift_rate, 4),
         "db_unreachable_count": sum(
             1 for x in inputs.acceptance if "VALIDATE_DB_UNREACHABLE" in (x.get("perfComparison", {}).get("reasonCodes") or [])

@@ -16,8 +16,8 @@ from .candidate_selection import (
     evaluate_candidate_selection,
     filter_valid_candidates,
 )
+from .patch_strategy_planner import plan_patch_strategy
 from .semantic_equivalence import build_semantic_equivalence
-from .template_materializer import build_rewrite_materialization
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
 
@@ -89,21 +89,12 @@ def _build_decision_layers(
     }
 
 
-def _derive_rewrite_materialization(
-    sql_unit: dict[str, Any],
-    rewritten_sql: str,
-    fragment_catalog: dict[str, dict[str, Any]],
-    config: dict[str, Any] | None,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _patch_template_settings(config: dict[str, Any] | None) -> dict[str, bool]:
     patch_cfg = ((config or {}).get("patch", {}) if isinstance(config, dict) else {}) or {}
     template_cfg = (patch_cfg.get("template_rewrite", {}) if isinstance(patch_cfg, dict) else {}) or {}
-    enable_fragment_materialization = bool(template_cfg.get("enable_fragment_materialization", False))
-    return build_rewrite_materialization(
-        sql_unit,
-        rewritten_sql,
-        fragment_catalog or {},
-        enable_fragment_materialization=enable_fragment_materialization,
-    )
+    return {
+        "enable_fragment_materialization": bool(template_cfg.get("enable_fragment_materialization", False)),
+    }
 
 
 def validate_proposal(
@@ -174,11 +165,21 @@ def validate_proposal(
         llm_semantic_result = llm_result
         llm_semantic_warnings = llm_warnings
 
-    rewrite_materialization, template_rewrite_ops = _derive_rewrite_materialization(
-        sql_unit,
-        selection.rewritten_sql,
-        fragment_catalog or {},
-        config,
+    semantic_equivalence = build_semantic_equivalence(
+        original_sql=sql,
+        rewritten_sql=selection.rewritten_sql,
+        equivalence=selection.equivalence.to_contract(),
+    )
+    template_settings = _patch_template_settings(config)
+    rewrite_facts, patchability, selected_patch_strategy, patch_strategy_candidates, rewrite_materialization, template_rewrite_ops = (
+        plan_patch_strategy(
+            sql_unit,
+            selection.rewritten_sql,
+            fragment_catalog or {},
+            selection.equivalence.to_contract(),
+            semantic_equivalence,
+            enable_fragment_materialization=template_settings["enable_fragment_materialization"],
+        )
     )
     decision_layers = _build_decision_layers(
         status=decision.status,
@@ -195,11 +196,6 @@ def validate_proposal(
         delivery_readiness=selection.delivery_readiness,
         feedback=decision.feedback,
         rewrite_materialization=rewrite_materialization,
-    )
-    semantic_equivalence = build_semantic_equivalence(
-        original_sql=sql,
-        rewritten_sql=selection.rewritten_sql,
-        equivalence=selection.equivalence.to_contract(),
     )
     semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
     semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()
@@ -241,4 +237,11 @@ def validate_proposal(
         llm_semantic_check=llm_semantic_result or None,
         semantic_equivalence=semantic_equivalence,
         rewrite_safety_level=rewrite_safety_level,
+        patchability=patchability,
+        selected_patch_strategy=selected_patch_strategy,
+        canonicalization=selection.canonicalization,
+        rewrite_facts=rewrite_facts,
+        patch_strategy_candidates=patch_strategy_candidates,
+        canonicalization_assessment=selection.canonicalization_assessment,
+        candidate_selection_trace=selection.candidate_selection_trace,
     )

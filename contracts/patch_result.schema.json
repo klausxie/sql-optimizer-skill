@@ -21,6 +21,8 @@
     "patchability": {"type": ["object", "null"]},
     "selectionEvidence": {"type": ["object", "null"]},
     "fallbackReasonCodes": {"type": ["array", "null"], "items": {"type": "string"}},
+    "strategyType": {"type": ["string", "null"]},
+    "fallbackApplied": {"type": ["boolean", "null"]},
     "gates": {
       "type": ["object", "null"],
       "properties": {

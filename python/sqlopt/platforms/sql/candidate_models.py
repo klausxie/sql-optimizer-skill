@@ -22,6 +22,9 @@ class CandidateEvaluation:
     patchability_score: int | None = None
     patchability_tier: str | None = None
     patchability_reasons: list[str] | None = None
+    canonical_score: int | None = None
+    canonical_rule_id: str | None = None
+    canonical_reason: str | None = None
 
     def to_contract(self) -> dict[str, Any]:
         payload = {
@@ -37,6 +40,12 @@ class CandidateEvaluation:
             payload["patchabilityTier"] = self.patchability_tier
         if self.patchability_reasons is not None:
             payload["patchabilityReasons"] = list(self.patchability_reasons)
+        if self.canonical_score is not None:
+            payload["canonicalScore"] = self.canonical_score
+        if self.canonical_rule_id is not None:
+            payload["canonicalRuleId"] = self.canonical_rule_id
+        if self.canonical_reason is not None:
+            payload["canonicalReason"] = self.canonical_reason
         return payload
 
 
@@ -98,6 +107,9 @@ class CandidateSelectionResult:
     perf: PerfComparison
     selection_rationale: dict[str, Any] | None = None
     delivery_readiness: dict[str, Any] | None = None
+    canonicalization: dict[str, Any] | None = None
+    canonicalization_assessment: list[dict[str, Any]] | None = None
+    candidate_selection_trace: list[dict[str, Any]] | None = None
 
     def candidate_evaluations_to_contract(self) -> list[dict[str, Any]]:
         return [row.to_contract() for row in self.candidate_evaluations]

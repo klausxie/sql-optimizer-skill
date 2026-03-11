@@ -111,6 +111,50 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertIn("SEMANTIC_FINGERPRINT_SAMPLE_MISMATCH", result["reasons"])
         self.assertNotIn("SEMANTIC_FINGERPRINT_SAMPLE_MISMATCH", result["hardConflicts"])
 
+    def test_count_projection_known_equivalence_can_override_uncertain_to_pass(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="SELECT COUNT(1) FROM users",
+            rewritten_sql="SELECT COUNT(*) FROM users",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_KNOWN_EQUIVALENCE_COUNT_STAR_ONE")
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_COUNT_EQUIVALENT")
+        self.assertIn("SEMANTIC_KNOWN_EQUIVALENCE_COUNT_STAR_ONE", result["reasons"])
+        self.assertEqual(result["confidence"], "HIGH")
+
+    def test_count_projection_override_requires_exact_fingerprint_strength(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="SELECT COUNT(1) FROM users",
+            rewritten_sql="SELECT COUNT(*) FROM users",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+                "evidenceRefObjects": [
+                    {
+                        "source": "DB_FINGERPRINT",
+                        "fingerprint_key": "row_sample_hash",
+                        "match_strength": "PARTIAL",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(result["status"], "UNCERTAIN")
+        self.assertFalse(result["equivalenceOverrideApplied"])
+        self.assertIsNone(result["equivalenceOverrideRule"])
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_CHANGED")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,15 +24,15 @@ def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -
             "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
             "message": "template materialization did not include rewrite ops",
         }
-    if mode == "STATEMENT_TEMPLATE_SAFE":
-        op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
+    statement_op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
+    if statement_op is not None:
         range_info = ((sql_unit.get("locators") or {}) if isinstance(sql_unit.get("locators"), dict) else {}).get("range")
-        if op is None or not isinstance(range_info, dict):
+        if not isinstance(range_info, dict):
             return None, 0, {
                 "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
                 "message": "statement template rewrite op missing range locator",
             }
-        return build_range_patch(Path(str(sql_unit.get("xmlPath") or "")), range_info, str(op.get("afterTemplate") or "")) + (None,)
+        return build_range_patch(Path(str(sql_unit.get("xmlPath") or "")), range_info, str(statement_op.get("afterTemplate") or "")) + (None,)
 
     op = next((row for row in ops if str(row.get("op") or "") == "replace_fragment_body"), None)
     if op is None:

@@ -59,6 +59,7 @@ sqlopt-cli validate-config --config sqlopt.yml
 - [系统规格](docs/project/02-system-spec.md)
 - [工作流与状态机](docs/project/03-workflow-and-state-machine.md)
 - [数据契约](docs/project/04-data-contracts.md)
+- [SQL 补丁能力架构](docs/project/10-sql-patchability-architecture.md)
 
 ## 开发与验收
 

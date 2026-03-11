@@ -194,6 +194,80 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result["rewriteMaterialization"]["mode"], "STATEMENT_SQL")
         self.assertEqual(result["templateRewriteOps"], [])
 
+    def test_validate_rejects_text_fallback_candidate(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.countUser#v2",
+            "sql": "select count(1) from ( select id from users ) tmp",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [
+                {
+                    "id": "fallback:text",
+                    "rewrittenSql": "The main optimization is removing the unnecessary subquery wrapper.",
+                    "rewriteStrategy": "opencode_text_fallback",
+                }
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        with tempfile.TemporaryDirectory(prefix="validate_text_fallback_") as td:
+            result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result.get("feedback", {}).get("reason_code"), "VALIDATE_EQUIVALENCE_MISMATCH")
+        self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("tier"), "BLOCKED")
+
+    def test_prefers_canonical_count_star_when_patchability_ties(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.countUser#v2",
+            "sql": "select count(1) from ( select id from users ) tmp",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [
+                {"id": "c1", "rewrittenSql": "SELECT COUNT(1) FROM users", "rewriteStrategy": "ELIMINATE_UNNECESSARY_SUBQUERY"},
+                {"id": "c2", "rewrittenSql": "SELECT COUNT(id) FROM users", "rewriteStrategy": "USE_PRIMARY_KEY_FOR_COUNT"},
+                {"id": "c3", "rewrittenSql": "SELECT COUNT(*) FROM users", "rewriteStrategy": "STANDARD_COUNT_SYNTAX"},
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            }
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 10.0},
+                "reasonCodes": [],
+                "improved": False,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_count_star_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        self.assertEqual(result["rewrittenSql"], "SELECT COUNT(*) FROM users")
+        self.assertEqual(result.get("selectedCandidateId"), "c3")
+        self.assertEqual(result.get("canonicalization", {}).get("ruleId"), "COUNT_CANONICAL_FORM")
+        self.assertTrue(result.get("canonicalization", {}).get("preferred"))
+
 
 if __name__ == "__main__":
     unittest.main()

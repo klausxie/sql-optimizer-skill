@@ -57,6 +57,9 @@
     "repairability": {"type": ["object", "null"]},
     "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
     "rewriteSafetyLevel": {"type": ["string", "null"]},
+    "patchability": {"type": ["object", "null"]},
+    "selectedPatchStrategy": {"type": ["object", "null"]},
+    "canonicalization": {"type": ["object", "null"]},
     "semanticEquivalence": {
       "type": ["object", "null"],
       "properties": {
@@ -70,6 +73,8 @@
         "checks": {"type": ["object", "null"]},
         "reasons": {"type": ["array", "null"], "items": {"type": "string"}},
         "hardConflicts": {"type": ["array", "null"], "items": {"type": "string"}},
+        "equivalenceOverrideApplied": {"type": ["boolean", "null"]},
+        "equivalenceOverrideRule": {"type": ["string", "null"]},
         "coverage": {"type": ["object", "null"]},
         "evidence": {"type": ["object", "null"]}
       }

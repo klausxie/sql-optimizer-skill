@@ -104,6 +104,8 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["confidence_upgrade_by_evidence_source"], {})
         self.assertEqual(artifacts.report.stats["repairable_blocked_count"], 1)
         self.assertEqual(artifacts.report.stats["uncertain_upgrade_count"], 0)
+        self.assertEqual(artifacts.report.stats["semantic_false_block_recovered_count"], 0)
+        self.assertEqual(artifacts.report.stats["include_safe_materialized_count"], 0)
         self.assertEqual(artifacts.report.stats["patchability_lift_rate"], 1.0)
         self.assertEqual(artifacts.report.stats["preflight_failure_count"], 1)
         self.assertEqual(artifacts.report.stats["pipeline_coverage"]["report"], "DONE")
@@ -153,6 +155,65 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertIn("semantic_confidence_upgraded", artifacts.sql_rows[0])
         self.assertIn("semantic_unupgraded_reason", artifacts.sql_rows[0])
         self.assertIn("semantic_blocked_reason", artifacts.sql_rows[0])
+
+    def test_build_report_artifacts_counts_semantic_recovery_and_include_auto_materialization(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.countUser#v2"}],
+            proposals=[],
+            acceptance=[
+                {
+                    "sqlKey": "demo.user.countUser#v2",
+                    "status": "PASS",
+                    "equivalence": {"checked": True},
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {
+                        "status": "PASS",
+                        "confidence": "HIGH",
+                        "equivalenceOverrideApplied": True,
+                        "equivalenceOverrideRule": "SEMANTIC_KNOWN_EQUIVALENCE_COUNT_STAR_ONE",
+                    },
+                    "rewriteMaterialization": {
+                        "mode": "FRAGMENT_TEMPLATE_SAFE_AUTO",
+                        "reasonCode": "STATIC_FRAGMENT_SAFE",
+                    },
+                    "selectedPatchStrategy": {
+                        "strategyType": "SAFE_WRAPPER_COLLAPSE",
+                        "mode": "STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE",
+                    },
+                    "canonicalization": {
+                        "preferred": True,
+                        "ruleId": "COUNT_CANONICAL_FORM",
+                        "score": 27,
+                        "reason": "count(*) is preferred as canonical count form",
+                    },
+                    "riskFlags": [],
+                }
+            ],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
+                "stage_retry_max": {"scan": 1, "report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_recovery_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["semantic_false_block_recovered_count"], 1)
+        self.assertEqual(artifacts.report.stats["include_safe_materialized_count"], 1)
+        self.assertEqual(artifacts.report.stats["wrapper_collapse_recovered_count"], 1)
+        self.assertEqual(artifacts.report.stats["patch_strategy_counts"]["SAFE_WRAPPER_COLLAPSE"], 1)
+        self.assertEqual(artifacts.report.stats["canonical_rule_match_counts"]["COUNT_CANONICAL_FORM"], 1)
+        self.assertEqual(artifacts.report.stats["canonical_preference_applied_count"], 1)
 
     def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
         inputs = ReportInputs(

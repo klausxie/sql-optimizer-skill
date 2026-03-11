@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .materialization_constants import (
+    FRAGMENT_TEMPLATE_SAFE_AUTO,
     FRAGMENT_TEMPLATE_SAFE,
     REASON_ANCHOR_ALIGNMENT_FAILED,
     REASON_DYNAMIC_SUBTREE_TOUCHED,
@@ -116,6 +117,14 @@ def _fragment_template_result(target_ref: str, before_template: str, after_templ
             }
         ],
     )
+
+
+def _fragment_template_auto_result(materialization: dict[str, Any]) -> dict[str, Any]:
+    out = dict(materialization)
+    out["mode"] = FRAGMENT_TEMPLATE_SAFE_AUTO
+    out["featureFlagApplied"] = False
+    out["reasonMessage"] = "include-only static fragment auto materialized without feature flag"
+    return out
 
 
 def _materialize_statement_template(
@@ -322,6 +331,9 @@ def build_rewrite_materialization(
         if materialization is not None:
             return materialization, ops
         if not enable_fragment_materialization:
+            materialization, ops = _materialize_static_fragment(sql_unit, rewritten_sql, fragment_catalog, inferred)
+            if materialization is not None and str(materialization.get("mode") or "") == FRAGMENT_TEMPLATE_SAFE:
+                return _fragment_template_auto_result(materialization), ops
             return _unmaterializable(
                 target_type="SQL_FRAGMENT",
                 target_ref=inferred.get("targetRef"),

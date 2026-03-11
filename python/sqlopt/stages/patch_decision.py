@@ -138,6 +138,7 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
     else:
         semantic_gate_confidence = "HIGH"
     semantic_evidence_level = str(semantic_gate.get("evidenceLevel") or "STRUCTURE").strip().upper()
+    selected_patch_strategy = dict(acceptance.get("selectedPatchStrategy") or {})
     locator_stable = bool(((sql_unit.get("locators") or {}).get("statementId")))
     template_safe_path = bool(template_ops) and replay_verified is True
     structural_blockers = [reason_code] if reason_code and patch.get("applicable") is not True else []
@@ -206,6 +207,9 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
         "semanticConfidence": semantic_gate_confidence,
         "semanticEvidenceLevel": semantic_evidence_level,
     }
+    if selected_patch_strategy:
+        patch["strategyType"] = selected_patch_strategy.get("strategyType")
+        patch["fallbackApplied"] = bool(selected_patch_strategy.get("fallbackFrom"))
     return patch
 
 

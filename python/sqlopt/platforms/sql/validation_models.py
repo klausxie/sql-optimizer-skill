@@ -38,6 +38,13 @@ class ValidationResult:
     repairability: dict[str, Any] | None = None
     repair_hints: list[dict[str, Any]] | None = None
     rewrite_safety_level: str | None = None
+    patchability: dict[str, Any] | None = None
+    selected_patch_strategy: dict[str, Any] | None = None
+    canonicalization: dict[str, Any] | None = None
+    rewrite_facts: dict[str, Any] | None = None
+    patch_strategy_candidates: list[dict[str, Any]] | None = None
+    canonicalization_assessment: list[dict[str, Any]] | None = None
+    candidate_selection_trace: list[dict[str, Any]] | None = None
 
     def to_contract(self) -> dict[str, Any]:
         payload = {
@@ -80,6 +87,12 @@ class ValidationResult:
             payload["repairHints"] = self.repair_hints
         if self.rewrite_safety_level is not None:
             payload["rewriteSafetyLevel"] = self.rewrite_safety_level
+        if self.patchability is not None:
+            payload["patchability"] = self.patchability
+        if self.selected_patch_strategy is not None:
+            payload["selectedPatchStrategy"] = self.selected_patch_strategy
+        if self.canonicalization is not None:
+            payload["canonicalization"] = self.canonicalization
         return payload
 
     def __getitem__(self, key: str) -> Any:

@@ -81,7 +81,7 @@ class TemplateMaterializerTest(unittest.TestCase):
         self.assertEqual(materialization["mode"], "STATEMENT_TEMPLATE_SAFE")
         self.assertIn("&lt; 10", ops[0]["afterTemplate"])
 
-    def test_fragment_materialization_disabled_by_default(self) -> None:
+    def test_static_fragment_can_auto_materialize_when_flag_disabled(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
             "sqlKey": "demo.user.findIncluded#v1",
@@ -95,6 +95,36 @@ class TemplateMaterializerTest(unittest.TestCase):
                 "fragmentKey": target_ref,
                 "templateSql": "WHERE status = #{status}",
                 "dynamicFeatures": [],
+                "includeBindings": [],
+            }
+        }
+        materialization, ops = build_rewrite_materialization(
+            sql_unit,
+            "SELECT * FROM users WHERE status = #{status} ORDER BY created_at DESC",
+            fragment_catalog,
+            enable_fragment_materialization=False,
+        )
+        self.assertEqual(materialization["mode"], "FRAGMENT_TEMPLATE_SAFE_AUTO")
+        self.assertEqual(materialization["targetRef"], target_ref)
+        self.assertTrue(materialization["replayVerified"])
+        self.assertFalse(materialization["featureFlagApplied"])
+        self.assertEqual(ops[0]["op"], "replace_fragment_body")
+        self.assertIn("ORDER BY created_at DESC", ops[0]["afterTemplate"])
+
+    def test_dynamic_fragment_stays_disabled_when_flag_is_off(self) -> None:
+        target_ref = "/tmp/x.xml::demo.user.BaseWhere"
+        sql_unit = {
+            "sqlKey": "demo.user.findIncluded#v1",
+            "sql": "SELECT * FROM users WHERE status = #{status}",
+            "dynamicFeatures": ["INCLUDE"],
+            "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
+            "primaryFragmentTarget": target_ref,
+        }
+        fragment_catalog = {
+            target_ref: {
+                "fragmentKey": target_ref,
+                "templateSql": "WHERE <if test='status != null'>status = #{status}</if>",
+                "dynamicFeatures": ["IF"],
                 "includeBindings": [],
             }
         }

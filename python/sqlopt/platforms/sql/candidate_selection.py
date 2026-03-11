@@ -1,8 +1,10 @@
 from __future__ import annotations
-
 from pathlib import Path
+import re
 from typing import Any, Callable
 
+from .candidate_patchability import assess_candidate_patchability_model
+from .canonicalization_engine import assess_candidate_canonicalization_model
 from .candidate_models import (
     Candidate,
     CandidateEvaluation,
@@ -10,6 +12,17 @@ from .candidate_models import (
     EquivalenceCheck,
     PerfComparison,
 )
+from .candidate_selection_models import (
+    CandidateCanonicalizationAssessmentEntry,
+    CandidateSelectionRank,
+    CandidateSelectionTraceEntry,
+)
+
+_SQL_CANDIDATE_PREFIX_RE = re.compile(r"^\s*(select|with|update|delete|insert)\b", flags=re.IGNORECASE)
+
+
+def _normalize_sql_text(value: str) -> str:
+    return " ".join(str(value or "").split())
 
 
 def _numeric_cost(value: Any) -> float:
@@ -22,7 +35,9 @@ def _is_valid_candidate_sql(sql: Any) -> bool:
     if not isinstance(sql, str):
         return False
     stripped = sql.strip()
-    return bool(stripped) and "${" not in stripped
+    if not stripped or "${" in stripped:
+        return False
+    return _SQL_CANDIDATE_PREFIX_RE.match(stripped) is not None
 
 
 def _preserves_mybatis_placeholders(original_sql: str, rewritten_sql: str) -> bool:
@@ -32,39 +47,6 @@ def _preserves_mybatis_placeholders(original_sql: str, rewritten_sql: str) -> bo
     if "#{" in rewritten:
         return True
     return "?" not in rewritten
-
-
-def _estimate_patchability(original_sql: str, candidate: Candidate) -> tuple[int, str, list[str]]:
-    rewritten = str(candidate.rewritten_sql or "")
-    score = 60
-    reasons: list[str] = []
-    strategy = str(candidate.rewrite_strategy or "").strip()
-    if candidate.source == "rule":
-        score += 15
-        reasons.append("rule-generated candidate is structurally conservative")
-    if strategy in {"PROJECT_COLUMNS", "projection"}:
-        score += 15
-        reasons.append("projection-style rewrite is easy to patch")
-    elif strategy in {"sort", "ORDER_BY_REWRITE"}:
-        score += 5
-        reasons.append("ordering rewrite is usually patchable")
-    if "#{" in original_sql and "#{" in rewritten:
-        score += 10
-        reasons.append("mybatis placeholders are preserved")
-    if " join " in rewritten.lower():
-        score -= 10
-        reasons.append("join-heavy rewrite expands structural patch surface")
-    if "?" in rewritten and "#{" not in rewritten:
-        score -= 20
-        reasons.append("generic placeholders reduce mapper patch stability")
-    score = max(0, min(score, 100))
-    if score >= 80:
-        tier = "HIGH"
-    elif score >= 60:
-        tier = "MEDIUM"
-    else:
-        tier = "LOW"
-    return score, tier, reasons
 
 
 def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[Candidate]:
@@ -144,6 +126,8 @@ def evaluate_candidate_selection(
     selected_candidate_id = None
     selected_candidate_source = None
     candidate_evaluations: list[CandidateEvaluation] = []
+    canonicalization_assessment: list[dict[str, Any]] = []
+    candidate_selection_trace: list[dict[str, Any]] = []
 
     if not compare_enabled:
         return CandidateSelectionResult(
@@ -153,14 +137,18 @@ def evaluate_candidate_selection(
             candidate_evaluations=candidate_evaluations,
             equivalence=equivalence,
             perf=perf,
+            canonicalization=None,
+            canonicalization_assessment=[],
+            candidate_selection_trace=[],
         )
 
+    selected_canonicalization: dict[str, Any] | None = None
     if valid_candidates:
         best: dict[str, Any] | None = None
-        best_rank: tuple[int, int, float] | None = None
+        best_rank: tuple[int, int, int, int, float] | None = None
         runner_up: dict[str, Any] | None = None
         fallback: dict[str, Any] | None = None
-        fallback_rank: tuple[int, int, float] | None = None
+        fallback_rank: tuple[int, int, int, int, float] | None = None
         for idx, candidate in enumerate(valid_candidates[:5], start=1):
             rewritten_candidate = candidate.rewritten_sql.strip()
             if not rewritten_candidate:
@@ -172,7 +160,19 @@ def evaluate_candidate_selection(
             semantic_match = row_status == "MATCH"
             improved_now = bool(plan.get("improved"))
             after_cost = _numeric_cost((plan.get("afterSummary") or {}).get("totalCost"))
-            patchability_score, patchability_tier, patchability_reasons = _estimate_patchability(original_sql, candidate)
+            patchability = assess_candidate_patchability_model(original_sql, candidate)
+            patchability_score = patchability.score
+            patchability_tier = patchability.tier
+            patchability_reasons = list(patchability.reasons)
+            canonicalization_model = assess_candidate_canonicalization_model(
+                original_sql,
+                rewritten_candidate,
+                semantics if isinstance(semantics, dict) else {},
+            )
+            canonicalization = canonicalization_model.to_dict()
+            canonical_preference = canonicalization_model.preference
+            canonical_score = canonical_preference.preference_score
+            effective_change = _normalize_sql_text(original_sql) != _normalize_sql_text(rewritten_candidate)
             candidate_evaluations.append(
                 CandidateEvaluation(
                     candidate_id=candidate.id,
@@ -183,7 +183,22 @@ def evaluate_candidate_selection(
                     patchability_score=patchability_score,
                     patchability_tier=patchability_tier,
                     patchability_reasons=patchability_reasons,
+                    canonical_score=canonical_score,
+                    canonical_rule_id=canonical_preference.primary_rule,
+                    canonical_reason=canonical_preference.reason,
                 )
+            )
+            canonicalization_assessment.append(
+                CandidateCanonicalizationAssessmentEntry(
+                    candidate_id=candidate.id,
+                    source=candidate.source,
+                    rewritten_sql=rewritten_candidate,
+                    preferred=canonical_preference.preferred,
+                    rule_id=canonical_preference.primary_rule,
+                    score=canonical_score,
+                    reason=canonical_preference.reason,
+                    matched_rules=list(canonicalization.get("matchedRules") or []),
+                ).to_dict()
             )
             payload = {
                 "candidate": candidate,
@@ -193,8 +208,29 @@ def evaluate_candidate_selection(
                 "patchability_score": patchability_score,
                 "patchability_tier": patchability_tier,
                 "patchability_reasons": patchability_reasons,
+                "canonicalization": canonicalization,
+                "effective_change": effective_change,
             }
-            rank = (patchability_score, 1 if improved_now else 0, -after_cost)
+            rank_model = CandidateSelectionRank(
+                effective_change=effective_change,
+                patchability_score=patchability_score,
+                canonical_score=canonical_score,
+                improved=improved_now,
+                after_cost=after_cost,
+            )
+            rank = rank_model.as_tuple()
+            candidate_selection_trace.append(
+                CandidateSelectionTraceEntry(
+                    candidate_id=candidate.id,
+                    semantic_match=semantic_match,
+                    effective_change=effective_change,
+                    patchability_score=patchability_score,
+                    canonical_score=canonical_score,
+                    improved=improved_now,
+                    after_cost=None if after_cost == float("inf") else after_cost,
+                    rank=rank_model,
+                ).to_dict()
+            )
             if semantic_match:
                 if best_rank is None or rank > best_rank:
                     runner_up = best
@@ -211,6 +247,7 @@ def evaluate_candidate_selection(
             rewritten_sql = str(selected["sql"])
             selected_candidate_id = picked.id
             selected_candidate_source = picked.source
+            selected_canonicalization = dict(selected.get("canonicalization") or {})
             semantics = selected["semantics"] or {}
             plan = selected["plan"] or {}
             equivalence = EquivalenceCheck(
@@ -280,4 +317,7 @@ def evaluate_candidate_selection(
         perf=perf,
         selection_rationale=selection_rationale,
         delivery_readiness=delivery_readiness,
+        canonicalization=selected_canonicalization,
+        canonicalization_assessment=canonicalization_assessment,
+        candidate_selection_trace=candidate_selection_trace,
     )
