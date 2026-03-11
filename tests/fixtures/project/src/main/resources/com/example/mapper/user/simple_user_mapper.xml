@@ -18,6 +18,15 @@
         FROM users
     </select>
 
+    <sql id="userBaseQuery">
+        SELECT <include refid="UserBaseColumns" />
+        FROM users
+    </sql>
+
+    <select id="countUser" resultType="java.lang.Integer">
+        select count(1) from (<include refid="userBaseQuery" />) tmp
+    </select>
+
     <select id="findUsers" resultType="com.example.model.User">
         SELECT <include refid="UserBaseColumns" />
         FROM users
