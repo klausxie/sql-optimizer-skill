@@ -54,6 +54,9 @@
     "decisionLayers": {"type": ["object", "null"]},
     "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
     "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}},
+    "repairability": {"type": ["object", "null"]},
+    "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
+    "rewriteSafetyLevel": {"type": ["string", "null"]},
     "semanticEquivalence": {
       "type": ["object", "null"],
       "properties": {

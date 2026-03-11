@@ -201,6 +201,14 @@ def validate_proposal(
         rewritten_sql=selection.rewritten_sql,
         equivalence=selection.equivalence.to_contract(),
     )
+    semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
+    semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()
+    if semantic_gate_status == "PASS" and semantic_gate_confidence in {"MEDIUM", "HIGH"} and decision.status == "PASS":
+        rewrite_safety_level = "SAFE"
+    elif semantic_gate_status == "FAIL":
+        rewrite_safety_level = "BLOCKED"
+    else:
+        rewrite_safety_level = "REVIEW"
 
     # 合并警告
     all_warnings = list(decision.warnings) + llm_semantic_warnings
@@ -232,4 +240,5 @@ def validate_proposal(
         decision_layers=decision_layers,
         llm_semantic_check=llm_semantic_result or None,
         semantic_equivalence=semantic_equivalence,
+        rewrite_safety_level=rewrite_safety_level,
     )

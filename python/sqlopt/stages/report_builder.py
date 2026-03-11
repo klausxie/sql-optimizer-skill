@@ -257,6 +257,15 @@ def build_report_artifacts(
         or str(((row.get("semanticEquivalence") or {}).get("status") or "PASS")).upper() != "PASS"
         or str(((row.get("semanticEquivalence") or {}).get("confidence") or "HIGH")).upper() == "LOW"
     )
+    repairable_blocked_count = sum(
+        1
+        for row in inputs.acceptance
+        if str(row.get("status") or "").upper() != "PASS"
+        and (
+            str(((row.get("repairability") or {}).get("status") or "")).strip().upper() == "REPAIRABLE"
+            or str(((row.get("feedback") or {}).get("reason_code") or "")).strip().upper() == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+        )
+    )
     patch_file_count = sum(len(x.get("patchFiles", [])) for x in inputs.patches)
     patch_applicable_count = sum(1 for x in inputs.patches if x.get("applicable") is True)
     materialization_counts = materialization_mode_counts(inputs.acceptance)
@@ -270,6 +279,18 @@ def build_report_artifacts(
     confidence_upgrade_rate = (
         confidence_upgraded_count / len(inputs.acceptance)
         if inputs.acceptance
+        else 0.0
+    )
+    uncertain_upgrade_count = sum(
+        1
+        for row in inputs.acceptance
+        if bool(((row.get("semanticEquivalence") or {}).get("confidenceUpgradeApplied")))
+        and str(((row.get("semanticEquivalence") or {}).get("status") or "")).strip().upper() == "PASS"
+        and str(((row.get("semanticEquivalence") or {}).get("confidenceBeforeUpgrade") or "LOW")).strip().upper() in {"LOW", "UNKNOWN"}
+    )
+    patchability_lift_rate = (
+        repairable_blocked_count / blocked_sql_count
+        if blocked_sql_count > 0
         else 0.0
     )
 
@@ -303,6 +324,9 @@ def build_report_artifacts(
         "perf_improved_count": perf_improved_count,
         "perf_compared_but_not_improved_count": perf_not_improved_count,
         "blocked_sql_count": blocked_sql_count,
+        "repairable_blocked_count": repairable_blocked_count,
+        "uncertain_upgrade_count": uncertain_upgrade_count,
+        "patchability_lift_rate": round(patchability_lift_rate, 4),
         "db_unreachable_count": sum(
             1 for x in inputs.acceptance if "VALIDATE_DB_UNREACHABLE" in (x.get("perfComparison", {}).get("reasonCodes") or [])
         ),

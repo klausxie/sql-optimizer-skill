@@ -19,6 +19,8 @@
     "deliveryOutcome": {"type": ["object", "null"]},
     "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
     "patchability": {"type": ["object", "null"]},
+    "selectionEvidence": {"type": ["object", "null"]},
+    "fallbackReasonCodes": {"type": ["array", "null"], "items": {"type": "string"}},
     "gates": {
       "type": ["object", "null"],
       "properties": {

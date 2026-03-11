@@ -18,6 +18,46 @@ class PatchDecisionContext:
     candidates_evaluated: int
 
 
+def _acceptance_reason_code(acceptance: dict[str, Any]) -> str | None:
+    feedback = acceptance.get("feedback")
+    if not isinstance(feedback, dict):
+        return None
+    code = str(feedback.get("reason_code") or "").strip().upper()
+    return code or None
+
+
+def _fallback_reason_codes(acceptance: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    feedback_code = _acceptance_reason_code(acceptance)
+    if feedback_code:
+        out.append(feedback_code)
+    perf = acceptance.get("perfComparison")
+    perf_payload = perf if isinstance(perf, dict) else {}
+    for code in perf_payload.get("reasonCodes") or []:
+        normalized = str(code or "").strip().upper()
+        if normalized and normalized not in out:
+            out.append(normalized)
+    return out
+
+
+def _selection_evidence(
+    *,
+    status: str,
+    semantic_gate_status: str,
+    semantic_gate_confidence: str,
+    acceptance: dict[str, Any],
+) -> dict[str, Any]:
+    repairability = dict(acceptance.get("repairability") or {})
+    return {
+        "acceptanceStatus": status,
+        "acceptanceReasonCode": _acceptance_reason_code(acceptance),
+        "semanticGateStatus": semantic_gate_status,
+        "semanticGateConfidence": semantic_gate_confidence,
+        "repairabilityStatus": str(repairability.get("status") or "").strip().upper() or None,
+        "rewriteSafetyLevel": str(acceptance.get("rewriteSafetyLevel") or "").strip().upper() or None,
+    }
+
+
 def _semantic_gate_status(acceptance: dict[str, Any]) -> str:
     gate = acceptance.get("semanticEquivalence")
     if not isinstance(gate, dict):
@@ -66,6 +106,14 @@ def decide_patch_result(
     pass_rows = [row for row in same_statement if row.get("status") == "PASS"]
     candidates_evaluated = len(same_statement) or 1
     locators = sql_unit.get("locators") or {}
+    acceptance_reason_code = _acceptance_reason_code(acceptance)
+    fallback_reason_codes = _fallback_reason_codes(acceptance)
+    selection_evidence = _selection_evidence(
+        status=status,
+        semantic_gate_status=semantic_gate_status,
+        semantic_gate_confidence=semantic_gate_confidence,
+        acceptance=acceptance,
+    )
 
     ctx = PatchDecisionContext(
         status=status,
@@ -85,16 +133,27 @@ def decide_patch_result(
             reason_code="PATCH_LOCATOR_AMBIGUOUS",
             reason_message="missing locators.statementId in scan output",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
     if status != "PASS":
+        if acceptance_reason_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+            reason_code = "PATCH_VALIDATION_BLOCKED_SECURITY"
+            reason_message = "validate blocked patch generation due unsafe ${} substitution"
+        else:
+            reason_code = "PATCH_CONFLICT_NO_CLEAR_WINNER"
+            reason_message = "acceptance status is not PASS"
         patch = skip_patch_result(
             sql_key=sql_key,
             statement_key=statement_key,
-            reason_code="PATCH_CONFLICT_NO_CLEAR_WINNER",
-            reason_message="acceptance status is not PASS",
+            reason_code=reason_code,
+            reason_message=reason_message,
             candidates_evaluated=candidates_evaluated,
+            selected_candidate_id=acceptance.get("selectedCandidateId"),
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -106,6 +165,8 @@ def decide_patch_result(
             reason_message=f"semantic equivalence gate is {semantic_gate_status}, patch generation is blocked",
             candidates_evaluated=candidates_evaluated,
             selected_candidate_id=acceptance.get("selectedCandidateId"),
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
     if semantic_gate_confidence == "LOW":
@@ -116,6 +177,8 @@ def decide_patch_result(
             reason_message="semantic equivalence confidence is LOW, patch generation is blocked",
             candidates_evaluated=candidates_evaluated,
             selected_candidate_id=acceptance.get("selectedCandidateId"),
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -126,6 +189,8 @@ def decide_patch_result(
             reason_code="PATCH_CONFLICT_NO_CLEAR_WINNER",
             reason_message="multiple PASS variants found or selected winner mismatched",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -146,6 +211,8 @@ def decide_patch_result(
             reason_code="PATCH_NO_EFFECTIVE_CHANGE",
             reason_message="rewritten sql has no semantic diff after normalization",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -158,6 +225,8 @@ def decide_patch_result(
             reason_code="PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
             reason_message=f"template rewrite contains duplicated {duplicate_clause} clause",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         template_patch_text, template_changed_lines, template_error = None, 0, None
     else:
@@ -172,6 +241,8 @@ def decide_patch_result(
             reason_code=str(template_error["code"]),
             reason_message=str(template_error["message"]),
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -209,6 +280,8 @@ def decide_patch_result(
             reason_code=selection_code,
             reason_message=selection_message,
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -219,6 +292,8 @@ def decide_patch_result(
             reason_code="PATCH_CONFLICT_NO_CLEAR_WINNER",
             reason_message="placeholder semantics mismatch",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 
@@ -231,6 +306,8 @@ def decide_patch_result(
             reason_code="PATCH_LOCATOR_AMBIGUOUS",
             reason_message="statement not found in mapper",
             candidates_evaluated=candidates_evaluated,
+            selection_evidence=selection_evidence,
+            fallback_reason_codes=fallback_reason_codes,
         )
         return patch, ctx
 

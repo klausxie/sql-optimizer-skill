@@ -73,6 +73,39 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_CONFLICT_NO_CLEAR_WINNER")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
 
+    def test_security_block_non_pass_emits_repairable_patch_guidance(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "NEED_MORE_PARAMS",
+            "rewrittenSql": "SELECT id FROM users",
+            "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"},
+            "perfComparison": {"reasonCodes": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"]},
+            "repairability": {"status": "REPAIRABLE"},
+            "rewriteSafetyLevel": "REVIEW",
+            "equivalence": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT * FROM users ORDER BY ${orderBy}",
+            "locators": {"statementId": "findUsers"},
+        }
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch") as template_mock:
+            with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        template_mock.assert_not_called()
+        unified_mock.assert_not_called()
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_VALIDATION_BLOCKED_SECURITY")
+        self.assertIn("VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", patch_row.get("fallbackReasonCodes", []))
+        self.assertEqual((patch_row.get("selectionEvidence") or {}).get("acceptanceStatus"), "NEED_MORE_PARAMS")
+        self.assertEqual((patch_row.get("selectionEvidence") or {}).get("repairabilityStatus"), "REPAIRABLE")
+        self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "PATCHABLE_WITH_REWRITE")
+        self.assertEqual((patch_row.get("repairHints") or [])[0].get("hintId"), "remove-dollar-substitution")
+
     def test_template_plan_error_prevents_unified_patch_attempt(self) -> None:
         acceptance = {
             "sqlKey": "demo.user.find#v1",

@@ -353,6 +353,13 @@ REASON_CODES = {
         description="Patch generation blocked by low semantic confidence",
         user_message="Semantic confidence is low, so patch generation is blocked until stronger evidence is available.",
     ),
+    "PATCH_VALIDATION_BLOCKED_SECURITY": ReasonCode(
+        code="PATCH_VALIDATION_BLOCKED_SECURITY",
+        category="patch",
+        severity="degradable",
+        description="Patch generation blocked by validation security guard",
+        user_message="Validation blocked automatic patch generation due unsafe ${} usage. Rewrite the mapper template safely, then retry.",
+    ),
     # Platform errors
     "UNSUPPORTED_PLATFORM": ReasonCode(
         code="UNSUPPORTED_PLATFORM",

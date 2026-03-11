@@ -16,6 +16,8 @@ def skip_patch_result(
     delivery_outcome: dict | None = None,
     repair_hints: list[dict] | None = None,
     patchability: dict | None = None,
+    selection_evidence: dict | None = None,
+    fallback_reason_codes: list[str] | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -39,6 +41,10 @@ def skip_patch_result(
         patch["repairHints"] = repair_hints
     if patchability is not None:
         patch["patchability"] = patchability
+    if selection_evidence is not None:
+        patch["selectionEvidence"] = selection_evidence
+    if fallback_reason_codes is not None:
+        patch["fallbackReasonCodes"] = list(fallback_reason_codes)
     return patch
 
 
@@ -53,6 +59,8 @@ def selected_patch_result(
     delivery_outcome: dict | None = None,
     repair_hints: list[dict] | None = None,
     patchability: dict | None = None,
+    selection_evidence: dict | None = None,
+    fallback_reason_codes: list[str] | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -74,4 +82,8 @@ def selected_patch_result(
         patch["repairHints"] = repair_hints
     if patchability is not None:
         patch["patchability"] = patchability
+    if selection_evidence is not None:
+        patch["selectionEvidence"] = selection_evidence
+    if fallback_reason_codes is not None:
+        patch["fallbackReasonCodes"] = list(fallback_reason_codes)
     return patch

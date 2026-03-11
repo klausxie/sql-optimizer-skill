@@ -6,6 +6,7 @@ LLM_ASSIST_REASON_CODES = {
     "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
     "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
     "PATCH_NOT_APPLICABLE",
+    "PATCH_VALIDATION_BLOCKED_SECURITY",
     "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
     "PATCH_SEMANTIC_CONFIDENCE_LOW",
 }
@@ -93,6 +94,23 @@ def build_patch_repair_hints(reason_code: str, apply_check_error: str | None, sq
                 "command": None,
             }
         ]
+    if reason_code == "PATCH_VALIDATION_BLOCKED_SECURITY":
+        return [
+            {
+                "hintId": "remove-dollar-substitution",
+                "title": "Replace unsafe ${} interpolation",
+                "detail": "convert ${} dynamic fragments to #{} binding or whitelist-driven branches before retrying patch generation",
+                "actionType": "SQL_REWRITE",
+                "command": None,
+            },
+            {
+                "hintId": "restrict-dynamic-order-by",
+                "title": "Whitelist dynamic ORDER BY keys",
+                "detail": "map dynamic sort inputs to an explicit allow-list to avoid SQL injection patterns",
+                "actionType": "MANUAL_REVIEW",
+                "command": None,
+            },
+        ]
     if apply_check_error:
         return [
             {
@@ -160,6 +178,12 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
             "tier": "BLOCKED",
             "reasonCodes": [reason_code],
             "summary": "patch generation was blocked because semantic confidence is LOW",
+        }
+    elif reason_code == "PATCH_VALIDATION_BLOCKED_SECURITY":
+        delivery_outcome = {
+            "tier": "PATCHABLE_WITH_REWRITE",
+            "reasonCodes": [reason_code, "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
+            "summary": "patch generation was blocked by unsafe ${} substitution, but mapper rewrite can unblock delivery",
         }
     else:
         delivery_outcome = {

@@ -34,6 +34,7 @@ class ReportBuilderTest(unittest.TestCase):
                     "sqlKey": "demo.user.listUsers#v1",
                     "status": "NEED_MORE_PARAMS",
                     "feedback": {"reason_code": "VALIDATE_PARAM_INSUFFICIENT"},
+                    "repairability": {"status": "REPAIRABLE"},
                     "perfComparison": {"reasonCodes": ["VALIDATE_DB_UNREACHABLE"]},
                     "semanticEquivalence": {"status": "UNCERTAIN", "reasons": ["SEMANTIC_ROW_COUNT_UNVERIFIED"]},
                     "deliveryReadiness": {"tier": "NEEDS_TEMPLATE_REWRITE"},
@@ -101,6 +102,9 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["confidence_upgraded_count"], 0)
         self.assertEqual(artifacts.report.stats["confidence_upgrade_rate"], 0.0)
         self.assertEqual(artifacts.report.stats["confidence_upgrade_by_evidence_source"], {})
+        self.assertEqual(artifacts.report.stats["repairable_blocked_count"], 1)
+        self.assertEqual(artifacts.report.stats["uncertain_upgrade_count"], 0)
+        self.assertEqual(artifacts.report.stats["patchability_lift_rate"], 1.0)
         self.assertEqual(artifacts.report.stats["preflight_failure_count"], 1)
         self.assertEqual(artifacts.report.stats["pipeline_coverage"]["report"], "DONE")
         self.assertEqual(len(artifacts.failures), 2)

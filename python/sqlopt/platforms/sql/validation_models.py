@@ -35,6 +35,9 @@ class ValidationResult:
     decision_layers: dict[str, Any] | None = None
     llm_semantic_check: dict[str, Any] | None = None
     semantic_equivalence: dict[str, Any] | None = None
+    repairability: dict[str, Any] | None = None
+    repair_hints: list[dict[str, Any]] | None = None
+    rewrite_safety_level: str | None = None
 
     def to_contract(self) -> dict[str, Any]:
         payload = {
@@ -71,6 +74,12 @@ class ValidationResult:
             payload["llmSemanticCheck"] = self.llm_semantic_check
         if self.semantic_equivalence is not None:
             payload["semanticEquivalence"] = self.semantic_equivalence
+        if self.repairability is not None:
+            payload["repairability"] = self.repairability
+        if self.repair_hints is not None:
+            payload["repairHints"] = self.repair_hints
+        if self.rewrite_safety_level is not None:
+            payload["rewriteSafetyLevel"] = self.rewrite_safety_level
         return payload
 
     def __getitem__(self, key: str) -> Any:

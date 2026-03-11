@@ -96,6 +96,9 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual(result["status"], "NEED_MORE_PARAMS")
         self.assertIn("DOLLAR_SUBSTITUTION", result.get("riskFlags", []))
         self.assertEqual(result.get("decisionLayers", {}).get("feasibility", {}).get("phase"), "security_block")
+        self.assertEqual((result.get("repairability") or {}).get("status"), "REPAIRABLE")
+        self.assertEqual(result.get("rewriteSafetyLevel"), "REVIEW")
+        self.assertGreaterEqual(len(result.get("repairHints") or []), 1)
 
     def test_dollar_substitution_strict_is_fail(self) -> None:
         sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
@@ -108,6 +111,8 @@ class ValidateProfilesTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "strict")
+        self.assertEqual((result.get("repairability") or {}).get("status"), "BLOCKED")
+        self.assertEqual(result.get("rewriteSafetyLevel"), "BLOCKED")
 
     def test_plan_and_semantic_compare_are_capability_gated(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}

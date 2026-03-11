@@ -21,6 +21,8 @@ class PatchingResultsTest(unittest.TestCase):
             delivery_outcome={"tier": "MANUAL_REVIEW"},
             repair_hints=[{"hintId": "review-target-drift"}],
             patchability={"applyCheckPassed": False},
+            selection_evidence={"acceptanceStatus": "NEED_MORE_PARAMS"},
+            fallback_reason_codes=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
         )
 
         self.assertEqual(patch["selectedCandidateId"], "c1")
@@ -29,6 +31,8 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertTrue(patch["diffSummary"]["skipped"])
         self.assertEqual(patch["deliveryOutcome"]["tier"], "MANUAL_REVIEW")
         self.assertFalse(patch["patchability"]["applyCheckPassed"])
+        self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "NEED_MORE_PARAMS")
+        self.assertIn("VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", patch["fallbackReasonCodes"])
 
     def test_selected_patch_result_marks_patch_as_selected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_result_") as td:
@@ -43,6 +47,8 @@ class PatchingResultsTest(unittest.TestCase):
                 delivery_outcome={"tier": "READY_TO_APPLY"},
                 repair_hints=[],
                 patchability={"applyCheckPassed": True},
+                selection_evidence={"acceptanceStatus": "PASS"},
+                fallback_reason_codes=[],
             )
 
         self.assertEqual(patch["patchFiles"], [str(patch_file)])
@@ -50,6 +56,7 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertTrue(patch["diffSummary"]["changed"])
         self.assertTrue(patch["applicable"])
         self.assertEqual(patch["deliveryOutcome"]["tier"], "READY_TO_APPLY")
+        self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "PASS")
 
 
 if __name__ == "__main__":
