@@ -72,6 +72,13 @@ class LlmDirectProviderTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 generate_llm_candidates("k1", "SELECT * FROM users", self._cfg(), prompt={"sqlKey": "k1"})
 
+    def test_direct_provider_empty_candidates_returns_empty_list(self) -> None:
+        payload = {"choices": [{"message": {"content": "{\"candidates\":[]}"}}]}
+        with patch("sqlopt.llm.provider.urllib.request.urlopen", return_value=_Resp(payload)):
+            candidates, trace = generate_llm_candidates("k1", "SELECT * FROM users", self._cfg(), prompt={"sqlKey": "k1"})
+        self.assertEqual(candidates, [])
+        self.assertEqual(trace.get("degrade_reason"), None)
+
 
 if __name__ == "__main__":
     unittest.main()

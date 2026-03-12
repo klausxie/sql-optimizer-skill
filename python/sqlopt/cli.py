@@ -120,7 +120,17 @@ def cmd_run(args: argparse.Namespace) -> None:
     try:
         _validate_budget_args(args)
         get_progress_reporter().report_info(f"run_id={requested_run_id}")
-        run_id, initial_result = run_service.start_run(config_path, args.to_stage, requested_run_id, repo_root=repo_root)
+        selection = {
+            "mapper_paths": list(getattr(args, "mapper_path", None) or []),
+            "sql_keys": list(getattr(args, "sql_key", None) or []),
+        }
+        run_id, initial_result = run_service.start_run(
+            config_path,
+            args.to_stage,
+            requested_run_id,
+            repo_root=repo_root,
+            selection=selection,
+        )
         outcome = run_service.advance_run_until_complete(
             run_id,
             initial_result,
@@ -284,6 +294,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         default="sqlopt.yml",
         help="sqlopt.yml 配置文件路径（默认：./sqlopt.yml）",
+    )
+    p_run.add_argument(
+        "--mapper-path",
+        action="append",
+        default=[],
+        help="仅扫描指定 mapper 相对路径（可重复），相对于 project.root_path",
+    )
+    p_run.add_argument(
+        "--sql-key",
+        action="append",
+        default=[],
+        help="仅执行指定 SQL key（可重复，完整匹配）",
     )
     p_run.add_argument(
         "--run-id",

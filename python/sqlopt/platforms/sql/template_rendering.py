@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -100,27 +101,63 @@ def render_logical_text(
     context: dict[str, str] | None = None,
     stack: set[str] | None = None,
 ) -> str:
+    def _render_children(current: ET.Element, current_ctx: dict[str, str], current_stack: set[str]) -> str:
+        parts: list[str] = []
+        if current.text:
+            parts.append(substitute_props(current.text, current_ctx))
+        for child in list(current):
+            tag = local_name(str(child.tag)).lower()
+            if tag == "include":
+                display_ref = qualify_ref(namespace, child.attrib.get("refid"))
+                key = fragment_key(xml_path, display_ref) if display_ref else ""
+                target = fragments.get(key)
+                if key and target is not None and key not in current_stack:
+                    next_stack = set(current_stack)
+                    next_stack.add(key)
+                    include_ctx = property_context(child, current_ctx)
+                    parts.append(render_logical_text(target, namespace, xml_path, fragments, include_ctx, next_stack))
+            else:
+                parts.append(render_logical_text(child, namespace, xml_path, fragments, current_ctx, current_stack))
+            if child.tail:
+                parts.append(substitute_props(child.tail, current_ctx))
+        return "".join(parts)
+
+    def _apply_where_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        if not normalized:
+            return ""
+        normalized = re.sub(r"^(and|or)\b", "", normalized, flags=re.IGNORECASE).strip()
+        return f" WHERE {normalized}" if normalized else ""
+
+    def _apply_set_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        normalized = re.sub(r",\s*$", "", normalized).strip()
+        return f" SET {normalized}" if normalized else ""
+
+    def _apply_choose_semantics(branches: list[str]) -> str:
+        normalized = [normalize_sql_text(branch) for branch in branches if normalize_sql_text(branch)]
+        if not normalized:
+            return ""
+        if len(normalized) == 1:
+            return normalized[0]
+        return "(" + " OR ".join(normalized) + ")"
+
     stack = set() if stack is None else set(stack)
     ctx = dict(context or {})
-    parts: list[str] = []
-    if node.text:
-        parts.append(substitute_props(node.text, ctx))
-    for child in list(node):
-        tag = local_name(str(child.tag)).lower()
-        if tag == "include":
-            display_ref = qualify_ref(namespace, child.attrib.get("refid"))
-            key = fragment_key(xml_path, display_ref) if display_ref else ""
-            target = fragments.get(key)
-            if key and target is not None and key not in stack:
-                next_stack = set(stack)
-                next_stack.add(key)
-                include_ctx = property_context(child, ctx)
-                parts.append(render_logical_text(target, namespace, xml_path, fragments, include_ctx, next_stack))
-        else:
-            parts.append(render_logical_text(child, namespace, xml_path, fragments, ctx, stack))
-        if child.tail:
-            parts.append(substitute_props(child.tail, ctx))
-    return "".join(parts)
+    tag = local_name(str(node.tag)).lower() if node.tag is not None else ""
+    if tag == "choose":
+        branches: list[str] = []
+        for child in list(node):
+            rendered_child = render_logical_text(child, namespace, xml_path, fragments, ctx, stack)
+            if rendered_child:
+                branches.append(rendered_child)
+        return _apply_choose_semantics(branches)
+    rendered = _render_children(node, ctx, stack)
+    if tag == "where":
+        return _apply_where_semantics(rendered)
+    if tag == "set":
+        return _apply_set_semantics(rendered)
+    return rendered
 
 
 def find_statement_node(root: ET.Element, statement_id: str) -> ET.Element | None:
@@ -166,52 +203,101 @@ def render_fragment_body_sql(
     context: dict[str, str] | None = None,
     stack: set[str] | None = None,
 ) -> str | None:
+    def _apply_where_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        if not normalized:
+            return ""
+        normalized = re.sub(r"^(and|or)\b", "", normalized, flags=re.IGNORECASE).strip()
+        return f" WHERE {normalized}" if normalized else ""
+
+    def _apply_set_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        normalized = re.sub(r",\s*$", "", normalized).strip()
+        return f" SET {normalized}" if normalized else ""
+
+    def _apply_choose_semantics(branches: list[str]) -> str:
+        normalized = [normalize_sql_text(branch) for branch in branches if normalize_sql_text(branch)]
+        if not normalized:
+            return ""
+        if len(normalized) == 1:
+            return normalized[0]
+        return "(" + " OR ".join(normalized) + ")"
+
+    def _render_fragment_node(
+        node: ET.Element,
+        current_namespace: str,
+        current_xml_path: Path,
+        current_context: dict[str, str],
+        current_stack: set[str],
+    ) -> str | None:
+        tag = local_name(str(node.tag)).lower() if node.tag is not None else ""
+        if tag == "include":
+            display_ref = qualify_ref(current_namespace, node.attrib.get("refid"))
+            key, fragment = lookup_fragment_row(fragment_catalog, current_xml_path, display_ref) if display_ref else ("", None)
+            if key and fragment is not None and key not in current_stack:
+                next_stack = set(current_stack)
+                next_stack.add(key)
+                nested_ctx = property_context(node, current_context)
+                nested_namespace = str(fragment.get("namespace") or current_namespace)
+                nested_xml_path = Path(str(fragment.get("xmlPath") or current_xml_path))
+                return _render_fragment_node(
+                    ET.fromstring(f"<root>{str(fragment.get('templateSql') or '')}</root>"),
+                    nested_namespace,
+                    nested_xml_path,
+                    nested_ctx,
+                    next_stack,
+                )
+            return ""
+
+        if tag == "choose":
+            branches: list[str] = []
+            for child in list(node):
+                rendered_child = _render_fragment_node(
+                    child,
+                    current_namespace,
+                    current_xml_path,
+                    current_context,
+                    current_stack,
+                )
+                if rendered_child is None:
+                    return None
+                if normalize_sql_text(rendered_child):
+                    branches.append(rendered_child)
+            return _apply_choose_semantics(branches)
+
+        parts: list[str] = []
+        if node.text:
+            parts.append(substitute_props(node.text, current_context))
+        for child in list(node):
+            rendered_child = _render_fragment_node(
+                child,
+                current_namespace,
+                current_xml_path,
+                current_context,
+                current_stack,
+            )
+            if rendered_child is None:
+                return None
+            parts.append(rendered_child)
+            if child.tail:
+                parts.append(substitute_props(child.tail, current_context))
+        rendered = "".join(parts)
+        if tag == "where":
+            return _apply_where_semantics(rendered)
+        if tag == "set":
+            return _apply_set_semantics(rendered)
+        return rendered
+
     try:
         wrapper = ET.fromstring(f"<root>{body}</root>")
     except ET.ParseError:
         return None
     stack = set() if stack is None else set(stack)
     ctx = dict(context or {})
-    parts: list[str] = []
-    if wrapper.text:
-        parts.append(substitute_props(wrapper.text, ctx))
-    for child in list(wrapper):
-        tag = local_name(str(child.tag)).lower()
-        if tag == "include":
-            display_ref = qualify_ref(namespace, child.attrib.get("refid"))
-            key, fragment = lookup_fragment_row(fragment_catalog, xml_path, display_ref) if display_ref else ("", None)
-            if key and fragment is not None and key not in stack:
-                next_stack = set(stack)
-                next_stack.add(key)
-                nested_ctx = property_context(child, ctx)
-                nested_namespace = str(fragment.get("namespace") or namespace)
-                nested_xml_path = Path(str(fragment.get("xmlPath") or xml_path))
-                rendered = render_fragment_body_sql(
-                    str(fragment.get("templateSql") or ""),
-                    nested_namespace,
-                    nested_xml_path,
-                    fragment_catalog,
-                    nested_ctx,
-                    next_stack,
-                )
-                if rendered is None:
-                    return None
-                parts.append(rendered)
-        else:
-            rendered = render_fragment_body_sql(
-                ET.tostring(child, encoding="unicode"),
-                namespace,
-                xml_path,
-                fragment_catalog,
-                ctx,
-                stack,
-            )
-            if rendered is None:
-                return None
-            parts.append(rendered)
-        if child.tail:
-            parts.append(substitute_props(child.tail, ctx))
-    return normalize_sql_text("".join(parts))
+    rendered = _render_fragment_node(wrapper, namespace, xml_path, ctx, stack)
+    if rendered is None:
+        return None
+    return normalize_sql_text(rendered)
 
 
 def fragment_is_static_include_safe(

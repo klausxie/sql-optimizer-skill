@@ -52,6 +52,9 @@ class StatusResolver:
     def report_enabled(self, config: dict[str, Any]) -> bool:
         return bool((config.get("report", {}) or {}).get("enabled", True))
 
+    def _report_required_for_target(self, to_stage: str) -> bool:
+        return str(to_stage or "").strip() in {"patch_generate", "report"}
+
     def report_rebuild_required(self, state: dict[str, Any]) -> bool:
         return bool(state.get("report_rebuild_required", False))
 
@@ -71,15 +74,20 @@ class StatusResolver:
         to_stage: str,
         config: dict[str, Any],
     ) -> ResumeDecision | None:
+        if not self._report_required_for_target(to_stage):
+            return None
         report_policy = self.phase_policies["report"]
+        report_status = state.get("phase_status", {}).get("report")
+        report_needs_work = report_status != "DONE" or self.report_rebuild_required(state)
         if self.report_enabled(config):
             if to_stage == "report" and report_policy.allow_regenerate:
                 if not self.is_complete_to_stage(state, "patch_generate", include_report=False):
                     return None
-                return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+                if report_needs_work:
+                    return ResumeDecision(phase="report", final_meta_status="COMPLETED")
+                return None
             if self.is_complete_to_stage(state, to_stage, include_report=False):
-                report_status = state.get("phase_status", {}).get("report")
-                if report_status != "DONE" or self.report_rebuild_required(state):
+                if report_needs_work:
                     return ResumeDecision(phase="report", final_meta_status="COMPLETED")
             return None
 
@@ -95,13 +103,18 @@ class StatusResolver:
         report_on = self.report_enabled(request.config)
         report_status = request.state.get("phase_status", {}).get("report")
         target_stage = request.plan.get("to_stage", "patch_generate")
+        report_required = report_on and self._report_required_for_target(target_stage)
         report_resume = self.resolve_report_resume_decision(request.state, target_stage, request.config)
-        base_complete = self.is_complete_to_stage(request.state, target_stage, include_report=report_on)
+        base_complete = self.is_complete_to_stage(request.state, target_stage, include_report=False)
         report_rebuild = self.report_rebuild_required(request.state)
         report_done = report_status == "DONE"
         complete = base_complete or (
-            report_on and report_done and report_rebuild and request.meta.get("status") == "COMPLETED"
+            report_required and report_done and report_rebuild and request.meta.get("status") == "COMPLETED"
         )
+        if report_required and report_resume is None and base_complete and (target_stage == "report" or report_done):
+            complete = True
+        elif report_required and report_resume is not None:
+            complete = False
         if not report_on and report_resume is not None:
             complete = False
 
@@ -112,7 +125,7 @@ class StatusResolver:
             current_sql_key = None
 
         report_action_required = report_resume is not None
-        if report_on and target_stage == "report":
+        if report_required and target_stage == "report":
             report_action_required = self.is_complete_to_stage(request.state, "patch_generate", include_report=False) and (
                 report_status != "DONE" or report_rebuild
             )
@@ -132,6 +145,6 @@ class StatusResolver:
         return StatusResolution(complete=complete, next_action=next_action, current_sql_key=current_sql_key)
 
     def report_phase_complete_for_result(self, state: dict[str, Any], to_stage: str, config: dict[str, Any]) -> bool:
-        if self.report_enabled(config):
+        if self.report_enabled(config) and self._report_required_for_target(to_stage):
             return self.is_complete_to_stage(state, to_stage, include_report=True)
-        return self.is_complete_to_stage(state, to_stage, include_report=False) and state.get("phase_status", {}).get("report") == "SKIPPED"
+        return self.is_complete_to_stage(state, to_stage, include_report=False)

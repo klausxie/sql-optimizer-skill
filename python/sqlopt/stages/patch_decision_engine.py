@@ -58,6 +58,29 @@ def _selection_evidence(
     }
 
 
+def _dynamic_template_summary(acceptance: dict[str, Any]) -> dict[str, Any]:
+    summary = acceptance.get("dynamicTemplate")
+    if isinstance(summary, dict):
+        return dict(summary)
+    rewrite_facts = dict(acceptance.get("rewriteFacts") or {})
+    dynamic_template = dict(rewrite_facts.get("dynamicTemplate") or {})
+    profile = dict(dynamic_template.get("capabilityProfile") or {})
+    patchability = dict(acceptance.get("patchability") or {})
+    if not dynamic_template:
+        return {}
+    return {
+        "present": bool(dynamic_template.get("present")),
+        "shapeFamily": str(profile.get("shapeFamily") or "").strip() or None,
+        "capabilityTier": str(profile.get("capabilityTier") or "").strip() or None,
+        "patchSurface": str(profile.get("patchSurface") or "").strip() or None,
+        "blockingReason": (
+            str(patchability.get("dynamicBlockingReason") or "").strip()
+            or str(profile.get("blockerFamily") or "").strip()
+            or None
+        ),
+    }
+
+
 def _semantic_gate_status(acceptance: dict[str, Any]) -> str:
     gate = acceptance.get("semanticEquivalence")
     if not isinstance(gate, dict):
@@ -201,6 +224,7 @@ def decide_patch_result(
     original_sql = str(sql_unit.get("sql") or "")
     dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
     dynamic_trace = sql_unit.get("dynamicTrace") or {}
+    dynamic_template = _dynamic_template_summary(acceptance)
     rewritten_sql = str(acceptance.get("rewrittenSql") or "").strip()
     formatted_rewritten_sql = format_sql_for_patch(rewritten_sql)
 
@@ -266,13 +290,25 @@ def decide_patch_result(
     if dynamic_features:
         selection_code = "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE"
         selection_message = "dynamic mapper statement cannot be replaced by flattened sql"
+        dynamic_blocking_reason = str(dynamic_template.get("blockingReason") or "").strip().upper()
+        dynamic_shape_family = str(dynamic_template.get("shapeFamily") or "").strip().upper()
+        if dynamic_blocking_reason.startswith("FOREACH_") or dynamic_shape_family == "FOREACH_IN_PREDICATE":
+            selection_code = "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED"
+            selection_message = "dynamic foreach predicate requires template-aware rewrite before patch generation"
+        elif dynamic_blocking_reason == "DYNAMIC_FILTER_SUBTREE" or dynamic_shape_family == "IF_GUARDED_FILTER_STATEMENT":
+            selection_code = "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED"
+            selection_message = "dynamic filter subtree requires template-aware rewrite before patch generation"
+        elif dynamic_blocking_reason == "DYNAMIC_SET_CLAUSE" or dynamic_shape_family == "SET_SELECTIVE_UPDATE":
+            selection_code = "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED"
+            selection_message = "dynamic set clause requires template-aware rewrite before patch generation"
         if "INCLUDE" in dynamic_features:
             include_fragments = dynamic_trace.get("includeFragments") or []
             has_dynamic_fragment = any(bool((fragment or {}).get("dynamicFeatures")) for fragment in include_fragments)
-            selection_code = "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE"
-            if has_dynamic_fragment:
+            if selection_code == "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE":
+                selection_code = "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE"
+            if has_dynamic_fragment or dynamic_blocking_reason == "INCLUDE_DYNAMIC_SUBTREE":
                 selection_message = "included sql fragment contains dynamic template tags and requires fragment-aware rewrite"
-            else:
+            elif selection_code == "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE":
                 selection_message = "statement depends on included sql fragment and requires fragment-aware rewrite"
         patch = skip_patch_result(
             sql_key=sql_key,

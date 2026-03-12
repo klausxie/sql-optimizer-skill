@@ -11,6 +11,7 @@ from ..llm.output_validator import validate_candidates
 from ..llm.provider import generate_llm_candidates
 from ..llm.retry_context import build_retry_context, should_retry, collect_validation_errors
 from ..manifest import log_event
+from ..platforms.sql.candidate_generation_engine import evaluate_candidate_generation
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
 from ..run_paths import canonical_paths
 from ..utils import statement_key, is_sql_syntax_error
@@ -22,7 +23,8 @@ from .llm_feedback import collect_llm_feedback, save_feedback_record
 @dataclass
 class LlmExecutionResult:
     """LLM 执行结果"""
-    candidates: list[dict[str, Any]]
+    raw_candidates: list[dict[str, Any]]
+    valid_candidates: list[dict[str, Any]]
     trace: dict[str, Any]
     validation_results: list[dict[str, Any]]
     val_results: list[Any]
@@ -52,7 +54,8 @@ def _execute_llm_with_retry(
     retry_enabled = bool(retry_cfg.get("enabled", False))
     max_retries = int(retry_cfg.get("max_retries", 2))
 
-    candidates: list[dict[str, Any]] = []
+    raw_candidates: list[dict[str, Any]] = []
+    valid_candidates: list[dict[str, Any]] = []
     trace: dict[str, Any] = {}
     validation_results: list[dict[str, Any]] = []
     val_results: list[Any] = []
@@ -77,7 +80,7 @@ def _execute_llm_with_retry(
 
         # 调用 LLM
         try:
-            candidates, trace = generate_llm_candidates(
+            raw_candidates, trace = generate_llm_candidates(
                 sql_unit["sqlKey"],
                 sql_unit["sql"],
                 llm_cfg,
@@ -95,7 +98,7 @@ def _execute_llm_with_retry(
                 "error": str(exc),
             }
             last_execution_error = str(exc)
-            candidates = []
+            raw_candidates = []
 
         # 记录重试 trace
         if retry_context is not None:
@@ -104,15 +107,14 @@ def _execute_llm_with_retry(
         # Phase 1: LLM 输出质量控制
         validation_results = []
         valid_candidates = []
-        if candidates:
+        if raw_candidates:
             valid_candidates, val_results = validate_candidates(
-                candidates=candidates,
+                candidates=raw_candidates,
                 original_sql=sql_unit["sql"],
                 sql_key=sql_unit["sqlKey"],
                 config=config,
                 sql_unit=sql_unit
             )
-            candidates = valid_candidates
             validation_results = [
                 {
                     "candidate_id": r.candidate_id,
@@ -125,7 +127,7 @@ def _execute_llm_with_retry(
                 }
                 for r in val_results
             ]
-            last_validation_errors = collect_validation_errors(val_results, candidates) if not valid_candidates else []
+            last_validation_errors = collect_validation_errors(val_results, raw_candidates) if not valid_candidates else []
         else:
             last_validation_errors = []
 
@@ -133,11 +135,11 @@ def _execute_llm_with_retry(
         force_retry_reason = None
         if last_execution_error:
             force_retry_reason = f"执行错误：{last_execution_error}"
-        elif candidates and not valid_candidates:
+        elif raw_candidates and not valid_candidates:
             force_retry_reason = "所有候选均未通过验证"
 
         do_retry, _ = should_retry(
-            valid_candidates=candidates,
+            valid_candidates=valid_candidates,
             current_attempt=current_attempt,
             max_retries=max_retries if retry_enabled else 0,
             force_retry_reason=force_retry_reason,
@@ -149,7 +151,8 @@ def _execute_llm_with_retry(
             break
 
     return LlmExecutionResult(
-        candidates=candidates,
+        raw_candidates=raw_candidates,
+        valid_candidates=valid_candidates,
         trace=trace,
         validation_results=validation_results,
         val_results=val_results,
@@ -180,6 +183,21 @@ def _collect_validation_errors_for_feedback(val_results: list[Any]) -> list[dict
     ]
 
 
+def _validation_results_payload(val_results: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "candidate_id": r.candidate_id,
+            "passed": r.passed,
+            "checks": [
+                {"type": c.check_type, "passed": c.passed, "message": c.message}
+                for c in r.checks
+            ],
+            "rejected_reason": r.rejected_reason,
+        }
+        for r in val_results
+    ]
+
+
 def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
     paths = canonical_paths(run_dir)
     llm_cfg = dict(config.get("llm", {}) or {})
@@ -190,30 +208,88 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     proposal = generate_proposal(sql_unit, config=config)
 
     llm_trace_ref = str(paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)).replace("\\", "/")
+    raw_candidates: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
+    candidate_generation_diagnostics: dict[str, Any] = {
+        "degradationKind": None,
+        "recoveryAttempted": False,
+        "recoveryStrategy": None,
+        "recoverySucceeded": False,
+        "recoveryReason": "NONE",
+        "rawCandidateCount": 0,
+        "validatedCandidateCount": 0,
+        "acceptedCandidateCount": 0,
+        "prunedLowValueCount": 0,
+        "lowValueCandidateCount": 0,
+        "recoveredCandidateCount": 0,
+        "rawRewriteStrategies": [],
+        "finalCandidateCount": 0,
+    }
+    candidate_generation_artifact: dict[str, Any] = dict(candidate_generation_diagnostics)
 
     # 判断是否需要跳过 LLM 生成
     if "${" in str(sql_unit.get("sql", "")):
         trace = _build_dollar_skip_trace(sql_unit["sqlKey"])
-        candidates = []
         validation_results = []
         val_results = []
         retry_traces = []
+        candidate_generation_diagnostics["recoveryReason"] = "SKIPPED_BY_SECURITY_BLOCK"
+        candidate_generation_artifact = dict(candidate_generation_diagnostics)
     else:
         result = _execute_llm_with_retry(sql_unit, proposal, llm_cfg, config)
-        candidates = result.candidates
+        raw_candidates = list(result.raw_candidates)
+        candidates = list(result.valid_candidates)
         trace = result.trace
-        validation_results = result.validation_results
+        validation_results = list(result.validation_results)
         val_results = result.val_results
         retry_traces = result.retry_traces
+        generation_outcome = evaluate_candidate_generation(
+            sql_key=sql_unit["sqlKey"],
+            original_sql=sql_unit["sql"],
+            sql_unit=sql_unit,
+            raw_candidates=raw_candidates,
+            valid_candidates=candidates,
+            trace=trace,
+        )
+        candidates = list(generation_outcome.accepted_candidates)
+        candidate_generation_diagnostics = generation_outcome.diagnostics.to_summary_dict()
+        candidate_generation_artifact = generation_outcome.diagnostics.to_artifact_dict()
+        recovery_candidates = list(generation_outcome.recovery_candidates)
+        if recovery_candidates:
+            recovered_candidates, recovered_val_results = validate_candidates(
+                candidates=recovery_candidates,
+                original_sql=sql_unit["sql"],
+                sql_key=sql_unit["sqlKey"],
+                config=config,
+                sql_unit=sql_unit,
+            )
+            if recovered_candidates:
+                candidates = recovered_candidates
+                val_results = recovered_val_results
+                validation_results = _validation_results_payload(recovered_val_results)
+                candidate_generation_diagnostics["recoverySucceeded"] = True
+                candidate_generation_diagnostics["recoveredCandidateCount"] = len(recovered_candidates)
+                candidate_generation_diagnostics["finalCandidateCount"] = len(recovered_candidates)
+                candidate_generation_artifact["recoverySucceeded"] = True
+                candidate_generation_artifact["recoveredCandidateCount"] = len(recovered_candidates)
+                candidate_generation_artifact["finalCandidateCount"] = len(recovered_candidates)
+            else:
+                candidate_generation_diagnostics["recoverySucceeded"] = False
+                candidate_generation_diagnostics["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
+                candidate_generation_artifact["recoverySucceeded"] = False
+                candidate_generation_artifact["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
 
-        if candidates:
-            proposal["llmCandidates"] = candidates
-            if retry_traces:
-                proposal["llmRetryTraces"] = retry_traces
-                proposal["llmRetryStats"] = {
-                    "total_attempts": len(retry_traces) + 1,
-                    "successful_attempt": len(retry_traces) + 1,
-                }
+        proposal["llmCandidates"] = candidates
+        proposal["candidateGenerationDiagnostics"] = candidate_generation_diagnostics
+        if retry_traces:
+            proposal["llmRetryTraces"] = retry_traces
+            proposal["llmRetryStats"] = {
+                "total_attempts": len(retry_traces) + 1,
+                "successful_attempt": len(retry_traces) + 1,
+            }
+
+    proposal["llmCandidates"] = candidates
+    proposal["candidateGenerationDiagnostics"] = candidate_generation_diagnostics
 
     # LLM trace should be persisted whenever an LLM/skip execution trace exists,
     # even if candidate validation filtered all candidates.
@@ -244,6 +320,10 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 "response": {**(trace.get("response") or {}), "candidates": proposal.get("llmCandidates", [])},
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
+        )
+        write_json(
+            paths.sql_candidate_generation_diagnostics_path(sql_unit["sqlKey"]),
+            candidate_generation_artifact,
         )
 
     # 构建验证记录

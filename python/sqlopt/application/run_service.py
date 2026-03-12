@@ -10,14 +10,29 @@ from ..manifest import log_event
 from ..run_paths import canonical_paths
 from ..stages import apply as apply_stage
 from . import run_index, workflow_engine
+from .run_selection import apply_selection_to_config, normalize_run_selection, selection_matches
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
 from .requests import AdvanceStepRequest, RunStatusRequest
 from .run_repository import RunRepository
 
 
-def start_run(config_path: Path, to_stage: str, run_id: str | None, *, repo_root: Path) -> tuple[str, dict[str, Any]]:
+def start_run(
+    config_path: Path,
+    to_stage: str,
+    run_id: str | None,
+    *,
+    repo_root: Path,
+    selection: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
     config = load_config(config_path)
+    project_root = Path(str((config.get("project", {}) or {}).get("root_path") or ".")).resolve()
+    normalized_selection = normalize_run_selection(
+        project_root=project_root,
+        mapper_paths=list((selection or {}).get("mapper_paths") or []),
+        sql_keys=list((selection or {}).get("sql_keys") or []),
+    )
+    config = apply_selection_to_config(config, normalized_selection)
     resolved_run_id = run_id or f"run_{uuid4().hex[:12]}"
     runs_root = workflow_engine.runs_root(config)
     run_dir = runs_root / resolved_run_id
@@ -31,6 +46,12 @@ def start_run(config_path: Path, to_stage: str, run_id: str | None, *, repo_root
 
     plan = repository.get_plan()
     plan["to_stage"] = to_stage
+    existing_selection = dict(plan.get("selection") or {}) if isinstance(plan.get("selection"), dict) else None
+    if existing_selection:
+        if normalized_selection is not None and not selection_matches(existing_selection, normalized_selection):
+            raise ValueError("run selection does not match the existing run plan")
+    elif normalized_selection:
+        plan["selection"] = normalized_selection
     repository.set_plan(plan)
 
     validator = ContractValidator(repo_root)

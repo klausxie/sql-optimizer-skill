@@ -97,6 +97,42 @@ def _patch_template_settings(config: dict[str, Any] | None) -> dict[str, bool]:
     }
 
 
+def _dynamic_template_summary(
+    rewrite_facts: dict[str, Any] | None,
+    patchability: dict[str, Any] | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    facts = dict((rewrite_facts or {}).get("dynamicTemplate") or {})
+    profile = dict(facts.get("capabilityProfile") or {})
+    if not facts:
+        return None
+    capability_tier = str(profile.get("capabilityTier") or "").strip() or None
+    blocking_reason = (
+        str((patchability or {}).get("dynamicBlockingReason") or "").strip()
+        or str(profile.get("blockerFamily") or "").strip()
+        or None
+    )
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    delivery_class = None
+    if strategy_type.startswith("DYNAMIC_") and bool((patchability or {}).get("eligible")):
+        delivery_class = "READY_DYNAMIC_PATCH"
+    elif capability_tier == "SAFE_BASELINE" and blocking_reason and blocking_reason.endswith("NO_EFFECTIVE_DIFF"):
+        delivery_class = "SAFE_BASELINE_NO_DIFF"
+    elif capability_tier == "SAFE_BASELINE":
+        delivery_class = "SAFE_BASELINE_BLOCKED"
+    elif str(profile.get("shapeFamily") or "").strip():
+        delivery_class = "REVIEW_ONLY"
+    return {
+        "present": bool(facts.get("present")),
+        "shapeFamily": str(profile.get("shapeFamily") or "").strip() or None,
+        "capabilityTier": capability_tier,
+        "patchSurface": str(profile.get("patchSurface") or "").strip() or None,
+        "baselineFamily": str(profile.get("baselineFamily") or "").strip() or None,
+        "blockingReason": blocking_reason,
+        "deliveryClass": delivery_class,
+    }
+
+
 def validate_proposal(
     sql_unit: dict[str, Any],
     proposal: dict[str, Any],
@@ -171,7 +207,7 @@ def validate_proposal(
         equivalence=selection.equivalence.to_contract(),
     )
     template_settings = _patch_template_settings(config)
-    rewrite_facts, patchability, selected_patch_strategy, patch_strategy_candidates, rewrite_materialization, template_rewrite_ops = (
+    rewrite_facts, dynamic_candidate_intent, patchability, selected_patch_strategy, patch_strategy_candidates, rewrite_materialization, template_rewrite_ops = (
         plan_patch_strategy(
             sql_unit,
             selection.rewritten_sql,
@@ -239,6 +275,8 @@ def validate_proposal(
         rewrite_safety_level=rewrite_safety_level,
         patchability=patchability,
         selected_patch_strategy=selected_patch_strategy,
+        dynamic_template=_dynamic_template_summary(rewrite_facts, patchability, selected_patch_strategy),
+        dynamic_candidate_intent=dynamic_candidate_intent,
         canonicalization=selection.canonicalization,
         rewrite_facts=rewrite_facts,
         patch_strategy_candidates=patch_strategy_candidates,

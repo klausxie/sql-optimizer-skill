@@ -82,6 +82,7 @@
 3. `estimatedBenefit`
 4. `confidence`
 5. `triggeredRules`
+6. `candidateGenerationDiagnostics`
 
 说明：
 1. optimize 输出分析候选，不直接输出 XML 级 rewrite。
@@ -90,6 +91,25 @@
    - 原始错误保留在 `dbEvidenceSummary.explainError`
    - verification 会产出 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
    - report / 诊断摘要会把它提升为用户可见 warning
+
+### 2.1 `candidateGenerationDiagnostics`
+当前行为：
+1. 这是 optimize 输出的候选治理摘要
+2. 用于解释：
+   - 为什么候选为空
+   - 为什么候选被 low-value pruning 剪掉
+   - 是否命中 safe baseline recovery
+
+当前常见字段：
+1. `degradationKind`
+2. `recoveryAttempted`
+3. `recoveryStrategy`
+4. `recoverySucceeded`
+5. `recoveryReason`
+6. `rawCandidateCount`
+7. `acceptedCandidateCount`
+8. `prunedLowValueCount`
+9. `finalCandidateCount`
 
 ## 3. `AcceptanceResult`
 文件：`pipeline/validate/acceptance.results.jsonl`
@@ -118,6 +138,7 @@
 14. `selectionRationale`
 15. `deliveryReadiness`
 16. `decisionLayers`
+17. `dynamicTemplate`
 
 ### 3.0 `decisionLayers`
 当前行为：
@@ -205,6 +226,20 @@
    - `reason`
    - `matchedRules`
 
+### 3.6 `dynamicTemplate`
+当前行为：
+1. 这是 validate 输出的动态模板交付摘要
+2. 用于表达动态模板当前属于哪类 shape、safe baseline 或 review-only family
+
+当前常见字段：
+1. `present`
+2. `shapeFamily`
+3. `capabilityTier`
+4. `patchSurface`
+5. `baselineFamily`
+6. `blockingReason`
+7. `deliveryClass`
+
 ## 4. `PatchResult`
 文件：`pipeline/patch_generate/patch.results.jsonl`
 
@@ -225,6 +260,8 @@
 7. `applyCheckError`
 8. `strategyType`
 9. `fallbackApplied`
+10. `dynamicTemplateBlockingReason`
+11. `dynamicTemplateStrategy`
 
 语义约束：
 1. 动态模板 statement 不能直接用扁平 SQL 覆盖 XML
@@ -249,9 +286,15 @@
 5. `stats.wrapper_collapse_recovered_count`
 6. `stats.canonical_rule_match_counts`
 7. `stats.canonical_preference_applied_count`
+8. `stats.dynamic_baseline_family_counts`
+9. `stats.dynamic_delivery_class_counts`
+10. `stats.candidate_degradation_counts`
+11. `stats.candidate_recovery_counts`
 
 说明：
 1. `materialization_reason_group_counts` 是将 `reasonCode` 汇总成更可执行的操作分组。
+2. `dynamic_baseline_family_counts` 用于表达当前哪些动态模板 safe baseline 已打通。
+3. `dynamic_delivery_class_counts` 用于表达当前动态模板的 ready/review/no-diff 分布。
 
 ## 6. 兼容策略
 1. 新字段只做加法，不移除原有主干字段
@@ -267,6 +310,8 @@
 3. `patch.strategy.plan.json`
 4. `canonicalization.assessment.json`
 5. `candidate.selection.trace.json`
+6. `dynamic_candidate_intent.json`
+7. `candidate_generation_diagnostics.json`
 
 约束：
 

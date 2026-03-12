@@ -44,6 +44,16 @@ sqlopt-cli apply --help
 sqlopt-cli validate-config --config sqlopt.yml
 ```
 
+局部调试优先：
+
+```bash
+sqlopt-cli run --config sqlopt.yml \
+  --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml \
+  --sql-key demo.user.advanced.listUsersFilteredAliased#v17
+```
+
+当前推荐：日常开发优先局部 run，full run 只用于阶段验收。
+
 ## 关键边界
 
 - PostgreSQL 方言（如 `ILIKE`）在 MySQL 平台不会自动兼容

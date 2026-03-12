@@ -22,6 +22,15 @@
    - 负责在允许的 capability 内规划最终 patch strategy。
    - 采用 `strategy registry + planner facade`
 
+动态模板补丁链路在这五层之上又补了两层专用能力：
+
+1. `dynamic_candidate_intent`
+   - 负责判断候选是否属于 template-preserving rewrite。
+   - 采用 `models + rules + engine`
+2. `candidate_generation`
+   - 负责 degraded candidate 治理、本地 recovery、low-value pruning。
+   - 采用 `models + rules + engine`
+
 外部仍保持旧 contract：
 
 1. `AcceptanceResult`
@@ -147,6 +156,16 @@
 2. 用于解释“为什么能补”“为什么没补”“为什么选这个候选”
 3. 不作为外部稳定状态 source of truth
 
+当前动态模板相关 diagnostics 额外包括：
+
+1. `dynamic_candidate_intent.json`
+2. `candidate_generation_diagnostics.json`
+
+它们分别回答：
+
+1. 候选是否能被重建成保真模板改写
+2. optimize 阶段为什么没有候选、为什么候选被剪掉、是否命中本地恢复
+
 ## 7. 当前已验证的闭环
 
 代表性闭环是 `countUser`：
@@ -159,6 +178,36 @@
    - `select count(1) from (<include .../>) tmp`
    - `-> SELECT COUNT(*) FROM users`
 
+当前动态模板已验证闭环包括：
+
+1. `STATIC_INCLUDE_WRAPPER_COLLAPSE`
+   - 代表样例：`demo.user.advanced.listUsersViaStaticIncludeWrapped#v14`
+2. `STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE`
+   - 代表样例：`demo.user.advanced.listUsersRecentPagedWrapped#v16`
+3. `DYNAMIC_COUNT_WRAPPER_COLLAPSE`
+   - 代表样例：`demo.user.advanced.countUsersFilteredWrapped#v4`
+4. `DYNAMIC_FILTER_WRAPPER_COLLAPSE`
+   - 代表样例：`demo.user.advanced.listUsersFilteredWrapped#v15`
+5. `DYNAMIC_FILTER_SELECT_LIST_CLEANUP`
+   - 代表样例：`demo.user.advanced.listUsersFilteredAliased#v17`
+6. `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP`
+   - 代表样例：`demo.user.advanced.listUsersFilteredTableAliased#v18`
+
+这些样例当前统一复用：
+
+1. `DYNAMIC_STATEMENT_TEMPLATE_EDIT`
+2. `rewriteFacts.dynamicTemplate.capabilityProfile`
+3. `dynamic_candidate_intent`
+4. `candidate_generation_diagnostics`
+
+它们已经形成一套可扩的动态模板基线族谱，而不是单个 case。
+
+阶段状态：
+
+1. `run_fixture_project_full_dynamic_gate_v5` 已将这 6 条 dynamic baseline 收敛到同一条 full-run 基线
+2. 当前阶段可以认为 dynamic delivery 已从“实验性样例”进入“稳定能力版图”
+3. 下一阶段不再优先扩 dynamic ready family，而是转向清理全局候选稳定性尾项
+
 ## 8. 后续建议
 
 如果继续按“只做对架构有利的事”推进，优先级建议如下：
@@ -167,3 +216,10 @@
 2. 把 diagnostics artifact 统一成 artifact models
 3. 在 `rewrite_facts` 中补 `projectionFacts` / `subqueryFacts`
 4. 给 canonicalization / patchability rule registry 增加显式冲突决策策略
+5. 继续扩 `dynamicBaselineFamily / dynamicDeliveryClass`，优先 `IF_GUARDED_FILTER_STATEMENT`，暂不放开 `FOREACH`
+
+当前阶段之后的优先级已调整为：
+
+1. `DML / selective update` 的 `semantic_uncertain`
+2. `aggregation wrapper` 的候选治理与语义归一化
+3. 剩余 `TEXT_ONLY_FALLBACK / EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES`

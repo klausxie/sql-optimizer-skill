@@ -27,6 +27,14 @@
 - 手工 fixture：[`project/07-manual-test-fixture.md`](project/07-manual-test-fixture.md)
 - 交付清单：[`project/06-delivery-checklist.md`](project/06-delivery-checklist.md)
 
+动态模板与局部调试建议：
+
+1. 优先阅读 [`project/07-manual-test-fixture.md`](project/07-manual-test-fixture.md) 中的局部 run 说明
+2. 当前动态模板能力版图与 baseline family 已同步到：
+   - [`project/02-system-spec.md`](project/02-system-spec.md)
+   - [`project/04-data-contracts.md`](project/04-data-contracts.md)
+   - [`project/10-sql-patchability-architecture.md`](project/10-sql-patchability-architecture.md)
+
 推荐执行：
 
 ```bash

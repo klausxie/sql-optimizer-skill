@@ -155,6 +155,121 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertIsNone(result["equivalenceOverrideRule"])
         self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_CHANGED")
 
+    def test_simple_cte_inline_is_treated_as_semantically_equivalent_with_exact_evidence(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                WITH recent_users AS (
+                    SELECT id, name, email, status, created_at, updated_at
+                    FROM users
+                    WHERE created_at >= #{createdAfter}
+                )
+                SELECT id, name, email, status, created_at, updated_at
+                FROM recent_users
+                ORDER BY created_at DESC
+                LIMIT 20
+            """,
+            rewritten_sql="""
+                SELECT id, name, email, status, created_at, updated_at
+                FROM users
+                WHERE created_at >= #{createdAfter}
+                ORDER BY created_at DESC
+                LIMIT 20
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["projection"]["status"], "PASS")
+        self.assertEqual(result["checks"]["predicate"]["status"], "PASS")
+        self.assertEqual(result["checks"]["ordering"]["status"], "PASS")
+        self.assertEqual(result["checks"]["pagination"]["status"], "PASS")
+        self.assertEqual(result["confidence"], "HIGH")
+
+    def test_simple_count_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT COUNT(1)
+                FROM (
+                    SELECT id
+                    FROM users
+                    WHERE status = #{status}
+                      AND created_at >= #{createdAfter}
+                ) filtered_users
+            """,
+            rewritten_sql="""
+                SELECT COUNT(*)
+                FROM users
+                WHERE status = #{status}
+                  AND created_at >= #{createdAfter}
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+
+    def test_simple_select_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT id, name, email, status, created_at, updated_at
+                FROM (
+                    SELECT id, name, email, status, created_at, updated_at
+                    FROM users
+                    WHERE status = #{status}
+                      AND created_at >= #{createdAfter}
+                ) filtered_users
+                ORDER BY created_at DESC
+            """,
+            rewritten_sql="""
+                SELECT id, name, email, status, created_at, updated_at
+                FROM users
+                WHERE status = #{status}
+                  AND created_at >= #{createdAfter}
+                ORDER BY created_at DESC
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["predicate"]["status"], "PASS")
+        self.assertEqual(result["checks"]["ordering"]["status"], "PASS")
+
+    def test_comment_only_difference_does_not_change_semantic_result(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="SELECT COUNT(*) FROM users WHERE status = #{status} AND created_at >= #{createdAfter}",
+            rewritten_sql="SELECT COUNT(*) FROM users WHERE status = #{status} AND created_at >= #{createdAfter} /* COUNT query - LIMIT not applicable */",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["predicate"]["status"], "PASS")
+        self.assertEqual(result["checks"]["predicate"]["status"], "PASS")
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_STABLE")
+        self.assertFalse(result["equivalenceOverrideApplied"])
+
 
 if __name__ == "__main__":
     unittest.main()

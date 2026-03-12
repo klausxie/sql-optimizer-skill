@@ -167,6 +167,38 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             trace = json.loads(trace_path.read_text(encoding="utf-8"))
             self.assertEqual(trace.get("degrade_reason"), "RISKY_DOLLAR_SUBSTITUTION")
 
+    def test_optimize_stage_recovers_empty_candidates_for_safe_cte(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_recover_empty_") as td:
+            run_dir = Path(td)
+            sql_unit = _sql_unit()
+            sql_unit["sqlKey"] = "demo.user.cte#v1"
+            sql_unit["sql"] = "WITH recent_users AS (SELECT id, created_at FROM users) SELECT id, created_at FROM recent_users ORDER BY created_at DESC"
+            proposal = {
+                "sqlKey": "demo.user.cte#v1",
+                "issues": [],
+                "dbEvidenceSummary": {},
+                "planSummary": {},
+                "suggestions": [],
+                "verdict": "NOOP",
+                "actionability": {"score": 40, "tier": "LOW", "autoPatchLikelihood": "LOW", "reasons": [], "blockedBy": []},
+                "recommendedSuggestionIndex": None,
+            }
+            with patch("sqlopt.stages.optimize.generate_proposal", return_value=proposal):
+                with patch(
+                    "sqlopt.stages.optimize.generate_llm_candidates",
+                    return_value=([], {"executor": "opencode_run", "provider": "opencode_run"}),
+                ):
+                    optimize.execute_one(sql_unit, run_dir, self._validator(), config={"llm": {"enabled": True, "provider": "opencode_run"}, "project": {}})
+
+            proposal_row = json.loads((run_dir / "pipeline" / "optimize" / "optimization.proposals.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(proposal_row["llmCandidates"][0]["rewriteStrategy"], "INLINE_SIMPLE_CTE_RECOVERED")
+            self.assertEqual(proposal_row["candidateGenerationDiagnostics"]["degradationKind"], "EMPTY_CANDIDATES")
+            self.assertTrue(proposal_row["candidateGenerationDiagnostics"]["recoverySucceeded"])
+            diagnostics_path = run_dir / "sql" / "demo_user_cte_v1" / "candidate_generation_diagnostics.json"
+            self.assertTrue(diagnostics_path.exists())
+            diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+            self.assertEqual(diagnostics["recoveryStrategy"], "INLINE_SIMPLE_CTE_RECOVERED")
+
     def test_validate_stage_writes_verification_record(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_") as td:
             run_dir = Path(td)

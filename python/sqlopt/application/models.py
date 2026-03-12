@@ -33,6 +33,7 @@ class RunPlan(TypedDict, total=False):
     phases: list[str]
     to_stage: str
     sql_keys: list[str]
+    selection: dict[str, Any]
 
 
 class RunMeta(TypedDict, total=False):

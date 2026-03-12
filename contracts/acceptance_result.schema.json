@@ -59,7 +59,23 @@
     "rewriteSafetyLevel": {"type": ["string", "null"]},
     "patchability": {"type": ["object", "null"]},
     "selectedPatchStrategy": {"type": ["object", "null"]},
+    "dynamicTemplate": {
+      "type": ["object", "null"],
+      "properties": {
+        "present": {"type": ["boolean", "null"]},
+        "shapeFamily": {"type": ["string", "null"]},
+        "capabilityTier": {"type": ["string", "null"]},
+        "patchSurface": {"type": ["string", "null"]},
+        "baselineFamily": {"type": ["string", "null"]},
+        "blockingReason": {"type": ["string", "null"]},
+        "deliveryClass": {"type": ["string", "null"]}
+      }
+    },
     "canonicalization": {"type": ["object", "null"]},
+    "rewriteFacts": {"type": ["object", "null"]},
+    "patchStrategyCandidates": {"type": ["array", "null"], "items": {"type": "object"}},
+    "canonicalizationAssessment": {"type": ["array", "null"], "items": {"type": "object"}},
+    "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
     "semanticEquivalence": {
       "type": ["object", "null"],
       "properties": {

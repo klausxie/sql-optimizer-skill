@@ -54,6 +54,54 @@ class CanonicalizationTest(unittest.TestCase):
             {row["ruleId"] for row in result["matchedRules"]},
         )
 
+    def test_detects_redundant_distinct_wrapper(self) -> None:
+        result = assess_candidate_canonicalization(
+            "SELECT DISTINCT status FROM (SELECT DISTINCT status FROM users) ds ORDER BY status",
+            "SELECT DISTINCT status FROM users ORDER BY status",
+            {
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            },
+        )
+        self.assertTrue(result["preferred"])
+        self.assertIn(
+            "REDUNDANT_DISTINCT_WRAPPER_CANONICAL_FORM",
+            {row["ruleId"] for row in result["matchedRules"]},
+        )
+
+    def test_detects_redundant_group_by_wrapper(self) -> None:
+        result = assess_candidate_canonicalization(
+            "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM (SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status) og ORDER BY status",
+            "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+            {
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            },
+        )
+        self.assertTrue(result["preferred"])
+        self.assertIn(
+            "REDUNDANT_GROUP_BY_WRAPPER_CANONICAL_FORM",
+            {row["ruleId"] for row in result["matchedRules"]},
+        )
+
+    def test_detects_redundant_having_wrapper(self) -> None:
+        result = assess_candidate_canonicalization(
+            "SELECT user_id, COUNT(*) AS total FROM (SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1) oh ORDER BY user_id",
+            "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+            {
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            },
+        )
+        self.assertTrue(result["preferred"])
+        self.assertIn(
+            "REDUNDANT_HAVING_WRAPPER_CANONICAL_FORM",
+            {row["ruleId"] for row in result["matchedRules"]},
+        )
+
     def test_blocks_canonicalization_without_row_count_match(self) -> None:
         result = assess_candidate_canonicalization(
             "SELECT id AS user_id FROM users",

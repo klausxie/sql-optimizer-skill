@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.user.advanced">
+    <sql id="AdvancedUserColumns">
+        id, name, email, status, created_at, updated_at
+    </sql>
+
+    <select id="listUsersProjected" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM (
+            SELECT id, name, email, status, created_at, updated_at
+            FROM users
+        ) u
+        ORDER BY created_at DESC
+    </select>
+
+    <sql id="advancedUserBaseQuery">
+        SELECT id
+        FROM users
+    </sql>
+
+    <select id="countUsersWrapped" resultType="java.lang.Integer">
+        select count(1) from (<include refid="advancedUserBaseQuery" />) tmp
+    </select>
+
+    <select id="countUsersDirectFiltered" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM users
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+    </select>
+
+    <select id="countUsersFilteredWrapped" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM (
+            SELECT id
+            FROM users
+            <where>
+                <if test="status != null and status != ''">
+                    AND status = #{status}
+                </if>
+                <if test="createdAfter != null">
+                    AND created_at &gt;= #{createdAfter}
+                </if>
+            </where>
+        ) filtered_users
+    </select>
+
+    <select id="listUsersRecentPaged" resultType="map">
+        SELECT <include refid="AdvancedUserColumns" />
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT 100
+    </select>
+
+    <select id="findUsersUnsafeOrderBy" resultType="map">
+        SELECT <include refid="AdvancedUserColumns" />
+        FROM users
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY ${orderBy}
+    </select>
+
+    <select id="findUsersByIds" resultType="map">
+        SELECT <include refid="AdvancedUserColumns" />
+        FROM users
+        <where>
+            <foreach collection="ids" item="id" open="id IN (" separator="," close=")">
+                #{id}
+            </foreach>
+        </where>
+    </select>
+
+    <select id="findUsersByKeyword" resultType="map">
+        <bind name="keywordPattern" value="'%' + keyword + '%'" />
+        SELECT <include refid="AdvancedUserColumns" />
+        FROM users
+        <where>
+            <choose>
+                <when test="keyword != null and keyword != ''">
+                    name ILIKE #{keywordPattern}
+                </when>
+                <when test="status != null and status != ''">
+                    status = #{status}
+                </when>
+                <otherwise>
+                    status != 'DELETED'
+                </otherwise>
+            </choose>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateUserSelective">
+        UPDATE users
+        <set>
+            <if test="name != null and name != ''">
+                name = #{name},
+            </if>
+            <if test="email != null and email != ''">
+                email = #{email},
+            </if>
+            <if test="status != null and status != ''">
+                status = #{status},
+            </if>
+            <if test="updatedAt != null">
+                updated_at = #{updatedAt},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="listUserCountsByStatus" resultType="map">
+        SELECT status, COUNT(*) AS total
+        FROM users
+        GROUP BY status
+        ORDER BY status
+    </select>
+
+    <select id="listDistinctUserStatuses" resultType="map">
+        SELECT DISTINCT status
+        FROM users
+        ORDER BY status
+    </select>
+
+    <select id="listRecentUsersViaCte" resultType="map">
+        WITH recent_users AS (
+            SELECT id, name, email, status, created_at, updated_at
+            FROM users
+            WHERE created_at &gt;= #{createdAfter}
+        )
+        SELECT id, name, email, status, created_at, updated_at
+        FROM recent_users
+        ORDER BY created_at DESC
+        LIMIT 20
+    </select>
+
+    <select id="listDistinctUserStatusesWrapped" resultType="map">
+        SELECT DISTINCT status
+        FROM (
+            SELECT DISTINCT status
+            FROM users
+        ) ds
+        ORDER BY status
+    </select>
+
+    <select id="listUsersViaStaticIncludeWrapped" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM (
+            SELECT <include refid="AdvancedUserColumns" />
+            FROM users
+        ) u
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersFilteredWrapped" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM (
+            SELECT id, name, email, status, created_at, updated_at
+            FROM users
+            <where>
+                <if test="status != null and status != ''">
+                    AND status = #{status}
+                </if>
+                <if test="createdAfter != null">
+                    AND created_at &gt;= #{createdAfter}
+                </if>
+            </where>
+        ) filtered_users
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersRecentPagedWrapped" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM (
+            SELECT <include refid="AdvancedUserColumns" />
+            FROM users
+        ) recent_users
+        ORDER BY created_at DESC
+        LIMIT 100
+    </select>
+
+    <select id="listUsersFilteredAliased" resultType="map">
+        SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
+        FROM users
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersFilteredTableAliased" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users u
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+</mapper>

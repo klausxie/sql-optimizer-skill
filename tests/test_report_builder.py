@@ -52,6 +52,7 @@ class ReportBuilderTest(unittest.TestCase):
             state=ReportStateSnapshot(
                 phase_status={"preflight": "DONE", "scan": "DONE", "report": "DONE"},
                 attempts_by_phase={"report": 1},
+                selection_scope={"present": True, "mapper_paths": ["src/main/resources/demo_mapper.xml"], "sql_keys": [], "scanned_count": 2, "selected_count": 1},
             ),
             manifest_rows=[
                 ManifestEvent(
@@ -91,6 +92,7 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.report.stats["sql_units"], 1)
+        self.assertEqual(artifacts.report.selection_scope["selected_count"], 1)
         self.assertEqual(artifacts.report.stats["acceptance_need_more_params"], 1)
         self.assertEqual(artifacts.report.stats["semantic_gate_uncertain_count"], 1)
         self.assertEqual(artifacts.report.stats["semantic_gate_pass_count"], 0)
@@ -109,6 +111,20 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["patchability_lift_rate"], 1.0)
         self.assertEqual(artifacts.report.stats["preflight_failure_count"], 1)
         self.assertEqual(artifacts.report.stats["pipeline_coverage"]["report"], "DONE")
+        self.assertEqual(artifacts.report.stats["blocker_family_counts"], {"READY": 1})
+        self.assertEqual(artifacts.report.stats["candidate_degradation_counts"], {})
+        self.assertEqual(artifacts.report.stats["candidate_recovery_counts"], {})
+        self.assertEqual(artifacts.report.stats["empty_candidate_recovered_count"], 0)
+        self.assertEqual(artifacts.report.stats["text_fallback_recovered_count"], 0)
+        self.assertEqual(artifacts.report.stats["aggregation_shape_counts"], {})
+        self.assertEqual(artifacts.report.stats["aggregation_constraint_counts"], {})
+        self.assertEqual(artifacts.report.stats["aggregation_safe_baseline_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_baseline_family_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_delivery_class_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_ready_baseline_family_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_ready_patch_count"], 0)
+        self.assertEqual(artifacts.report.stats["dynamic_safe_baseline_blocked_count"], 0)
+        self.assertEqual(artifacts.report.stats["dynamic_review_only_count"], 0)
         self.assertEqual(len(artifacts.failures), 2)
         self.assertEqual(artifacts.failures[0].phase, "validate")
         self.assertIn("validate", artifacts.report.stats["phase_reason_code_counts"])
@@ -137,6 +153,12 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(sql_artifact["artifact_refs"]["acceptance"], "pipeline/validate/acceptance.results.jsonl")
         self.assertEqual(sql_artifact["artifact_refs"]["patches"], "pipeline/patch_generate/patch.results.jsonl")
         self.assertEqual(sql_artifact["artifact_refs"]["verification"], "pipeline/verification/ledger.jsonl")
+        self.assertIn("candidate_generation_diagnostics", sql_artifact["artifact_refs"])
+        self.assertEqual(sql_artifact["blocker_family"], "READY")
+        self.assertEqual(sql_artifact["aggregation_shape_family"], "NONE")
+        self.assertEqual(sql_artifact["aggregation_constraint_family"], "NONE")
+        self.assertIsNone(sql_artifact["dynamic_baseline_family"])
+        self.assertIsNone(sql_artifact["dynamic_delivery_class"])
         self.assertIn("top_blockers", artifacts.diagnostics_blockers_summary)
         self.assertIn("authoritative", artifacts.run_index)
         self.assertIn("integrity", artifacts.run_index)
@@ -214,6 +236,257 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["patch_strategy_counts"]["SAFE_WRAPPER_COLLAPSE"], 1)
         self.assertEqual(artifacts.report.stats["canonical_rule_match_counts"]["COUNT_CANONICAL_FORM"], 1)
         self.assertEqual(artifacts.report.stats["canonical_preference_applied_count"], 1)
+        self.assertEqual(artifacts.report.stats["aggregation_shape_counts"], {})
+        self.assertEqual(artifacts.report.stats["aggregation_constraint_counts"], {})
+        self.assertEqual(artifacts.report.stats["aggregation_safe_baseline_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_baseline_family_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_delivery_class_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_ready_baseline_family_counts"], {})
+        self.assertEqual(artifacts.report.stats["dynamic_ready_patch_count"], 0)
+        self.assertEqual(artifacts.report.stats["dynamic_safe_baseline_blocked_count"], 0)
+        self.assertEqual(artifacts.report.stats["dynamic_review_only_count"], 0)
+
+    def test_build_report_artifacts_counts_candidate_recovery_stats(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.cte#v1"}],
+            proposals=[
+                {
+                    "sqlKey": "demo.user.cte#v1",
+                    "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id FROM users", "rewriteStrategy": "INLINE_SIMPLE_CTE_RECOVERED"}],
+                    "candidateGenerationDiagnostics": {
+                        "degradationKind": "EMPTY_CANDIDATES",
+                        "recoveryAttempted": True,
+                        "recoveryStrategy": "INLINE_SIMPLE_CTE_RECOVERED",
+                        "recoverySucceeded": True,
+                        "recoveryReason": "SAFE_BASELINE_SHAPE_RECOVERY",
+                    },
+                }
+            ],
+            acceptance=[],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
+                "stage_retry_max": {"scan": 1, "report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_candidate_recovery_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["candidate_degradation_counts"], {"EMPTY_CANDIDATES": 1})
+        self.assertEqual(artifacts.report.stats["candidate_recovery_counts"], {"INLINE_SIMPLE_CTE_RECOVERED": 1})
+        self.assertEqual(artifacts.report.stats["low_value_pruned_count"], 0)
+        self.assertEqual(artifacts.report.stats["low_value_replaced_count"], 0)
+        self.assertEqual(artifacts.report.stats["empty_candidate_recovered_count"], 1)
+        self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {})
+        self.assertEqual(artifacts.report.stats["text_fallback_recovered_count"], 0)
+
+    def test_build_report_artifacts_tracks_blocked_empty_candidate_reasons(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.order.window#v1"}],
+            proposals=[
+                {
+                    "sqlKey": "demo.order.window#v1",
+                    "candidateGenerationDiagnostics": {
+                        "degradationKind": "EMPTY_CANDIDATES",
+                        "recoveryAttempted": True,
+                        "recoveryStrategy": None,
+                        "recoverySucceeded": False,
+                        "recoveryReason": "NO_SAFE_BASELINE_WINDOW",
+                        "prunedLowValueCount": 0,
+                    },
+                }
+            ],
+            acceptance=[],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_candidate_blocked_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {"NO_SAFE_BASELINE_WINDOW": 1})
+
+    def test_build_report_artifacts_counts_dynamic_strategy_from_patch_results(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14"}],
+            proposals=[],
+            acceptance=[
+                {
+                    "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14",
+                    "status": "PASS",
+                    "equivalence": {"checked": True},
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                    "dynamicTemplate": {
+                        "present": True,
+                        "shapeFamily": "STATIC_INCLUDE_ONLY",
+                        "capabilityTier": "SAFE_BASELINE",
+                        "patchSurface": "STATEMENT_BODY",
+                        "blockingReason": None,
+                    },
+                    "rewriteFacts": {
+                        "dynamicTemplate": {
+                            "present": True,
+                            "capabilityProfile": {
+                                "shapeFamily": "STATIC_INCLUDE_ONLY",
+                                "capabilityTier": "SAFE_BASELINE",
+                                "patchSurface": "STATEMENT_BODY",
+                            },
+                        },
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "NONE",
+                                "capabilityTier": "NONE",
+                                "constraintFamily": "NONE",
+                            }
+                        },
+                    },
+                    "riskFlags": [],
+                }
+            ],
+            patches=[
+                {
+                    "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14",
+                    "statementKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
+                    "applicable": True,
+                    "strategyType": "DYNAMIC_STATEMENT_TEMPLATE_EDIT",
+                    "dynamicTemplateStrategy": "DYNAMIC_STATEMENT_TEMPLATE_EDIT",
+                    "deliveryOutcome": {"tier": "READY_TO_APPLY", "summary": "patch is ready to apply"},
+                }
+            ],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_dynamic_strategy_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["patch_strategy_counts"]["DYNAMIC_STATEMENT_TEMPLATE_EDIT"], 1)
+
+    def test_build_report_artifacts_tracks_aggregation_profiles(self) -> None:
+        inputs = ReportInputs(
+            units=[
+                {"sqlKey": "demo.order.havingWrapped#v1"},
+                {"sqlKey": "demo.user.distinct#v1"},
+            ],
+            proposals=[
+                {
+                    "sqlKey": "demo.user.distinct#v1",
+                    "actionability": {
+                        "score": 95,
+                        "tier": "HIGH",
+                        "autoPatchLikelihood": "LOW",
+                        "reasons": [],
+                        "blockedBy": [],
+                    },
+                }
+            ],
+            acceptance=[
+                {
+                    "sqlKey": "demo.order.havingWrapped#v1",
+                    "status": "PASS",
+                    "equivalence": {"checked": True},
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "HAVING",
+                                "capabilityTier": "SAFE_BASELINE",
+                                "constraintFamily": "SAFE_BASELINE",
+                                "safeBaselineFamily": "REDUNDANT_HAVING_WRAPPER",
+                            }
+                        }
+                    },
+                    "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                    "riskFlags": [],
+                },
+                {
+                    "sqlKey": "demo.user.distinct#v1",
+                    "status": "FAIL",
+                    "equivalence": {"checked": True},
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {"status": "FAIL", "confidence": "HIGH"},
+                    "patchability": {"eligible": False, "blockingReason": "AGGREGATION_CONSTRAINT:DISTINCT_RELAXATION"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "DISTINCT",
+                                "capabilityTier": "REVIEW_REQUIRED",
+                                "constraintFamily": "DISTINCT_RELAXATION",
+                                "safeBaselineFamily": None,
+                            }
+                        }
+                    },
+                    "riskFlags": [],
+                },
+            ],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_aggregation_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["aggregation_shape_counts"], {"HAVING": 1, "DISTINCT": 1})
+        self.assertEqual(
+            artifacts.report.stats["aggregation_constraint_counts"],
+            {"SAFE_BASELINE": 1, "DISTINCT_RELAXATION": 1},
+        )
+        self.assertEqual(
+            artifacts.report.stats["aggregation_safe_baseline_counts"],
+            {"REDUNDANT_HAVING_WRAPPER": 1},
+        )
+        distinct_row = next(row for row in artifacts.diagnostics_sql_outcomes if row["sql_key"] == "demo.user.distinct#v1")
+        self.assertEqual(distinct_row["aggregation_shape_family"], "DISTINCT")
+        self.assertEqual(distinct_row["aggregation_constraint_family"], "DISTINCT_RELAXATION")
+        self.assertIn("聚合语义", distinct_row["summary"])
+        action_ids = [row["action_id"] for row in artifacts.report.summary.next_actions]
+        self.assertIn("review-distinct-safety", action_ids)
 
     def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
         inputs = ReportInputs(

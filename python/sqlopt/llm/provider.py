@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..platforms.sql.candidate_generation_policy import recover_candidates_from_text
 from ..subprocess_utils import run_capture_text
 from .retry_context import RetryContext, build_retry_prompt
 
@@ -86,6 +87,7 @@ def _extract_json_events(stdout: str) -> tuple[list[str], str | None]:
 _CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 _JSON_OBJ_RE = re.compile(r"(\{.*\})", re.DOTALL)
 _JSON_ARR_RE = re.compile(r"(\[.*\])", re.DOTALL)
+_DISTINCT_SQL_RE = re.compile(r"\bselect\s+distinct\b", flags=re.IGNORECASE)
 
 
 def _parse_text_json(text: str) -> dict[str, Any]:
@@ -165,9 +167,19 @@ def _build_llm_user_prompt(prompt: dict[str, Any]) -> str:
         "indexes": ((prompt.get("requiredContext") or {}).get("indexes")),
         "planSummary": ((prompt.get("optionalContext") or {}).get("planSummary")),
     }
+    sql_text = str(compact_prompt.get("sql") or "")
+    guardrails = ""
+    if re.search(r"\bgroup\s+by\b|\bhaving\b|\bover\s*\(|\bunion\b|^\s*with\b|\bselect\b.+\bfrom\s*\(\s*select\b", sql_text, flags=re.IGNORECASE | re.DOTALL) or _DISTINCT_SQL_RE.search(sql_text):
+        guardrails = (
+            "\nAdditional constraints for complex SQL:\n"
+            "- Prefer structure-preserving rewrites such as removing redundant subquery wrappers or inlining a simple unnecessary CTE.\n"
+            "- Preserve DISTINCT, GROUP BY, HAVING, WINDOW, and UNION semantics exactly.\n"
+            "- Do not invent new WHERE predicates, time filters, or LIMIT clauses unless they already exist in the original SQL.\n"
+        )
     return (
         "Generate concise SQL optimize candidates.\n"
         "Return JSON only: {\"candidates\": [{\"id\":...,\"source\":\"llm\",\"rewrittenSql\":...,\"rewriteStrategy\":...,\"semanticRisk\":...,\"confidence\":...}]}\n"
+        f"{guardrails}"
         f"Input:\n{json.dumps(compact_prompt, ensure_ascii=False)}"
     )
 
@@ -201,10 +213,19 @@ def _run_opencode(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any])
         raise RuntimeError(f"opencode error: {err}")
     if not texts:
         raise RuntimeError("opencode no text payload")
-    payload = _parse_text_json(texts[-1])
+    raw_text = texts[-1]
+    payload = _parse_text_json(raw_text)
     rows = payload.get("candidates")
     if not isinstance(rows, list):
         raise RuntimeError("opencode bad response: missing candidates")
+    if len(rows) == 1 and isinstance(rows[0], dict) and str(rows[0].get("rewriteStrategy") or "") == "opencode_text_fallback":
+        recovered = recover_candidates_from_text(
+            sql_key,
+            str((prompt.get("requiredContext") or {}).get("sql") or ""),
+            raw_text,
+        )
+        if recovered:
+            rows = recovered
     out: list[dict[str, Any]] = []
     for i, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
@@ -223,7 +244,7 @@ def _run_opencode(sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any])
             }
         )
     if not out:
-        raise RuntimeError("opencode produced no valid candidates")
+        return [], {"fallback_used": False, "mode": "opencode_run", "empty_candidates": True}
     return out, {"fallback_used": False, "mode": "opencode_run"}
 
 
@@ -309,6 +330,14 @@ def _run_direct_openai_compatible(sql_key: str, prompt: dict[str, Any], llm_cfg:
     candidates = parsed.get("candidates")
     if not isinstance(candidates, list):
         raise RuntimeError("direct_openai_compatible missing candidates")
+    if len(candidates) == 1 and isinstance(candidates[0], dict) and str(candidates[0].get("rewriteStrategy") or "") == "opencode_text_fallback":
+        recovered = recover_candidates_from_text(
+            sql_key,
+            str((prompt.get("requiredContext") or {}).get("sql") or ""),
+            content,
+        )
+        if recovered:
+            candidates = recovered
     out: list[dict[str, Any]] = []
     for i, cand in enumerate(candidates, start=1):
         if not isinstance(cand, dict):
@@ -327,7 +356,7 @@ def _run_direct_openai_compatible(sql_key: str, prompt: dict[str, Any], llm_cfg:
             }
         )
     if not out:
-        raise RuntimeError("direct_openai_compatible produced no valid candidates")
+        return [], {"fallback_used": False, "mode": "direct_openai_compatible", "empty_candidates": True}
     return out, {"fallback_used": False, "mode": "direct_openai_compatible"}
 
 

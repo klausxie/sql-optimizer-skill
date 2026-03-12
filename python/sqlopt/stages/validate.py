@@ -33,6 +33,11 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     sql_artifact_dir = paths.sql_artifact_dir(sql_unit["sqlKey"])
     if result.rewrite_facts is not None:
         write_json(sql_artifact_dir / "rewrite_facts.json", result.rewrite_facts)
+        dynamic_template_facts = dict((result.rewrite_facts or {}).get("dynamicTemplate") or {})
+        if dynamic_template_facts:
+            write_json(sql_artifact_dir / "dynamic_template_facts.json", dynamic_template_facts)
+    if result.dynamic_candidate_intent is not None:
+        write_json(sql_artifact_dir / "dynamic_candidate_intent.json", result.dynamic_candidate_intent)
     if result.patchability is not None:
         write_json(sql_artifact_dir / "patchability.assessment.json", result.patchability)
     if result.patch_strategy_candidates is not None:

@@ -17,25 +17,19 @@ FIXTURE_PROJECT = (ROOT / "tests" / "fixtures" / "project").resolve()
 
 
 def _write_cfg(td: str, *, report_enabled: bool = True) -> Path:
-    cfg = Path(td) / "sqlopt.yml"
-    report_flag = "true" if report_enabled else "false"
+    cfg = Path(td) / "sqlopt.json"
     cfg.write_text(
-        "\n".join(
-            [
-                "project:",
-                f"  root_path: {FIXTURE_PROJECT}",
-                "scan:",
-                "  mapper_globs:",
-                "    - src/main/resources/com/example/mapper/user/user_mapper.xml",
-                "db:",
-                "  platform: postgresql",
-                "  dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable",
-                "report:",
-                f"  enabled: {report_flag}",
-                "llm:",
-                "  enabled: false",
-                "  provider: heuristic",
-            ]
+        json.dumps(
+            {
+                "project": {"root_path": str(FIXTURE_PROJECT)},
+                "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
+                "db": {
+                    "platform": "postgresql",
+                    "dsn": "postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable",
+                },
+                "report": {"enabled": report_enabled},
+                "llm": {"enabled": False, "provider": "heuristic"},
+            }
         )
         + "\n",
         encoding="utf-8",
@@ -92,6 +86,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                     "last_reason_code",
                     "complete",
                     "next_action",
+                    "selection_scope",
                 },
             )
             self.assertTrue(status["complete"])
@@ -122,11 +117,12 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                     "llm_gate",
                     "validation_warnings",
                     "evidence_confidence",
-                    "summary",
-                    "policy",
-                    "stats",
-                    "items",
-                }.issubset(set(report.keys()))
+                        "summary",
+                        "policy",
+                        "stats",
+                        "items",
+                        "selection_scope",
+                    }.issubset(set(report.keys()))
             )
             reason_counts = dict((report.get("stats") or {}).get("phase_reason_code_counts") or {})
 

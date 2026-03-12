@@ -50,6 +50,18 @@ class ContractModelInterfacesTest(unittest.TestCase):
             selected_candidate_source="llm",
             warnings=[],
             risk_flags=[],
+            rewrite_facts={
+                "cteQuery": {"present": True},
+                "aggregationQuery": {
+                    "distinctPresent": True,
+                    "groupByColumns": ["status"],
+                    "aggregateFunctions": ["COUNT"],
+                    "capabilityProfile": {"shapeFamily": "DISTINCT", "constraintFamily": "DISTINCT_RELAXATION"},
+                },
+            },
+            patch_strategy_candidates=[{"strategyType": "EXACT_TEMPLATE_EDIT"}],
+            canonicalization_assessment=[{"ruleId": "COUNT_CANONICAL_FORM"}],
+            candidate_selection_trace=[{"candidateId": "c1"}],
         )
 
         self.assertTrue(hasattr(evaluation, "to_contract"))
@@ -62,6 +74,17 @@ class ContractModelInterfacesTest(unittest.TestCase):
         self.assertFalse(hasattr(selection, "candidate_evaluations_payload"))
         self.assertEqual(selection.candidate_evaluations_to_contract()[0]["candidateId"], "c1")
         self.assertEqual(result.to_contract()["sqlKey"], "demo.user.listUsers#v1")
+        self.assertEqual(result.to_contract()["rewriteFacts"]["cteQuery"]["present"], True)
+        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["distinctPresent"], True)
+        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["groupByColumns"], ["status"])
+        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["aggregateFunctions"], ["COUNT"])
+        self.assertEqual(
+            result.to_contract()["rewriteFacts"]["aggregationQuery"]["capabilityProfile"]["shapeFamily"],
+            "DISTINCT",
+        )
+        self.assertEqual(result.to_contract()["patchStrategyCandidates"][0]["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(result.to_contract()["canonicalizationAssessment"][0]["ruleId"], "COUNT_CANONICAL_FORM")
+        self.assertEqual(result.to_contract()["candidateSelectionTrace"][0]["candidateId"], "c1")
 
     def test_report_model_exports_use_to_contract_only(self) -> None:
         failure = report_interfaces.FailureRecord(
@@ -84,6 +107,7 @@ class ContractModelInterfacesTest(unittest.TestCase):
             run_id="run_demo",
             mode="analyze",
             llm_gate=None,
+            selection_scope=None,
             policy={},
             stats={},
             items=items,

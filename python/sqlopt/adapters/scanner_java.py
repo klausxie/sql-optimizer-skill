@@ -157,13 +157,41 @@ def _resolve_include_trace(namespace: str, refs: list[str], fragments: dict[str,
 
 
 def _render_logical_text(node: ET.Element, namespace: str, fragments: dict[str, dict[str, Any]], stack: set[str] | None = None) -> str:
+    def _apply_where_semantics(text: str) -> str:
+        normalized = " ".join(str(text or "").split())
+        if not normalized:
+            return ""
+        normalized = re.sub(r"^(and|or)\b", "", normalized, flags=re.IGNORECASE).strip()
+        return f" WHERE {normalized}" if normalized else ""
+
+    def _apply_set_semantics(text: str) -> str:
+        normalized = " ".join(str(text or "").split())
+        normalized = re.sub(r",\s*$", "", normalized).strip()
+        return f" SET {normalized}" if normalized else ""
+
+    def _apply_choose_semantics(branches: list[str]) -> str:
+        normalized = [" ".join(str(branch or "").split()) for branch in branches if " ".join(str(branch or "").split())]
+        if not normalized:
+            return ""
+        if len(normalized) == 1:
+            return normalized[0]
+        return "(" + " OR ".join(normalized) + ")"
+
     stack = set() if stack is None else set(stack)
+    tag = _local_name(str(node.tag)).lower() if node.tag is not None else ""
+    if tag == "choose":
+        branches: list[str] = []
+        for child in list(node):
+            rendered_child = _render_logical_text(child, namespace, fragments, stack)
+            if " ".join(str(rendered_child or "").split()):
+                branches.append(rendered_child)
+        return _apply_choose_semantics(branches)
     parts: list[str] = []
     if node.text:
         parts.append(node.text)
     for child in list(node):
-        tag = _local_name(str(child.tag)).lower()
-        if tag == "include":
+        child_tag = _local_name(str(child.tag)).lower()
+        if child_tag == "include":
             qualified = _qualify_ref(namespace, child.attrib.get("refid"))
             if qualified and qualified not in stack and qualified in fragments:
                 next_stack = set(stack)
@@ -173,7 +201,12 @@ def _render_logical_text(node: ET.Element, namespace: str, fragments: dict[str, 
             parts.append(_render_logical_text(child, namespace, fragments, stack))
         if child.tail:
             parts.append(child.tail)
-    return "".join(parts)
+    rendered = "".join(parts)
+    if tag == "where":
+        return _apply_where_semantics(rendered)
+    if tag == "set":
+        return _apply_set_semantics(rendered)
+    return rendered
 
 
 def _python_fallback_scan(project_root: Path, mapper_globs: list[str], manifest_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

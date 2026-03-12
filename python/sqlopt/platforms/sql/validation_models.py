@@ -40,6 +40,8 @@ class ValidationResult:
     rewrite_safety_level: str | None = None
     patchability: dict[str, Any] | None = None
     selected_patch_strategy: dict[str, Any] | None = None
+    dynamic_template: dict[str, Any] | None = None
+    dynamic_candidate_intent: dict[str, Any] | None = None
     canonicalization: dict[str, Any] | None = None
     rewrite_facts: dict[str, Any] | None = None
     patch_strategy_candidates: list[dict[str, Any]] | None = None
@@ -91,8 +93,18 @@ class ValidationResult:
             payload["patchability"] = self.patchability
         if self.selected_patch_strategy is not None:
             payload["selectedPatchStrategy"] = self.selected_patch_strategy
+        if self.dynamic_template is not None:
+            payload["dynamicTemplate"] = self.dynamic_template
         if self.canonicalization is not None:
             payload["canonicalization"] = self.canonicalization
+        if self.rewrite_facts is not None:
+            payload["rewriteFacts"] = self.rewrite_facts
+        if self.patch_strategy_candidates is not None:
+            payload["patchStrategyCandidates"] = self.patch_strategy_candidates
+        if self.canonicalization_assessment is not None:
+            payload["canonicalizationAssessment"] = self.canonicalization_assessment
+        if self.candidate_selection_trace is not None:
+            payload["candidateSelectionTrace"] = self.candidate_selection_trace
         return payload
 
     def __getitem__(self, key: str) -> Any:

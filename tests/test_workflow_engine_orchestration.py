@@ -219,6 +219,50 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         finalize_report.assert_not_called()
         self.assertEqual(repo.meta_statuses, ["FAILED"])
 
+    def test_advance_scan_filters_selected_sql_keys_into_plan(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_scan_selection_") as td:
+            run_dir = Path(td)
+            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
+            state = _initial_state()
+            state["phase_status"]["preflight"] = "DONE"
+            state["current_phase"] = "scan"
+            repo = _FakeRepository(
+                run_dir,
+                state,
+                {
+                    "to_stage": "patch_generate",
+                    "sql_keys": [],
+                    "selection": {
+                        "present": True,
+                        "mapper_paths": ["src/main/resources/demo_mapper.xml"],
+                        "sql_keys": ["demo.user.b#v1"],
+                    },
+                },
+            )
+            validator = self._validator()
+
+            with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_CaptureProgress()):
+                result = workflow_engine.advance_one_step(
+                    run_dir,
+                    {"report": {"enabled": False}, "validate": {}, "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]}},
+                    "patch_generate",
+                    validator,
+                    repository=repo,
+                    run_phase_action_fn=lambda config, phase, fn: (
+                        [
+                            {"sqlKey": "demo.user.a#v1", "statementType": "SELECT", "sql": "SELECT 1"},
+                            {"sqlKey": "demo.user.b#v1", "statementType": "SELECT", "sql": "SELECT 2"},
+                        ],
+                        1,
+                    ),
+                )
+            self.assertEqual(result["phase"], "scan")
+            self.assertEqual(repo.plan["sql_keys"], ["demo.user.b#v1"])
+            self.assertEqual(repo.plan["selection"]["selected_sql_keys"], ["demo.user.b#v1"])
+            self.assertEqual(repo.plan["selection"]["scanned_count"], 2)
+            self.assertEqual(repo.plan["selection"]["selected_count"], 1)
+            self.assertTrue((run_dir / "pipeline" / "scan" / "selection.json").exists())
+
     def test_advance_preflight_to_stage_without_report_finalizes_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_preflight_done_") as td:
             run_dir = Path(td)

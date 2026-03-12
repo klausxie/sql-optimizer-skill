@@ -23,6 +23,8 @@
     "fallbackReasonCodes": {"type": ["array", "null"], "items": {"type": "string"}},
     "strategyType": {"type": ["string", "null"]},
     "fallbackApplied": {"type": ["boolean", "null"]},
+    "dynamicTemplateStrategy": {"type": ["string", "null"]},
+    "dynamicTemplateBlockingReason": {"type": ["string", "null"]},
     "gates": {
       "type": ["object", "null"],
       "properties": {

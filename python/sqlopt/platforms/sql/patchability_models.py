@@ -18,6 +18,13 @@ class PatchabilityAssessment:
     blocking_reason: str | None = None
     blocking_reasons: list[str] = field(default_factory=list)
     capability_decisions: list[CapabilityDecision] = field(default_factory=list)
+    aggregation_constraint_family: str | None = None
+    aggregation_capability_tier: str | None = None
+    aggregation_safe_baseline_family: str | None = None
+    dynamic_shape_family: str | None = None
+    dynamic_capability_tier: str | None = None
+    dynamic_patch_surface: str | None = None
+    dynamic_blocking_reason: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -25,6 +32,13 @@ class PatchabilityAssessment:
             "allowedCapabilities": list(self.allowed_capabilities),
             "blockingReason": self.blocking_reason,
             "blockingReasons": list(self.blocking_reasons),
+            "aggregationConstraintFamily": self.aggregation_constraint_family,
+            "aggregationCapabilityTier": self.aggregation_capability_tier,
+            "aggregationSafeBaselineFamily": self.aggregation_safe_baseline_family,
+            "dynamicShapeFamily": self.dynamic_shape_family,
+            "dynamicCapabilityTier": self.dynamic_capability_tier,
+            "dynamicPatchSurface": self.dynamic_patch_surface,
+            "dynamicBlockingReason": self.dynamic_blocking_reason,
         }
 
 

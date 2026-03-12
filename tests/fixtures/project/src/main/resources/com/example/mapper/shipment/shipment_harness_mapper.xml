@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.shipment.harness">
+    <sql id="ShipmentHarnessColumns">
+        id, order_id, carrier, tracking_no, status, shipped_at
+    </sql>
+
+    <select id="findShipments" resultType="map">
+        SELECT <include refid="ShipmentHarnessColumns" />
+        FROM shipments
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="carrier != null and carrier != ''">
+                AND carrier = #{carrier}
+            </if>
+        </where>
+        ORDER BY shipped_at DESC
+    </select>
+
+    <select id="findShipmentWithOrderUnsafeSort" resultType="map">
+        SELECT
+            s.id,
+            s.order_id,
+            s.carrier,
+            s.tracking_no,
+            s.status,
+            s.shipped_at,
+            o.order_no,
+            o.user_id,
+            o.amount AS order_amount
+        FROM shipments s
+        JOIN orders o ON o.id = s.order_id
+        <where>
+            <choose>
+                <when test="orderNo != null and orderNo != ''">
+                    o.order_no = #{orderNo}
+                </when>
+                <when test="userId != null">
+                    o.user_id = #{userId}
+                </when>
+                <otherwise>
+                    s.status != 'DELETED'
+                </otherwise>
+            </choose>
+        </where>
+        ORDER BY ${orderBy}
+    </select>
+
+    <select id="findShipmentsByOrderIds" resultType="map">
+        SELECT <include refid="ShipmentHarnessColumns" />
+        FROM shipments
+        <where>
+            <foreach collection="orderIds" item="orderId" open="order_id IN (" separator="," close=")">
+                #{orderId}
+            </foreach>
+        </where>
+    </select>
+
+    <select id="listRecentShipmentsPaged" resultType="map">
+        SELECT id, order_id, carrier, tracking_no, status, shipped_at
+        FROM (
+            SELECT id, order_id, carrier, tracking_no, status, shipped_at
+            FROM shipments
+        ) s
+        ORDER BY shipped_at DESC
+        LIMIT 50
+    </select>
+
+    <update id="markShipmentsDeleted">
+        UPDATE shipments
+        SET status = 'DELETED'
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <select id="listShipmentStatusUnion" resultType="map">
+        SELECT id, status, shipped_at
+        FROM shipments
+        WHERE status = 'SHIPPED'
+        UNION
+        SELECT id, status, shipped_at
+        FROM shipments
+        WHERE status = 'DELIVERED'
+        ORDER BY status, id
+    </select>
+</mapper>

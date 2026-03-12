@@ -24,11 +24,39 @@ def semantic_gate_ready(rewrite_facts: RewriteFacts) -> bool:
     return not common_gate_failures(rewrite_facts)
 
 
+def aggregation_blockers(rewrite_facts: RewriteFacts) -> list[str]:
+    aggregation = rewrite_facts.aggregation_query
+    profile = aggregation.capability_profile
+
+    if not aggregation.present:
+        return []
+    if profile.capability_tier in {"NONE", "SAFE_BASELINE"}:
+        return []
+
+    constraint_family = profile.constraint_family or "AGGREGATION_REVIEW_REQUIRED"
+    return [f"AGGREGATION_CONSTRAINT:{constraint_family}"]
+
+
+def dynamic_template_blockers(rewrite_facts: RewriteFacts) -> list[str]:
+    dynamic_template = rewrite_facts.dynamic_template
+    profile = dynamic_template.capability_profile
+
+    if not dynamic_template.present:
+        return []
+    if profile.capability_tier in {"NONE", "SAFE_BASELINE"}:
+        return []
+
+    blocker_family = profile.blocker_family or "DYNAMIC_TEMPLATE_REVIEW_REQUIRED"
+    return [f"DYNAMIC_TEMPLATE:{blocker_family}"]
+
+
 def wrapper_blockers(rewrite_facts: RewriteFacts) -> list[str]:
     fingerprint_strength = rewrite_facts.semantic.fingerprint_strength
     wrapper = rewrite_facts.wrapper_query
 
     reasons: list[str] = []
+    if not wrapper.present:
+        reasons.append("WRAPPER_QUERY_ABSENT")
     if fingerprint_strength != "EXACT":
         reasons.append("PATCH_FINGERPRINT_NOT_EXACT")
     if not wrapper.collapsible:

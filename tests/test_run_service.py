@@ -85,6 +85,71 @@ class RunServiceTest(unittest.TestCase):
         self.assertEqual(_RepoStub.meta_statuses, ["RUNNING", "RUNNING"])
         self.assertEqual(_RepoStub.plans_set[-1]["to_stage"], "patch_generate")
 
+    def test_start_run_persists_normalized_selection(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_run_service_selection_") as td:
+            project_root = Path(td) / "project"
+            mapper = project_root / "src" / "main" / "resources" / "demo_mapper.xml"
+            mapper.parent.mkdir(parents=True, exist_ok=True)
+            mapper.write_text("<mapper namespace='demo'></mapper>", encoding="utf-8")
+            config_path = project_root / "sqlopt.yml"
+            config_path.write_text("{}", encoding="utf-8")
+            config = {"project": {"root_path": str(project_root)}, "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]}}
+
+            with patch("sqlopt.application.run_service.load_config", return_value=config):
+                with patch("sqlopt.application.run_service.RunRepository", _RepoStub):
+                    with patch("sqlopt.application.run_service.run_index.remember_run"):
+                        with patch(
+                            "sqlopt.application.run_service.workflow_engine.advance_one_step_request",
+                            return_value={"complete": False, "phase": "preflight"},
+                        ):
+                            run_service.start_run(
+                                config_path,
+                                "patch_generate",
+                                "run_selection",
+                                repo_root=project_root,
+                                selection={
+                                    "mapper_paths": [str(mapper)],
+                                    "sql_keys": ["demo.user.listUsers#v1"],
+                                },
+                            )
+
+        selection = _RepoStub.plans_set[-1]["selection"]
+        self.assertTrue(selection["present"])
+        self.assertEqual(selection["mapper_paths"], ["src/main/resources/demo_mapper.xml"])
+        self.assertEqual(selection["sql_keys"], ["demo.user.listUsers#v1"])
+
+    def test_start_run_rejects_selection_mismatch_for_existing_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_run_service_selection_conflict_") as td:
+            project_root = Path(td) / "project"
+            mapper_a = project_root / "src" / "main" / "resources" / "a.xml"
+            mapper_b = project_root / "src" / "main" / "resources" / "b.xml"
+            mapper_a.parent.mkdir(parents=True, exist_ok=True)
+            mapper_a.write_text("<mapper namespace='demo'></mapper>", encoding="utf-8")
+            mapper_b.write_text("<mapper namespace='demo'></mapper>", encoding="utf-8")
+            config_path = project_root / "sqlopt.yml"
+            config_path.write_text("{}", encoding="utf-8")
+            _RepoStub.plan = {
+                "to_stage": "patch_generate",
+                "selection": {
+                    "present": True,
+                    "mapper_paths": ["src/main/resources/a.xml"],
+                    "sql_keys": ["demo.a#v1"],
+                },
+            }
+            config = {"project": {"root_path": str(project_root)}, "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]}}
+
+            with patch("sqlopt.application.run_service.load_config", return_value=config):
+                with patch("sqlopt.application.run_service.RunRepository", _RepoStub):
+                    with patch("sqlopt.application.run_service.run_index.remember_run"):
+                        with self.assertRaises(ValueError):
+                            run_service.start_run(
+                                config_path,
+                                "patch_generate",
+                                "run_fixed",
+                                repo_root=project_root,
+                                selection={"mapper_paths": [str(mapper_b)], "sql_keys": ["demo.b#v1"]},
+                            )
+
     def test_resume_run_builds_advance_request_from_saved_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_resume_service_") as td:
             run_dir = Path(td) / "runs" / "run_resume"
@@ -133,7 +198,10 @@ class RunServiceTest(unittest.TestCase):
                 "attempts_by_phase": {},
                 "last_reason_code": None,
             }
-            _RepoStub.plan = {"to_stage": "patch_generate"}
+            _RepoStub.plan = {
+                "to_stage": "patch_generate",
+                "selection": {"present": True, "mapper_paths": ["src/main/resources/demo_mapper.xml"], "sql_keys": []},
+            }
             _RepoStub.meta = {"status": "RUNNING"}
             expected = {"run_id": "run_status", "complete": False}
 
@@ -148,6 +216,7 @@ class RunServiceTest(unittest.TestCase):
         self.assertIsInstance(request, RunStatusRequest)
         self.assertEqual(request.run_id, "run_status")
         self.assertEqual(request.state["current_phase"], "scan")
+        self.assertIn("selection", request.plan)
 
     def test_apply_run_uses_resolved_run_dir(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_service_") as td:

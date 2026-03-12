@@ -102,6 +102,7 @@ def _build_sql_artifact_rows(
         patch_row = patch_by_statement.get(statement_key, {})
         sql_path = to_posix_relative(run_dir, paths.sql_artifact_dir(sql_key))
         trace_path = paths.sql_trace_path(sql_key)
+        candidate_generation_diagnostics_path = paths.sql_candidate_generation_diagnostics_path(sql_key)
         evidence_dir = paths.sql_evidence_dir(sql_key)
         rows.append(
             {
@@ -111,6 +112,17 @@ def _build_sql_artifact_rows(
                 "sql_index": f"{sql_path}/index.json",
                 "delivery_status": outcome.get("delivery_status") or outcome.get("delivery_tier") or "BLOCKED",
                 "blocker_primary_code": outcome.get("blocker_primary_code"),
+                "blocker_family": outcome.get("blocker_family"),
+                "aggregation_shape_family": outcome.get("aggregation_shape_family"),
+                "aggregation_capability_tier": outcome.get("aggregation_capability_tier"),
+                "aggregation_constraint_family": outcome.get("aggregation_constraint_family"),
+                "aggregation_safe_baseline_family": outcome.get("aggregation_safe_baseline_family"),
+                "dynamic_shape_family": outcome.get("dynamic_shape_family"),
+                "dynamic_capability_tier": outcome.get("dynamic_capability_tier"),
+                "dynamic_patch_surface": outcome.get("dynamic_patch_surface"),
+                "dynamic_baseline_family": outcome.get("dynamic_baseline_family"),
+                "dynamic_blocking_reason": outcome.get("dynamic_blocking_reason"),
+                "dynamic_delivery_class": outcome.get("dynamic_delivery_class"),
                 "evidence_availability": outcome.get("evidence_availability"),
                 "artifact_refs": {
                     "report": REL_OVERVIEW_REPORT_JSON,
@@ -119,6 +131,9 @@ def _build_sql_artifact_rows(
                     "proposals": REL_PIPELINE_OPTIMIZE_PROPOSALS if proposal_row else None,
                     "verification": REL_PIPELINE_VERIFICATION_LEDGER if sql_key in verification_keys else None,
                     "trace": f"{sql_path}/trace.optimize.llm.json" if trace_path.exists() else None,
+                    "candidate_generation_diagnostics": f"{sql_path}/candidate_generation_diagnostics.json"
+                    if candidate_generation_diagnostics_path.exists()
+                    else None,
                     "evidence_dir": f"{sql_path}/evidence" if evidence_dir.exists() else None,
                 },
             }
@@ -274,17 +289,94 @@ def build_report_artifacts(
     materialization_reason_group_counts_map = materialization_reason_group_counts(materialization_reason_counts_map)
     patch_strategy_counts: dict[str, int] = {}
     canonical_rule_match_counts: dict[str, int] = {}
+    aggregation_shape_counts: dict[str, int] = {}
+    aggregation_constraint_counts: dict[str, int] = {}
+    aggregation_safe_baseline_counts: dict[str, int] = {}
+    dynamic_baseline_family_counts: dict[str, int] = {}
+    dynamic_delivery_class_counts: dict[str, int] = {}
+    dynamic_ready_baseline_family_counts: dict[str, int] = {}
+    dynamic_ready_patch_count = 0
+    dynamic_safe_baseline_blocked_count = 0
+    dynamic_review_only_count = 0
     canonical_preference_applied_count = 0
+    candidate_degradation_counts: dict[str, int] = {}
+    candidate_recovery_counts: dict[str, int] = {}
+    empty_candidate_blocked_reason_counts: dict[str, int] = {}
+    low_value_pruned_count = 0
+    low_value_replaced_count = 0
+    empty_candidate_recovered_count = 0
+    text_fallback_recovered_count = 0
+    patch_strategy_by_sql: dict[str, str] = {}
     for row in inputs.acceptance:
+        sql_key = str(row.get("sqlKey") or "").strip()
         strategy_type = str(((row.get("selectedPatchStrategy") or {}).get("strategyType") or "")).strip()
-        if strategy_type:
-            patch_strategy_counts[strategy_type] = patch_strategy_counts.get(strategy_type, 0) + 1
+        if sql_key and strategy_type and sql_key not in patch_strategy_by_sql:
+            patch_strategy_by_sql[sql_key] = strategy_type
+    for row in inputs.patches:
+        sql_key = str(row.get("sqlKey") or "").strip()
+        strategy_type = str((row.get("strategyType") or row.get("dynamicTemplateStrategy") or "")).strip()
+        if sql_key and strategy_type:
+            patch_strategy_by_sql[sql_key] = strategy_type
+
+    for row in inputs.acceptance:
         canonical = dict(row.get("canonicalization") or {})
         canonical_rule = str(canonical.get("ruleId") or "").strip()
         if canonical_rule:
             canonical_rule_match_counts[canonical_rule] = canonical_rule_match_counts.get(canonical_rule, 0) + 1
         if bool(canonical.get("preferred")):
             canonical_preference_applied_count += 1
+        aggregation_profile = dict((((row.get("rewriteFacts") or {}).get("aggregationQuery") or {}).get("capabilityProfile") or {}))
+        shape_family = str(aggregation_profile.get("shapeFamily") or "").strip().upper()
+        if shape_family and shape_family != "NONE":
+            aggregation_shape_counts[shape_family] = aggregation_shape_counts.get(shape_family, 0) + 1
+        constraint_family = str(aggregation_profile.get("constraintFamily") or "").strip().upper()
+        if constraint_family and constraint_family != "NONE":
+            aggregation_constraint_counts[constraint_family] = aggregation_constraint_counts.get(constraint_family, 0) + 1
+        safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
+        if safe_baseline_family:
+            aggregation_safe_baseline_counts[safe_baseline_family] = aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
+        dynamic_template = dict(row.get("dynamicTemplate") or {})
+        dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
+        if dynamic_baseline_family:
+            dynamic_baseline_family_counts[dynamic_baseline_family] = dynamic_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
+        dynamic_delivery_class = str(dynamic_template.get("deliveryClass") or "").strip()
+        if dynamic_delivery_class:
+            dynamic_delivery_class_counts[dynamic_delivery_class] = dynamic_delivery_class_counts.get(dynamic_delivery_class, 0) + 1
+            normalized_dynamic_delivery_class = dynamic_delivery_class.upper()
+            if normalized_dynamic_delivery_class == "READY_DYNAMIC_PATCH":
+                dynamic_ready_patch_count += 1
+                if dynamic_baseline_family:
+                    dynamic_ready_baseline_family_counts[dynamic_baseline_family] = (
+                        dynamic_ready_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
+                    )
+            elif normalized_dynamic_delivery_class in {"SAFE_BASELINE_BLOCKED", "SAFE_BASELINE_NO_DIFF"}:
+                dynamic_safe_baseline_blocked_count += 1
+            elif normalized_dynamic_delivery_class == "REVIEW_ONLY":
+                dynamic_review_only_count += 1
+    for strategy_type in patch_strategy_by_sql.values():
+        patch_strategy_counts[strategy_type] = patch_strategy_counts.get(strategy_type, 0) + 1
+    for proposal in inputs.proposals:
+        diagnostics = dict(proposal.get("candidateGenerationDiagnostics") or {})
+        degradation_kind = str(diagnostics.get("degradationKind") or "").strip()
+        if degradation_kind:
+            candidate_degradation_counts[degradation_kind] = candidate_degradation_counts.get(degradation_kind, 0) + 1
+        pruned_low_value = int(diagnostics.get("prunedLowValueCount") or 0)
+        low_value_pruned_count += pruned_low_value
+        if bool(diagnostics.get("recoverySucceeded")):
+            recovery_strategy = str(diagnostics.get("recoveryStrategy") or "").strip() or "RECOVERY_SUCCEEDED"
+            candidate_recovery_counts[recovery_strategy] = candidate_recovery_counts.get(recovery_strategy, 0) + 1
+            if degradation_kind == "ONLY_LOW_VALUE_CANDIDATES":
+                low_value_replaced_count += 1
+            if degradation_kind == "EMPTY_CANDIDATES":
+                empty_candidate_recovered_count += 1
+            if degradation_kind == "TEXT_ONLY_FALLBACK":
+                text_fallback_recovered_count += 1
+        elif degradation_kind == "EMPTY_CANDIDATES":
+            blocked_reason = str(diagnostics.get("recoveryReason") or "").strip()
+            if blocked_reason:
+                empty_candidate_blocked_reason_counts[blocked_reason] = (
+                    empty_candidate_blocked_reason_counts.get(blocked_reason, 0) + 1
+                )
     semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
     semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (
         summarize_semantic_gate_quality(inputs.acceptance)
@@ -349,6 +441,22 @@ def build_report_artifacts(
         "patch_strategy_counts": patch_strategy_counts,
         "canonical_rule_match_counts": canonical_rule_match_counts,
         "canonical_preference_applied_count": canonical_preference_applied_count,
+        "candidate_degradation_counts": candidate_degradation_counts,
+        "candidate_recovery_counts": candidate_recovery_counts,
+        "low_value_pruned_count": low_value_pruned_count,
+        "low_value_replaced_count": low_value_replaced_count,
+        "empty_candidate_recovered_count": empty_candidate_recovered_count,
+        "empty_candidate_blocked_reason_counts": empty_candidate_blocked_reason_counts,
+        "text_fallback_recovered_count": text_fallback_recovered_count,
+        "aggregation_shape_counts": aggregation_shape_counts,
+        "aggregation_constraint_counts": aggregation_constraint_counts,
+        "aggregation_safe_baseline_counts": aggregation_safe_baseline_counts,
+        "dynamic_baseline_family_counts": dynamic_baseline_family_counts,
+        "dynamic_delivery_class_counts": dynamic_delivery_class_counts,
+        "dynamic_ready_baseline_family_counts": dynamic_ready_baseline_family_counts,
+        "dynamic_ready_patch_count": dynamic_ready_patch_count,
+        "dynamic_safe_baseline_blocked_count": dynamic_safe_baseline_blocked_count,
+        "dynamic_review_only_count": dynamic_review_only_count,
         "perf_improved_count": perf_improved_count,
         "perf_compared_but_not_improved_count": perf_not_improved_count,
         "blocked_sql_count": blocked_sql_count,
@@ -418,6 +526,12 @@ def build_report_artifacts(
         inputs.verification_rows,
         limit=None,
     )
+    blocker_family_counts = {}
+    for row in all_sql_outcomes:
+        family = str(row.get("blocker_family") or "").strip().upper()
+        if family:
+            blocker_family_counts[family] = blocker_family_counts.get(family, 0) + 1
+    stats["blocker_family_counts"] = blocker_family_counts
     stats["top_actionable_sql"] = all_sql_outcomes[:10]
     sql_artifact_rows = _build_sql_artifact_rows(
         run_dir=run_dir,
@@ -449,6 +563,7 @@ def build_report_artifacts(
         run_id=run_id,
         mode=mode,
         llm_gate={"enabled": llm_enabled} if llm_enabled else None,
+        selection_scope=inputs.state.selection_scope,
         policy=config["policy"],
         stats=stats,
         items=RunReportItems(

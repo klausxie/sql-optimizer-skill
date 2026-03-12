@@ -139,6 +139,7 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
         semantic_gate_confidence = "HIGH"
     semantic_evidence_level = str(semantic_gate.get("evidenceLevel") or "STRUCTURE").strip().upper()
     selected_patch_strategy = dict(acceptance.get("selectedPatchStrategy") or {})
+    dynamic_template = dict(acceptance.get("dynamicTemplate") or {})
     locator_stable = bool(((sql_unit.get("locators") or {}).get("statementId")))
     template_safe_path = bool(template_ops) and replay_verified is True
     structural_blockers = [reason_code] if reason_code and patch.get("applicable") is not True else []
@@ -210,6 +211,10 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
     if selected_patch_strategy:
         patch["strategyType"] = selected_patch_strategy.get("strategyType")
         patch["fallbackApplied"] = bool(selected_patch_strategy.get("fallbackFrom"))
+    if dynamic_template:
+        patch["dynamicTemplateBlockingReason"] = dynamic_template.get("blockingReason")
+        if str(selected_patch_strategy.get("strategyType") or "").startswith("DYNAMIC_"):
+            patch["dynamicTemplateStrategy"] = selected_patch_strategy.get("strategyType")
     return patch
 
 

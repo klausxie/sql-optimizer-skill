@@ -8,6 +8,7 @@ from typing import Any
 class ReportStateSnapshot:
     phase_status: dict[str, Any]
     attempts_by_phase: dict[str, Any]
+    selection_scope: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,7 @@ class RunReportDocument:
     run_id: str
     mode: str
     llm_gate: dict[str, Any] | None
+    selection_scope: dict[str, Any] | None
     policy: dict[str, Any]
     stats: dict[str, Any]
     items: RunReportItems
@@ -108,6 +110,7 @@ class RunReportDocument:
             "run_id": self.run_id,
             "mode": self.mode,
             "llm_gate": self.llm_gate,
+            "selection_scope": self.selection_scope,
             "validation_warnings": self.validation_warnings,
             "evidence_confidence": self.evidence_confidence,
             "policy": self.policy,

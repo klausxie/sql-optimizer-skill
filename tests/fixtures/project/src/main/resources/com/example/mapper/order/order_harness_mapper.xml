@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.order.harness">
+    <sql id="OrderHarnessColumns">
+        id, user_id, order_no, amount, status, created_at
+    </sql>
+
+    <select id="findOrdersByNos" resultType="map">
+        SELECT <include refid="OrderHarnessColumns" />
+        FROM orders
+        <where>
+            <foreach collection="orderNos" item="orderNo" open="order_no IN (" separator="," close=")">
+                #{orderNo}
+            </foreach>
+        </where>
+    </select>
+
+    <select id="findOrdersByUserIdsAndStatus" resultType="map">
+        SELECT <include refid="OrderHarnessColumns" />
+        FROM orders
+        <where>
+            <foreach collection="userIds" item="uid" open="user_id IN (" separator="," close=")">
+                #{uid}
+            </foreach>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="listOrdersWithUsersPaged" resultType="map">
+        SELECT
+            o.id,
+            o.order_no,
+            o.user_id,
+            o.amount,
+            o.status,
+            o.created_at,
+            u.name AS user_name,
+            u.email AS user_email
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="status != null and status != ''">
+                AND o.status = #{status}
+            </if>
+        </where>
+        ORDER BY o.created_at DESC
+        LIMIT #{limit}
+        OFFSET #{offset}
+    </select>
+
+    <select id="findOrdersByRawPredicate" resultType="map">
+        SELECT <include refid="OrderHarnessColumns" />
+        FROM orders
+        <where>
+            ${extraPredicate}
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="aggregateOrdersByStatus" resultType="map">
+        SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
+        FROM orders
+        GROUP BY status
+        ORDER BY status
+    </select>
+
+    <update id="updateOrderStatusByNos">
+        UPDATE orders
+        SET status = #{status}
+        WHERE order_no IN
+        <foreach collection="orderNos" item="orderNo" open="(" separator="," close=")">
+            #{orderNo}
+        </foreach>
+    </update>
+
+    <select id="listOrderAmountWindowRanks" resultType="map">
+        SELECT
+            order_no,
+            amount,
+            ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS row_rank
+        FROM orders
+    </select>
+
+    <select id="listOrderUserCountsHaving" resultType="map">
+        SELECT user_id, COUNT(*) AS total
+        FROM orders
+        GROUP BY user_id
+        HAVING COUNT(*) &gt; 1
+        ORDER BY user_id
+    </select>
+
+    <select id="aggregateOrdersByStatusWrapped" resultType="map">
+        SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
+        FROM (
+            SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
+            FROM orders
+            GROUP BY status
+        ) og
+        ORDER BY status
+    </select>
+
+    <select id="listOrderUserCountsHavingWrapped" resultType="map">
+        SELECT user_id, COUNT(*) AS total
+        FROM (
+            SELECT user_id, COUNT(*) AS total
+            FROM orders
+            GROUP BY user_id
+            HAVING COUNT(*) &gt; 1
+        ) oh
+        ORDER BY user_id
+    </select>
+</mapper>

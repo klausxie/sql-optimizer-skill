@@ -216,6 +216,9 @@ class RunPaths:
     def sql_trace_path(self, sql_key: str) -> Path:
         return self.sql_artifact_dir(sql_key) / "trace.optimize.llm.json"
 
+    def sql_candidate_generation_diagnostics_path(self, sql_key: str) -> Path:
+        return self.sql_artifact_dir(sql_key) / "candidate_generation_diagnostics.json"
+
     def sql_evidence_dir(self, sql_key: str) -> Path:
         return self.sql_artifact_dir(sql_key) / "evidence"
 

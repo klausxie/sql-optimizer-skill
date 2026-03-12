@@ -39,6 +39,8 @@ def _primary_blocker_message(code: str | None) -> str | None:
     normalized = str(code or "").strip().upper()
     if not normalized:
         return None
+    if normalized.startswith("AGGREGATION_CONSTRAINT:"):
+        return "aggregation semantics require an explicit safe rule before automatic patch delivery"
     if normalized == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
         return "unsafe ${} dynamic SQL blocks automatic patch generation"
     if normalized == "VALIDATE_SEMANTIC_CONFIDENCE_LOW":
@@ -52,6 +54,54 @@ def _primary_blocker_message(code: str | None) -> str | None:
     if normalized.startswith("PATCH_"):
         return "patch decision logic blocked automatic delivery for this SQL"
     return normalized
+
+
+def blocker_family_for_outcome(
+    *,
+    delivery_status: str,
+    blocker_primary_code: str | None,
+    semantic_gate_status: str | None,
+) -> str:
+    normalized_delivery = _normalize_delivery_status(delivery_status)
+    normalized_code = str(blocker_primary_code or "").strip().upper()
+    normalized_gate = str(semantic_gate_status or "").strip().upper()
+    if normalized_delivery == "READY_TO_APPLY":
+        return "READY"
+    if normalized_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+        return "SECURITY"
+    if normalized_gate == "FAIL" or normalized_code in {
+        "SEMANTIC_GATE_FAIL",
+        "VALIDATE_EQUIVALENCE_MISMATCH",
+        "VALIDATE_SEMANTIC_ERROR",
+        "VALIDATE_SEMANTIC_CONFIDENCE_LOW",
+        "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+        "PATCH_SEMANTIC_CONFIDENCE_LOW",
+    }:
+        return "SEMANTIC"
+    return "TEMPLATE_UNSUPPORTED"
+
+
+def _aggregation_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
+    aggregation = dict(((acceptance_row.get("rewriteFacts") or {}).get("aggregationQuery") or {}))
+    profile = dict(aggregation.get("capabilityProfile") or {})
+    return {
+        "shape_family": str(profile.get("shapeFamily") or "NONE").strip().upper(),
+        "capability_tier": str(profile.get("capabilityTier") or "NONE").strip().upper(),
+        "constraint_family": str(profile.get("constraintFamily") or "NONE").strip().upper(),
+        "safe_baseline_family": str(profile.get("safeBaselineFamily") or "").strip() or None,
+    }
+
+
+def _dynamic_template_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
+    dynamic_template = dict((acceptance_row.get("dynamicTemplate") or {}) or {})
+    return {
+        "shape_family": str(dynamic_template.get("shapeFamily") or "NONE").strip().upper(),
+        "capability_tier": str(dynamic_template.get("capabilityTier") or "NONE").strip().upper(),
+        "patch_surface": str(dynamic_template.get("patchSurface") or "NONE").strip().upper(),
+        "baseline_family": str(dynamic_template.get("baselineFamily") or "").strip() or None,
+        "blocking_reason": str(dynamic_template.get("blockingReason") or "").strip().upper() or None,
+        "delivery_class": str(dynamic_template.get("deliveryClass") or "").strip().upper() or None,
+    }
 
 
 def _pick_primary_blocker(
@@ -166,6 +216,7 @@ def default_next_actions(
         critical_gap = evidence_state == "CRITICAL_GAP"
         acceptance_reason_code = str(top_row.get("acceptance_reason_code") or "").strip().upper()
         blocker_primary_code = str(top_row.get("blocker_primary_code") or "").strip().upper()
+        aggregation_constraint_family = str(top_row.get("aggregation_constraint_family") or "").strip().upper()
         hint_command = str(top_row.get("repair_hint_command") or "").strip() or None
         if blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             _append_action_once(
@@ -177,6 +228,59 @@ def default_next_actions(
                     "applicability": "主阻断是 SQL 安全规则",
                     "expected_outcome": "解除安全阻断，恢复候选与补丁路径",
                     "commands": ['rg -n "\\$\\{" src/main/resources/**/*.xml'],
+                },
+            )
+        elif aggregation_constraint_family not in {"", "NONE", "SAFE_BASELINE"}:
+            aggregation_action_map = {
+                "DISTINCT_RELAXATION": {
+                    "action_id": "review-distinct-safety",
+                    "title": "架构：补齐 DISTINCT safe rule",
+                    "reason": "当前阻断点是 DISTINCT 放宽语义，必须先建立显式等价白名单",
+                    "expected_outcome": "把 DISTINCT 场景区分为 safe wrapper flatten 与 direct relaxation 两类",
+                },
+                "GROUP_BY_AGGREGATION": {
+                    "action_id": "review-groupby-safety",
+                    "title": "架构：补齐 GROUP BY safe rule",
+                    "reason": "当前阻断点是 GROUP BY 聚合语义缺少稳定 safe baseline",
+                    "expected_outcome": "为可证明等价的 GROUP BY 子类建立统一安全门限",
+                },
+                "HAVING_AGGREGATION": {
+                    "action_id": "review-having-safety",
+                    "title": "架构：补齐 HAVING safe rule",
+                    "reason": "当前阻断点是 HAVING 聚合语义尚未收敛到可自动交付的白名单",
+                    "expected_outcome": "把 HAVING 场景拆成可自动 flatten 的 safe 子类与继续阻断的复杂子类",
+                },
+                "WINDOW_AGGREGATION": {
+                    "action_id": "review-window-safety",
+                    "title": "架构：补齐 WINDOW safe rule",
+                    "reason": "当前阻断点是窗口函数语义复杂，尚无自动补丁白名单",
+                    "expected_outcome": "先明确哪些 window shape 一律阻断，哪些可进入后续能力路线图",
+                },
+                "UNION_AGGREGATION": {
+                    "action_id": "review-union-safety",
+                    "title": "架构：补齐 UNION safe rule",
+                    "reason": "当前阻断点是 UNION 分支语义未纳入自动补丁安全框架",
+                    "expected_outcome": "先定义 UNION 的结构化约束，再决定是否存在 safe baseline",
+                },
+            }
+            action = aggregation_action_map.get(
+                aggregation_constraint_family,
+                {
+                    "action_id": "review-aggregation-safety",
+                    "title": "架构：补齐聚合语义 safe rule",
+                    "reason": "聚合语义当前没有显式 safe baseline，自动补丁仍被约束层阻断",
+                    "expected_outcome": "把该聚合 shape 从 REVIEW_REQUIRED 收敛到 SAFE_BASELINE 或明确继续阻断",
+                },
+            )
+            _append_action_once(
+                actions,
+                {
+                    "action_id": action["action_id"],
+                    "title": action["title"],
+                    "reason": action["reason"],
+                    "applicability": "优先项命中聚合语义约束族",
+                    "expected_outcome": action["expected_outcome"],
+                    "commands": [],
                 },
             )
         if critical_gap:
@@ -466,12 +570,17 @@ def build_proposal_rows(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]
     for proposal in proposals:
         issues = proposal.get("issues") or []
         issue_codes = [str(x.get("code")) for x in issues if isinstance(x, dict) and x.get("code")]
+        diagnostics = dict(proposal.get("candidateGenerationDiagnostics") or {})
         rows.append(
             {
                 "sql_key": str(proposal.get("sqlKey") or ""),
                 "verdict": str(proposal.get("verdict") or "UNKNOWN"),
                 "issue_codes": issue_codes,
                 "llm_candidate_count": len(proposal.get("llmCandidates") or []),
+                "candidate_degradation_kind": str(diagnostics.get("degradationKind") or "").strip() or None,
+                "candidate_recovery_strategy": str(diagnostics.get("recoveryStrategy") or "").strip() or None,
+                "candidate_recovery_succeeded": bool(diagnostics.get("recoverySucceeded")),
+                "candidate_pruned_low_value_count": int(diagnostics.get("prunedLowValueCount") or 0),
             }
         )
     return rows
@@ -508,6 +617,8 @@ def build_top_actionable_sql(
         semantic_blocked_reason = _infer_semantic_blocked_reason(acceptance_row, semantic_gate)
         semantic_unupgraded_reason = _infer_semantic_unupgraded_reason(semantic_gate)
         patch_row = patch_by_statement.get(statement_key, {})
+        aggregation_profile = _aggregation_profile(acceptance_row)
+        dynamic_profile = _dynamic_template_profile(acceptance_row)
         actionability = dict(proposal.get("actionability") or {})
         sql_verification_rows = [row for row in verification_rows if str(row.get("sql_key") or "").strip() == sql_key]
         outcome = assess_sql_outcome(
@@ -587,7 +698,11 @@ def build_top_actionable_sql(
             blocker_primary_code=blocker_primary_code,
         )
 
-        if blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+        if aggregation_profile["constraint_family"] not in {"", "NONE", "SAFE_BASELINE"}:
+            summary = "聚合语义仍处于受限能力面，需显式 safe rule 后才能自动交付"
+        elif blocker_primary_code and str(blocker_primary_code).startswith("AGGREGATION_CONSTRAINT:"):
+            summary = "聚合语义仍处于受限能力面，需显式 safe rule 后才能自动交付"
+        elif blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             summary = "检测到 ${} 动态 SQL，自动补丁被安全策略阻断"
         elif str(delivery_outcome.get("summary") or "").strip():
             summary = str(delivery_outcome.get("summary") or "").strip()
@@ -614,7 +729,11 @@ def build_top_actionable_sql(
         else:
             summary = "低置信度或被阻塞的优化候选"
 
-        if blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+        if aggregation_profile["constraint_family"] not in {"", "NONE", "SAFE_BASELINE"}:
+            why_now = "当前主要差距是聚合语义能力边界，而不是模板编辑本身"
+        elif blocker_primary_code and str(blocker_primary_code).startswith("AGGREGATION_CONSTRAINT:"):
+            why_now = "当前主要差距是聚合语义能力边界，而不是模板编辑本身"
+        elif blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             why_now = "先移除 ${} 安全阻断，再恢复候选评估与补丁生成"
         elif evidence_state == "CRITICAL_GAP":
             why_now = "缺失关键证据，因此在差距消除前保持高优先级"
@@ -655,8 +774,23 @@ def build_top_actionable_sql(
                 "evidence_missing_reason": evidence_missing_reason,
                 "evidence_next_required": evidence_next_required,
                 "blocker_primary_code": blocker_primary_code,
+                "blocker_family": blocker_family_for_outcome(
+                    delivery_status=delivery_status,
+                    blocker_primary_code=blocker_primary_code,
+                    semantic_gate_status=semantic_gate.get("status") or "UNKNOWN",
+                ),
                 "blocker_primary_phase": blocker_primary_phase,
                 "blocker_primary_message": blocker_primary_message,
+                "aggregation_shape_family": aggregation_profile["shape_family"],
+                "aggregation_capability_tier": aggregation_profile["capability_tier"],
+                "aggregation_constraint_family": aggregation_profile["constraint_family"],
+                "aggregation_safe_baseline_family": aggregation_profile["safe_baseline_family"],
+                "dynamic_shape_family": dynamic_profile["shape_family"],
+                "dynamic_capability_tier": dynamic_profile["capability_tier"],
+                "dynamic_patch_surface": dynamic_profile["patch_surface"],
+                "dynamic_baseline_family": dynamic_profile["baseline_family"],
+                "dynamic_blocking_reason": dynamic_profile["blocking_reason"],
+                "dynamic_delivery_class": dynamic_profile["delivery_class"],
                 "acceptance_reason_code": acceptance_reason_code,
                 "repair_hint_title": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("title")) or "")).strip() or None,
                 "repair_hint_command": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("command")) or "")).strip() or None,

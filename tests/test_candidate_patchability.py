@@ -43,6 +43,42 @@ class CandidatePatchabilityTest(unittest.TestCase):
             {"JOIN_HEAVY_PATCH_SURFACE", "GENERIC_PLACEHOLDER_PENALTY"},
         )
 
+    def test_safe_group_by_wrapper_flatten_gets_positive_patchability_boost(self) -> None:
+        assessment = assess_candidate_patchability_model(
+            "SELECT status, COUNT(*) AS total FROM (SELECT status, COUNT(*) AS total FROM orders GROUP BY status) og ORDER BY status",
+            Candidate(
+                id="c3",
+                source="llm",
+                rewritten_sql="SELECT status, COUNT(*) AS total FROM orders GROUP BY status ORDER BY status",
+                rewrite_strategy="REMOVE_REDUNDANT_GROUP_BY_WRAPPER_RECOVERED",
+            ),
+        )
+
+        self.assertEqual(assessment.score, 80)
+        self.assertEqual(assessment.tier, "HIGH")
+        self.assertEqual(
+            [row.rule_id for row in assessment.matched_rules],
+            ["AGGREGATION_WRAPPER_FLATTEN_PATCHABLE"],
+        )
+
+    def test_speculative_aggregation_filter_limit_candidate_is_penalized(self) -> None:
+        assessment = assess_candidate_patchability_model(
+            "SELECT status, COUNT(*) AS total FROM orders GROUP BY status",
+            Candidate(
+                id="c4",
+                source="llm",
+                rewritten_sql="SELECT status, COUNT(*) AS total FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY status LIMIT 100",
+                rewrite_strategy="ADD_TIME_FILTER",
+            ),
+        )
+
+        self.assertEqual(assessment.score, 35)
+        self.assertEqual(assessment.tier, "LOW")
+        self.assertEqual(
+            [row.rule_id for row in assessment.matched_rules],
+            ["AGGREGATION_SPECULATIVE_PENALTY"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

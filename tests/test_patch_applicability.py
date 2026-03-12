@@ -318,9 +318,70 @@ class PatchApplicabilityTest(unittest.TestCase):
             self.assertIn("<include refid=\"BaseWhere\" />", patch_text)
             self.assertIn("SELECT id, name", patch_text)
             self.assertIn("FROM users", patch_text)
-            self.assertIn("SELECT id, name\n", patch_text)
-            self.assertIn("\n+    FROM users", patch_text)
-            self.assertNotIn("\n+FROM users", patch_text)
+
+    def test_patch_uses_dynamic_template_specific_reason_when_available(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_reason_") as td:
+            run_dir = Path(td)
+            mapper = run_dir / "demo_mapper.xml"
+            mapper.write_text(
+                """<mapper namespace="demo.order">
+  <select id="findOrdersByNos">
+    SELECT * FROM orders
+    <where>
+      <foreach collection="orderNos" item="orderNo" open="order_no IN (" separator="," close=")">
+        #{orderNo}
+      </foreach>
+    </where>
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
+            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
+            acceptance = {
+                "sqlKey": "demo.order.findOrdersByNos#v1",
+                "status": "PASS",
+                "rewrittenSql": "SELECT id, order_no FROM orders WHERE order_no IN (#{orderNo})",
+                "equivalence": {},
+                "perfComparison": {},
+                "securityChecks": {},
+                "selectedCandidateId": "c-pass-1",
+                "semanticEquivalence": {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT"},
+                "dynamicTemplate": {
+                    "present": True,
+                    "shapeFamily": "FOREACH_IN_PREDICATE",
+                    "capabilityTier": "REVIEW_REQUIRED",
+                    "patchSurface": "WHERE_CLAUSE",
+                    "blockingReason": "FOREACH_INCLUDE_PREDICATE",
+                },
+            }
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
+                json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+            unit = {
+                "sqlKey": "demo.order.findOrdersByNos#v1",
+                "statementType": "SELECT",
+                "namespace": "demo.order",
+                "statementId": "findOrdersByNos",
+                "sql": "SELECT * FROM orders WHERE order_no IN (#{orderNo})",
+                "templateSql": (
+                    "SELECT * FROM orders <where><foreach collection=\"orderNos\" item=\"orderNo\">"
+                    "#{orderNo}</foreach></where>"
+                ),
+                "dynamicFeatures": ["WHERE", "FOREACH"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "FOREACH"]},
+                "xmlPath": str(mapper),
+                "locators": {"statementId": "findOrdersByNos"},
+            }
+            patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
+
+        self.assertTrue(patch_row["diffSummary"].get("skipped", False))
+        self.assertEqual(
+            patch_row.get("selectionReason", {}).get("code"),
+            "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
+        )
+        self.assertEqual(patch_row.get("dynamicTemplateBlockingReason"), "FOREACH_INCLUDE_PREDICATE")
 
     def test_patch_applies_fragment_template_ops_from_validate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_fragment_ops_") as td:

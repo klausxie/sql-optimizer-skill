@@ -32,6 +32,13 @@ Current:
 2. 输出 `pipeline/optimize/optimization.proposals.jsonl`
 3. prompt 会看到 `sql`、`templateSql`、`dynamicFeatures`
 4. optimize 只生成分析候选，不直接生成 XML patch
+5. optimize 之后会先经过候选治理层：
+   - low-value pruning
+   - degraded diagnostics
+   - safe baseline recovery
+6. 当前会额外输出：
+   - `candidateGenerationDiagnostics`
+   - `sql/<sql-key>/candidate_generation_diagnostics.json`
 
 ### 2.3 `validate`
 Current:
@@ -51,6 +58,11 @@ Current:
    - `canonicalization.assessment.json`
    - `candidate.selection.trace.json`
 6. 片段级模板物化能力默认关闭，但判定结果仍会写出
+7. 对动态模板 statement，当前还会输出：
+   - `dynamicTemplate`
+   - `dynamicBaselineFamily`
+   - `dynamicDeliveryClass`
+   - `dynamic_candidate_intent.json`
 
 Default:
 1. fragment 级模板物化由内部策略保持默认关闭
@@ -65,6 +77,17 @@ Current:
 4. 只有当 `rewriteMaterialization.replayVerified=true` 时，才允许真正落地模板级 patch
 5. 若没有模板级计划，则回退到原有静态 SQL patch 路径
 6. 对动态模板 statement，不允许直接用扁平 SQL 覆盖 mapper XML
+
+Current dynamic template paths:
+1. `DYNAMIC_STATEMENT_TEMPLATE_EDIT`
+   - 已实现
+   - 仅允许 template-preserving statement-body rewrite
+   - 必须保留原动态标签和 include tag
+2. review-only dynamic families
+   - `IF_GUARDED_FILTER_STATEMENT`
+   - `FOREACH_IN_PREDICATE`
+   - `SET_SELECTIVE_UPDATE`
+   - 当前仍默认阻断，除非命中显式 safe baseline
 
 Current template paths:
 1. `STATEMENT_TEMPLATE_SAFE`
@@ -84,6 +107,9 @@ Current:
    - patch strategy 分布
    - canonical rule 命中与采用统计
 3. 即使上游失败，也会尽量收口 report
+4. 当前还会聚合动态模板摘要：
+   - `dynamic_baseline_family_counts`
+   - `dynamic_delivery_class_counts`
 
 ## 3. SQL 视图约束
 1. `templateSql`
@@ -106,7 +132,30 @@ Current:
    - 高风险行为路径，内部默认关闭
 3. 新增字段全部按加法兼容，不改变已有主干契约
 
-## 5. 外部稳定面
+## 5. 局部运行与调试
+Current:
+1. CLI 支持按局部范围执行：
+   - `--mapper-path`
+   - `--sql-key`
+2. 选择范围会固化到 run plan：
+   - `selection.mapper_paths`
+   - `selection.sql_keys`
+   - `selection.selected_sql_keys`
+3. `status/report` 会带 `selection_scope` 摘要
+
+推荐策略：
+1. 日常调试优先局部 run
+2. full run 只用于阶段验收
+3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
+
+当前阶段验收基线：
+1. `run_fixture_project_full_dynamic_gate_v5`
+2. dynamic 阶段当前以该 full run 作为对比基线
+3. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+   - `DML / selective update`
+   - `aggregation wrapper`
+   - 剩余候选稳定性尾项
+## 6. 外部稳定面
 1. CLI：`run / status / resume / apply`
 2. 运行目录：`runs/<run-id>/...`
 3. 核心契约主干：
@@ -116,9 +165,10 @@ Current:
    - `PatchResult`
    - `RunReport`
 
-## 6. 技术难点（当前约束）
+## 7. 技术难点（当前约束）
 1. scan 依赖 Java MyBatis 渲染，但只读取 mapper 文件；类解析失败时必须降级而不是中断整轮扫描。
 2. `<include>` 指向的 `<sql id>` 片段可能继续包含其他动态标签，且调用点可能带 `<property>` 绑定；因此系统必须同时维护模板视图、逻辑视图、递归依赖链和源码定位信息，不能只保留扁平 SQL。
 3. 模板级 patch 不能依赖扁平 SQL 直接覆盖 XML；必须先通过 deterministic materializer 生成模板替换计划，并通过 replay 校验后才允许落地。
 4. 候选选择不能直接依赖自然语言 LLM fallback；系统必须先经过 SQL 候选词法门，再进入 semantic / canonical / patchability 评估链。
 5. 候选规范化、候选 patchability、patch safety、patch strategy planning 已拆成独立内部层；后续新增规则时不应继续把判断塞回 `candidate_selection` 或 `validate` 主流程。
+6. 动态模板交付必须同时满足 `rewriteFacts.dynamicTemplate` 与 `dynamic_candidate_intent`，不能只凭扁平 SQL 候选直接决定可交付性。

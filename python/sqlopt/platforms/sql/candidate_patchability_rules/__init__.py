@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from ..candidate_patchability_models import RegisteredCandidatePatchabilityRule
+from .aggregation_speculative import AggregationSpeculativePenaltyRule
+from .aggregation_wrapper import AggregationWrapperFlattenPatchabilityRule
 from .generic_placeholder import GenericPlaceholderPenaltyRule
 from .join_heavy import JoinHeavyPenaltyRule
 from .mybatis_placeholder import MyBatisPlaceholderPreservedRule
@@ -22,6 +24,11 @@ def iter_candidate_patchability_rules() -> tuple[RegisteredCandidatePatchability
             implementation=ProjectionRewritePatchabilityRule(),
         ),
         RegisteredCandidatePatchabilityRule(
+            rule_id=AggregationWrapperFlattenPatchabilityRule.rule_id,
+            priority=450,
+            implementation=AggregationWrapperFlattenPatchabilityRule(),
+        ),
+        RegisteredCandidatePatchabilityRule(
             rule_id=OrderingRewritePatchabilityRule.rule_id,
             priority=400,
             implementation=OrderingRewritePatchabilityRule(),
@@ -35,6 +42,11 @@ def iter_candidate_patchability_rules() -> tuple[RegisteredCandidatePatchability
             rule_id=JoinHeavyPenaltyRule.rule_id,
             priority=200,
             implementation=JoinHeavyPenaltyRule(),
+        ),
+        RegisteredCandidatePatchabilityRule(
+            rule_id=AggregationSpeculativePenaltyRule.rule_id,
+            priority=150,
+            implementation=AggregationSpeculativePenaltyRule(),
         ),
         RegisteredCandidatePatchabilityRule(
             rule_id=GenericPlaceholderPenaltyRule.rule_id,

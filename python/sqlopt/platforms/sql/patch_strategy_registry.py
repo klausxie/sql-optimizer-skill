@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -7,11 +8,27 @@ from typing import Any
 from .materialization_constants import (
     REASON_STATEMENT_INCLUDE_SAFE,
     REASON_WRAPPER_QUERY_COLLAPSE_SAFE,
+    STATEMENT_TEMPLATE_SAFE,
     STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE,
 )
 from .patchability_models import PlannedPatchStrategy, RegisteredPatchStrategy
 from .template_materializer import build_rewrite_materialization
 from .template_rendering import collect_fragments, normalize_sql_text, render_template_body_sql
+
+_COUNT_SQL_RE = re.compile(
+    r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+(?P<from_suffix>from\b.+)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+
+def _normalize_dynamic_replay_sql(sql: str) -> str:
+    match = _COUNT_SQL_RE.match(str(sql or "").strip())
+    if match:
+        count_expr = normalize_sql_text(match.group("count_expr"))
+        from_suffix = normalize_sql_text(match.group("from_suffix"))
+        if count_expr in {"1", "*"} and from_suffix:
+            return normalize_sql_text(f"SELECT COUNT(*) {from_suffix}")
+    return normalize_sql_text(sql)
 
 
 def _wrapper_collapse_materialization(sql_unit: dict[str, Any], rewritten_sql: str) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
@@ -63,9 +80,11 @@ class SafeWrapperCollapseStrategy:
         *,
         enable_fragment_materialization: bool,
         fallback_from: str | None,
+        dynamic_candidate_intent: dict[str, Any] | None = None,
     ) -> PlannedPatchStrategy | None:
         _ = fragment_catalog
         _ = enable_fragment_materialization
+        _ = dynamic_candidate_intent
         materialization, ops = _wrapper_collapse_materialization(sql_unit, rewritten_sql)
         if materialization is None:
             return None
@@ -92,7 +111,9 @@ class ExactTemplateEditStrategy:
         *,
         enable_fragment_materialization: bool,
         fallback_from: str | None,
+        dynamic_candidate_intent: dict[str, Any] | None = None,
     ) -> PlannedPatchStrategy | None:
+        _ = dynamic_candidate_intent
         materialization, ops = build_rewrite_materialization(
             sql_unit,
             rewritten_sql,
@@ -112,6 +133,65 @@ class ExactTemplateEditStrategy:
         )
 
 
+class DynamicStatementTemplateEditStrategy:
+    strategy_type = "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    required_capability = "DYNAMIC_STATEMENT_CANONICAL_EDIT"
+
+    def plan(
+        self,
+        sql_unit: dict[str, Any],
+        rewritten_sql: str,
+        fragment_catalog: dict[str, dict[str, Any]],
+        *,
+        enable_fragment_materialization: bool,
+        fallback_from: str | None,
+        dynamic_candidate_intent: dict[str, Any] | None = None,
+    ) -> PlannedPatchStrategy | None:
+        _ = enable_fragment_materialization
+        rebuilt_template = str((dynamic_candidate_intent or {}).get("rebuiltTemplate") or "").strip()
+        if not rebuilt_template:
+            return None
+        xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+        namespace = str(sql_unit.get("namespace") or "").strip()
+        statement_key = str(sql_unit.get("sqlKey") or "").split("#", 1)[0]
+        template_sql = str(sql_unit.get("templateSql") or "")
+        if not xml_path.exists() or not template_sql or not rebuilt_template:
+            return None
+        try:
+            root = ET.parse(xml_path).getroot()
+        except Exception:
+            return None
+        replayed = render_template_body_sql(rebuilt_template, namespace, xml_path, collect_fragments(root, namespace, xml_path))
+        if _normalize_dynamic_replay_sql(replayed or "") != _normalize_dynamic_replay_sql(rewritten_sql):
+            return None
+        return PlannedPatchStrategy(
+            strategy_type=self.strategy_type,
+            mode=STATEMENT_TEMPLATE_SAFE,
+            reason_code="DYNAMIC_STATEMENT_TEMPLATE_SAFE",
+            replay_verified=True,
+            fallback_from=fallback_from,
+            materialization={
+                "mode": STATEMENT_TEMPLATE_SAFE,
+                "targetType": "STATEMENT",
+                "targetRef": statement_key,
+                "reasonCode": "DYNAMIC_STATEMENT_TEMPLATE_SAFE",
+                "reasonMessage": "dynamic statement template can be safely rewritten while preserving dynamic tags",
+                "replayVerified": True,
+                "featureFlagApplied": False,
+            },
+            ops=[
+                {
+                    "op": "replace_statement_body",
+                    "targetRef": statement_key,
+                    "beforeTemplate": template_sql,
+                    "afterTemplate": rebuilt_template,
+                    "preservedAnchors": [],
+                    "safetyChecks": {"dynamicIntent": True},
+                }
+            ],
+        )
+
+
 def iter_patch_strategies() -> tuple[RegisteredPatchStrategy, ...]:
     return (
         RegisteredPatchStrategy(
@@ -119,6 +199,12 @@ def iter_patch_strategies() -> tuple[RegisteredPatchStrategy, ...]:
             priority=200,
             required_capability=SafeWrapperCollapseStrategy.required_capability,
             implementation=SafeWrapperCollapseStrategy(),
+        ),
+        RegisteredPatchStrategy(
+            strategy_type=DynamicStatementTemplateEditStrategy.strategy_type,
+            priority=150,
+            required_capability=DynamicStatementTemplateEditStrategy.required_capability,
+            implementation=DynamicStatementTemplateEditStrategy(),
         ),
         RegisteredPatchStrategy(
             strategy_type=ExactTemplateEditStrategy.strategy_type,

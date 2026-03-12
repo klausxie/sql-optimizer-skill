@@ -9,6 +9,7 @@ from .workflow_components import build_run_finalizer as _build_run_finalizer
 from .workflow_components import build_status_resolver as _build_status_resolver
 from .workflow_definition import PHASE_POLICIES, STAGE_ORDER
 from .models import ResolvedConfig
+from .run_selection import selection_scope
 from .phase_runtime import record_failure as _record_failure
 from .phase_runtime import run_phase_action as _run_phase_action
 from .phase_runtime import runtime_cfg as _runtime_cfg
@@ -147,4 +148,5 @@ def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:
         "last_reason_code": request.state.get("last_reason_code"),
         "complete": status.complete,
         "next_action": status.next_action,
+        "selection_scope": selection_scope(request.plan),
     }

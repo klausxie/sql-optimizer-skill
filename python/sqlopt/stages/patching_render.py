@@ -69,13 +69,41 @@ def render_logical_text(
     fragments: dict[str, ET.Element],
     stack: set[str] | None = None,
 ) -> str:
+    def _apply_where_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        if not normalized:
+            return ""
+        normalized = re.sub(r"^(and|or)\b", "", normalized, flags=re.IGNORECASE).strip()
+        return f" WHERE {normalized}" if normalized else ""
+
+    def _apply_set_semantics(text: str) -> str:
+        normalized = normalize_sql_text(text)
+        normalized = re.sub(r",\s*$", "", normalized).strip()
+        return f" SET {normalized}" if normalized else ""
+
+    def _apply_choose_semantics(branches: list[str]) -> str:
+        normalized = [normalize_sql_text(branch) for branch in branches if normalize_sql_text(branch)]
+        if not normalized:
+            return ""
+        if len(normalized) == 1:
+            return normalized[0]
+        return "(" + " OR ".join(normalized) + ")"
+
     stack = set() if stack is None else set(stack)
+    tag = local_name(str(node.tag)).lower() if node.tag is not None else ""
+    if tag == "choose":
+        branches: list[str] = []
+        for child in list(node):
+            rendered_child = render_logical_text(child, namespace, fragments, stack)
+            if normalize_sql_text(rendered_child):
+                branches.append(rendered_child)
+        return _apply_choose_semantics(branches)
     parts: list[str] = []
     if node.text:
         parts.append(node.text)
     for child in list(node):
-        tag = local_name(str(child.tag)).lower()
-        if tag == "include":
+        child_tag = local_name(str(child.tag)).lower()
+        if child_tag == "include":
             ref = qualify_ref(namespace, child.attrib.get("refid"))
             target = fragments.get(ref)
             if ref and target is not None and ref not in stack:
@@ -86,7 +114,12 @@ def render_logical_text(
             parts.append(render_logical_text(child, namespace, fragments, stack))
         if child.tail:
             parts.append(child.tail)
-    return "".join(parts)
+    rendered = "".join(parts)
+    if tag == "where":
+        return _apply_where_semantics(rendered)
+    if tag == "set":
+        return _apply_set_semantics(rendered)
+    return rendered
 
 
 def split_by_anchors(text: str, anchors: list[str]) -> list[str] | None:

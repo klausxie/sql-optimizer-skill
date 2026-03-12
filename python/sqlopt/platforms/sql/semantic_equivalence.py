@@ -3,11 +3,39 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .canonicalization_support import (
+    cleanup_redundant_select_aliases,
+    split_select_list,
+    strip_redundant_projection_alias,
+    strip_sql_comments,
+)
+from .cte_analysis import analyze_simple_inline_cte
+from .dynamic_template_support import parse_select_wrapper_template, render_flattened_select_template
+
 _WS_RE = re.compile(r"\s+")
+_COUNT_SUBQUERY_RE = re.compile(
+    r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+from\s*\(\s*(?P<inner>.+)\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)?\s*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_SELECT_FROM_RE = re.compile(r"^\s*select\s+.+?\s+(?P<from_suffix>from\b.+)$", flags=re.IGNORECASE | re.DOTALL)
+_COUNT_DIRECT_RE = re.compile(
+    r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+(?P<from_suffix>from\b.+)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_COUNT_WRAPPER_BLOCKERS = (
+    r"\bdistinct\b",
+    r"\bgroup\s+by\b",
+    r"\bhaving\b",
+    r"\bunion\b",
+    r"\bover\s*\(",
+    r"\blimit\b",
+    r"\boffset\b",
+    r"\bfetch\b",
+)
 
 
 def _normalize_sql(text: str) -> str:
-    return _WS_RE.sub(" ", str(text or "").strip()).lower()
+    return _WS_RE.sub(" ", strip_sql_comments(str(text or "")).strip()).lower()
 
 
 def _extract_select_list(sql: str) -> str | None:
@@ -15,6 +43,63 @@ def _extract_select_list(sql: str) -> str | None:
     if not match:
         return None
     return _normalize_sql(match.group(1))
+
+
+def _projection_signature(select_list: str | None) -> tuple[str, ...] | None:
+    if select_list is None:
+        return None
+    cleaned_select_list, _ = cleanup_redundant_select_aliases(select_list)
+    parts = split_select_list(cleaned_select_list)
+    return tuple(_normalize_sql(strip_redundant_projection_alias(part)) for part in parts)
+
+
+def _extract_select_from_suffix(sql: str) -> str | None:
+    match = _SELECT_FROM_RE.search(str(sql or "").strip())
+    if not match:
+        return None
+    return _normalize_sql(match.group("from_suffix"))
+
+
+def _inline_simple_count_wrapper(sql: str) -> str | None:
+    normalized = str(sql or "").strip()
+    match = _COUNT_SUBQUERY_RE.match(normalized)
+    if not match:
+        return None
+    inner_sql = str(match.group("inner") or "").strip()
+    if not inner_sql:
+        return None
+    inner_normalized = _normalize_sql(inner_sql)
+    if any(re.search(pattern, inner_normalized, flags=re.IGNORECASE) for pattern in _COUNT_WRAPPER_BLOCKERS):
+        return None
+    from_suffix = _extract_select_from_suffix(inner_sql)
+    count_match = _COUNT_DIRECT_RE.match(normalized)
+    count_expr = _normalize_sql((count_match.group("count_expr") if count_match else "") or "")
+    if not from_suffix or count_expr not in {"1", "*"}:
+        return None
+    return f"select count(*) {from_suffix}"
+
+
+def _inline_simple_select_wrapper(sql: str) -> str | None:
+    outer_select, inner_select, flattened_from = parse_select_wrapper_template(sql)
+    if outer_select is None or inner_select is None or flattened_from is None:
+        return None
+    if _normalize_sql(outer_select) != _normalize_sql(inner_select):
+        return None
+    return render_flattened_select_template(inner_select, flattened_from)
+
+
+def _semantic_subject_sql(sql: str) -> str:
+    normalized = strip_sql_comments(str(sql or "")).strip()
+    collapsed_count = _inline_simple_count_wrapper(normalized)
+    if collapsed_count:
+        return collapsed_count
+    collapsed_wrapper = _inline_simple_select_wrapper(normalized)
+    if collapsed_wrapper:
+        return collapsed_wrapper
+    cte_analysis = analyze_simple_inline_cte(normalized)
+    if cte_analysis.collapsible and cte_analysis.inlined_sql:
+        return cte_analysis.inlined_sql
+    return normalized
 
 
 def _normalize_projection_alias(expr: str) -> str:
@@ -32,6 +117,12 @@ def _is_count_star_one_equivalent(before: str | None, after: str | None) -> bool
     normalized_after = _normalize_projection_alias(after)
     pair = {normalized_before, normalized_after}
     return pair == {"count(1)", "count(*)"}
+
+
+def _is_projection_alias_only_equivalent(before: str | None, after: str | None) -> bool:
+    before_signature = _projection_signature(before)
+    after_signature = _projection_signature(after)
+    return before_signature is not None and before_signature == after_signature
 
 
 def _extract_where_clause(sql: str) -> str | None:
@@ -193,6 +284,8 @@ def build_semantic_equivalence(
     rewritten_sql: str,
     equivalence: dict[str, Any],
 ) -> dict[str, Any]:
+    original_subject_sql = _semantic_subject_sql(original_sql)
+    rewritten_subject_sql = _semantic_subject_sql(rewritten_sql)
     row_count = dict(equivalence.get("rowCount") or {})
     row_count_status = str(row_count.get("status") or "").upper()
     fingerprint_status = _infer_fingerprint_status(equivalence)
@@ -201,9 +294,10 @@ def build_semantic_equivalence(
     fingerprint_strength = _extract_fingerprint_strength(equivalence, fingerprint_status)
     checked = equivalence.get("checked")
 
-    projection_before = _extract_select_list(original_sql)
-    projection_after = _extract_select_list(rewritten_sql)
+    projection_before = _extract_select_list(original_subject_sql)
+    projection_after = _extract_select_list(rewritten_subject_sql)
     count_projection_equivalent = _is_count_star_one_equivalent(projection_before, projection_after)
+    alias_only_projection_equivalent = _is_projection_alias_only_equivalent(projection_before, projection_after)
     if projection_before is None or projection_after is None:
         projection_check = _build_check(
             status="UNCERTAIN",
@@ -220,6 +314,14 @@ def build_semantic_equivalence(
             before=projection_before,
             after=projection_after,
         )
+    elif alias_only_projection_equivalent:
+        projection_check = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT",
+            detail="projection change only removes redundant aliases",
+            before=projection_before,
+            after=projection_after,
+        )
     else:
         projection_check = _build_check(
             status="UNCERTAIN",
@@ -230,16 +332,16 @@ def build_semantic_equivalence(
         )
 
     predicate_check = _compare_text_clause(
-        before=_extract_where_clause(original_sql),
-        after=_extract_where_clause(rewritten_sql),
+        before=_extract_where_clause(original_subject_sql),
+        after=_extract_where_clause(rewritten_subject_sql),
         same_reason_code="SEMANTIC_PREDICATE_STABLE",
         change_reason_code="SEMANTIC_PREDICATE_CHANGED",
         missing_reason_code="SEMANTIC_PREDICATE_ADDED_OR_REMOVED",
         missing_detail="where clause added or removed",
     )
     ordering_check = _compare_text_clause(
-        before=_extract_order_by_clause(original_sql),
-        after=_extract_order_by_clause(rewritten_sql),
+        before=_extract_order_by_clause(original_subject_sql),
+        after=_extract_order_by_clause(rewritten_subject_sql),
         same_reason_code="SEMANTIC_ORDERING_STABLE",
         change_reason_code="SEMANTIC_ORDERING_CHANGED",
         missing_reason_code="SEMANTIC_ORDERING_ADDED_OR_REMOVED",
@@ -248,8 +350,8 @@ def build_semantic_equivalence(
         changed_status="UNCERTAIN",
     )
     pagination_check = _compare_text_clause(
-        before=_extract_pagination_clause(original_sql),
-        after=_extract_pagination_clause(rewritten_sql),
+        before=_extract_pagination_clause(original_subject_sql),
+        after=_extract_pagination_clause(rewritten_subject_sql),
         same_reason_code="SEMANTIC_PAGINATION_STABLE",
         change_reason_code="SEMANTIC_PAGINATION_CHANGED",
         missing_reason_code="SEMANTIC_PAGINATION_ADDED_OR_REMOVED",

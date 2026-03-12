@@ -8,10 +8,21 @@
     "statement_key": {"type": "string"},
     "delivery_status": {"type": "string"},
     "blocker_primary_code": {"type": ["string", "null"]},
+    "blocker_family": {"type": ["string", "null"]},
+    "aggregation_shape_family": {"type": ["string", "null"]},
+    "aggregation_capability_tier": {"type": ["string", "null"]},
+    "aggregation_constraint_family": {"type": ["string", "null"]},
+    "aggregation_safe_baseline_family": {"type": ["string", "null"]},
+    "dynamic_shape_family": {"type": ["string", "null"]},
+    "dynamic_capability_tier": {"type": ["string", "null"]},
+    "dynamic_patch_surface": {"type": ["string", "null"]},
+    "dynamic_baseline_family": {"type": ["string", "null"]},
+    "dynamic_blocking_reason": {"type": ["string", "null"]},
+    "dynamic_delivery_class": {"type": ["string", "null"]},
     "evidence_availability": {"type": ["string", "null"]},
     "artifact_refs": {
       "type": "object",
-      "required": ["report", "acceptance", "patches", "proposals", "verification", "trace", "evidence_dir"],
+      "required": ["report", "acceptance", "patches", "proposals", "verification", "trace", "candidate_generation_diagnostics", "evidence_dir"],
       "properties": {
         "report": {"type": ["string", "null"]},
         "acceptance": {"type": ["string", "null"]},
@@ -19,6 +30,7 @@
         "proposals": {"type": ["string", "null"]},
         "verification": {"type": ["string", "null"]},
         "trace": {"type": ["string", "null"]},
+        "candidate_generation_diagnostics": {"type": ["string", "null"]},
         "evidence_dir": {"type": ["string", "null"]}
       }
     }
