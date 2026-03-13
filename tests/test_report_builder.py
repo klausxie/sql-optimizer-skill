@@ -608,6 +608,56 @@ class ReportBuilderTest(unittest.TestCase):
         action_ids = [row["action_id"] for row in artifacts.report.summary.next_actions]
         self.assertIn("review-distinct-safety", action_ids)
 
+    def test_build_report_artifacts_tracks_group_by_having_alias_ready_family(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.order.havingAlias#v1"}],
+            proposals=[],
+            acceptance=[
+                {
+                    "sqlKey": "demo.order.havingAlias#v1",
+                    "status": "PASS",
+                    "equivalence": {"checked": True},
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "HAVING",
+                                "capabilityTier": "SAFE_BASELINE",
+                                "constraintFamily": "SAFE_BASELINE",
+                                "safeBaselineFamily": "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP",
+                            }
+                        }
+                    },
+                    "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                    "riskFlags": [],
+                }
+            ],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_aggregation_having_alias_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(
+            artifacts.report.stats["aggregation_ready_family_counts"],
+            {"GROUP_BY_HAVING_FROM_ALIAS_CLEANUP": 1},
+        )
+        self.assertEqual(artifacts.report.stats["aggregation_ready_patch_count"], 1)
+
     def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
         inputs = ReportInputs(
             units=[{"sqlKey": "demo.user.findUsers#v1"}],

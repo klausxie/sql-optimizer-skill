@@ -164,8 +164,6 @@ def groupby_from_alias_cleanup_sql(original_sql: str) -> str | None:
     from_suffix = str(direct_match.group("from") or "")
     if not re.search(r"\bgroup\s+by\b", from_suffix, flags=re.IGNORECASE):
         return None
-    if re.search(r"\bhaving\b", from_suffix, flags=re.IGNORECASE):
-        return None
     cleaned_select, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
     if not changed:
         return None
@@ -415,12 +413,15 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
 
     groupby_alias_cleanup = groupby_from_alias_cleanup_sql(normalized_original)
     if groupby_alias_cleanup:
+        rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED"
+        if re.search(r"\bhaving\b", normalized_original, flags=re.IGNORECASE):
+            rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED"
         return [
             {
                 "id": f"{sql_key}:llm:recovered_groupby_from_alias_cleanup",
                 "source": "llm",
                 "rewrittenSql": groupby_alias_cleanup,
-                "rewriteStrategy": "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED",
+                "rewriteStrategy": rewrite_strategy,
                 "semanticRisk": "low",
                 "confidence": "medium",
             }

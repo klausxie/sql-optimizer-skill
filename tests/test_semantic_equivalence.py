@@ -315,6 +315,29 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertIn("SEMANTIC_SAFE_BASELINE_GROUP_BY_FROM_ALIAS_CLEANUP", result["reasons"])
         self.assertEqual(result["confidence"], "MEDIUM")
 
+    def test_group_by_having_from_alias_cleanup_is_treated_as_semantically_stable(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT o.user_id AS user_id, COUNT(*) AS total "
+                "FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id"
+            ),
+            rewritten_sql=(
+                "SELECT user_id, COUNT(*) AS total "
+                "FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id"
+            ),
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "ERROR", "error": "aggregate compare unsupported"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_SAFE_BASELINE_GROUP_BY_HAVING_FROM_ALIAS_CLEANUP")
+        self.assertIn("SEMANTIC_SAFE_BASELINE_GROUP_BY_HAVING_FROM_ALIAS_CLEANUP", result["reasons"])
+        self.assertEqual(result["confidence"], "MEDIUM")
+
     def test_simple_select_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
         result = build_semantic_equivalence(
             original_sql="""

@@ -103,8 +103,6 @@ def _normalize_groupby_from_alias_cleanup(sql: str) -> str | None:
     from_suffix = str(direct_match.group("from") or "").strip()
     if not re.search(r"\bgroup\s+by\b", from_suffix, flags=re.IGNORECASE):
         return None
-    if re.search(r"\bhaving\b", from_suffix, flags=re.IGNORECASE):
-        return None
     cleaned_select, cleaned_from, changed = cleanup_single_table_alias_references(select_text, from_suffix)
     if not changed:
         return None
@@ -284,6 +282,8 @@ def _is_safe_aggregation_wrapper_equivalent(original_sql: str, rewritten_sql: st
         return "SEMANTIC_SAFE_BASELINE_REDUNDANT_HAVING_WRAPPER"
     if family == "GROUP_BY_FROM_ALIAS_CLEANUP":
         return "SEMANTIC_SAFE_BASELINE_GROUP_BY_FROM_ALIAS_CLEANUP"
+    if family == "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP":
+        return "SEMANTIC_SAFE_BASELINE_GROUP_BY_HAVING_FROM_ALIAS_CLEANUP"
     return None
 
 

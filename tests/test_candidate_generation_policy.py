@@ -253,6 +253,19 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
             "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
         )
 
+    def test_recover_candidates_from_shape_handles_groupby_having_from_alias_cleanup(self) -> None:
+        recovered = recover_candidates_from_shape(
+            "demo.order.harness.listOrderUserCountsHavingAliased#v12",
+            "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id",
+        )
+
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["rewriteStrategy"], "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED")
+        self.assertEqual(
+            recovered[0]["rewrittenSql"],
+            "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+        )
+
     def test_build_candidate_generation_diagnostics_marks_window_empty_reason(self) -> None:
         diagnostics, recovered = build_candidate_generation_diagnostics(
             sql_key="demo.order.window#v1",

@@ -204,7 +204,7 @@
 
 阶段状态：
 
-1. `run_fixture_project_full_aggregation_ready_v1` 已将 dynamic baseline、plain aggregation review-only、residual shape blocked reason 与 aggregation ready family 一并收敛到同一条 full-run 基线
+1. `run_fixture_project_full_aggregation_ready_v2` 已将 dynamic baseline、plain aggregation review-only、residual shape blocked reason 与 aggregation ready family 一并收敛到同一条 full-run 基线
 2. 当前阶段可以认为 dynamic delivery 已从“实验性样例”进入“稳定能力版图”
 3. `dynamic/filter/DML/plain aggregation` 这条线上此前的 `SEMANTIC_FAIL / UNCERTAIN` 回归已清零
 4. DML clean blocker 已统一收正为 `PASS + review-only blocker`
@@ -220,6 +220,7 @@
    - `REDUNDANT_HAVING_WRAPPER`
    - `REDUNDANT_DISTINCT_WRAPPER`
    - `GROUP_BY_FROM_ALIAS_CLEANUP`
+   - `GROUP_BY_HAVING_FROM_ALIAS_CLEANUP`
 9. 下一阶段不再优先扩 dynamic ready family，而是转向剩余候选稳定性尾项与新的 aggregation safe baseline 评估
 
 ## 8. 后续建议

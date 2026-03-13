@@ -122,4 +122,12 @@
         GROUP BY o.status
         ORDER BY o.status
     </select>
+
+    <select id="listOrderUserCountsHavingAliased" resultType="map">
+        SELECT o.user_id AS user_id, COUNT(*) AS total
+        FROM orders o
+        GROUP BY o.user_id
+        HAVING COUNT(*) &gt; 1
+        ORDER BY o.user_id
+    </select>
 </mapper>

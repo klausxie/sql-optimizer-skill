@@ -438,6 +438,34 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.aggregation_query.aggregate_functions, ["COUNT", "SUM"])
         self.assertIn("GROUP_BY_PRESENT", model.aggregation_query.blockers)
 
+    def test_build_rewrite_facts_model_detects_group_by_having_from_alias_cleanup_safe_baseline(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased#v12",
+            "sql": "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.order.harness",
+            "statementId": "listOrderUserCountsHavingAliased",
+            "templateSql": "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id",
+            "dynamicFeatures": [],
+        }
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_COUNT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.aggregation_query.present)
+        self.assertTrue(model.aggregation_query.group_by_present)
+        self.assertTrue(model.aggregation_query.having_present)
+        self.assertEqual(model.aggregation_query.group_by_columns, ["o.user_id"])
+        self.assertEqual(model.aggregation_query.having_expression, "COUNT(*) > 1")
+        self.assertEqual(model.aggregation_query.aggregate_functions, ["COUNT"])
+        self.assertEqual(model.aggregation_query.capability_profile.safe_baseline_family, "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP")
+        self.assertEqual(model.aggregation_query.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertEqual(model.aggregation_query.capability_profile.constraint_family, "SAFE_BASELINE")
+
     def test_build_rewrite_facts_model_captures_having_wrapper_shape(self) -> None:
         sql_unit = {
             "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped#v10",

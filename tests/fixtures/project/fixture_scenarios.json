@@ -1074,5 +1074,37 @@
     "targetBlockerFamily": "READY",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "AGGREGATION_SEMANTICS"
+  },
+  {
+    "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased#v12",
+    "statementType": "SELECT",
+    "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
+    "domain": "order",
+    "scenarioClass": "PATCH_READY_STATEMENT",
+    "purpose": "single-table group-by having with redundant table alias can normalize to the canonical aggregate query",
+    "expectedScanFeatures": [],
+    "expectedRiskFlags": [],
+    "validateCandidateSql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+    "validateEvidenceMode": "exact_match_improved",
+    "targetValidateStatus": "PASS",
+    "targetSemanticGate": "PASS",
+    "targetPatchability": "READY",
+    "targetPatchStrategy": "EXACT_TEMPLATE_EDIT",
+    "targetPrimaryBlocker": null,
+    "targetPatchReasonCode": "PATCH_SELECTED_SINGLE_PASS",
+    "targetPatchMustContain": [
+      "SELECT user_id, COUNT(*) AS total",
+      "FROM orders",
+      "GROUP BY user_id",
+      "HAVING COUNT(*) > 1",
+      "ORDER BY user_id"
+    ],
+    "targetPatchMustNotContain": [
+      "FROM orders o",
+      "o.user_id"
+    ],
+    "targetBlockerFamily": "READY",
+    "roadmapStage": "BASELINE",
+    "roadmapTheme": "AGGREGATION_SEMANTICS"
   }
 ]
