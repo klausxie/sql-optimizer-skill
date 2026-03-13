@@ -325,7 +325,7 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {"NO_SAFE_BASELINE_WINDOW": 1})
-        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 1)
+        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 0)
 
     def test_build_report_artifacts_tracks_tail_cleanup_counters(self) -> None:
         inputs = ReportInputs(
@@ -403,6 +403,43 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["aggregation_wrapper_review_only_count"], 1)
         self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 1)
         self.assertEqual(artifacts.report.stats["aggregation_review_only_family_counts"], {"GROUP_BY_REVIEW_ONLY": 1})
+
+    def test_build_report_artifacts_counts_specific_no_safe_baseline_reasons_without_shape_match_increment(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.update#v1", "statementType": "UPDATE"}],
+            proposals=[
+                {
+                    "sqlKey": "demo.user.update#v1",
+                    "candidateGenerationDiagnostics": {
+                        "degradationKind": "EMPTY_CANDIDATES",
+                        "recoveryAttempted": True,
+                        "recoveryStrategy": None,
+                        "recoverySucceeded": False,
+                        "recoveryReason": "NO_SAFE_BASELINE_DML_SET",
+                    },
+                }
+            ],
+            acceptance=[],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_dml_blocked_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {"NO_SAFE_BASELINE_DML_SET": 1})
+        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 0)
 
     def test_build_report_artifacts_counts_dynamic_strategy_from_patch_results(self) -> None:
         inputs = ReportInputs(

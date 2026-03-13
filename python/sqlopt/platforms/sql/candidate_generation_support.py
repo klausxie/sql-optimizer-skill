@@ -212,6 +212,11 @@ def parse_simple_select_wrapper_parts(sql: str) -> tuple[str | None, str | None,
 def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     normalized = normalize_sql(original_sql)
     dynamic_features = {str(row).upper() for row in (sql_unit.get("dynamicFeatures") or [])}
+    statement_type = str(sql_unit.get("statementType") or "").strip().upper()
+    if statement_type in {"UPDATE", "DELETE"} and "SET" in dynamic_features:
+        return "NO_SAFE_BASELINE_DML_SET"
+    if statement_type in {"UPDATE", "DELETE"} and "FOREACH" in dynamic_features:
+        return "NO_SAFE_BASELINE_DML_FOREACH"
     if re.search(r"\bunion(?:\s+all)?\b", normalized, flags=re.IGNORECASE):
         return "NO_SAFE_BASELINE_UNION"
     if WINDOW_RE.search(normalized):

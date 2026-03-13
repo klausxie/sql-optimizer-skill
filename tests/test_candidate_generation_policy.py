@@ -299,6 +299,34 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
         self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_DISTINCT")
         self.assertEqual(recovered, [])
 
+    def test_build_candidate_generation_diagnostics_marks_dml_set_empty_reason(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.updateUserSelective#v9",
+            original_sql="UPDATE users <set> <if test='name != null'>name = #{name},</if> </set> WHERE id = #{id}",
+            raw_candidates=[],
+            valid_candidates=[],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["SET", "IF"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "EMPTY_CANDIDATES")
+        self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_DML_SET")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_marks_dml_foreach_empty_reason(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.markShipmentsDeleted#v5",
+            original_sql="UPDATE shipments SET deleted = 1 WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            raw_candidates=[],
+            valid_candidates=[],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "EMPTY_CANDIDATES")
+        self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_DML_FOREACH")
+        self.assertEqual(recovered, [])
+
     def test_build_candidate_generation_diagnostics_prunes_text_fallback_candidate(self) -> None:
         diagnostics, recovered = build_candidate_generation_diagnostics(
             sql_key="demo.shipment.ids#v1",

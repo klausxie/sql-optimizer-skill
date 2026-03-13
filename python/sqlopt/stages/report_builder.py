@@ -396,7 +396,7 @@ def build_report_artifacts(
                 empty_candidate_blocked_reason_counts[blocked_reason] = (
                     empty_candidate_blocked_reason_counts.get(blocked_reason, 0) + 1
                 )
-                if blocked_reason.startswith("NO_SAFE_BASELINE_"):
+                if blocked_reason == "NO_SAFE_BASELINE_SHAPE_MATCH":
                     no_safe_baseline_shape_match_count += 1
     semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
     semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (

@@ -321,7 +321,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 当前阶段基线：
 
-1. full run 基线固定为 `run_fixture_project_full_aggregation_tail_v2`
+1. full run 基线固定为 `run_fixture_project_full_residual_shape_v1`
 2. 当前阶段验收通过条件：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
@@ -357,7 +357,10 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 5. `dml_review_only_count` 看 DML clean blocker 是否持续保持 `PASS + review-only`
 6. `aggregation_wrapper_review_only_count` 看 plain/wrapper aggregation 是否回到 clean review-only
 7. `aggregation_review_only_family_counts` 看 plain aggregation 是否稳定落在 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
-8. `no_safe_baseline_shape_match_count` 看剩余 shape recovery 白名单缺口
+8. `no_safe_baseline_shape_match_count` 看剩余泛化 shape recovery 白名单缺口
+9. 当前 residual shape 收尾后，期望：
+   - `no_safe_baseline_shape_match_count = 0`
+   - `empty_candidate_blocked_reason_counts` 只剩明确 family，不再泛化落到 `NO_SAFE_BASELINE_SHAPE_MATCH`
 
 ## 10. 下一阶段
 

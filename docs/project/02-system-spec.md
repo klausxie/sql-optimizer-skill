@@ -149,7 +149,7 @@ Current:
 3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
 
 当前阶段验收基线：
-1. `run_fixture_project_full_aggregation_tail_v2`
+1. `run_fixture_project_full_residual_shape_v1`
 2. 当前 full-run 基线要求：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
@@ -165,10 +165,17 @@ Current:
    - `aggregation_wrapper_review_only_count`
    - `aggregation_review_only_family_counts`
    - `no_safe_baseline_shape_match_count`
-6. 当前 aggregation plain/review-only 已固定为：
+6. 当前 residual shape 已进一步收口：
+   - `no_safe_baseline_shape_match_count = 0`
+   - 剩余 empty blocked reason 已细分到：
+   - `NO_SAFE_BASELINE_WINDOW`
+   - `NO_SAFE_BASELINE_DML_FOREACH`
+   - `NO_SAFE_BASELINE_GROUP_BY`
+   - `NO_SAFE_BASELINE_DISTINCT`
+7. 当前 aggregation plain/review-only 已固定为：
    - `PASS + PATCH_NO_EFFECTIVE_CHANGE`
    - 并细分为 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
-7. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+8. 下一阶段重点不再是扩 dynamic patch family，而是处理：
    - `${}` 安全阻断之外的剩余候选稳定性尾项
    - 后续是否开放新的 aggregation safe baseline family
 ## 6. 外部稳定面
