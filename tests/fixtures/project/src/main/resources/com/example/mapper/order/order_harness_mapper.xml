@@ -115,4 +115,11 @@
         ) oh
         ORDER BY user_id
     </select>
+
+    <select id="aggregateOrdersByStatusAliased" resultType="map">
+        SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount
+        FROM orders o
+        GROUP BY o.status
+        ORDER BY o.status
+    </select>
 </mapper>

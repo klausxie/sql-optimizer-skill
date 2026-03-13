@@ -52,6 +52,8 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         expected_aggregation_shape_counts = Counter()
         expected_aggregation_constraint_counts = Counter()
         expected_aggregation_safe_baseline_counts = Counter()
+        expected_aggregation_ready_family_counts = Counter()
+        expected_aggregation_ready_patch_count = 0
         expected_dynamic_baseline_family_counts = Counter()
         expected_dynamic_delivery_class_counts = Counter()
         expected_dynamic_ready_baseline_family_counts = Counter()
@@ -69,6 +71,9 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             safe_baseline = str(profile.get("safeBaselineFamily") or "").strip()
             if safe_baseline:
                 expected_aggregation_safe_baseline_counts[safe_baseline] += 1
+                if str((row.get("selectedPatchStrategy") or {}).get("strategyType") or "").strip() == "EXACT_TEMPLATE_EDIT":
+                    expected_aggregation_ready_patch_count += 1
+                    expected_aggregation_ready_family_counts[safe_baseline] += 1
             dynamic_template = dict((row.get("dynamicTemplate") or {}) or {})
             dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
             if dynamic_baseline_family:
@@ -101,6 +106,8 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(stats["aggregation_shape_counts"], dict(expected_aggregation_shape_counts))
         self.assertEqual(stats["aggregation_constraint_counts"], dict(expected_aggregation_constraint_counts))
         self.assertEqual(stats["aggregation_safe_baseline_counts"], dict(expected_aggregation_safe_baseline_counts))
+        self.assertEqual(stats["aggregation_ready_family_counts"], dict(expected_aggregation_ready_family_counts))
+        self.assertEqual(stats["aggregation_ready_patch_count"], expected_aggregation_ready_patch_count)
         self.assertEqual(stats["dynamic_baseline_family_counts"], dict(expected_dynamic_baseline_family_counts))
         self.assertEqual(stats["dynamic_delivery_class_counts"], dict(expected_dynamic_delivery_class_counts))
         self.assertEqual(stats["dynamic_ready_baseline_family_counts"], dict(expected_dynamic_ready_baseline_family_counts))

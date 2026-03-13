@@ -10,6 +10,7 @@ from .canonicalization_support import (
     SELECT_DIRECT_RE,
     SELECT_WRAPPER_RE,
     cleanup_redundant_from_alias,
+    cleanup_single_table_alias_references,
     cleanup_redundant_select_aliases,
     normalize_sql,
     redundant_groupby_wrapper_blockers,
@@ -152,6 +153,24 @@ def dynamic_filter_from_alias_cleanup_sql(original_sql: str) -> str | None:
     if not changed:
         return None
     return normalize_sql(f"SELECT {select_text} {cleaned_from_suffix}")
+
+
+def groupby_from_alias_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    direct_match = SELECT_DIRECT_RE.match(normalized_original)
+    if direct_match is None:
+        return None
+    select_text = str(direct_match.group("select") or "")
+    from_suffix = str(direct_match.group("from") or "")
+    if not re.search(r"\bgroup\s+by\b", from_suffix, flags=re.IGNORECASE):
+        return None
+    if re.search(r"\bhaving\b", from_suffix, flags=re.IGNORECASE):
+        return None
+    cleaned_select, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    if not changed:
+        return None
+    cleaned_select, _ = cleanup_redundant_select_aliases(cleaned_select)
+    return normalize_sql(f"SELECT {cleaned_select} {cleaned_from_suffix}")
 
 
 def find_matching_paren(text: str, start_idx: int) -> int:
@@ -389,6 +408,19 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                 "source": "llm",
                 "rewrittenSql": cleanup_from_alias_sql,
                 "rewriteStrategy": "REMOVE_REDUNDANT_FROM_ALIAS_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    groupby_alias_cleanup = groupby_from_alias_cleanup_sql(normalized_original)
+    if groupby_alias_cleanup:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_groupby_from_alias_cleanup",
+                "source": "llm",
+                "rewrittenSql": groupby_alias_cleanup,
+                "rewriteStrategy": "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED",
                 "semanticRisk": "low",
                 "confidence": "medium",
             }

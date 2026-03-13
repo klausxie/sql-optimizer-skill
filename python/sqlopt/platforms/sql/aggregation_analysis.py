@@ -9,6 +9,8 @@ from .canonicalization_support import (
     GROUP_BY_WRAPPER_RE,
     HAVING_WRAPPER_RE,
     SELECT_DIRECT_RE,
+    cleanup_redundant_select_aliases,
+    cleanup_single_table_alias_references,
     split_select_list,
 )
 from .template_rendering import normalize_sql_text
@@ -136,6 +138,16 @@ def _safe_baseline_family(original_sql: str, rewritten_sql: str) -> str | None:
         inner_from = normalize_sql_text(group_by_wrapper.group("inner_from"))
         if _extract_top_level_clause(inner_from, "group by") and not _extract_top_level_clause(inner_from, "having"):
             return "REDUNDANT_GROUP_BY_WRAPPER"
+    original_direct = SELECT_DIRECT_RE.match(original_sql)
+    rewritten_direct = SELECT_DIRECT_RE.match(rewritten_sql)
+    if original_direct is not None and rewritten_direct is not None:
+        original_select = normalize_sql_text(original_direct.group("select"))
+        original_from = normalize_sql_text(original_direct.group("from"))
+        if _extract_top_level_clause(original_from, "group by") and not _extract_top_level_clause(original_from, "having"):
+            cleaned_select, cleaned_from, changed = cleanup_single_table_alias_references(original_select, original_from)
+            cleaned_select, _ = cleanup_redundant_select_aliases(cleaned_select)
+            if changed and normalize_sql_text(f"SELECT {cleaned_select} {cleaned_from}") == normalize_sql_text(rewritten_sql):
+                return "GROUP_BY_FROM_ALIAS_CLEANUP"
     return None
 
 

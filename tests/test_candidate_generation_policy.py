@@ -8,6 +8,7 @@ from sqlopt.platforms.sql.candidate_generation_policy import (
 )
 from sqlopt.platforms.sql.candidate_generation_support import (
     dynamic_filter_from_alias_cleanup_sql,
+    groupby_from_alias_cleanup_sql,
     simple_where_predicate_signature,
 )
 
@@ -227,6 +228,29 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
         self.assertEqual(
             recovered[0]["rewrittenSql"],
             "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments ORDER BY shipped_at DESC LIMIT 50",
+        )
+
+    def test_groupby_from_alias_cleanup_sql_removes_single_table_alias_references(self) -> None:
+        cleaned = groupby_from_alias_cleanup_sql(
+            "SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount FROM orders o GROUP BY o.status ORDER BY o.status"
+        )
+
+        self.assertEqual(
+            cleaned,
+            "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+        )
+
+    def test_recover_candidates_from_shape_handles_groupby_from_alias_cleanup(self) -> None:
+        recovered = recover_candidates_from_shape(
+            "demo.order.harness.aggregateOrdersByStatusAliased#v11",
+            "SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount FROM orders o GROUP BY o.status ORDER BY o.status",
+        )
+
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["rewriteStrategy"], "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED")
+        self.assertEqual(
+            recovered[0]["rewrittenSql"],
+            "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
         )
 
     def test_build_candidate_generation_diagnostics_marks_window_empty_reason(self) -> None:

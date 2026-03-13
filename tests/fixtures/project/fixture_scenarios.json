@@ -1043,5 +1043,36 @@
     "targetBlockerFamily": "READY",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "AGGREGATION_SEMANTICS"
+  },
+  {
+    "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased#v11",
+    "statementType": "SELECT",
+    "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
+    "domain": "order",
+    "scenarioClass": "PATCH_READY_STATEMENT",
+    "purpose": "single-table group-by with redundant table alias can normalize to the canonical aggregate query",
+    "expectedScanFeatures": [],
+    "expectedRiskFlags": [],
+    "validateCandidateSql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+    "validateEvidenceMode": "exact_match_improved",
+    "targetValidateStatus": "PASS",
+    "targetSemanticGate": "PASS",
+    "targetPatchability": "READY",
+    "targetPatchStrategy": "EXACT_TEMPLATE_EDIT",
+    "targetPrimaryBlocker": null,
+    "targetPatchReasonCode": "PATCH_SELECTED_SINGLE_PASS",
+    "targetPatchMustContain": [
+      "FROM orders",
+      "GROUP BY status",
+      "ORDER BY status"
+    ],
+    "targetPatchMustNotContain": [
+      "FROM orders o",
+      "o.status",
+      "o.amount"
+    ],
+    "targetBlockerFamily": "READY",
+    "roadmapStage": "BASELINE",
+    "roadmapTheme": "AGGREGATION_SEMANTICS"
   }
 ]

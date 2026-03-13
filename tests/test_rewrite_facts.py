@@ -408,12 +408,35 @@ class RewriteFactsTest(unittest.TestCase):
 
         self.assertTrue(model.aggregation_query.group_by_present)
         self.assertTrue(model.aggregation_query.having_present)
-        self.assertEqual(model.aggregation_query.capability_profile.shape_family, "HAVING")
-        self.assertEqual(model.aggregation_query.capability_profile.constraint_family, "HAVING_AGGREGATION")
-        self.assertEqual(model.aggregation_query.capability_profile.review_only_family, "HAVING_REVIEW_ONLY")
-        self.assertEqual(model.aggregation_query.having_expression, "COUNT(*) > 1")
-        self.assertEqual(model.aggregation_query.aggregate_functions, ["COUNT"])
-        self.assertIn("HAVING_PRESENT", model.aggregation_query.blockers)
+
+    def test_build_rewrite_facts_model_detects_group_by_from_alias_cleanup_safe_baseline(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased#v11",
+            "sql": "SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount FROM orders o GROUP BY o.status ORDER BY o.status",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.order.harness",
+            "statementId": "aggregateOrdersByStatusAliased",
+            "templateSql": "SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount FROM orders o GROUP BY o.status ORDER BY o.status",
+            "dynamicFeatures": [],
+        }
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_COUNT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.aggregation_query.present)
+        self.assertTrue(model.aggregation_query.group_by_present)
+        self.assertEqual(model.aggregation_query.capability_profile.safe_baseline_family, "GROUP_BY_FROM_ALIAS_CLEANUP")
+        self.assertEqual(model.aggregation_query.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertEqual(model.aggregation_query.capability_profile.shape_family, "GROUP_BY")
+        self.assertEqual(model.aggregation_query.capability_profile.constraint_family, "SAFE_BASELINE")
+        self.assertIsNone(model.aggregation_query.capability_profile.review_only_family)
+        self.assertIsNone(model.aggregation_query.having_expression)
+        self.assertEqual(model.aggregation_query.aggregate_functions, ["COUNT", "SUM"])
+        self.assertIn("GROUP_BY_PRESENT", model.aggregation_query.blockers)
 
     def test_build_rewrite_facts_model_captures_having_wrapper_shape(self) -> None:
         sql_unit = {

@@ -210,6 +210,45 @@ def cleanup_redundant_from_alias(from_suffix: str, *, select_text: str | None = 
     return cleaned or normalized, True
 
 
+def cleanup_single_table_alias_references(select_text: str, from_suffix: str) -> tuple[str, str, bool]:
+    normalized_select = normalize_sql(select_text)
+    normalized_from = normalize_sql(from_suffix)
+    match = _REDUNDANT_FROM_ALIAS_RE.match(normalized_from)
+    if match is None:
+        return normalized_select, normalized_from, False
+    table_name = normalize_sql(match.group("table"))
+    alias = normalize_sql(match.group("alias"))
+    suffix = normalize_sql(match.group("suffix") or "")
+    if alias.lower() in _FROM_ALIAS_RESERVED:
+        return normalized_select, normalized_from, False
+    if suffix and not (
+        suffix.lower().startswith("where ")
+        or suffix.lower().startswith("order by ")
+        or suffix.lower().startswith("limit ")
+        or suffix.lower().startswith("offset ")
+        or suffix.lower().startswith("fetch ")
+        or suffix.lower().startswith("group by ")
+        or suffix.lower().startswith("having ")
+    ):
+        return normalized_select, normalized_from, False
+
+    alias_ref = f"{alias.lower()}."
+    combined = f"{normalized_select} {suffix}".lower()
+    if alias_ref not in combined:
+        return normalized_select, normalized_from, False
+
+    qualifiers = {q.lower() for q in re.findall(r"\b([a-z_][a-z0-9_]*)\.", f"{normalized_select} {suffix}", flags=re.IGNORECASE)}
+    if qualifiers != {alias.lower()}:
+        return normalized_select, normalized_from, False
+
+    cleaned_select = re.sub(rf"\b{re.escape(alias)}\.", "", normalized_select, flags=re.IGNORECASE)
+    cleaned_suffix = re.sub(rf"\b{re.escape(alias)}\.", "", suffix, flags=re.IGNORECASE)
+    cleaned_from = normalize_sql(f"FROM {table_name} {cleaned_suffix}").strip()
+    if normalize_sql(cleaned_select) == normalized_select and cleaned_from == normalized_from:
+        return normalized_select, normalized_from, False
+    return normalize_sql(cleaned_select), cleaned_from or normalized_from, True
+
+
 def redundant_subquery_blockers(inner_from: str) -> list[str]:
     normalized = normalize_sql(inner_from)
     blockers: list[str] = []

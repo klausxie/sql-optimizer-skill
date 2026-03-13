@@ -293,6 +293,8 @@ def build_report_artifacts(
     aggregation_constraint_counts: dict[str, int] = {}
     aggregation_safe_baseline_counts: dict[str, int] = {}
     aggregation_review_only_family_counts: dict[str, int] = {}
+    aggregation_ready_family_counts: dict[str, int] = {}
+    aggregation_ready_patch_count = 0
     dynamic_baseline_family_counts: dict[str, int] = {}
     dynamic_delivery_class_counts: dict[str, int] = {}
     dynamic_ready_baseline_family_counts: dict[str, int] = {}
@@ -340,6 +342,11 @@ def build_report_artifacts(
         safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
         if safe_baseline_family:
             aggregation_safe_baseline_counts[safe_baseline_family] = aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
+            if str((row.get("selectedPatchStrategy") or {}).get("strategyType") or "").strip() == "EXACT_TEMPLATE_EDIT":
+                aggregation_ready_patch_count += 1
+                aggregation_ready_family_counts[safe_baseline_family] = (
+                    aggregation_ready_family_counts.get(safe_baseline_family, 0) + 1
+                )
         review_only_family = str(aggregation_profile.get("reviewOnlyFamily") or "").strip()
         if review_only_family:
             aggregation_review_only_family_counts[review_only_family] = (
@@ -473,6 +480,8 @@ def build_report_artifacts(
         "aggregation_constraint_counts": aggregation_constraint_counts,
         "aggregation_safe_baseline_counts": aggregation_safe_baseline_counts,
         "aggregation_review_only_family_counts": aggregation_review_only_family_counts,
+        "aggregation_ready_family_counts": aggregation_ready_family_counts,
+        "aggregation_ready_patch_count": aggregation_ready_patch_count,
         "dynamic_baseline_family_counts": dynamic_baseline_family_counts,
         "dynamic_delivery_class_counts": dynamic_delivery_class_counts,
         "dynamic_ready_baseline_family_counts": dynamic_ready_baseline_family_counts,

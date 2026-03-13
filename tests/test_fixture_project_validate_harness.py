@@ -138,6 +138,12 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(aggregation_query.get("aggregateFunctions"), ["COUNT"], sql_key)
                 self.assertEqual(capability_profile.get("safeBaselineFamily"), "REDUNDANT_HAVING_WRAPPER", sql_key)
                 self.assertEqual(capability_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
+            if sql_key == "demo.order.harness.aggregateOrdersByStatusAliased#v11":
+                self.assertEqual(aggregation_query.get("groupByPresent"), True, sql_key)
+                self.assertEqual(aggregation_query.get("groupByColumns"), ["o.status"], sql_key)
+                self.assertEqual(aggregation_query.get("aggregateFunctions"), ["COUNT", "SUM"], sql_key)
+                self.assertEqual(capability_profile.get("safeBaselineFamily"), "GROUP_BY_FROM_ALIAS_CLEANUP", sql_key)
+                self.assertEqual(capability_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
             if sql_key == "demo.order.harness.listOrderAmountWindowRanks#v7":
                 self.assertEqual(aggregation_query.get("windowPresent"), True, sql_key)
                 self.assertEqual(aggregation_query.get("windowFunctions"), ["ROW_NUMBER"], sql_key)

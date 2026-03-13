@@ -321,12 +321,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 当前阶段基线：
 
-1. full run 基线固定为 `run_fixture_project_full_residual_shape_v1`
+1. full run 基线固定为 `run_fixture_project_full_aggregation_ready_v1`
 2. 当前阶段验收通过条件：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
+   - `aggregation_ready_patch_count >= 4`
    - 3 条 DML clean blocker 为 `PASS`：
    - `demo.order.harness.updateOrderStatusByNos#v6`
    - `demo.shipment.harness.markShipmentsDeleted#v5`
@@ -346,6 +347,11 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
    - `demo.shipment.harness.listShipmentStatusUnion#v6`
    - `demo.user.advanced.listUserCountsByStatus#v10`
    - `demo.user.advanced.listDistinctUserStatuses#v11`
+   - 下列 aggregation ready case 保持 patch-ready：
+   - `demo.order.harness.aggregateOrdersByStatusWrapped#v9`
+   - `demo.order.harness.listOrderUserCountsHavingWrapped#v10`
+   - `demo.user.advanced.listDistinctUserStatusesWrapped#v13`
+   - `demo.order.harness.aggregateOrdersByStatusAliased#v11`
 3. 如果后续 full run 回退上述任一条件，应先修 candidate governance / semantic normalization，再考虑新增 baseline
 
 这几项的作用：
@@ -361,6 +367,11 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 9. 当前 residual shape 收尾后，期望：
    - `no_safe_baseline_shape_match_count = 0`
    - `empty_candidate_blocked_reason_counts` 只剩明确 family，不再泛化落到 `NO_SAFE_BASELINE_SHAPE_MATCH`
+10. `aggregation_ready_family_counts` 看当前 aggregation safe baseline 是否至少覆盖：
+   - `REDUNDANT_GROUP_BY_WRAPPER`
+   - `REDUNDANT_HAVING_WRAPPER`
+   - `REDUNDANT_DISTINCT_WRAPPER`
+   - `GROUP_BY_FROM_ALIAS_CLEANUP`
 
 ## 10. 下一阶段
 
@@ -370,7 +381,7 @@ dynamic/filter/DML 收尾阶段已收口，不再优先扩第 7 个 ready family
 
 1. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / NO_SAFE_BASELINE_SHAPE_MATCH`
 2. `${}` 安全阻断之外的普通静态/聚合尾项
-3. 如需扩能力，再评估新的 aggregation safe baseline family
+3. 如需扩能力，优先继续扩新的 aggregation safe baseline family
 
 执行原则：
 

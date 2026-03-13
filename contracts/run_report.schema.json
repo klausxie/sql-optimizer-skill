@@ -153,6 +153,8 @@
         "aggregation_constraint_counts": {"type": ["object", "null"]},
         "aggregation_safe_baseline_counts": {"type": ["object", "null"]},
         "aggregation_review_only_family_counts": {"type": ["object", "null"]},
+        "aggregation_ready_family_counts": {"type": ["object", "null"]},
+        "aggregation_ready_patch_count": {"type": ["integer", "null"]},
         "dynamic_baseline_family_counts": {"type": ["object", "null"]},
         "dynamic_delivery_class_counts": {"type": ["object", "null"]},
         "dynamic_ready_baseline_family_counts": {"type": ["object", "null"]},

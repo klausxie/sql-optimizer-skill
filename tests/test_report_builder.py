@@ -596,6 +596,11 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts.report.stats["aggregation_safe_baseline_counts"],
             {"REDUNDANT_HAVING_WRAPPER": 1},
         )
+        self.assertEqual(
+            artifacts.report.stats["aggregation_ready_family_counts"],
+            {"REDUNDANT_HAVING_WRAPPER": 1},
+        )
+        self.assertEqual(artifacts.report.stats["aggregation_ready_patch_count"], 1)
         distinct_row = next(row for row in artifacts.diagnostics_sql_outcomes if row["sql_key"] == "demo.user.distinct#v1")
         self.assertEqual(distinct_row["aggregation_shape_family"], "DISTINCT")
         self.assertEqual(distinct_row["aggregation_constraint_family"], "DISTINCT_RELAXATION")
