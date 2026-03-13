@@ -212,8 +212,16 @@ def parse_simple_select_wrapper_parts(sql: str) -> tuple[str | None, str | None,
 def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     normalized = normalize_sql(original_sql)
     dynamic_features = {str(row).upper() for row in (sql_unit.get("dynamicFeatures") or [])}
+    if re.search(r"\bunion(?:\s+all)?\b", normalized, flags=re.IGNORECASE):
+        return "NO_SAFE_BASELINE_UNION"
     if WINDOW_RE.search(normalized):
         return "NO_SAFE_BASELINE_WINDOW"
+    if re.search(r"\bhaving\b", normalized, flags=re.IGNORECASE):
+        return "NO_SAFE_BASELINE_HAVING"
+    if re.search(r"\bgroup\s+by\b", normalized, flags=re.IGNORECASE):
+        return "NO_SAFE_BASELINE_GROUP_BY"
+    if DISTINCT_RE.search(normalized):
+        return "NO_SAFE_BASELINE_DISTINCT"
     if "INCLUDE" in dynamic_features and PAGED_RE.search(normalized):
         return "NO_SAFE_BASELINE_DYNAMIC_PAGED_INCLUDE"
     return "NO_SAFE_BASELINE_SHAPE_MATCH"

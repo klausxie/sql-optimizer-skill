@@ -292,6 +292,7 @@ def build_report_artifacts(
     aggregation_shape_counts: dict[str, int] = {}
     aggregation_constraint_counts: dict[str, int] = {}
     aggregation_safe_baseline_counts: dict[str, int] = {}
+    aggregation_review_only_family_counts: dict[str, int] = {}
     dynamic_baseline_family_counts: dict[str, int] = {}
     dynamic_delivery_class_counts: dict[str, int] = {}
     dynamic_ready_baseline_family_counts: dict[str, int] = {}
@@ -339,6 +340,11 @@ def build_report_artifacts(
         safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
         if safe_baseline_family:
             aggregation_safe_baseline_counts[safe_baseline_family] = aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
+        review_only_family = str(aggregation_profile.get("reviewOnlyFamily") or "").strip()
+        if review_only_family:
+            aggregation_review_only_family_counts[review_only_family] = (
+                aggregation_review_only_family_counts.get(review_only_family, 0) + 1
+            )
         dynamic_template = dict(row.get("dynamicTemplate") or {})
         dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
         if dynamic_baseline_family:
@@ -390,7 +396,7 @@ def build_report_artifacts(
                 empty_candidate_blocked_reason_counts[blocked_reason] = (
                     empty_candidate_blocked_reason_counts.get(blocked_reason, 0) + 1
                 )
-                if blocked_reason == "NO_SAFE_BASELINE_SHAPE_MATCH":
+                if blocked_reason.startswith("NO_SAFE_BASELINE_"):
                     no_safe_baseline_shape_match_count += 1
     semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
     semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (
@@ -466,6 +472,7 @@ def build_report_artifacts(
         "aggregation_shape_counts": aggregation_shape_counts,
         "aggregation_constraint_counts": aggregation_constraint_counts,
         "aggregation_safe_baseline_counts": aggregation_safe_baseline_counts,
+        "aggregation_review_only_family_counts": aggregation_review_only_family_counts,
         "dynamic_baseline_family_counts": dynamic_baseline_family_counts,
         "dynamic_delivery_class_counts": dynamic_delivery_class_counts,
         "dynamic_ready_baseline_family_counts": dynamic_ready_baseline_family_counts,

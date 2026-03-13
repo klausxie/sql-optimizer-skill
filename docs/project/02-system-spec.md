@@ -149,13 +149,13 @@ Current:
 3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
 
 当前阶段验收基线：
-1. `run_fixture_project_full_tail_cleanup_v4`
+1. `run_fixture_project_full_aggregation_tail_v2`
 2. 当前 full-run 基线要求：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
-3. dynamic/filter/DML 脏回归已在该基线收敛为 clean blocker 或 ready patch
+3. dynamic/filter/DML/aggregation plain-review 脏回归已在该基线收敛为 clean blocker 或 ready patch
 4. DML clean blocker 当前统一收正为：
    - `AcceptanceResult.status = PASS`
    - `patchability.blockingReason = PATCH_NO_EFFECTIVE_CHANGE`
@@ -163,11 +163,14 @@ Current:
 5. report 当前会持续跟踪：
    - `dml_review_only_count`
    - `aggregation_wrapper_review_only_count`
+   - `aggregation_review_only_family_counts`
    - `no_safe_baseline_shape_match_count`
-6. 下一阶段重点不再是扩 dynamic patch family，而是处理：
-   - `aggregation wrapper / plain aggregation`
-   - 剩余 review-only plain shapes
-   - `${}` 安全阻断之外的候选稳定性尾项
+6. 当前 aggregation plain/review-only 已固定为：
+   - `PASS + PATCH_NO_EFFECTIVE_CHANGE`
+   - 并细分为 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
+7. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+   - `${}` 安全阻断之外的剩余候选稳定性尾项
+   - 后续是否开放新的 aggregation safe baseline family
 ## 6. 外部稳定面
 1. CLI：`run / status / resume / apply`
 2. 运行目录：`runs/<run-id>/...`

@@ -384,6 +384,7 @@ def build_rewrite_facts_model(
                 capability_tier=str((aggregation_analysis.capability_profile or {}).get("capabilityTier") or "NONE"),
                 constraint_family=str((aggregation_analysis.capability_profile or {}).get("constraintFamily") or "NONE"),
                 safe_baseline_family=str((aggregation_analysis.capability_profile or {}).get("safeBaselineFamily") or "").strip() or None,
+                review_only_family=str((aggregation_analysis.capability_profile or {}).get("reviewOnlyFamily") or "").strip() or None,
                 wrapper_flatten_candidate=bool((aggregation_analysis.capability_profile or {}).get("wrapperFlattenCandidate")),
                 direct_relaxation_candidate=bool((aggregation_analysis.capability_profile or {}).get("directRelaxationCandidate")),
                 blockers=[str(x) for x in ((aggregation_analysis.capability_profile or {}).get("blockers") or []) if str(x).strip()],

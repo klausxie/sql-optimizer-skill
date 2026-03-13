@@ -21,6 +21,7 @@ class PatchabilityAssessment:
     aggregation_constraint_family: str | None = None
     aggregation_capability_tier: str | None = None
     aggregation_safe_baseline_family: str | None = None
+    aggregation_review_only_family: str | None = None
     dynamic_shape_family: str | None = None
     dynamic_capability_tier: str | None = None
     dynamic_patch_surface: str | None = None
@@ -35,6 +36,7 @@ class PatchabilityAssessment:
             "aggregationConstraintFamily": self.aggregation_constraint_family,
             "aggregationCapabilityTier": self.aggregation_capability_tier,
             "aggregationSafeBaselineFamily": self.aggregation_safe_baseline_family,
+            "aggregationReviewOnlyFamily": self.aggregation_review_only_family,
             "dynamicShapeFamily": self.dynamic_shape_family,
             "dynamicCapabilityTier": self.dynamic_capability_tier,
             "dynamicPatchSurface": self.dynamic_patch_surface,

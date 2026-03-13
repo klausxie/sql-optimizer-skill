@@ -187,6 +187,18 @@ def _constraint_family(
     return "NONE"
 
 
+def _review_only_family(*, shape_family: str, safe_baseline_family: str | None) -> str | None:
+    if safe_baseline_family or shape_family == "NONE":
+        return None
+    return {
+        "DISTINCT": "DISTINCT_REVIEW_ONLY",
+        "GROUP_BY": "GROUP_BY_REVIEW_ONLY",
+        "HAVING": "HAVING_REVIEW_ONLY",
+        "WINDOW": "WINDOW_REVIEW_ONLY",
+        "UNION": "UNION_REVIEW_ONLY",
+    }.get(shape_family)
+
+
 def analyze_aggregation_query(original_sql: str, rewritten_sql: str) -> AggregationQueryAnalysis:
     original_normalized = normalize_sql_text(original_sql)
     rewritten_normalized = normalize_sql_text(rewritten_sql)
@@ -241,6 +253,10 @@ def analyze_aggregation_query(original_sql: str, rewritten_sql: str) -> Aggregat
         window_present=window_present,
         union_present=union_present,
     )
+    review_only_family = _review_only_family(
+        shape_family=shape_family,
+        safe_baseline_family=safe_baseline_family,
+    )
     capability_tier = "SAFE_BASELINE" if safe_baseline_family else ("NONE" if shape_family == "NONE" else "REVIEW_REQUIRED")
 
     return AggregationQueryAnalysis(
@@ -266,6 +282,7 @@ def analyze_aggregation_query(original_sql: str, rewritten_sql: str) -> Aggregat
             "capabilityTier": capability_tier,
             "constraintFamily": constraint_family,
             "safeBaselineFamily": safe_baseline_family,
+            "reviewOnlyFamily": review_only_family,
             "wrapperFlattenCandidate": bool(safe_baseline_family),
             "directRelaxationCandidate": bool(distinct_present and not _SELECT_DISTINCT_RE.search(rewritten_normalized)),
             "blockers": list(blockers),

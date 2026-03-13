@@ -257,6 +257,48 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
         self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_DYNAMIC_PAGED_INCLUDE")
         self.assertEqual(recovered, [])
 
+    def test_build_candidate_generation_diagnostics_marks_group_by_empty_reason(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.aggregateOrdersByStatus#v5",
+            original_sql="SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+            raw_candidates=[],
+            valid_candidates=[],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "EMPTY_CANDIDATES")
+        self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_GROUP_BY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_marks_having_empty_reason(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrderUserCountsHaving#v8",
+            original_sql="SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+            raw_candidates=[],
+            valid_candidates=[],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "EMPTY_CANDIDATES")
+        self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_HAVING")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_marks_distinct_empty_reason(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            original_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            raw_candidates=[],
+            valid_candidates=[],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "EMPTY_CANDIDATES")
+        self.assertEqual(diagnostics["recoveryReason"], "NO_SAFE_BASELINE_DISTINCT")
+        self.assertEqual(recovered, [])
+
     def test_build_candidate_generation_diagnostics_prunes_text_fallback_candidate(self) -> None:
         diagnostics, recovered = build_candidate_generation_diagnostics(
             sql_key="demo.shipment.ids#v1",
@@ -435,6 +477,75 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
                     "id": "c1",
                     "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
                     "rewriteStrategy": "Replace DISTINCT with GROUP BY for clearer semantics; enables index-only scan on idx_users_status_created",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_window_clause_extract(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrderAmountWindowRanks#v7",
+            original_sql=(
+                "SELECT order_no, amount, "
+                "ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS row_rank "
+                "FROM orders"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": (
+                        "SELECT order_no, amount, ROW_NUMBER() OVER w AS row_rank "
+                        "FROM orders WINDOW w AS (PARTITION BY user_id ORDER BY created_at DESC)"
+                    ),
+                    "rewriteStrategy": "window_clause_extract",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": (
+                        "SELECT order_no, amount, ROW_NUMBER() OVER w AS row_rank "
+                        "FROM orders WINDOW w AS (PARTITION BY user_id ORDER BY created_at DESC)"
+                    ),
+                    "rewriteStrategy": "window_clause_extract",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_group_by_order_by_removal(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.aggregateOrdersByStatus#v5",
+            original_sql=(
+                "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount "
+                "FROM orders GROUP BY status ORDER BY status"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status",
+                    "rewriteStrategy": "remove_redundant_order_by",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status",
+                    "rewriteStrategy": "remove_redundant_order_by",
                 }
             ],
             trace={"degrade_reason": None},

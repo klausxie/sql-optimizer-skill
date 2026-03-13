@@ -204,15 +204,17 @@
 
 阶段状态：
 
-1. `run_fixture_project_full_tail_cleanup_v4` 已将这 6 条 dynamic baseline 与对应 clean blocker 收敛到同一条 full-run 基线
+1. `run_fixture_project_full_aggregation_tail_v2` 已将 dynamic baseline 与 plain aggregation review-only 一并收敛到同一条 full-run 基线
 2. 当前阶段可以认为 dynamic delivery 已从“实验性样例”进入“稳定能力版图”
-3. `dynamic/filter/DML` 这条线上此前的 `SEMANTIC_FAIL / UNCERTAIN` 回归已清零
+3. `dynamic/filter/DML/plain aggregation` 这条线上此前的 `SEMANTIC_FAIL / UNCERTAIN` 回归已清零
 4. DML clean blocker 已统一收正为 `PASS + review-only blocker`
 5. tail cleanup gate 当前还会显式跟踪：
    - `dml_review_only_count`
    - `aggregation_wrapper_review_only_count`
+   - `aggregation_review_only_family_counts`
    - `no_safe_baseline_shape_match_count`
-6. 下一阶段不再优先扩 dynamic ready family，而是转向 plain aggregation / review-only 尾项
+6. plain aggregation 当前已固定为 `PASS + PATCH_NO_EFFECTIVE_CHANGE`，并细分为 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
+7. 下一阶段不再优先扩 dynamic ready family，而是转向剩余候选稳定性尾项与新的 aggregation safe baseline 评估
 
 ## 8. 后续建议
 
@@ -226,6 +228,6 @@
 
 当前阶段之后的优先级已调整为：
 
-1. `aggregation wrapper / plain aggregation` 的候选治理与语义归一化
-2. 剩余 `TEXT_ONLY_FALLBACK / EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES`
-3. review-only plain shapes 的 blocker taxonomy 与 clean-blocker 维持
+1. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / NO_SAFE_BASELINE_SHAPE_MATCH`
+2. `${}` 安全阻断之外的普通静态/聚合尾项
+3. 是否扩新的 aggregation safe baseline family

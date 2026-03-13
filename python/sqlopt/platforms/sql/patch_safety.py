@@ -138,6 +138,7 @@ def _coerce_rewrite_facts(rewrite_facts: dict[str, object] | RewriteFacts) -> Re
                 capability_tier=str(((aggregation.get("capabilityProfile") or {}).get("capabilityTier") or "NONE")).strip().upper() or "NONE",
                 constraint_family=str(((aggregation.get("capabilityProfile") or {}).get("constraintFamily") or "NONE")).strip().upper() or "NONE",
                 safe_baseline_family=str(((aggregation.get("capabilityProfile") or {}).get("safeBaselineFamily") or "")).strip() or None,
+                review_only_family=str(((aggregation.get("capabilityProfile") or {}).get("reviewOnlyFamily") or "")).strip() or None,
                 wrapper_flatten_candidate=bool((aggregation.get("capabilityProfile") or {}).get("wrapperFlattenCandidate")),
                 direct_relaxation_candidate=bool((aggregation.get("capabilityProfile") or {}).get("directRelaxationCandidate")),
                 blockers=[str(code) for code in (((aggregation.get("capabilityProfile") or {}).get("blockers")) or []) if str(code).strip()],
@@ -256,6 +257,11 @@ def assess_patch_safety_model(
             else None
         ),
         aggregation_safe_baseline_family=aggregation_profile.safe_baseline_family,
+        aggregation_review_only_family=(
+            aggregation_profile.review_only_family
+            if str(aggregation_profile.review_only_family or "").strip().upper() not in {"", "NONE"}
+            else None
+        ),
         dynamic_shape_family=(
             dynamic_profile.shape_family if str(dynamic_profile.shape_family or "").strip().upper() not in {"", "NONE"} else None
         ),

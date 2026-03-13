@@ -98,6 +98,7 @@ class PatchSafetyTest(unittest.TestCase):
                         capability_tier="REVIEW_REQUIRED",
                         constraint_family="DISTINCT_RELAXATION",
                         safe_baseline_family=None,
+                        review_only_family="DISTINCT_REVIEW_ONLY",
                         wrapper_flatten_candidate=False,
                         direct_relaxation_candidate=True,
                         blockers=["DISTINCT_PRESENT"],
@@ -118,6 +119,7 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertEqual(assessment.aggregation_constraint_family, "DISTINCT_RELAXATION")
         self.assertEqual(assessment.aggregation_capability_tier, "REVIEW_REQUIRED")
         self.assertIsNone(assessment.aggregation_safe_baseline_family)
+        self.assertEqual(assessment.aggregation_review_only_family, "DISTINCT_REVIEW_ONLY")
 
     def test_aggregation_safe_baseline_does_not_block_exact_template_edit(self) -> None:
         assessment = assess_patch_safety_model(
@@ -158,6 +160,7 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertEqual(assessment.aggregation_constraint_family, "SAFE_BASELINE")
         self.assertEqual(assessment.aggregation_capability_tier, "SAFE_BASELINE")
         self.assertEqual(assessment.aggregation_safe_baseline_family, "REDUNDANT_HAVING_WRAPPER")
+        self.assertIsNone(assessment.aggregation_review_only_family)
 
     def test_dynamic_static_include_safe_baseline_exposes_dynamic_capability(self) -> None:
         assessment = assess_patch_safety_model(

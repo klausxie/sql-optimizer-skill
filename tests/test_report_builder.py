@@ -325,7 +325,7 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {"NO_SAFE_BASELINE_WINDOW": 1})
-        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 0)
+        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 1)
 
     def test_build_report_artifacts_tracks_tail_cleanup_counters(self) -> None:
         inputs = ReportInputs(
@@ -374,6 +374,7 @@ class ReportBuilderTest(unittest.TestCase):
                                 "capabilityTier": "REVIEW_REQUIRED",
                                 "constraintFamily": "GROUP_BY_AGGREGATION",
                                 "safeBaselineFamily": None,
+                                "reviewOnlyFamily": "GROUP_BY_REVIEW_ONLY",
                             }
                         }
                     },
@@ -401,6 +402,7 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.report.stats["dml_review_only_count"], 1)
         self.assertEqual(artifacts.report.stats["aggregation_wrapper_review_only_count"], 1)
         self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 1)
+        self.assertEqual(artifacts.report.stats["aggregation_review_only_family_counts"], {"GROUP_BY_REVIEW_ONLY": 1})
 
     def test_build_report_artifacts_counts_dynamic_strategy_from_patch_results(self) -> None:
         inputs = ReportInputs(

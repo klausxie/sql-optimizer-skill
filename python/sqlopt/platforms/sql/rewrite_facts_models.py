@@ -79,6 +79,7 @@ class AggregationCapabilityProfile:
     capability_tier: str
     constraint_family: str
     safe_baseline_family: str | None = None
+    review_only_family: str | None = None
     wrapper_flatten_candidate: bool = False
     direct_relaxation_candidate: bool = False
     blockers: list[str] = field(default_factory=list)
@@ -89,6 +90,7 @@ class AggregationCapabilityProfile:
             "capabilityTier": self.capability_tier,
             "constraintFamily": self.constraint_family,
             "safeBaselineFamily": self.safe_baseline_family,
+            "reviewOnlyFamily": self.review_only_family,
             "wrapperFlattenCandidate": self.wrapper_flatten_candidate,
             "directRelaxationCandidate": self.direct_relaxation_candidate,
             "blockers": list(self.blockers),
@@ -171,6 +173,7 @@ class AggregationQueryRewriteFacts:
             capability_tier="NONE",
             constraint_family="NONE",
             safe_baseline_family=None,
+            review_only_family=None,
             wrapper_flatten_candidate=False,
             direct_relaxation_candidate=False,
             blockers=[],

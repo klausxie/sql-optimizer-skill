@@ -321,7 +321,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 当前阶段基线：
 
-1. full run 基线固定为 `run_fixture_project_full_tail_cleanup_v4`
+1. full run 基线固定为 `run_fixture_project_full_aggregation_tail_v2`
 2. 当前阶段验收通过条件：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
@@ -339,6 +339,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
    - `demo.user.listUsers#v1`
    - `demo.order.harness.updateOrderStatusByNos#v6`
    - `demo.shipment.harness.markShipmentsDeleted#v5`
+   - 下列 plain aggregation case 保持 `PASS + PATCH_NO_EFFECTIVE_CHANGE`：
+   - `demo.order.harness.aggregateOrdersByStatus#v5`
+   - `demo.order.harness.listOrderAmountWindowRanks#v7`
+   - `demo.order.harness.listOrderUserCountsHaving#v8`
+   - `demo.shipment.harness.listShipmentStatusUnion#v6`
+   - `demo.user.advanced.listUserCountsByStatus#v10`
+   - `demo.user.advanced.listDistinctUserStatuses#v11`
 3. 如果后续 full run 回退上述任一条件，应先修 candidate governance / semantic normalization，再考虑新增 baseline
 
 这几项的作用：
@@ -349,7 +356,8 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 4. `dynamic_review_only_count` 看尚未放开的动态家族规模
 5. `dml_review_only_count` 看 DML clean blocker 是否持续保持 `PASS + review-only`
 6. `aggregation_wrapper_review_only_count` 看 plain/wrapper aggregation 是否回到 clean review-only
-7. `no_safe_baseline_shape_match_count` 看剩余 shape recovery 白名单缺口
+7. `aggregation_review_only_family_counts` 看 plain aggregation 是否稳定落在 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
+8. `no_safe_baseline_shape_match_count` 看剩余 shape recovery 白名单缺口
 
 ## 10. 下一阶段
 
@@ -357,9 +365,9 @@ dynamic/filter/DML 收尾阶段已收口，不再优先扩第 7 个 ready family
 
 下一阶段优先顺序固定为：
 
-1. `aggregation wrapper / plain aggregation`
-2. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / TEXT_ONLY_FALLBACK`
-3. review-only plain shapes 的 blocker 细化与维持
+1. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / NO_SAFE_BASELINE_SHAPE_MATCH`
+2. `${}` 安全阻断之外的普通静态/聚合尾项
+3. 如需扩能力，再评估新的 aggregation safe baseline family
 
 执行原则：
 
