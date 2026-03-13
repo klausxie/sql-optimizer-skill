@@ -219,6 +219,79 @@ class SemanticEquivalenceTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "PASS")
 
+    def test_update_noop_is_treated_as_semantically_stable_even_without_row_count(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            rewritten_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "ERROR", "error": "update compare unsupported"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_DML_TARGET_STABLE")
+        self.assertEqual(result["checks"]["dmlSet"]["reasonCode"], "SEMANTIC_DML_SET_STABLE")
+        self.assertIn("SEMANTIC_DML_NOOP_STABLE", result["reasons"])
+        self.assertEqual(result["confidence"], "MEDIUM")
+
+    def test_update_set_change_remains_uncertain(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="UPDATE users SET status = #{status} WHERE id = #{id}",
+            rewritten_sql="UPDATE users SET status = COALESCE(#{status}, status) WHERE id = #{id}",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "SKIPPED"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "UNCERTAIN")
+        self.assertEqual(result["checks"]["dmlSet"]["reasonCode"], "SEMANTIC_DML_SET_CHANGED")
+
+    def test_group_by_wrapper_safe_baseline_is_treated_as_semantically_stable(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount "
+                "FROM (SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status) og "
+                "ORDER BY status"
+            ),
+            rewritten_sql="SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "ERROR", "error": "aggregate compare unsupported"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_SAFE_BASELINE_REDUNDANT_GROUP_BY_WRAPPER")
+        self.assertIn("SEMANTIC_SAFE_BASELINE_REDUNDANT_GROUP_BY_WRAPPER", result["reasons"])
+        self.assertEqual(result["confidence"], "MEDIUM")
+
+    def test_having_wrapper_safe_baseline_is_treated_as_semantically_stable(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT user_id, COUNT(*) AS total "
+                "FROM (SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1) oh "
+                "ORDER BY user_id"
+            ),
+            rewritten_sql="SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "ERROR", "error": "aggregate compare unsupported"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_SAFE_BASELINE_REDUNDANT_HAVING_WRAPPER")
+        self.assertIn("SEMANTIC_SAFE_BASELINE_REDUNDANT_HAVING_WRAPPER", result["reasons"])
+        self.assertEqual(result["confidence"], "MEDIUM")
+
     def test_simple_select_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
         result = build_semantic_equivalence(
             original_sql="""

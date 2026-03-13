@@ -10,7 +10,7 @@ from .acceptance_policy import (
     invalid_candidate_result,
     security_failure_result,
 )
-from .models import ValidationResult
+from .models import AcceptanceDecision, ValidationResult
 from .candidate_selection import (
     build_candidate_pool,
     evaluate_candidate_selection,
@@ -217,6 +217,36 @@ def validate_proposal(
             enable_fragment_materialization=template_settings["enable_fragment_materialization"],
         )
     )
+    semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
+    semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()
+    if (
+        decision.status != "PASS"
+        and semantic_gate_status == "PASS"
+        and bool((patchability or {}).get("eligible"))
+        and selected_patch_strategy is not None
+    ):
+        filtered_reason_codes = [
+            str(code)
+            for code in (decision.reason_codes or [])
+            if str(code).strip().upper() != "VALIDATE_SEMANTIC_ERROR"
+        ]
+        filtered_warnings = [
+            str(code)
+            for code in (decision.warnings or [])
+            if str(code).strip().upper() != "VALIDATE_SEMANTIC_ERROR"
+        ]
+        decision = AcceptanceDecision(
+            status="PASS",
+            feedback=None,
+            warnings=filtered_warnings,
+            reason_codes=filtered_reason_codes,
+        )
+    if semantic_gate_status == "PASS" and semantic_gate_confidence in {"MEDIUM", "HIGH"} and decision.status == "PASS":
+        rewrite_safety_level = "SAFE"
+    elif semantic_gate_status == "FAIL":
+        rewrite_safety_level = "BLOCKED"
+    else:
+        rewrite_safety_level = "REVIEW"
     decision_layers = _build_decision_layers(
         status=decision.status,
         validation_profile=validation_profile,
@@ -233,14 +263,6 @@ def validate_proposal(
         feedback=decision.feedback,
         rewrite_materialization=rewrite_materialization,
     )
-    semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
-    semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()
-    if semantic_gate_status == "PASS" and semantic_gate_confidence in {"MEDIUM", "HIGH"} and decision.status == "PASS":
-        rewrite_safety_level = "SAFE"
-    elif semantic_gate_status == "FAIL":
-        rewrite_safety_level = "BLOCKED"
-    else:
-        rewrite_safety_level = "REVIEW"
 
     # 合并警告
     all_warnings = list(decision.warnings) + llm_semantic_warnings

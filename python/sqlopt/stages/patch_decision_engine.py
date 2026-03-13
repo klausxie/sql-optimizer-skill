@@ -137,6 +137,7 @@ def decide_patch_result(
         semantic_gate_confidence=semantic_gate_confidence,
         acceptance=acceptance,
     )
+    dynamic_template = _dynamic_template_summary(acceptance)
 
     ctx = PatchDecisionContext(
         status=status,
@@ -162,10 +163,31 @@ def decide_patch_result(
         return patch, ctx
 
     if status != "PASS":
+        dynamic_blocking_reason = str(dynamic_template.get("blockingReason") or "").strip().upper()
+        dynamic_shape_family = str(dynamic_template.get("shapeFamily") or "").strip().upper()
+        if semantic_gate_status == "PASS":
+            if dynamic_blocking_reason.startswith("FOREACH_") or dynamic_shape_family == "FOREACH_IN_PREDICATE":
+                reason_code = "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED"
+                reason_message = "dynamic foreach predicate requires template-aware rewrite before patch generation"
+            elif dynamic_blocking_reason == "DYNAMIC_SET_CLAUSE" or dynamic_shape_family == "SET_SELECTIVE_UPDATE":
+                reason_code = "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED"
+                reason_message = "dynamic set clause requires template-aware rewrite before patch generation"
+            elif dynamic_blocking_reason.startswith("DYNAMIC_FILTER_") or dynamic_shape_family in {
+                "IF_GUARDED_FILTER_STATEMENT",
+                "IF_GUARDED_COUNT_WRAPPER",
+            }:
+                reason_code = "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED"
+                reason_message = "dynamic filter subtree requires template-aware rewrite before patch generation"
+            else:
+                reason_code = None
+                reason_message = None
+        else:
+            reason_code = None
+            reason_message = None
         if acceptance_reason_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             reason_code = "PATCH_VALIDATION_BLOCKED_SECURITY"
             reason_message = "validate blocked patch generation due unsafe ${} substitution"
-        else:
+        elif not reason_code:
             reason_code = "PATCH_CONFLICT_NO_CLEAR_WINNER"
             reason_message = "acceptance status is not PASS"
         patch = skip_patch_result(
@@ -224,7 +246,6 @@ def decide_patch_result(
     original_sql = str(sql_unit.get("sql") or "")
     dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
     dynamic_trace = sql_unit.get("dynamicTrace") or {}
-    dynamic_template = _dynamic_template_summary(acceptance)
     rewritten_sql = str(acceptance.get("rewrittenSql") or "").strip()
     formatted_rewritten_sql = format_sql_for_patch(rewritten_sql)
 

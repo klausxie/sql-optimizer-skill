@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from .low_value_comment_only import CommentOnlyRewriteRule
+from .low_value_dml_update import DmlUpdateSpeculativeRewriteRule
+from .low_value_aggregation_transform import AggregationTransformReviewOnlyRule
 from .low_value_dynamic_filter import DynamicFilterSpeculativeRewriteRule
 from .low_value_dynamic_filter_from_alias_cleanup import DynamicFilterFromAliasCleanupRewriteRule
 from .low_value_dynamic_filter_select_cleanup import DynamicFilterSelectCleanupRewriteRule
@@ -15,6 +17,8 @@ from .recovery_safe_baseline import SafeBaselineRecoveryRule
 LOW_VALUE_RULES = (
     CommentOnlyRewriteRule(),
     IdentityNoopRule(),
+    DmlUpdateSpeculativeRewriteRule(),
+    AggregationTransformReviewOnlyRule(),
     DynamicFilterPredicateReorderRule(),
     DynamicFilterFromAliasCleanupRewriteRule(),
     DynamicFilterSelectCleanupRewriteRule(),

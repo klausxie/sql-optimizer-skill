@@ -135,6 +135,19 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
             "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC",
         )
 
+    def test_recover_candidates_from_shape_handles_static_paged_wrapper_with_outer_limit(self) -> None:
+        recovered = recover_candidates_from_shape(
+            "demo.shipment.harness.listRecentShipmentsPaged#v4",
+            "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM ( SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments ) s ORDER BY shipped_at DESC LIMIT 50",
+        )
+
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["rewriteStrategy"], "REMOVE_REDUNDANT_SUBQUERY_RECOVERED")
+        self.assertEqual(
+            recovered[0]["rewrittenSql"],
+            "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments ORDER BY shipped_at DESC LIMIT 50",
+        )
+
     def test_build_candidate_generation_diagnostics_marks_window_empty_reason(self) -> None:
         diagnostics, recovered = build_candidate_generation_diagnostics(
             sql_key="demo.order.window#v1",
@@ -236,6 +249,367 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
         self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
         self.assertEqual(diagnostics["prunedLowValueCount"], 3)
         self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_count_to_exists(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.countUsersDirectFiltered#v3",
+            original_sql="SELECT COUNT(*) FROM users WHERE status = #{status} AND created_at >= #{createdAfter}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT EXISTS(SELECT 1 FROM users WHERE status = #{status} AND created_at >= #{createdAfter} LIMIT 1)",
+                    "rewriteStrategy": "count_to_exists",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT EXISTS(SELECT 1 FROM users WHERE status = #{status} AND created_at >= #{createdAfter} LIMIT 1)",
+                    "rewriteStrategy": "count_to_exists",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["WHERE", "IF"]},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_union_simplification(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.listShipmentStatusUnion#v6",
+            original_sql=(
+                "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
+                "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' ORDER BY status, id"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, status, shipped_at FROM shipments WHERE status IN ('SHIPPED', 'DELIVERED') ORDER BY status, id",
+                    "rewriteStrategy": "SIMPLIFY_UNION",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, status, shipped_at FROM shipments WHERE status IN ('SHIPPED', 'DELIVERED') ORDER BY status, id",
+                    "rewriteStrategy": "SIMPLIFY_UNION",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_distinct_to_groupby(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            original_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "DISTINCT_TO_GROUPBY",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "DISTINCT_TO_GROUPBY",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_distinct_to_groupby_natural_language_strategy(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            original_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "Replace DISTINCT with GROUP BY for clearer semantics; enables index-only scan on idx_users_status_created",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "Replace DISTINCT with GROUP BY for clearer semantics; enables index-only scan on idx_users_status_created",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": []},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dml_speculative_candidates(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.updateOrderStatusByNos#v6",
+            original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = 'pending' WHERE order_no IN ('ORD001', 'ORD002')",
+                    "rewriteStrategy": "parameter_substitution",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "UPDATE orders SET status = 'completed' WHERE order_no IN (SELECT DISTINCT order_no FROM orders WHERE created_at > CURRENT_DATE - INTERVAL '7 days')",
+                    "rewriteStrategy": "batch_optimization",
+                },
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = 'pending' WHERE order_no IN ('ORD001', 'ORD002')",
+                    "rewriteStrategy": "parameter_substitution",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "UPDATE orders SET status = 'completed' WHERE order_no IN (SELECT DISTINCT order_no FROM orders WHERE created_at > CURRENT_DATE - INTERVAL '7 days')",
+                    "rewriteStrategy": "batch_optimization",
+                },
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 2)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_null_safe_update_candidate(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.updateUserSelective#v9",
+            original_sql="UPDATE users SET name = #{name}, email = #{email}, status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}",
+            raw_candidates=[
+                {
+                    "id": "c3",
+                    "rewrittenSql": "UPDATE users SET name = COALESCE(#{name}, name), email = COALESCE(#{email}, email), status = COALESCE(#{status}, status), updated_at = COALESCE(#{updatedAt}, updated_at) WHERE id = #{id}",
+                    "rewriteStrategy": "NULL_SAFE_UPDATE",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c3",
+                    "rewrittenSql": "UPDATE users SET name = COALESCE(#{name}, name), email = COALESCE(#{email}, email), status = COALESCE(#{status}, status), updated_at = COALESCE(#{updatedAt}, updated_at) WHERE id = #{id}",
+                    "rewriteStrategy": "NULL_SAFE_UPDATE",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["SET", "IF"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_array_parameter_update_candidate(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.markShipmentsDeleted#v5",
+            original_sql="UPDATE shipments SET status = 'DELETED' WHERE id IN #{id}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id = ANY(#{id})",
+                    "rewriteStrategy": "IN_TO_ANY",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id = ANY(#{id})",
+                    "rewriteStrategy": "IN_TO_ANY",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_foreach_template_fix_update_candidates(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.markShipmentsDeleted#v5",
+            original_sql="UPDATE shipments SET status = 'DELETED' WHERE id IN #{id}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection='id' item='item' open='(' separator=',' close=')'>#{item}</foreach>",
+                    "rewriteStrategy": "template_fix",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "<if test='id != null and id.size() > 0'>UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection='id' item='item' open='(' separator=',' close=')'>#{item}</foreach></if>",
+                    "rewriteStrategy": "null_safe_wrapper",
+                },
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection='id' item='item' open='(' separator=',' close=')'>#{item}</foreach>",
+                    "rewriteStrategy": "template_fix",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "<if test='id != null and id.size() > 0'>UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection='id' item='item' open='(' separator=',' close=')'>#{item}</foreach></if>",
+                    "rewriteStrategy": "null_safe_wrapper",
+                },
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 2)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_foreach_dynamic_sql_fix_update_candidates(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.markShipmentsDeleted#v5",
+            original_sql="UPDATE shipments SET status = 'DELETED' WHERE id IN #{id}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection=\"id\" item=\"item\" open=\"(\" separator=\",\" close=\")\">#{item}</foreach>",
+                    "rewriteStrategy": "dynamic_sql_fix",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE <if test=\"id != null\">id IN <foreach collection=\"id\" item=\"item\" open=\"(\" separator=\",\" close=\")\">#{item}</foreach></if><if test=\"id == null\">1=0</if>",
+                    "rewriteStrategy": "null_safe_rewrite",
+                },
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id IN <foreach collection=\"id\" item=\"item\" open=\"(\" separator=\",\" close=\")\">#{item}</foreach>",
+                    "rewriteStrategy": "dynamic_sql_fix",
+                },
+                {
+                    "id": "c2",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE <if test=\"id != null\">id IN <foreach collection=\"id\" item=\"item\" open=\"(\" separator=\",\" close=\")\">#{item}</foreach></if><if test=\"id == null\">1=0</if>",
+                    "rewriteStrategy": "null_safe_rewrite",
+                },
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 2)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_foreach_fix_syntax_update_candidates(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.updateOrderStatusByNos#v6",
+            original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN <foreach collection=\"orderNos\" item=\"no\" open=\"(\" separator=\",\" close=\")\">#{no}</foreach>",
+                    "rewriteStrategy": "fix_syntax",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN <foreach collection=\"orderNos\" item=\"no\" open=\"(\" separator=\",\" close=\")\">#{no}</foreach>",
+                    "rewriteStrategy": "fix_syntax",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dml_candidates_with_embedded_mybatis_tags(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.updateOrderStatusByNos#v6",
+            original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN <foreach item='item' collection='orderNo' open='(' separator=',' close=')'>#{item}</foreach>",
+                    "rewriteStrategy": "safe",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN <foreach item='item' collection='orderNo' open='(' separator=',' close=')'>#{item}</foreach>",
+                    "rewriteStrategy": "safe",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_parenthesized_foreach_placeholder_update_candidate(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.updateOrderStatusByNos#v6",
+            original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN (#{orderNo})",
+                    "rewriteStrategy": "template_fix",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN (#{orderNo})",
+                    "rewriteStrategy": "template_fix",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
         self.assertEqual(recovered, [])
 
     def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_limit_addition(self) -> None:
@@ -358,6 +732,133 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
                     "id": "c1",
                     "rewrittenSql": "SELECT COUNT(*) FROM users WHERE status = #{status} AND created_at >= #{createdAfter} /* COUNT query - LIMIT not applicable */",
                     "rewriteStrategy": "COMMENT_ADDITION",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["WHERE", "IF"]},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_limit_when_query_is_rewritten(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.findUsersByKeyword#v8",
+            original_sql=(
+                "SELECT id, name, email, status, created_at, updated_at "
+                "FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+                "ORDER BY created_at DESC"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND status != 'DELETED' ORDER BY created_at DESC LIMIT 100",
+                    "rewriteStrategy": "CONDITION_SIMPLIFY_WITH_LIMIT",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND status != 'DELETED' ORDER BY created_at DESC LIMIT 100",
+                    "rewriteStrategy": "CONDITION_SIMPLIFY_WITH_LIMIT",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["BIND", "WHERE", "CHOOSE", "INCLUDE"]},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_subquery_pushdown(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrdersWithUsersPaged#v3",
+            original_sql=(
+                "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} "
+                "ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '%') OR email ILIKE CONCAT('%', #{keyword}, '%')) u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "Push user filter into subquery to reduce join rows early",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '%') OR email ILIKE CONCAT('%', #{keyword}, '%')) u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "Push user filter into subquery to reduce join rows early",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["WHERE", "IF"]},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_driving_table_change(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrdersWithUsersPaged#v3",
+            original_sql=(
+                "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} "
+                "ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM users u JOIN orders o ON o.user_id = u.id AND o.status = #{status} WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "DRIVING_TABLE_CHANGE",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM users u JOIN orders o ON o.user_id = u.id AND o.status = #{status} WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "DRIVING_TABLE_CHANGE",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["WHERE", "IF"]},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_dynamic_filter_join_predicate_pushdown(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrdersWithUsersPaged#v3",
+            original_sql=(
+                "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} "
+                "ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "JOIN_PREDICATE_PUSHDOWN",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+                    "rewriteStrategy": "JOIN_PREDICATE_PUSHDOWN",
                 }
             ],
             trace={"degrade_reason": None},

@@ -41,9 +41,12 @@ OUTER_ALIAS_SUFFIX_RE = re.compile(
 )
 STRUCTURAL_FALLBACK_CUES = (
     "redundant outer query",
+    "redundant outer subquery wrapper",
     "unnecessary subquery wrapper",
+    "remove the redundant outer subquery wrapper",
     "remove the unnecessary subquery wrapper",
     "remove unnecessary subquery wrapper",
+    "remove redundant subquery",
     "remove redundant subquery wrapper",
     "removes the redundant subquery wrapper",
     "removes the redundant subquery",
@@ -185,6 +188,27 @@ def parse_simple_select_wrapper(sql: str) -> tuple[str | None, str | None, str |
     return outer_select or None, inner_select or None, normalize_sql(f"{inner_from} {outer_suffix}").strip() or inner_from
 
 
+def parse_simple_select_wrapper_parts(sql: str) -> tuple[str | None, str | None, str | None, str | None]:
+    normalized = normalize_sql(sql)
+    prefix_match = OUTER_WRAPPER_PREFIX_RE.match(normalized)
+    if prefix_match is None:
+        return None, None, None, None
+    outer_select = normalize_sql(prefix_match.group("outer_select"))
+    open_paren_idx = prefix_match.end() - 1
+    close_paren_idx = find_matching_paren(normalized, open_paren_idx)
+    if close_paren_idx < 0:
+        return None, None, None, None
+    inner_sql = normalize_sql(normalized[open_paren_idx + 1 : close_paren_idx])
+    inner_match = SELECT_DIRECT_RE.match(inner_sql)
+    if inner_match is None:
+        return None, None, None, None
+    inner_select = normalize_sql(inner_match.group("select"))
+    inner_from = normalize_sql(inner_match.group("from"))
+    suffix_match = OUTER_ALIAS_SUFFIX_RE.match(normalized[close_paren_idx + 1 :])
+    outer_suffix = normalize_sql((suffix_match.group("outer_suffix") if suffix_match else "") or "")
+    return outer_select or None, inner_select or None, inner_from or None, outer_suffix or None
+
+
 def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     normalized = normalize_sql(original_sql)
     dynamic_features = {str(row).upper() for row in (sql_unit.get("dynamicFeatures") or [])}
@@ -289,11 +313,15 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                 }
             ]
 
-    parsed_outer_select, parsed_inner_select, parsed_from_suffix = parse_simple_select_wrapper(normalized_original)
+    parsed_outer_select, parsed_inner_select, parsed_inner_from, parsed_outer_suffix = parse_simple_select_wrapper_parts(
+        normalized_original
+    )
+    parsed_from_suffix = normalize_sql(f"{parsed_inner_from or ''} {parsed_outer_suffix or ''}").strip() or parsed_inner_from
     if parsed_outer_select and parsed_inner_select and normalized_sql_eq(parsed_outer_select, parsed_inner_select):
+        inner_from_for_blockers = parsed_inner_from or parsed_from_suffix or ""
         if re.search(r"\bgroup\s+by\b", parsed_from_suffix or "", flags=re.IGNORECASE):
             if re.search(r"\bhaving\b", parsed_from_suffix or "", flags=re.IGNORECASE):
-                if not redundant_having_wrapper_blockers(parsed_from_suffix):
+                if not redundant_having_wrapper_blockers(inner_from_for_blockers):
                     return [
                         {
                             "id": f"{sql_key}:llm:recovered_having_wrapper",
@@ -304,7 +332,7 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                             "confidence": "medium",
                         }
                     ]
-            elif not redundant_groupby_wrapper_blockers(parsed_from_suffix):
+            elif not redundant_groupby_wrapper_blockers(inner_from_for_blockers):
                 return [
                     {
                         "id": f"{sql_key}:llm:recovered_groupby_wrapper",
@@ -315,7 +343,7 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                         "confidence": "medium",
                     }
                 ]
-        elif not redundant_subquery_blockers(parsed_from_suffix):
+        elif not redundant_subquery_blockers(inner_from_for_blockers):
             return [
                 {
                     "id": f"{sql_key}:llm:recovered_select_wrapper",

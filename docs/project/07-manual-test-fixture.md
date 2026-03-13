@@ -321,8 +321,9 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 当前阶段基线：
 
-1. full run 基线固定为 `run_fixture_project_full_dynamic_gate_v5`
+1. full run 基线固定为 `run_fixture_project_full_stability_gate_v10`
 2. 当前阶段验收通过条件：
+   - `semantic_gate_uncertain_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
    - 下列 review-only case 保持 clean blocker：
@@ -331,6 +332,8 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
    - `demo.user.advanced.countUsersDirectFiltered#v3`
    - `demo.user.advanced.findUsersByKeyword#v8`
    - `demo.user.listUsers#v1`
+   - `demo.order.harness.updateOrderStatusByNos#v6`
+   - `demo.shipment.harness.markShipmentsDeleted#v5`
 3. 如果后续 full run 回退上述任一条件，应先修 candidate governance，再考虑新增 dynamic baseline
 
 这几项的作用：
@@ -342,13 +345,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 ## 10. 下一阶段
 
-dynamic 模板阶段先收口，不再优先扩第 7 个 ready family。
+dynamic/filter/DML 收尾阶段先收口，不再优先扩第 7 个 ready family。
 
 下一阶段优先顺序固定为：
 
-1. `DML / selective update`
-2. `aggregation wrapper`
-3. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / TEXT_ONLY_FALLBACK`
+1. `aggregation wrapper / plain aggregation`
+2. 剩余 `EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES / TEXT_ONLY_FALLBACK`
+3. review-only plain shapes 的 blocker 细化与维持
 
 执行原则：
 

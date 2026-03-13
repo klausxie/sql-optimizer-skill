@@ -204,9 +204,10 @@
 
 阶段状态：
 
-1. `run_fixture_project_full_dynamic_gate_v5` 已将这 6 条 dynamic baseline 收敛到同一条 full-run 基线
+1. `run_fixture_project_full_stability_gate_v10` 已将这 6 条 dynamic baseline 与对应 clean blocker 收敛到同一条 full-run 基线
 2. 当前阶段可以认为 dynamic delivery 已从“实验性样例”进入“稳定能力版图”
-3. 下一阶段不再优先扩 dynamic ready family，而是转向清理全局候选稳定性尾项
+3. `dynamic/filter/DML` 这条线上此前的 `SEMANTIC_FAIL / UNCERTAIN` 回归已清零
+4. 下一阶段不再优先扩 dynamic ready family，而是转向 plain aggregation / review-only 尾项
 
 ## 8. 后续建议
 
@@ -220,6 +221,6 @@
 
 当前阶段之后的优先级已调整为：
 
-1. `DML / selective update` 的 `semantic_uncertain`
-2. `aggregation wrapper` 的候选治理与语义归一化
-3. 剩余 `TEXT_ONLY_FALLBACK / EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES`
+1. `aggregation wrapper / plain aggregation` 的候选治理与语义归一化
+2. 剩余 `TEXT_ONLY_FALLBACK / EMPTY_CANDIDATES / ONLY_LOW_VALUE_CANDIDATES`
+3. review-only plain shapes 的 blocker taxonomy 与 clean-blocker 维持

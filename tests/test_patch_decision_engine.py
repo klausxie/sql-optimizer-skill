@@ -167,6 +167,48 @@ class PatchDecisionEngineTest(unittest.TestCase):
         self.assertEqual(ctx.semantic_gate_confidence, "LOW")
         self.assertEqual(patch["selectionReason"]["code"], "PATCH_SEMANTIC_CONFIDENCE_LOW")
 
+    def test_need_more_params_with_semantic_pass_uses_dynamic_set_review_reason(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.update#v1",
+            "locators": {"statementId": "updateUserSelective"},
+            "statementType": "update",
+            "statementId": "updateUserSelective",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "sql": "UPDATE users SET name = #{name} WHERE id = #{id}",
+            "dynamicFeatures": ["SET", "IF"],
+        }
+        acceptance = {
+            "sqlKey": "demo.user.update#v1",
+            "status": "NEED_MORE_PARAMS",
+            "rewrittenSql": "UPDATE users SET name = #{name} WHERE id = #{id}",
+            "semanticEquivalence": {"status": "PASS", "confidence": "MEDIUM"},
+            "dynamicTemplate": {
+                "present": True,
+                "shapeFamily": "SET_SELECTIVE_UPDATE",
+                "capabilityTier": "REVIEW_REQUIRED",
+                "patchSurface": "SET_CLAUSE",
+                "blockingReason": "DYNAMIC_SET_CLAUSE",
+            },
+        }
+        patch, _ctx = decide_patch_result(
+            sql_unit=sql_unit,
+            acceptance=acceptance,
+            run_dir=Path("/tmp"),
+            acceptance_rows=[acceptance],
+            project_root=Path("/tmp"),
+            statement_key_fn=lambda x: x.split("#")[0],
+            skip_patch_result=_skip_patch_result,
+            finalize_generated_patch=_finalize_generated_patch,
+            format_sql_for_patch=lambda x: x,
+            normalize_sql_text=lambda x: " ".join(str(x).split()),
+            format_template_ops_for_patch=lambda _sql, acc, _run: acc,
+            detect_duplicate_clause_in_template_ops=lambda _acc: None,
+            build_template_plan_patch=lambda _sql, _acc, _run: (None, 0, None),
+            build_unified_patch=lambda _path, _id, _type, _sql: ("patch", 1),
+        )
+
+        self.assertEqual(patch["selectionReason"]["code"], "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED")
+
 
 if __name__ == "__main__":
     unittest.main()

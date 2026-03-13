@@ -149,12 +149,16 @@ Current:
 3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
 
 当前阶段验收基线：
-1. `run_fixture_project_full_dynamic_gate_v5`
-2. dynamic 阶段当前以该 full run 作为对比基线
-3. 下一阶段重点不再是扩 dynamic patch family，而是处理：
-   - `DML / selective update`
-   - `aggregation wrapper`
-   - 剩余候选稳定性尾项
+1. `run_fixture_project_full_stability_gate_v10`
+2. 当前 full-run 基线要求：
+   - `semantic_gate_uncertain_count = 0`
+   - `dynamic_ready_patch_count >= 6`
+   - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
+3. dynamic/filter/DML 脏回归已在该基线收敛为 clean blocker 或 ready patch
+4. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+   - `aggregation wrapper / plain aggregation`
+   - 剩余 review-only plain shapes
+   - `${}` 安全阻断之外的候选稳定性尾项
 ## 6. 外部稳定面
 1. CLI：`run / status / resume / apply`
 2. 运行目录：`runs/<run-id>/...`

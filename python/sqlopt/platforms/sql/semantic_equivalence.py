@@ -9,6 +9,7 @@ from .canonicalization_support import (
     strip_redundant_projection_alias,
     strip_sql_comments,
 )
+from .aggregation_analysis import analyze_aggregation_query
 from .cte_analysis import analyze_simple_inline_cte
 from .dynamic_template_support import parse_select_wrapper_template, render_flattened_select_template
 
@@ -20,6 +21,10 @@ _COUNT_SUBQUERY_RE = re.compile(
 _SELECT_FROM_RE = re.compile(r"^\s*select\s+.+?\s+(?P<from_suffix>from\b.+)$", flags=re.IGNORECASE | re.DOTALL)
 _COUNT_DIRECT_RE = re.compile(
     r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+(?P<from_suffix>from\b.+)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_UPDATE_RE = re.compile(
+    r"^\s*update\s+(?P<table>[a-z_][a-z0-9_\.]*)\s+set\s+(?P<set_clause>.+?)(?:\s+where\s+(?P<where_clause>.+))?\s*$",
     flags=re.IGNORECASE | re.DOTALL,
 )
 _COUNT_WRAPPER_BLOCKERS = (
@@ -169,6 +174,95 @@ def _extract_pagination_clause(sql: str) -> str | None:
     return " ".join(clauses)
 
 
+def _extract_update_parts(sql: str) -> tuple[str | None, str | None, str | None]:
+    match = _UPDATE_RE.match(str(sql or "").strip())
+    if not match:
+        return None, None, None
+    table = _normalize_sql(match.group("table") or "")
+    set_clause = _normalize_sql(match.group("set_clause") or "")
+    where_clause = _normalize_sql(match.group("where_clause") or "") or None
+    return table or None, set_clause or None, where_clause
+
+
+def _is_update_statement(sql: str) -> bool:
+    return _UPDATE_RE.match(str(sql or "").strip()) is not None
+
+
+def _build_dml_checks(original_sql: str, rewritten_sql: str) -> dict[str, Any] | None:
+    before_table, before_set, before_where = _extract_update_parts(original_sql)
+    after_table, after_set, after_where = _extract_update_parts(rewritten_sql)
+    if before_table is None or after_table is None:
+        return None
+
+    if before_table == after_table:
+        projection_check = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_DML_TARGET_STABLE",
+            detail="update target table unchanged",
+            before=before_table,
+            after=after_table,
+        )
+    else:
+        projection_check = _build_check(
+            status="FAIL",
+            reason_code="SEMANTIC_DML_TARGET_CHANGED",
+            detail="update target table changed",
+            before=before_table,
+            after=after_table,
+        )
+
+    if before_set is None or after_set is None:
+        set_check = _build_check(
+            status="UNCERTAIN",
+            reason_code="SEMANTIC_DML_SET_PARSE_INCOMPLETE",
+            detail="failed to parse update set clause from one or both sqls",
+            before=before_set,
+            after=after_set,
+        )
+    elif before_set == after_set:
+        set_check = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_DML_SET_STABLE",
+            detail="update set clause unchanged",
+            before=before_set,
+            after=after_set,
+        )
+    else:
+        set_check = _build_check(
+            status="UNCERTAIN",
+            reason_code="SEMANTIC_DML_SET_CHANGED",
+            detail="update set clause changed and requires manual review",
+            before=before_set,
+            after=after_set,
+        )
+
+    predicate_check = _compare_text_clause(
+        before=before_where,
+        after=after_where,
+        same_reason_code="SEMANTIC_PREDICATE_STABLE",
+        change_reason_code="SEMANTIC_PREDICATE_CHANGED",
+        missing_reason_code="SEMANTIC_PREDICATE_ADDED_OR_REMOVED",
+        missing_detail="where clause added or removed",
+    )
+    return {
+        "predicate": predicate_check,
+        "projection": projection_check,
+        "ordering": _build_check(status="PASS", reason_code="SEMANTIC_ORDERING_STABLE", detail="clause absent in both sqls"),
+        "pagination": _build_check(status="PASS", reason_code="SEMANTIC_PAGINATION_STABLE", detail="clause absent in both sqls"),
+        "dmlSet": set_check,
+    }
+
+
+def _is_safe_aggregation_wrapper_equivalent(original_sql: str, rewritten_sql: str) -> str | None:
+    analysis = analyze_aggregation_query(original_sql, rewritten_sql)
+    family = str((analysis.capability_profile or {}).get("safeBaselineFamily") or "").strip().upper()
+    if family == "REDUNDANT_GROUP_BY_WRAPPER":
+        return "SEMANTIC_SAFE_BASELINE_REDUNDANT_GROUP_BY_WRAPPER"
+    if family == "REDUNDANT_HAVING_WRAPPER":
+        return "SEMANTIC_SAFE_BASELINE_REDUNDANT_HAVING_WRAPPER"
+    return None
+
+
 def _build_check(
     *,
     status: str,
@@ -293,77 +387,82 @@ def build_semantic_equivalence(
     row_sample_status = str(((equivalence.get("rowSampleHash") or {}).get("status") or "")).strip().upper()
     fingerprint_strength = _extract_fingerprint_strength(equivalence, fingerprint_status)
     checked = equivalence.get("checked")
+    is_dml_comparison = _is_update_statement(original_subject_sql) and _is_update_statement(rewritten_subject_sql)
 
     projection_before = _extract_select_list(original_subject_sql)
     projection_after = _extract_select_list(rewritten_subject_sql)
     count_projection_equivalent = _is_count_star_one_equivalent(projection_before, projection_after)
     alias_only_projection_equivalent = _is_projection_alias_only_equivalent(projection_before, projection_after)
-    if projection_before is None or projection_after is None:
-        projection_check = _build_check(
-            status="UNCERTAIN",
-            reason_code="SEMANTIC_PROJECTION_PARSE_INCOMPLETE",
-            detail="failed to parse select list from one or both sqls",
-            before=projection_before,
-            after=projection_after,
-        )
-    elif projection_before == projection_after:
-        projection_check = _build_check(
-            status="PASS",
-            reason_code="SEMANTIC_PROJECTION_STABLE",
-            detail="projection list unchanged",
-            before=projection_before,
-            after=projection_after,
-        )
-    elif alias_only_projection_equivalent:
-        projection_check = _build_check(
-            status="PASS",
-            reason_code="SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT",
-            detail="projection change only removes redundant aliases",
-            before=projection_before,
-            after=projection_after,
-        )
+    if is_dml_comparison:
+        checks = _build_dml_checks(original_subject_sql, rewritten_subject_sql) or {}
+        projection_check = dict(checks.get("projection") or {})
     else:
-        projection_check = _build_check(
-            status="UNCERTAIN",
-            reason_code="SEMANTIC_PROJECTION_CHANGED",
-            detail="projection list changed and may affect result shape",
-            before=projection_before,
-            after=projection_after,
+        if projection_before is None or projection_after is None:
+            projection_check = _build_check(
+                status="UNCERTAIN",
+                reason_code="SEMANTIC_PROJECTION_PARSE_INCOMPLETE",
+                detail="failed to parse select list from one or both sqls",
+                before=projection_before,
+                after=projection_after,
+            )
+        elif projection_before == projection_after:
+            projection_check = _build_check(
+                status="PASS",
+                reason_code="SEMANTIC_PROJECTION_STABLE",
+                detail="projection list unchanged",
+                before=projection_before,
+                after=projection_after,
+            )
+        elif alias_only_projection_equivalent:
+            projection_check = _build_check(
+                status="PASS",
+                reason_code="SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT",
+                detail="projection change only removes redundant aliases",
+                before=projection_before,
+                after=projection_after,
+            )
+        else:
+            projection_check = _build_check(
+                status="UNCERTAIN",
+                reason_code="SEMANTIC_PROJECTION_CHANGED",
+                detail="projection list changed and may affect result shape",
+                before=projection_before,
+                after=projection_after,
+            )
+
+        predicate_check = _compare_text_clause(
+            before=_extract_where_clause(original_subject_sql),
+            after=_extract_where_clause(rewritten_subject_sql),
+            same_reason_code="SEMANTIC_PREDICATE_STABLE",
+            change_reason_code="SEMANTIC_PREDICATE_CHANGED",
+            missing_reason_code="SEMANTIC_PREDICATE_ADDED_OR_REMOVED",
+            missing_detail="where clause added or removed",
+        )
+        ordering_check = _compare_text_clause(
+            before=_extract_order_by_clause(original_subject_sql),
+            after=_extract_order_by_clause(rewritten_subject_sql),
+            same_reason_code="SEMANTIC_ORDERING_STABLE",
+            change_reason_code="SEMANTIC_ORDERING_CHANGED",
+            missing_reason_code="SEMANTIC_ORDERING_ADDED_OR_REMOVED",
+            missing_detail="order by clause added or removed",
+            missing_status="UNCERTAIN",
+            changed_status="UNCERTAIN",
+        )
+        pagination_check = _compare_text_clause(
+            before=_extract_pagination_clause(original_subject_sql),
+            after=_extract_pagination_clause(rewritten_subject_sql),
+            same_reason_code="SEMANTIC_PAGINATION_STABLE",
+            change_reason_code="SEMANTIC_PAGINATION_CHANGED",
+            missing_reason_code="SEMANTIC_PAGINATION_ADDED_OR_REMOVED",
+            missing_detail="pagination clause added or removed",
         )
 
-    predicate_check = _compare_text_clause(
-        before=_extract_where_clause(original_subject_sql),
-        after=_extract_where_clause(rewritten_subject_sql),
-        same_reason_code="SEMANTIC_PREDICATE_STABLE",
-        change_reason_code="SEMANTIC_PREDICATE_CHANGED",
-        missing_reason_code="SEMANTIC_PREDICATE_ADDED_OR_REMOVED",
-        missing_detail="where clause added or removed",
-    )
-    ordering_check = _compare_text_clause(
-        before=_extract_order_by_clause(original_subject_sql),
-        after=_extract_order_by_clause(rewritten_subject_sql),
-        same_reason_code="SEMANTIC_ORDERING_STABLE",
-        change_reason_code="SEMANTIC_ORDERING_CHANGED",
-        missing_reason_code="SEMANTIC_ORDERING_ADDED_OR_REMOVED",
-        missing_detail="order by clause added or removed",
-        missing_status="UNCERTAIN",
-        changed_status="UNCERTAIN",
-    )
-    pagination_check = _compare_text_clause(
-        before=_extract_pagination_clause(original_subject_sql),
-        after=_extract_pagination_clause(rewritten_subject_sql),
-        same_reason_code="SEMANTIC_PAGINATION_STABLE",
-        change_reason_code="SEMANTIC_PAGINATION_CHANGED",
-        missing_reason_code="SEMANTIC_PAGINATION_ADDED_OR_REMOVED",
-        missing_detail="pagination clause added or removed",
-    )
-
-    checks = {
-        "predicate": predicate_check,
-        "projection": projection_check,
-        "ordering": ordering_check,
-        "pagination": pagination_check,
-    }
+        checks = {
+            "predicate": predicate_check,
+            "projection": projection_check,
+            "ordering": ordering_check,
+            "pagination": pagination_check,
+        }
 
     check_statuses = [str((check or {}).get("status") or "UNCERTAIN").upper() for check in checks.values()]
     reasons = [str((check or {}).get("reasonCode") or "").strip() for check in checks.values()]
@@ -410,6 +509,7 @@ def build_semantic_equivalence(
 
     equivalence_override_applied = False
     equivalence_override_rule: str | None = None
+    dml_noop_override_applied = False
     only_projection_uncertain = (
         str(projection_check.get("status") or "").upper() == "UNCERTAIN"
         and all(
@@ -439,6 +539,36 @@ def build_semantic_equivalence(
         reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
         reasons.append(equivalence_override_rule)
 
+    if (
+        status == "UNCERTAIN"
+        and is_dml_comparison
+        and _normalize_sql(original_subject_sql) == _normalize_sql(rewritten_subject_sql)
+        and all(str((check or {}).get("status") or "").upper() == "PASS" for check in checks.values())
+        and row_count_status in {"", "SKIPPED", "ERROR"}
+        and not hard_conflicts
+    ):
+        dml_noop_override_applied = True
+        status = "PASS"
+        reasons = [code for code in reasons if code not in {"SEMANTIC_ROW_COUNT_ERROR", "SEMANTIC_ROW_COUNT_UNVERIFIED"}]
+        reasons.append("SEMANTIC_DML_NOOP_STABLE")
+
+    safe_aggregation_wrapper_rule = _is_safe_aggregation_wrapper_equivalent(
+        strip_sql_comments(original_sql),
+        strip_sql_comments(rewritten_sql),
+    )
+    if (
+        status == "UNCERTAIN"
+        and safe_aggregation_wrapper_rule
+        and all(str((check or {}).get("status") or "").upper() == "PASS" for check in checks.values())
+        and row_count_status in {"", "SKIPPED", "ERROR"}
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = safe_aggregation_wrapper_rule
+        status = "PASS"
+        reasons = [code for code in reasons if code not in {"SEMANTIC_ROW_COUNT_ERROR", "SEMANTIC_ROW_COUNT_UNVERIFIED"}]
+        reasons.append(safe_aggregation_wrapper_rule)
+
     if fingerprint_status in {"MATCH", "MISMATCH", "SAMPLE_MATCH", "MISMATCH_SAMPLE"}:
         evidence_level = "DB_FINGERPRINT"
     elif row_count_status in {"MATCH", "MISMATCH"}:
@@ -466,6 +596,16 @@ def build_semantic_equivalence(
                 confidence_upgrade_applied = True
                 confidence_upgrade_reasons.append("SEMANTIC_CONFIDENCE_UPGRADE_DB_FINGERPRINT_PARTIAL")
                 confidence_upgrade_sources.append("DB_FINGERPRINT")
+    if dml_noop_override_applied and _confidence_rank("MEDIUM") > _confidence_rank(confidence):
+        confidence = "MEDIUM"
+        confidence_upgrade_applied = True
+        confidence_upgrade_reasons.append("SEMANTIC_CONFIDENCE_UPGRADE_DML_NOOP_STABLE")
+        confidence_upgrade_sources.append("STRUCTURE")
+    if safe_aggregation_wrapper_rule and status == "PASS" and _confidence_rank("MEDIUM") > _confidence_rank(confidence):
+        confidence = "MEDIUM"
+        confidence_upgrade_applied = True
+        confidence_upgrade_reasons.append("SEMANTIC_CONFIDENCE_UPGRADE_AGGREGATION_SAFE_BASELINE")
+        confidence_upgrade_sources.append("STRUCTURE")
 
     evidence = {
         "checked": checked,
