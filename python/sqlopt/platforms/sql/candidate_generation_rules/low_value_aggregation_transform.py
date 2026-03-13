@@ -8,12 +8,17 @@ from ..candidate_generation_support import normalize_sql
 
 _UNION_STRATEGY_RE = re.compile(r"simplify[_ ]?union|union", flags=re.IGNORECASE)
 _DISTINCT_STRATEGY_RE = re.compile(
-    r"distinct[_ ]?to[_ ]?group[_ ]?by|group[_ ]?by[_ ]?instead[_ ]?of[_ ]?distinct|replace\s+distinct\s+with\s+group\s+by",
+    r"distinct[_ ]?to[_ ]?group[_ ]?by|group[_ ]?by[_ ]?instead[_ ]?of[_ ]?distinct|replace[_ ]?distinct[_ ]?with[_ ]?group[_ ]?by|group[_ ]?by[_ ]?index[_ ]?scan",
+    flags=re.IGNORECASE,
+)
+_AGGREGATION_INDEX_HINT_STRATEGY_RE = re.compile(
+    r"index\s+hint|index[_ ]?scan|index[_ ]?optimization|group[_ ]?by.+index",
     flags=re.IGNORECASE,
 )
 _UNION_RE = re.compile(r"\bunion(?:\s+all)?\b", flags=re.IGNORECASE)
 _GROUP_BY_RE = re.compile(r"\bgroup\s+by\b", flags=re.IGNORECASE)
 _DISTINCT_RE = re.compile(r"\bselect\s+distinct\b", flags=re.IGNORECASE)
+_HAVING_RE = re.compile(r"\bhaving\b", flags=re.IGNORECASE)
 
 
 class AggregationTransformReviewOnlyRule:
@@ -40,5 +45,13 @@ class AggregationTransformReviewOnlyRule:
                 rule_id=self.rule_id,
                 category="SPECULATIVE_ADDITIVE_REWRITE",
                 reason="candidate rewrites DISTINCT semantics into GROUP BY without a safe review-approved baseline",
+            )
+
+        if (_GROUP_BY_RE.search(original_sql) or _HAVING_RE.search(original_sql)) and _AGGREGATION_INDEX_HINT_STRATEGY_RE.search(strategy):
+            return LowValueAssessment(
+                candidate_id=str(candidate.get("id") or ""),
+                rule_id=self.rule_id,
+                category="SPECULATIVE_ADDITIVE_REWRITE",
+                reason="candidate applies aggregation-specific index or hint advice without a safe review-approved baseline",
             )
         return None

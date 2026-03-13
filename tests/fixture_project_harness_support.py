@@ -136,7 +136,7 @@ def primary_blocker(result: dict) -> str | None:
 
 
 def validate_blocker_family(result: dict) -> str:
-    if bool((result.get("patchability") or {}).get("eligible")) or str(result.get("status") or "").upper() == "PASS":
+    if bool((result.get("patchability") or {}).get("eligible")):
         return "READY"
     feedback_code = str(((result.get("feedback") or {}).get("reason_code") or "")).strip().upper()
     if feedback_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":

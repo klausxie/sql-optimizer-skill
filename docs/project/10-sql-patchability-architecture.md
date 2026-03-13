@@ -204,10 +204,15 @@
 
 阶段状态：
 
-1. `run_fixture_project_full_stability_gate_v10` 已将这 6 条 dynamic baseline 与对应 clean blocker 收敛到同一条 full-run 基线
+1. `run_fixture_project_full_tail_cleanup_v4` 已将这 6 条 dynamic baseline 与对应 clean blocker 收敛到同一条 full-run 基线
 2. 当前阶段可以认为 dynamic delivery 已从“实验性样例”进入“稳定能力版图”
 3. `dynamic/filter/DML` 这条线上此前的 `SEMANTIC_FAIL / UNCERTAIN` 回归已清零
-4. 下一阶段不再优先扩 dynamic ready family，而是转向 plain aggregation / review-only 尾项
+4. DML clean blocker 已统一收正为 `PASS + review-only blocker`
+5. tail cleanup gate 当前还会显式跟踪：
+   - `dml_review_only_count`
+   - `aggregation_wrapper_review_only_count`
+   - `no_safe_baseline_shape_match_count`
+6. 下一阶段不再优先扩 dynamic ready family，而是转向 plain aggregation / review-only 尾项
 
 ## 8. 后续建议
 

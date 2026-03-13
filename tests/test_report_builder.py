@@ -325,6 +325,82 @@ class ReportBuilderTest(unittest.TestCase):
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
         self.assertEqual(artifacts.report.stats["empty_candidate_blocked_reason_counts"], {"NO_SAFE_BASELINE_WINDOW": 1})
+        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 0)
+
+    def test_build_report_artifacts_tracks_tail_cleanup_counters(self) -> None:
+        inputs = ReportInputs(
+            units=[
+                {"sqlKey": "demo.user.update#v1", "statementType": "UPDATE"},
+                {"sqlKey": "demo.user.group#v1", "statementType": "SELECT"},
+            ],
+            proposals=[
+                {
+                    "sqlKey": "demo.user.group#v1",
+                    "candidateGenerationDiagnostics": {
+                        "degradationKind": "EMPTY_CANDIDATES",
+                        "recoveryAttempted": True,
+                        "recoveryStrategy": None,
+                        "recoverySucceeded": False,
+                        "recoveryReason": "NO_SAFE_BASELINE_SHAPE_MATCH",
+                    },
+                }
+            ],
+            acceptance=[
+                {
+                    "sqlKey": "demo.user.update#v1",
+                    "status": "PASS",
+                    "semanticEquivalence": {"status": "PASS"},
+                    "patchability": {"blockingReason": "PATCH_NO_EFFECTIVE_CHANGE"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "NONE",
+                                "capabilityTier": "NONE",
+                                "constraintFamily": "NONE",
+                                "safeBaselineFamily": None,
+                            }
+                        }
+                    },
+                    "riskFlags": [],
+                },
+                {
+                    "sqlKey": "demo.user.group#v1",
+                    "status": "PASS",
+                    "semanticEquivalence": {"status": "PASS"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "GROUP_BY",
+                                "capabilityTier": "REVIEW_REQUIRED",
+                                "constraintFamily": "GROUP_BY_AGGREGATION",
+                                "safeBaselineFamily": None,
+                            }
+                        }
+                    },
+                    "riskFlags": [],
+                },
+            ],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_tail_cleanup_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(artifacts.report.stats["dml_review_only_count"], 1)
+        self.assertEqual(artifacts.report.stats["aggregation_wrapper_review_only_count"], 1)
+        self.assertEqual(artifacts.report.stats["no_safe_baseline_shape_match_count"], 1)
 
     def test_build_report_artifacts_counts_dynamic_strategy_from_patch_results(self) -> None:
         inputs = ReportInputs(

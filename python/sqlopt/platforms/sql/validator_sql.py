@@ -133,6 +133,51 @@ def _dynamic_template_summary(
     }
 
 
+def _normalize_dml_clean_blocker_decision(
+    *,
+    sql_unit: dict[str, Any],
+    decision: AcceptanceDecision,
+    semantic_equivalence: dict[str, Any] | None,
+    rewrite_facts: dict[str, Any] | None,
+    patchability: dict[str, Any] | None,
+) -> AcceptanceDecision:
+    statement_type = str(sql_unit.get("statementType") or "").strip().upper()
+    if statement_type != "UPDATE":
+        return decision
+    if str(decision.status).strip().upper() != "NEED_MORE_PARAMS":
+        return decision
+    feedback_reason = str((decision.feedback or {}).get("reason_code") or "").strip().upper()
+    if feedback_reason not in {"VALIDATE_SEMANTIC_ERROR", "VALIDATE_PERF_NOT_IMPROVED"}:
+        return decision
+    if str((semantic_equivalence or {}).get("status") or "").strip().upper() != "PASS":
+        return decision
+    patchability_blocking = str((patchability or {}).get("blockingReason") or "").strip().upper()
+    dynamic_blocking = str((patchability or {}).get("dynamicBlockingReason") or "").strip().upper()
+    effective_change = bool((rewrite_facts or {}).get("effectiveChange"))
+    if patchability_blocking != "PATCH_NO_EFFECTIVE_CHANGE":
+        return decision
+    if dynamic_blocking not in {"FOREACH_COLLECTION_PREDICATE", "DYNAMIC_SET_CLAUSE"} and effective_change:
+        return decision
+    filtered_reason_codes = [
+        str(code)
+        for code in (decision.reason_codes or [])
+        if str(code).strip().upper() not in {"VALIDATE_SEMANTIC_ERROR", "VALIDATE_PERF_NOT_IMPROVED"}
+    ]
+    filtered_warnings = [
+        str(code)
+        for code in (decision.warnings or [])
+        if str(code).strip().upper() not in {"VALIDATE_SEMANTIC_ERROR", "VALIDATE_PERF_NOT_IMPROVED"}
+    ]
+    if "VALIDATE_DML_COMPARE_SKIPPED_WARN" not in filtered_warnings:
+        filtered_warnings.append("VALIDATE_DML_COMPARE_SKIPPED_WARN")
+    return AcceptanceDecision(
+        status="PASS",
+        feedback=None,
+        warnings=filtered_warnings,
+        reason_codes=filtered_reason_codes,
+    )
+
+
 def validate_proposal(
     sql_unit: dict[str, Any],
     proposal: dict[str, Any],
@@ -241,6 +286,13 @@ def validate_proposal(
             warnings=filtered_warnings,
             reason_codes=filtered_reason_codes,
         )
+    decision = _normalize_dml_clean_blocker_decision(
+        sql_unit=sql_unit,
+        decision=decision,
+        semantic_equivalence=semantic_equivalence,
+        rewrite_facts=rewrite_facts,
+        patchability=patchability,
+    )
     if semantic_gate_status == "PASS" and semantic_gate_confidence in {"MEDIUM", "HIGH"} and decision.status == "PASS":
         rewrite_safety_level = "SAFE"
     elif semantic_gate_status == "FAIL":

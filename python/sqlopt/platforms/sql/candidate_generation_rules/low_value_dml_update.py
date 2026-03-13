@@ -17,6 +17,7 @@ _UNNEST_RE = re.compile(r"\bunnest\s*\(", flags=re.IGNORECASE)
 _NOW_RE = re.compile(r"\b(now|current_timestamp)\s*\(", flags=re.IGNORECASE)
 _IN_PLACEHOLDER_RE = re.compile(r"\bin\s*#\{[a-z0-9_\.]+\}", flags=re.IGNORECASE)
 _IN_PAREN_PLACEHOLDER_RE = re.compile(r"\bin\s*\(\s*#\{[a-z0-9_\.]+\}\s*\)", flags=re.IGNORECASE)
+_EQ_PLACEHOLDER_RE = re.compile(r"=\s*#\{[a-z0-9_\.]+\}", flags=re.IGNORECASE)
 _MYBATIS_TAG_RE = re.compile(r"<\s*(foreach|if|choose|when|otherwise|trim|where|set)\b", flags=re.IGNORECASE)
 _UPDATE_SET_RE = re.compile(
     r"^\s*update\s+[a-z_][a-z0-9_\.]*\s+set\s+(?P<set_clause>.+?)(?:\s+where\s+.+)?$",
@@ -91,6 +92,14 @@ class DmlUpdateSpeculativeRewriteRule:
                 rule_id=self.rule_id,
                 category="DML_SPECULATIVE_REWRITE",
                 reason="candidate rewrites a foreach collection placeholder into a parenthesized single binding that cannot map back to the template safely",
+            )
+
+        if _IN_PLACEHOLDER_RE.search(original_sql) and _EQ_PLACEHOLDER_RE.search(rewritten_sql):
+            return LowValueAssessment(
+                candidate_id=str(candidate.get("id") or ""),
+                rule_id=self.rule_id,
+                category="DML_SPECULATIVE_REWRITE",
+                reason="candidate collapses a foreach collection predicate into a single-value equality that cannot map back to the template safely",
             )
 
         if _LITERAL_IN_RE.search(rewritten_sql) and not _LITERAL_IN_RE.search(original_sql):

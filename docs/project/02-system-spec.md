@@ -149,13 +149,22 @@ Current:
 3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
 
 当前阶段验收基线：
-1. `run_fixture_project_full_stability_gate_v10`
+1. `run_fixture_project_full_tail_cleanup_v4`
 2. 当前 full-run 基线要求：
    - `semantic_gate_uncertain_count = 0`
+   - `semantic_gate_fail_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
 3. dynamic/filter/DML 脏回归已在该基线收敛为 clean blocker 或 ready patch
-4. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+4. DML clean blocker 当前统一收正为：
+   - `AcceptanceResult.status = PASS`
+   - `patchability.blockingReason = PATCH_NO_EFFECTIVE_CHANGE`
+   - patch 仍保持 review-only blocker
+5. report 当前会持续跟踪：
+   - `dml_review_only_count`
+   - `aggregation_wrapper_review_only_count`
+   - `no_safe_baseline_shape_match_count`
+6. 下一阶段重点不再是扩 dynamic patch family，而是处理：
    - `aggregation wrapper / plain aggregation`
    - 剩余 review-only plain shapes
    - `${}` 安全阻断之外的候选稳定性尾项

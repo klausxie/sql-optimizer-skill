@@ -298,6 +298,9 @@ def build_report_artifacts(
     dynamic_ready_patch_count = 0
     dynamic_safe_baseline_blocked_count = 0
     dynamic_review_only_count = 0
+    dml_review_only_count = 0
+    aggregation_wrapper_review_only_count = 0
+    no_safe_baseline_shape_match_count = 0
     canonical_preference_applied_count = 0
     candidate_degradation_counts: dict[str, int] = {}
     candidate_recovery_counts: dict[str, int] = {}
@@ -307,6 +310,7 @@ def build_report_artifacts(
     empty_candidate_recovered_count = 0
     text_fallback_recovered_count = 0
     patch_strategy_by_sql: dict[str, str] = {}
+    unit_by_sql_key = {str((row.get("sqlKey") or "")).strip(): row for row in inputs.units}
     for row in inputs.acceptance:
         sql_key = str(row.get("sqlKey") or "").strip()
         strategy_type = str(((row.get("selectedPatchStrategy") or {}).get("strategyType") or "")).strip()
@@ -353,6 +357,15 @@ def build_report_artifacts(
                 dynamic_safe_baseline_blocked_count += 1
             elif normalized_dynamic_delivery_class == "REVIEW_ONLY":
                 dynamic_review_only_count += 1
+        sql_key = str(row.get("sqlKey") or "").strip()
+        statement_type = str((unit_by_sql_key.get(sql_key) or {}).get("statementType") or "").strip().upper()
+        if statement_type == "UPDATE" and str((row.get("patchability") or {}).get("blockingReason") or "").strip().upper() == "PATCH_NO_EFFECTIVE_CHANGE":
+            dml_review_only_count += 1
+        aggregation_profile = dict((((row.get("rewriteFacts") or {}).get("aggregationQuery") or {}).get("capabilityProfile") or {}))
+        aggregation_constraint_family = str(aggregation_profile.get("constraintFamily") or "").strip().upper()
+        aggregation_safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
+        if aggregation_constraint_family not in {"", "NONE", "SAFE_BASELINE"} and not aggregation_safe_baseline_family:
+            aggregation_wrapper_review_only_count += 1
     for strategy_type in patch_strategy_by_sql.values():
         patch_strategy_counts[strategy_type] = patch_strategy_counts.get(strategy_type, 0) + 1
     for proposal in inputs.proposals:
@@ -377,6 +390,8 @@ def build_report_artifacts(
                 empty_candidate_blocked_reason_counts[blocked_reason] = (
                     empty_candidate_blocked_reason_counts.get(blocked_reason, 0) + 1
                 )
+                if blocked_reason == "NO_SAFE_BASELINE_SHAPE_MATCH":
+                    no_safe_baseline_shape_match_count += 1
     semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
     semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (
         summarize_semantic_gate_quality(inputs.acceptance)
@@ -457,6 +472,9 @@ def build_report_artifacts(
         "dynamic_ready_patch_count": dynamic_ready_patch_count,
         "dynamic_safe_baseline_blocked_count": dynamic_safe_baseline_blocked_count,
         "dynamic_review_only_count": dynamic_review_only_count,
+        "dml_review_only_count": dml_review_only_count,
+        "aggregation_wrapper_review_only_count": aggregation_wrapper_review_only_count,
+        "no_safe_baseline_shape_match_count": no_safe_baseline_shape_match_count,
         "perf_improved_count": perf_improved_count,
         "perf_compared_but_not_improved_count": perf_not_improved_count,
         "blocked_sql_count": blocked_sql_count,

@@ -109,6 +109,87 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
         self.assertEqual(diagnostics["recoveryReason"], "LOW_VALUE_PRUNED_TO_EMPTY")
         self.assertEqual(recovered, [])
 
+    def test_build_candidate_generation_diagnostics_prunes_distinct_to_group_by_index_scan(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            original_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "GROUP_BY_INDEX_SCAN",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "GROUP_BY_INDEX_SCAN",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": [], "statementType": "SELECT"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_replace_distinct_with_group_by(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            original_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "REPLACE_DISTINCT_WITH_GROUP_BY",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT status FROM users GROUP BY status ORDER BY status",
+                    "rewriteStrategy": "REPLACE_DISTINCT_WITH_GROUP_BY",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": [], "statementType": "SELECT"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_having_index_hint_candidate(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.order.harness.listOrderUserCountsHaving#v8",
+            original_sql="SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+                    "rewriteStrategy": "Index hint for GROUP BY optimization using composite index on (user_id, created_at)",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+                    "rewriteStrategy": "Index hint for GROUP BY optimization using composite index on (user_id, created_at)",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": [], "statementType": "SELECT"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
     def test_recover_candidates_from_shape_handles_having_wrapper(self) -> None:
         recovered = recover_candidates_from_shape(
             "demo.order.having#v1",
@@ -601,6 +682,33 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
                     "id": "c1",
                     "rewrittenSql": "UPDATE orders SET status = #{status} WHERE order_no IN (#{orderNo})",
                     "rewriteStrategy": "template_fix",
+                }
+            ],
+            trace={"degrade_reason": None},
+            sql_unit={"dynamicFeatures": ["FOREACH"], "statementType": "UPDATE"},
+        )
+
+        self.assertEqual(diagnostics["degradationKind"], "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(diagnostics["acceptedCandidateCount"], 0)
+        self.assertEqual(diagnostics["prunedLowValueCount"], 1)
+        self.assertEqual(recovered, [])
+
+    def test_build_candidate_generation_diagnostics_prunes_single_value_foreach_update_candidate(self) -> None:
+        diagnostics, recovered = build_candidate_generation_diagnostics(
+            sql_key="demo.shipment.harness.markShipmentsDeleted#v5",
+            original_sql="UPDATE shipments SET status = 'DELETED' WHERE id IN #{id}",
+            raw_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id = #{id}",
+                    "rewriteStrategy": "SIMPLIFY_IN_CLAUSE",
+                }
+            ],
+            valid_candidates=[
+                {
+                    "id": "c1",
+                    "rewrittenSql": "UPDATE shipments SET status = 'DELETED' WHERE id = #{id}",
+                    "rewriteStrategy": "SIMPLIFY_IN_CLAUSE",
                 }
             ],
             trace={"degrade_reason": None},
