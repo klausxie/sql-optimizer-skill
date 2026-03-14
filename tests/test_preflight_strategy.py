@@ -29,18 +29,28 @@ class PreflightStrategyTest(unittest.TestCase):
             )
 
         self.assertFalse(policy.db.enabled)
-        self.assertEqual(policy.db.reason, "platform capability disables connectivity check")
+        self.assertEqual(
+            policy.db.reason, "platform capability disables connectivity check"
+        )
 
     def test_db_policy_enables_mysql_connectivity_when_supported(self) -> None:
-        policy = build_preflight_policy({"db": {"platform": "mysql"}, "validate": {"db_reachable": True}})
+        policy = build_preflight_policy(
+            {"db": {"platform": "mysql"}, "validate": {"db_reachable": True}}
+        )
 
         self.assertTrue(policy.db.enabled)
         self.assertIsNone(policy.db.reason)
 
     def test_llm_policy_selects_provider_mode(self) -> None:
-        direct = build_preflight_policy({"llm": {"enabled": True, "provider": "direct_openai_compatible"}})
-        opencode = build_preflight_policy({"llm": {"enabled": True, "provider": "opencode_run"}})
-        builtin = build_preflight_policy({"llm": {"enabled": True, "provider": "opencode_builtin"}})
+        direct = build_preflight_policy(
+            {"llm": {"enabled": True, "provider": "direct_openai_compatible"}}
+        )
+        opencode = build_preflight_policy(
+            {"llm": {"enabled": True, "provider": "opencode_run"}}
+        )
+        builtin = build_preflight_policy(
+            {"llm": {"enabled": True, "provider": "opencode_builtin"}}
+        )
 
         self.assertEqual(direct.llm.mode, "direct_openai_compatible")
         self.assertTrue(direct.llm.enabled)
@@ -49,14 +59,6 @@ class PreflightStrategyTest(unittest.TestCase):
         self.assertEqual(builtin.llm.mode, "disabled")
         self.assertFalse(builtin.llm.enabled)
         self.assertEqual(builtin.llm.reason, "provider=opencode_builtin")
-
-    def test_scanner_policy_always_skips_jar_preflight(self) -> None:
-        without_jar = build_preflight_policy({"scan": {}})
-        with_jar = build_preflight_policy({"scan": {"java_scanner": {"jar_path": "/tmp/missing.jar"}}})
-
-        self.assertFalse(without_jar.scanner.enabled)
-        self.assertFalse(with_jar.scanner.enabled)
-        self.assertIn("scanner preflight check disabled", str(without_jar.scanner.reason))
 
 
 if __name__ == "__main__":

@@ -25,8 +25,6 @@ class TestReasonCodeRegistry:
         expected_codes = [
             "RUNTIME_STAGE_TIMEOUT",
             "RUNTIME_RETRY_EXHAUSTED",
-            "PREFLIGHT_MISSING_SCANNER_JAR",
-            "SCAN_JAVA_SCANNER_FAILED",
             "OPTIMIZE_LLM_TIMEOUT",
             "VALIDATE_DB_UNREACHABLE",
             "PATCH_TEMPLATE_REWRITE_UNSAFE",
@@ -53,18 +51,12 @@ class TestReasonCodeRegistry:
         """Test formatting error message with context."""
         msg = format_error_message(
             "VALIDATE_DB_UNREACHABLE",
-            context={"sql_key": "demo.user.findUsers#v1", "phase": "validate"}
+            context={"sql_key": "demo.user.findUsers#v1", "phase": "validate"},
         )
         assert "[DEGRADABLE]" in msg
         assert "Cannot connect to database" in msg
         assert "demo.user.findUsers#v1" in msg
         assert "validate" in msg
-
-    def test_format_error_message_without_context(self):
-        """Test formatting error message without context."""
-        msg = format_error_message("SCAN_JAVA_SCANNER_FAILED")
-        assert "SCAN_JAVA_SCANNER_FAILED" in msg
-        assert "Java scanner execution failed" in msg
 
     def test_format_error_message_unknown_code(self):
         """Test formatting message for unknown code."""
@@ -84,7 +76,7 @@ class TestReasonCodeRegistry:
     def test_get_codes_by_category_scan(self):
         """Test filtering codes by scan category."""
         codes = get_codes_by_category("scan")
-        assert len(codes) >= 10
+        assert len(codes) >= 9
         assert all(c.category == "scan" for c in codes)
 
     def test_get_codes_by_category_empty(self):
@@ -130,8 +122,14 @@ class TestReasonCodeRegistry:
         """Test that codes are distributed across categories."""
         categories = set(c.category for c in REASON_CODES.values())
         expected_categories = {
-            "runtime", "preflight", "scan", "optimize",
-            "validate", "patch", "platform", "verification"
+            "runtime",
+            "preflight",
+            "scan",
+            "optimize",
+            "validate",
+            "patch",
+            "platform",
+            "verification",
         }
         assert categories == expected_categories
 

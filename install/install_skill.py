@@ -31,7 +31,6 @@ from sqlopt.install_support import (  # noqa: E402
     commands_dir,
     find_skill_source,
     is_windows,
-    normalize_jar_path_for_yaml,
     opencode_home,
     replace_template_var,
     run_cmd,

@@ -35,7 +35,11 @@ def commands_dir() -> Path:
 
 
 def runtime_python(root_dir: Path) -> Path:
-    runtime_base = (root_dir / "runtime") if (root_dir / "runtime" / "python").exists() else root_dir
+    runtime_base = (
+        (root_dir / "runtime")
+        if (root_dir / "runtime" / "python").exists()
+        else root_dir
+    )
     return runtime_base / "python"
 
 
@@ -68,7 +72,9 @@ def ensure_pythonpath_for_install_script(script_dir: Path) -> None:
         if path.exists():
             sys.path.insert(0, str(path))
             return
-    raise SystemExit("cannot locate python runtime (expected ./python or ./runtime/python)")
+    raise SystemExit(
+        "cannot locate python runtime (expected ./python or ./runtime/python)"
+    )
 
 
 def run_cmd(cmd: list[str], *, quiet: bool = False) -> None:
@@ -77,10 +83,6 @@ def run_cmd(cmd: list[str], *, quiet: bool = False) -> None:
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL
     subprocess.run(cmd, **kwargs)
-
-
-def normalize_jar_path_for_yaml(path: Path) -> str:
-    return str(path.resolve()).replace("\\", "/")
 
 
 def replace_template_var(template_text: str, key: str, value: str) -> str:
@@ -97,9 +99,9 @@ def write_cli_wrapper(skill_root: Path) -> Path:
                 [
                     "@echo off",
                     "setlocal",
-                    "set \"ROOT_DIR=%~dp0..\\runtime\"",
-                    "set \"PYTHONPATH=%ROOT_DIR%\\python\"",
-                    "\"%ROOT_DIR%\\.venv\\Scripts\\python.exe\" \"%ROOT_DIR%\\scripts\\sqlopt_cli.py\" %*",
+                    'set "ROOT_DIR=%~dp0..\\runtime"',
+                    'set "PYTHONPATH=%ROOT_DIR%\\python"',
+                    '"%ROOT_DIR%\\.venv\\Scripts\\python.exe" "%ROOT_DIR%\\scripts\\sqlopt_cli.py" %*',
                     "",
                 ]
             ),
@@ -112,9 +114,9 @@ def write_cli_wrapper(skill_root: Path) -> Path:
             [
                 "#!/usr/bin/env bash",
                 "set -euo pipefail",
-                f"ROOT_DIR=\"{str((skill_root / 'runtime').resolve())}\"",
-                "export PYTHONPATH=\"$ROOT_DIR/python\"",
-                "exec \"$ROOT_DIR/.venv/bin/python\" \"$ROOT_DIR/scripts/sqlopt_cli.py\" \"$@\"",
+                f'ROOT_DIR="{str((skill_root / "runtime").resolve())}"',
+                'export PYTHONPATH="$ROOT_DIR/python"',
+                'exec "$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/sqlopt_cli.py" "$@"',
                 "",
             ]
         ),

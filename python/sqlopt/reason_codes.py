@@ -83,13 +83,6 @@ REASON_CODES = {
         description="Legacy Java scanner JAR file not found",
         user_message="Legacy scanner JAR file is missing. Current versions use Python fallback scanner by default.",
     ),
-    "PREFLIGHT_MISSING_SCANNER_JAR": ReasonCode(
-        code="PREFLIGHT_MISSING_SCANNER_JAR",
-        category="preflight",
-        severity="fatal",
-        description="Java scanner JAR file not found",
-        user_message="Scanner JAR file is missing. Run the installation script to set up the scanner.",
-    ),
     # Scan errors
     "SCAN_MAPPER_NOT_FOUND": ReasonCode(
         code="SCAN_MAPPER_NOT_FOUND",
@@ -153,13 +146,6 @@ REASON_CODES = {
         severity="degradable",
         description="Scan evidence verified successfully",
         user_message="Scanner completed successfully with verified evidence.",
-    ),
-    "SCAN_JAVA_SCANNER_FAILED": ReasonCode(
-        code="SCAN_JAVA_SCANNER_FAILED",
-        category="scan",
-        severity="fatal",
-        description="Java scanner execution failed",
-        user_message="Java scanner execution failed. Check scanner logs for details.",
     ),
     # Optimize errors
     "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR": ReasonCode(
