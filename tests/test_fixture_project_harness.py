@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from .fixture_project_harness_support import (
+from fixture_project_harness_support import (
     BLOCKER_FAMILIES,
     FIXTURE_PROJECT,
     PATCHABILITY_TARGETS,
@@ -59,7 +59,9 @@ class FixtureScenarioMatrixTest(unittest.TestCase):
             scenario_classes.add(str(scenario["scenarioClass"]))
             self.assertIn(str(scenario["scenarioClass"]), SCENARIO_CLASSES)
             self.assertTrue(str(scenario["validateCandidateSql"]).strip())
-            self.assertIn(str(scenario["validateEvidenceMode"]), VALIDATE_EVIDENCE_MODES)
+            self.assertIn(
+                str(scenario["validateEvidenceMode"]), VALIDATE_EVIDENCE_MODES
+            )
             self.assertIn(str(scenario["targetValidateStatus"]), VALIDATE_STATUSES)
             self.assertIn(str(scenario["targetSemanticGate"]), SEMANTIC_TARGETS)
             self.assertIn(str(scenario["targetPatchability"]), PATCHABILITY_TARGETS)
@@ -77,7 +79,10 @@ class FixtureScenarioMatrixTest(unittest.TestCase):
         self.assertEqual(scenario_classes, SCENARIO_CLASSES)
         summary = summarize_fixture_scenarios(scenarios)
         self.assertEqual(summary["roadmapStageCounts"]["NEXT"], 1)
-        self.assertIn("demo.user.advanced.listDistinctUserStatuses#v11", summary["nextTargetSqlKeys"])
+        self.assertIn(
+            "demo.user.advanced.listDistinctUserStatuses#v11",
+            summary["nextTargetSqlKeys"],
+        )
         self.assertEqual(summary["roadmapThemeCounts"]["CTE_ENABLEMENT"], 1)
 
 
@@ -95,8 +100,13 @@ class FixtureProjectScanHarnessTest(unittest.TestCase):
                 Path(str(row["xmlPath"])).resolve(),
                 (FIXTURE_PROJECT / str(scenario["mapperPath"])).resolve(),
             )
-            self.assertEqual(set(row.get("dynamicFeatures") or []), set(scenario["expectedScanFeatures"]))
-            self.assertEqual(set(row.get("riskFlags") or []), set(scenario["expectedRiskFlags"]))
+            self.assertEqual(
+                set(row.get("dynamicFeatures") or []),
+                set(scenario["expectedScanFeatures"]),
+            )
+            self.assertEqual(
+                set(row.get("riskFlags") or []), set(scenario["expectedRiskFlags"])
+            )
             if scenario["expectedScanFeatures"]:
                 self.assertIsNotNone(row.get("dynamicTrace"), sql_key)
             if "INCLUDE" in set(scenario["expectedScanFeatures"]):
