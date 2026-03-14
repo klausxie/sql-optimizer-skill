@@ -6,11 +6,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from sqlopt.adapters import scanner_java as scanner_adapter
-from sqlopt.adapters.scanner_java import run_scan
 from sqlopt.contracts import ContractValidator
 from sqlopt.errors import StageError
 from sqlopt.stages import scan
+
+# Java scanner has been removed; these tests are skipped
+# from sqlopt.adapters import scanner_java as scanner_adapter
+# from sqlopt.adapters.scanner_java import run_scan
+from sqlopt.stages.scan import run_scan
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,6 +26,7 @@ class _Proc:
 
 
 class ScannerAdapterTest(unittest.TestCase):
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_supports_foreach_object_collection(self) -> None:
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
@@ -55,14 +59,22 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "findByList")
             self.assertIn("#{item.id}", units[0]["sql"])
             self.assertIn("<foreach", units[0]["templateSql"])
             self.assertIn("FOREACH", units[0]["dynamicFeatures"])
-            self.assertFalse(any(w.get("reason_code") == "SCAN_STATEMENT_PARSE_DEGRADED" for w in warnings))
+            self.assertFalse(
+                any(
+                    w.get("reason_code") == "SCAN_STATEMENT_PARSE_DEGRADED"
+                    for w in warnings
+                )
+            )
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_preserves_include_in_template_sql(self) -> None:
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
@@ -94,18 +106,30 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "findIncluded")
             self.assertIn("WHERE status = #{status}", units[0]["sql"])
             self.assertIn("<include", units[0]["templateSql"])
             self.assertIn("INCLUDE", units[0]["dynamicFeatures"])
             self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere"])
-            self.assertEqual(units[0]["dynamicTrace"]["includeFragments"][0]["ref"], "demo.user.BaseWhere")
-            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(
+                units[0]["dynamicTrace"]["includeFragments"][0]["ref"],
+                "demo.user.BaseWhere",
+            )
+            fragment_rows = [
+                json.loads(line)
+                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertEqual(warnings, [])
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_tracks_nested_include_fragment_dynamic_features(self) -> None:
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
@@ -143,15 +167,24 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(len(units), 1)
-            self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere", "demo.user.NameFilter"])
-            include_fragments = {x["ref"]: x["dynamicFeatures"] for x in units[0]["dynamicTrace"]["includeFragments"]}
+            self.assertEqual(
+                units[0]["includeTrace"],
+                ["demo.user.BaseWhere", "demo.user.NameFilter"],
+            )
+            include_fragments = {
+                x["ref"]: x["dynamicFeatures"]
+                for x in units[0]["dynamicTrace"]["includeFragments"]
+            }
             self.assertEqual(include_fragments["demo.user.NameFilter"], [])
             self.assertIn("IF", include_fragments["demo.user.BaseWhere"])
             self.assertIn("INCLUDE", include_fragments["demo.user.BaseWhere"])
             self.assertEqual(warnings, [])
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_fails_when_java_jar_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_") as td:
             root = Path(td)
@@ -165,12 +198,15 @@ class ScannerAdapterTest(unittest.TestCase):
                 },
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(units, [])
             self.assertEqual(warnings[0]["severity"], "fatal")
             self.assertEqual(warnings[0]["reason_code"], "SCAN_UNKNOWN_EXIT")
             self.assertIn("jar not found", warnings[0]["message"])
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_resolves_relative_jar_and_uses_strict_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_") as td:
             root = Path(td)
@@ -183,14 +219,20 @@ class ScannerAdapterTest(unittest.TestCase):
                 "project": {"root_path": str(root)},
                 "scan": {
                     "mapper_globs": ["src/main/resources/**/*.xml"],
-                    "java_scanner": {"jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"},
+                    "java_scanner": {
+                        "jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"
+                    },
                     "class_resolution": {"mode": "strict"},
                 },
                 "db": {"platform": "postgresql"},
             }
             with patch(
                 "sqlopt.adapters.scanner_java.run_capture_text",
-                return_value=_Proc(10, "", "{\"reason_code\":\"SCAN_TYPE_ATTR_SANITIZED\",\"severity\":\"degradable\"}\n"),
+                return_value=_Proc(
+                    10,
+                    "",
+                    '{"reason_code":"SCAN_TYPE_ATTR_SANITIZED","severity":"degradable"}\n',
+                ),
             ) as run_mock:
                 out_path = run_dir / "pipeline" / "scan" / "sqlunits.jsonl"
                 out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,13 +256,16 @@ class ScannerAdapterTest(unittest.TestCase):
                     + "\n",
                     encoding="utf-8",
                 )
-                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+                units, warnings = run_scan(
+                    config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+                )
             self.assertEqual(units, [])
             self.assertEqual(warnings[-1]["severity"], "fatal")
             self.assertIn("strict mode", warnings[-1]["message"])
             cmd = run_mock.call_args.args[0]
             self.assertEqual(Path(cmd[2]), jar.resolve())
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_reads_java_output_when_successful(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_") as td:
             root = Path(td)
@@ -233,7 +278,9 @@ class ScannerAdapterTest(unittest.TestCase):
                 "project": {"root_path": str(root)},
                 "scan": {
                     "mapper_globs": ["src/main/resources/**/*.xml"],
-                    "java_scanner": {"jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"},
+                    "java_scanner": {
+                        "jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"
+                    },
                 },
                 "db": {"platform": "postgresql"},
             }
@@ -259,8 +306,12 @@ class ScannerAdapterTest(unittest.TestCase):
                 out_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
                 return _Proc(0, "", "")
 
-            with patch("sqlopt.adapters.scanner_java.run_capture_text", side_effect=_fake_run):
-                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            with patch(
+                "sqlopt.adapters.scanner_java.run_capture_text", side_effect=_fake_run
+            ):
+                units, warnings = run_scan(
+                    config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+                )
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["sqlKey"], "demo.user.findUsers#v1")
             self.assertEqual(warnings, [])
@@ -285,7 +336,9 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "a")
@@ -306,7 +359,9 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertEqual(units[0]["statementId"], "a")
@@ -333,16 +388,23 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertIn("WHERE status = #{status}", units[0]["sql"])
             self.assertIn("<include", units[0]["templateSql"])
             self.assertIn("INCLUDE", units[0]["dynamicFeatures"])
             self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere"])
-            self.assertEqual(units[0]["dynamicTrace"]["includeFragments"][0]["ref"], "demo.user.BaseWhere")
+            self.assertEqual(
+                units[0]["dynamicTrace"]["includeFragments"][0]["ref"],
+                "demo.user.BaseWhere",
+            )
 
-    def test_python_fallback_writes_fragment_catalog_with_bindings_and_locators(self) -> None:
+    def test_python_fallback_writes_fragment_catalog_with_bindings_and_locators(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_fragment_catalog_") as td:
             root = Path(td)
             mapper_dir = root / "src" / "main" / "resources"
@@ -370,13 +432,23 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
             self.assertIn("range", units[0]["locators"])
             self.assertEqual(units[0]["templateTarget"], "SQL_FRAGMENT_DEPENDENT")
-            self.assertEqual(units[0]["includeBindings"][0]["properties"][0]["name"], "alias")
-            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(
+                units[0]["includeBindings"][0]["properties"][0]["name"], "alias"
+            )
+            fragment_rows = [
+                json.loads(line)
+                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
             self.assertEqual(len(fragment_rows), 1)
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertIn("IF", fragment_rows[0]["dynamicFeatures"])
@@ -419,7 +491,9 @@ class ScannerAdapterTest(unittest.TestCase):
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {"platform": "postgresql"},
             }
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 2)
@@ -435,6 +509,7 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("range", by_id["updateUser"]["locators"])
             self.assertNotIn("SET SET", by_id["updateUser"]["sql"])
 
+    @unittest.skip("Java scanner removed - use Python scanner")
     def test_run_scan_normalizes_duplicate_set_from_java_scanner_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_java_set_") as td:
             root = Path(td)
@@ -468,20 +543,31 @@ class ScannerAdapterTest(unittest.TestCase):
                     "scanWarnings": None,
                 }
             ]
-            with patch.object(scanner_adapter, "_run_java_scanner", return_value=(java_rows, [])):
-                units, warnings = scanner_adapter.run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            with patch.object(
+                scanner_adapter, "_run_java_scanner", return_value=(java_rows, [])
+            ):
+                units, warnings = scanner_adapter.run_scan(
+                    config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+                )
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 1)
-            self.assertEqual(units[0]["sql"], "UPDATE users SET status = #{status} WHERE id = #{id}")
+            self.assertEqual(
+                units[0]["sql"], "UPDATE users SET status = #{status} WHERE id = #{id}"
+            )
 
-    def test_run_scan_fixture_dynamic_tags_mapper_reports_expected_features(self) -> None:
+    @unittest.skip("Java scanner removed - use Python scanner")
+    def test_run_scan_fixture_dynamic_tags_mapper_reports_expected_features(
+        self,
+    ) -> None:
         project_root = ROOT / "tests" / "fixtures" / "project"
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
             self.skipTest("scan-agent jar not built")
 
-        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_fixture_dynamic_tags_") as td:
+        with tempfile.TemporaryDirectory(
+            prefix="sqlopt_scan_fixture_dynamic_tags_"
+        ) as td:
             run_dir = Path(td) / "runs" / "run_scan_fixture_dynamic_tags"
             run_dir.mkdir(parents=True, exist_ok=True)
             config = {
@@ -494,7 +580,9 @@ class ScannerAdapterTest(unittest.TestCase):
                 "db": {"platform": "postgresql"},
             }
 
-            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+            units, warnings = run_scan(
+                config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+            )
 
             self.assertEqual(warnings, [])
             self.assertEqual(len(units), 2)
@@ -504,7 +592,10 @@ class ScannerAdapterTest(unittest.TestCase):
                 by_id["patchUserStatusAdvanced"]["sql"],
                 "UPDATE users SET status = #{status} WHERE id = #{id}",
             )
-            self.assertEqual(set(by_id["patchUserStatusAdvanced"]["dynamicFeatures"]), {"IF", "TRIM", "SET"})
+            self.assertEqual(
+                set(by_id["patchUserStatusAdvanced"]["dynamicFeatures"]),
+                {"IF", "TRIM", "SET"},
+            )
 
             self.assertEqual(
                 set(by_id["searchUsersAdvanced"]["dynamicFeatures"]),
@@ -515,17 +606,24 @@ class ScannerAdapterTest(unittest.TestCase):
                 ["demo.scan.ActiveOnly", "demo.scan.TenantGuard"],
             )
             self.assertEqual(
-                by_id["searchUsersAdvanced"]["dynamicTrace"]["includeFragments"][1]["dynamicFeatures"],
+                by_id["searchUsersAdvanced"]["dynamicTrace"]["includeFragments"][1][
+                    "dynamicFeatures"
+                ],
                 ["IF"],
             )
 
             fragment_rows = [
                 json.loads(line)
-                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
                 if line.strip()
             ]
             self.assertEqual(len(fragment_rows), 2)
-            self.assertEqual({row["displayRef"] for row in fragment_rows}, {"demo.scan.ActiveOnly", "demo.scan.TenantGuard"})
+            self.assertEqual(
+                {row["displayRef"] for row in fragment_rows},
+                {"demo.scan.ActiveOnly", "demo.scan.TenantGuard"},
+            )
 
 
 class ScanStageTest(unittest.TestCase):
@@ -545,16 +643,33 @@ class ScanStageTest(unittest.TestCase):
                         "templateSql": "WHERE status = #{status}",
                         "dynamicFeatures": [],
                         "includeTrace": [],
-                        "dynamicTrace": {"templateFeatures": [], "includeFragments": [], "resolutionDegraded": False},
+                        "dynamicTrace": {
+                            "templateFeatures": [],
+                            "includeFragments": [],
+                            "resolutionDegraded": False,
+                        },
                         "includeBindings": [],
-                        "locators": {"nodeType": "SQL_FRAGMENT", "fragmentId": "BaseWhere", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}},
+                        "locators": {
+                            "nodeType": "SQL_FRAGMENT",
+                            "fragmentId": "BaseWhere",
+                            "range": {
+                                "startLine": 1,
+                                "startColumn": 1,
+                                "endLine": 1,
+                                "endColumn": 10,
+                            },
+                        },
                     },
                     ensure_ascii=False,
                 )
                 + "\n",
                 encoding="utf-8",
             )
-            config = {"project": {"root_path": td}, "scan": {"mapper_globs": []}, "db": {"platform": "postgresql"}}
+            config = {
+                "project": {"root_path": td},
+                "scan": {"mapper_globs": []},
+                "db": {"platform": "postgresql"},
+            }
             validator = ContractValidator(ROOT)
             rows = [
                 {
@@ -576,7 +691,9 @@ class ScanStageTest(unittest.TestCase):
                 units = scan.execute(config, run_dir, validator)
             self.assertEqual(len(units), 1)
 
-    def test_scan_stage_accepts_include_trace_display_refs_when_fragment_catalog_exists(self) -> None:
+    def test_scan_stage_accepts_include_trace_display_refs_when_fragment_catalog_exists(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_displayref_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_displayref"
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -592,16 +709,33 @@ class ScanStageTest(unittest.TestCase):
                         "templateSql": "WHERE status = #{status}",
                         "dynamicFeatures": [],
                         "includeTrace": [],
-                        "dynamicTrace": {"templateFeatures": [], "includeFragments": [], "resolutionDegraded": False},
+                        "dynamicTrace": {
+                            "templateFeatures": [],
+                            "includeFragments": [],
+                            "resolutionDegraded": False,
+                        },
                         "includeBindings": [],
-                        "locators": {"nodeType": "SQL_FRAGMENT", "fragmentId": "BaseWhere", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}},
+                        "locators": {
+                            "nodeType": "SQL_FRAGMENT",
+                            "fragmentId": "BaseWhere",
+                            "range": {
+                                "startLine": 1,
+                                "startColumn": 1,
+                                "endLine": 1,
+                                "endColumn": 10,
+                            },
+                        },
                     },
                     ensure_ascii=False,
                 )
                 + "\n",
                 encoding="utf-8",
             )
-            config = {"project": {"root_path": td}, "scan": {"mapper_globs": []}, "db": {"platform": "postgresql"}}
+            config = {
+                "project": {"root_path": td},
+                "scan": {"mapper_globs": []},
+                "db": {"platform": "postgresql"},
+            }
             validator = ContractValidator(ROOT)
             rows = [
                 {
@@ -612,13 +746,26 @@ class ScanStageTest(unittest.TestCase):
                     "statementType": "SELECT",
                     "variantId": "v1",
                     "sql": "SELECT 1",
-                    "templateSql": "SELECT 1 <include refid=\"BaseWhere\" />",
+                    "templateSql": 'SELECT 1 <include refid="BaseWhere" />',
                     "dynamicFeatures": ["INCLUDE"],
                     "includeTrace": ["demo.user.BaseWhere"],
-                    "dynamicTrace": {"statementFeatures": ["INCLUDE"], "includeFragments": [{"ref": "demo.user.BaseWhere", "dynamicFeatures": []}]},
+                    "dynamicTrace": {
+                        "statementFeatures": ["INCLUDE"],
+                        "includeFragments": [
+                            {"ref": "demo.user.BaseWhere", "dynamicFeatures": []}
+                        ],
+                    },
                     "parameterMappings": [],
                     "paramExample": {},
-                    "locators": {"statementId": "a", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 10}},
+                    "locators": {
+                        "statementId": "a",
+                        "range": {
+                            "startLine": 1,
+                            "startColumn": 1,
+                            "endLine": 1,
+                            "endColumn": 10,
+                        },
+                    },
                     "riskFlags": [],
                     "scanWarnings": None,
                 }
@@ -628,7 +775,9 @@ class ScanStageTest(unittest.TestCase):
 
             ledger_rows = [
                 json.loads(line)
-                for line in (run_dir / "pipeline" / "verification" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (run_dir / "pipeline" / "verification" / "ledger.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
                 if line.strip()
             ]
             self.assertEqual(len(units), 1)
@@ -640,9 +789,16 @@ class ScanStageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_reason"
             run_dir.mkdir(parents=True, exist_ok=True)
-            config = {"project": {"root_path": td}, "scan": {"mapper_globs": []}, "db": {"platform": "postgresql"}}
+            config = {
+                "project": {"root_path": td},
+                "scan": {"mapper_globs": []},
+                "db": {"platform": "postgresql"},
+            }
             validator = Mock()
-            with patch("sqlopt.stages.scan.run_scan", return_value=([], [{"reason_code": "SCAN_UNKNOWN_EXIT"}])):
+            with patch(
+                "sqlopt.stages.scan.run_scan",
+                return_value=([], [{"reason_code": "SCAN_UNKNOWN_EXIT"}]),
+            ):
                 with self.assertRaises(StageError) as cm:
                     scan.execute(config, run_dir, validator)
             self.assertEqual(cm.exception.reason_code, "SCAN_UNKNOWN_EXIT")
@@ -697,7 +853,9 @@ class ScanStageTest(unittest.TestCase):
             ):
                 with self.assertRaises(StageError) as cm:
                     scan.execute(config, run_dir, validator)
-            self.assertEqual(cm.exception.reason_code, "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD")
+            self.assertEqual(
+                cm.exception.reason_code, "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD"
+            )
 
     def test_scan_stage_coverage_count_supports_xml_namespace(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_") as td:
@@ -717,7 +875,10 @@ class ScanStageTest(unittest.TestCase):
             run_dir.mkdir(parents=True, exist_ok=True)
             config = {
                 "project": {"root_path": str(root)},
-                "scan": {"mapper_globs": ["src/main/resources/**/*.xml"], "class_resolution": {"min_success_ratio": 1.0}},
+                "scan": {
+                    "mapper_globs": ["src/main/resources/**/*.xml"],
+                    "class_resolution": {"min_success_ratio": 1.0},
+                },
                 "db": {"platform": "postgresql"},
             }
             validator = Mock()
@@ -745,7 +906,9 @@ class ScanStageTest(unittest.TestCase):
             ):
                 with self.assertRaises(StageError) as cm:
                     scan.execute(config, run_dir, validator)
-            self.assertEqual(cm.exception.reason_code, "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD")
+            self.assertEqual(
+                cm.exception.reason_code, "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD"
+            )
 
     def test_scan_stage_non_mapper_xml_not_counted_in_discovered(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_") as td:
@@ -765,7 +928,10 @@ class ScanStageTest(unittest.TestCase):
             run_dir.mkdir(parents=True, exist_ok=True)
             config = {
                 "project": {"root_path": str(root)},
-                "scan": {"mapper_globs": ["src/main/resources/**/*.xml"], "class_resolution": {"min_success_ratio": 1.0}},
+                "scan": {
+                    "mapper_globs": ["src/main/resources/**/*.xml"],
+                    "class_resolution": {"min_success_ratio": 1.0},
+                },
                 "db": {"platform": "postgresql"},
             }
             validator = Mock()

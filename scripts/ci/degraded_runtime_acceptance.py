@@ -19,10 +19,6 @@ def _fixture_project(repo_root: Path) -> Path:
     return repo_root / "tests" / "fixtures" / "project"
 
 
-def _scanner_jar(repo_root: Path) -> Path:
-    return repo_root / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
-
-
 def _config_text(repo_root: Path) -> str:
     return "\n".join(
         [
@@ -61,7 +57,9 @@ def _parse_last_dict(text: str) -> dict[str, Any]:
     return {}
 
 
-def _run(cmd: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    cmd: list[str], *, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
 
@@ -98,7 +96,9 @@ def _run_until_complete(repo_root: Path, config_path: Path) -> str:
         run_id = str(payload.get("run_id") or run_id).strip()
         if run_id and bool(payload.get("complete")):
             return run_id
-    raise SystemExit("degraded acceptance failed: run did not complete within retry budget")
+    raise SystemExit(
+        "degraded acceptance failed: run did not complete within retry budget"
+    )
 
 
 def main() -> None:
@@ -117,20 +117,44 @@ def main() -> None:
         run_id = _run_until_complete(repo_root, config_path)
         run_dir = project_dir / "runs" / run_id
 
-        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
-        meta = json.loads((run_dir / "pipeline" / "supervisor" / "meta.json").read_text(encoding="utf-8"))
-        report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
-        preflight = json.loads((run_dir / "pipeline" / "ops" / "preflight.json").read_text(encoding="utf-8"))
+        state = json.loads(
+            (run_dir / "pipeline" / "supervisor" / "state.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        meta = json.loads(
+            (run_dir / "pipeline" / "supervisor" / "meta.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        report = json.loads(
+            (run_dir / "overview" / "report.json").read_text(encoding="utf-8")
+        )
+        preflight = json.loads(
+            (run_dir / "pipeline" / "ops" / "preflight.json").read_text(
+                encoding="utf-8"
+            )
+        )
 
-        db_check = next((row for row in preflight.get("checks", []) if row.get("name") == "db"), {})
+        db_check = next(
+            (row for row in preflight.get("checks", []) if row.get("name") == "db"), {}
+        )
         if db_check.get("reason") != "validate.db_reachable=false":
-            raise SystemExit("degraded acceptance failed: expected preflight DB check to be skipped")
+            raise SystemExit(
+                "degraded acceptance failed: expected preflight DB check to be skipped"
+            )
         if state["phase_status"]["validate"] != "DONE":
-            raise SystemExit("degraded acceptance failed: validate phase did not complete")
+            raise SystemExit(
+                "degraded acceptance failed: validate phase did not complete"
+            )
         if state["phase_status"]["report"] != "DONE":
-            raise SystemExit("degraded acceptance failed: report phase not done in state")
+            raise SystemExit(
+                "degraded acceptance failed: report phase not done in state"
+            )
         if report["stats"]["pipeline_coverage"]["report"] != "DONE":
-            raise SystemExit("degraded acceptance failed: overview/report.json does not show report DONE")
+            raise SystemExit(
+                "degraded acceptance failed: overview/report.json does not show report DONE"
+            )
         if str(meta.get("status")) != "COMPLETED":
             raise SystemExit("degraded acceptance failed: meta status not completed")
 

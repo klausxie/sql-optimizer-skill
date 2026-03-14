@@ -15,7 +15,12 @@ from ..platforms.dispatch import check_db_connectivity
 from ..run_paths import canonical_paths
 from ..subprocess_utils import run_capture_text
 from ..utils import truncate_string
-from .preflight_strategy import DbCheckPolicy, LlmCheckPolicy, ScannerCheckPolicy, build_preflight_policy
+from .preflight_strategy import (
+    DbCheckPolicy,
+    LlmCheckPolicy,
+    ScannerCheckPolicy,
+    build_preflight_policy,
+)
 
 
 def _build_check_result(
@@ -58,17 +63,23 @@ def _resolve_llm_config(config: dict[str, Any]) -> dict[str, Any]:
     return (config.get("llm", {}) or {}) if isinstance(config, dict) else {}
 
 
-def _check_db(config: dict[str, Any], policy: DbCheckPolicy | None = None) -> dict[str, Any]:
+def _check_db(
+    config: dict[str, Any], policy: DbCheckPolicy | None = None
+) -> dict[str, Any]:
     resolved = policy or build_preflight_policy(config).db
     if not resolved.enabled:
         return _build_check_result("db", enabled=False, ok=True, reason=resolved.reason)
     return check_db_connectivity(config)
 
 
-def _check_opencode(config: dict[str, Any], policy: LlmCheckPolicy | None = None) -> dict[str, Any]:
+def _check_opencode(
+    config: dict[str, Any], policy: LlmCheckPolicy | None = None
+) -> dict[str, Any]:
     resolved = policy or build_preflight_policy(config).llm
     if not resolved.enabled:
-        return _build_check_result("llm", enabled=False, ok=True, reason=resolved.reason)
+        return _build_check_result(
+            "llm", enabled=False, ok=True, reason=resolved.reason
+        )
     if not shutil.which("opencode"):
         return _build_check_result(
             "llm",
@@ -119,10 +130,14 @@ def _check_opencode(config: dict[str, Any], policy: LlmCheckPolicy | None = None
     return _build_check_result("llm", enabled=True, ok=True)
 
 
-def _check_direct_openai(config: dict[str, Any], policy: LlmCheckPolicy | None = None) -> dict[str, Any]:
+def _check_direct_openai(
+    config: dict[str, Any], policy: LlmCheckPolicy | None = None
+) -> dict[str, Any]:
     resolved = policy or build_preflight_policy(config).llm
     if not resolved.enabled:
-        return _build_check_result("llm", enabled=False, ok=True, reason=resolved.reason)
+        return _build_check_result(
+            "llm", enabled=False, ok=True, reason=resolved.reason
+        )
     llm_cfg = _resolve_llm_config(config)
     api_base = str(llm_cfg.get("api_base") or "").strip().rstrip("/")
     api_key = str(llm_cfg.get("api_key") or "").strip()
@@ -141,7 +156,7 @@ def _check_direct_openai(config: dict[str, Any], policy: LlmCheckPolicy | None =
         "temperature": 0,
         "messages": [
             {"role": "system", "content": "Return JSON only."},
-            {"role": "user", "content": "{\"ping\":true}"},
+            {"role": "user", "content": '{"ping":true}'},
         ],
     }
     headers = {
@@ -160,7 +175,9 @@ def _check_direct_openai(config: dict[str, Any], policy: LlmCheckPolicy | None =
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=max(1000, timeout_ms) / 1000.0) as resp:
+        with urllib.request.urlopen(
+            req, timeout=max(1000, timeout_ms) / 1000.0
+        ) as resp:
             body = (resp.read() or b"").decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         detail = ""
@@ -194,25 +211,17 @@ def _check_direct_openai(config: dict[str, Any], policy: LlmCheckPolicy | None =
     return _build_check_result("llm", enabled=True, ok=True)
 
 
-def _check_scanner(config: dict[str, Any], policy: ScannerCheckPolicy | None = None) -> dict[str, Any]:
+def _check_scanner(
+    config: dict[str, Any], policy: ScannerCheckPolicy | None = None
+) -> dict[str, Any]:
     resolved = policy or build_preflight_policy(config).scanner
-    if not resolved.enabled:
-        return _build_check_result("scanner", enabled=False, ok=True, reason=resolved.reason)
-    java_cfg = ((config.get("scan", {}) or {}).get("java_scanner", {}) or {})
-    jar_path = str(java_cfg.get("jar_path") or "").strip()
-    p = Path(jar_path)
-    if not p.is_absolute():
-        project_root = Path(str((config.get("project", {}) or {}).get("root_path") or ".")).resolve()
-        p = (project_root / p).resolve()
-    if not p.exists():
-        return _build_check_result(
-            "scanner",
-            enabled=True,
-            ok=False,
-            error=f"jar not found: {p}",
-            reason_code="PREFLIGHT_SCANNER_MISSING",
-        )
-    return _build_check_result("scanner", enabled=True, ok=True, extra={"jar_path": str(p)})
+    # Python scanner is always available; no JAR checks needed
+    return _build_check_result(
+        "scanner",
+        enabled=False,
+        ok=True,
+        reason=resolved.reason or "python scanner is default",
+    )
 
 
 def execute(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
@@ -222,7 +231,9 @@ def execute(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     elif policy.llm.mode == "opencode_run":
         llm_check = _check_opencode(config, policy.llm)
     else:
-        llm_check = _build_check_result("llm", enabled=False, ok=True, reason=policy.llm.reason)
+        llm_check = _build_check_result(
+            "llm", enabled=False, ok=True, reason=policy.llm.reason
+        )
     checks = [
         _check_db(config, policy.db),
         llm_check,
@@ -244,5 +255,7 @@ def execute(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
         reason_code = "PREFLIGHT_CHECK_FAILED"
         if len(failed) == 1 and failed[0].get("reason_code"):
             reason_code = str(failed[0]["reason_code"])
-        raise StageError(f"preflight failed: {'; '.join(details)}", reason_code=reason_code)
+        raise StageError(
+            f"preflight failed: {'; '.join(details)}", reason_code=reason_code
+        )
     return result

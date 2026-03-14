@@ -21,10 +21,6 @@ def _project_fixture(repo_root: Path) -> Path:
     return repo_root / "tests" / "fixtures" / "project"
 
 
-def _scanner_jar(repo_root: Path) -> Path:
-    return repo_root / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
-
-
 def _opencode_home() -> Path:
     return Path.home() / ".opencode"
 
@@ -71,7 +67,11 @@ def _strip_ansi(text: str) -> str:
 
 
 def _parse_last_dict(text: str) -> dict[str, Any]:
-    lines = [_strip_ansi(line).strip() for line in text.splitlines() if _strip_ansi(line).strip()]
+    lines = [
+        _strip_ansi(line).strip()
+        for line in text.splitlines()
+        if _strip_ansi(line).strip()
+    ]
     for line in reversed(lines):
         candidates = [line]
         start = line.find("{")
@@ -93,7 +93,9 @@ def _parse_last_dict(text: str) -> dict[str, Any]:
     return {}
 
 
-def _run(cmd: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    cmd: list[str], *, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env)
 
@@ -109,8 +111,12 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 
 
 def _verify_outputs(run_dir: Path) -> dict[str, Any]:
-    state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
-    report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
+    state = json.loads(
+        (run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8")
+    )
+    report = json.loads(
+        (run_dir / "overview" / "report.json").read_text(encoding="utf-8")
+    )
     summary = (run_dir / "overview" / "report.summary.md").read_text(encoding="utf-8")
 
     state_report = state["phase_status"]["report"]
@@ -148,9 +154,19 @@ def main() -> None:
         temp_root = Path(td)
         project_dir = temp_root / "project"
         shutil.copytree(fixture, project_dir)
-        (project_dir / "sqlopt.local.yml").write_text(_local_config_text(repo_root), encoding="utf-8")
+        (project_dir / "sqlopt.local.yml").write_text(
+            _local_config_text(repo_root), encoding="utf-8"
+        )
 
-        install_proc = _run([sys.executable, str(repo_root / "install" / "install_skill.py"), "--project", str(project_dir), "--force"])
+        install_proc = _run(
+            [
+                sys.executable,
+                str(repo_root / "install" / "install_skill.py"),
+                "--project",
+                str(project_dir),
+                "--force",
+            ]
+        )
         _require_ok(install_proc, step="install_skill")
         opencode_proc = _run(["opencode", "--version"])
         _require_ok(opencode_proc, step="opencode --version")
@@ -163,13 +179,21 @@ def main() -> None:
             commands_dir / "sql-optimizer-apply.md",
         ]
         if not all(path.exists() for path in command_docs):
-            raise SystemExit("smoke verification failed: opencode command docs missing after install")
+            raise SystemExit(
+                "smoke verification failed: opencode command docs missing after install"
+            )
 
         runtime_python = _installed_runtime_python()
         run_script = _installed_runtime_script("run_until_budget.py")
         status_script = _installed_runtime_script("run_with_resolved_id.py")
-        if not runtime_python.exists() or not run_script.exists() or not status_script.exists():
-            raise SystemExit("smoke verification failed: installed runtime scripts missing")
+        if (
+            not runtime_python.exists()
+            or not run_script.exists()
+            or not status_script.exists()
+        ):
+            raise SystemExit(
+                "smoke verification failed: installed runtime scripts missing"
+            )
 
         run_proc = _run(
             [
@@ -188,9 +212,13 @@ def main() -> None:
         )
         _require_ok(run_proc, step="installed run_until_budget")
         run_payload = _parse_last_dict(run_proc.stdout)
-        run_id = str(run_payload.get("run_id") or "").strip() or _latest_run_id(project_dir)
+        run_id = str(run_payload.get("run_id") or "").strip() or _latest_run_id(
+            project_dir
+        )
         if not run_id:
-            raise SystemExit("smoke verification failed: missing run_id from installed runtime output")
+            raise SystemExit(
+                "smoke verification failed: missing run_id from installed runtime output"
+            )
 
         status_proc = _run(
             [
@@ -207,7 +235,9 @@ def main() -> None:
         _require_ok(status_proc, step="installed status")
         status_payload = _parse_last_dict(status_proc.stdout)
         if str(status_payload.get("run_status")) != "COMPLETED":
-            raise SystemExit(f"smoke verification failed: status not completed (run_id={run_id})")
+            raise SystemExit(
+                f"smoke verification failed: status not completed (run_id={run_id})"
+            )
 
         run_dir = project_dir / "runs" / run_id
         verification = _verify_outputs(run_dir)

@@ -320,6 +320,30 @@ def _perform_scan(
     return units, warnings
 
 
+def run_scan(
+    config: dict[str, Any],
+    run_dir: Path,
+    manifest_path: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Public API for scanning MyBatis mappers.
+
+    This function provides backward compatibility with the legacy scanner_java.run_scan API.
+
+    Args:
+        config: Configuration dict with project.root_path and scan.mapper_globs
+        run_dir: Run directory path
+        manifest_path: Path to manifest.jsonl
+
+    Returns:
+        Tuple of (units, warnings)
+    """
+    project_root = Path(
+        str((config.get("project", {}) or {}).get("root_path") or ".")
+    ).resolve()
+    mapper_globs = config.get("scan", {}).get("mapper_globs", [])
+    return _perform_scan(project_root, mapper_globs, manifest_path)
+
+
 def execute(
     config: dict[str, Any], run_dir: Path, validator: ContractValidator
 ) -> list[dict[str, Any]]:
@@ -337,7 +361,7 @@ def execute(
     fragments_path = run_dir / "scan.fragments.jsonl"
 
     discovered_count = _discover_statement_count(project_root, mapper_globs)
-    units, warnings = _perform_scan(project_root, mapper_globs, manifest_path)
+    units, warnings = run_scan(config, run_dir, manifest_path)
 
     if not units:
         for w in warnings:

@@ -4,14 +4,6 @@ project:
 scan:
   mapper_globs:
     - src/main/resources/**/*.xml
-  java_scanner:
-    jar_path: /Users/klaus/.opencode/skills/sql-optimizer/runtime/java/scan-agent/target/scan-agent-1.0.0.jar
-  class_resolution:
-    mode: tolerant
-    enable_classpath_probe: true
-    enable_type_sanitize: true
-    statement_level_recovery: true
-    min_success_ratio: 0.9
 
 db:
   platform: postgresql

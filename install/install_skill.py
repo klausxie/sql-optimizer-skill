@@ -18,7 +18,9 @@ def _bootstrap() -> None:
         if path.exists():
             sys.path.insert(0, str(path))
             return
-    raise SystemExit("cannot locate python runtime (expected ./python or ./runtime/python)")
+    raise SystemExit(
+        "cannot locate python runtime (expected ./python or ./runtime/python)"
+    )
 
 
 _bootstrap()
@@ -45,8 +47,14 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--project", default=".")
     p.add_argument("--force", action="store_true")
-    p.add_argument("--verify", action="store_true", help="verify installed CLI and PATH only")
-    p.add_argument("--no-auto-path", action="store_true", help="skip automatic PATH update during install")
+    p.add_argument(
+        "--verify", action="store_true", help="verify installed CLI and PATH only"
+    )
+    p.add_argument(
+        "--no-auto-path",
+        action="store_true",
+        help="skip automatic PATH update during install",
+    )
     return p.parse_args()
 
 
@@ -55,7 +63,7 @@ def _cli_wrapper_path(target_skill: Path) -> Path:
 
 
 def _normalize_path_text(raw_path: str, *, windows: bool) -> str:
-    clean = raw_path.strip().strip("\"").strip("'")
+    clean = raw_path.strip().strip('"').strip("'")
     if not clean:
         return ""
     normalized = os.path.normpath(clean)
@@ -119,7 +127,9 @@ def _auto_add_path_windows(bin_dir: Path) -> tuple[bool, str]:
         except FileNotFoundError:
             current_user_path = ""
 
-        updated_user_path = _prepend_path_entry(str(current_user_path or ""), bin_dir, windows=True)
+        updated_user_path = _prepend_path_entry(
+            str(current_user_path or ""), bin_dir, windows=True
+        )
         if updated_user_path != str(current_user_path or ""):
             winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, updated_user_path)
 
@@ -142,16 +152,15 @@ def _auto_add_path_unix(bin_dir: Path) -> tuple[bool, str]:
         existing = rc_file.read_text(encoding="utf-8") if rc_file.exists() else ""
         if entry_text not in existing:
             prefix = "" if existing.endswith("\n") or not existing else "\n"
-            block = (
-                f"{prefix}# sql-optimizer skill\n"
-                f"{export_line}\n"
-            )
+            block = f"{prefix}# sql-optimizer skill\n{export_line}\n"
             rc_file.parent.mkdir(parents=True, exist_ok=True)
             with rc_file.open("a", encoding="utf-8") as fh:
                 fh.write(block)
 
         current_process = os.environ.get("PATH", "")
-        os.environ["PATH"] = _prepend_path_entry(current_process, bin_dir, windows=False)
+        os.environ["PATH"] = _prepend_path_entry(
+            current_process, bin_dir, windows=False
+        )
         return True, f"updated {rc_file}"
     except Exception as exc:
         return False, str(exc)
@@ -185,10 +194,12 @@ def _print_path_hint(bin_dir: Path, *, auto_add: bool) -> bool:
         print("add to PATH parameter:")
         print(f"  {bin_dir}")
         print("add to PATH (PowerShell current session):")
-        print(f"  $env:Path = \"{bin_dir};$env:Path\"")
+        print(f'  $env:Path = "{bin_dir};$env:Path"')
         print("add to PATH (PowerShell persistent, new terminals):")
         print("  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')")
-        print(f"  [Environment]::SetEnvironmentVariable('Path', '{escaped};' + $userPath, 'User')")
+        print(
+            f"  [Environment]::SetEnvironmentVariable('Path', '{escaped};' + $userPath, 'User')"
+        )
         print("then reopen PowerShell")
         print("cmd current session:")
         print(f"  set PATH={bin_dir};%PATH%")
@@ -209,15 +220,22 @@ def _run_cli_self_check(wrapper: Path) -> tuple[bool, str]:
         return False, f"wrapper missing: {wrapper}"
     cmd = cli_run_command(wrapper, "--help")
     try:
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=20)
+        proc = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=20
+        )
     except (FileNotFoundError, OSError) as exc:
         return False, f"runtime missing: {exc}"
     except subprocess.TimeoutExpired:
         return False, "self-check timeout (>20s)"
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip() or f"exit code {proc.returncode}"
+        detail = (
+            proc.stderr or proc.stdout or ""
+        ).strip() or f"exit code {proc.returncode}"
         return False, detail
-    first_line = next((line.strip() for line in (proc.stdout or "").splitlines() if line.strip()), "ok")
+    first_line = next(
+        (line.strip() for line in (proc.stdout or "").splitlines() if line.strip()),
+        "ok",
+    )
     return True, first_line
 
 
@@ -255,15 +273,17 @@ def _copy_runtime(root_dir: Path, target_skill: Path) -> None:
         shutil.copy2(pyproject, target_runtime / "pyproject.toml")
     install_dir = target_runtime / "install"
     install_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(root_dir / "install" / "requirements.txt", install_dir / "requirements.txt")
+    shutil.copy2(
+        root_dir / "install" / "requirements.txt", install_dir / "requirements.txt"
+    )
 
 
 def _get_python_command(target_skill: Path) -> str:
     """Get the Python command path for the target skill's venv."""
     if sys.platform.startswith("win"):
-        return str(target_skill / 'runtime' / '.venv' / 'Scripts' / 'python.exe')
+        return str(target_skill / "runtime" / ".venv" / "Scripts" / "python.exe")
     else:
-        return str(target_skill / 'runtime' / '.venv' / 'bin' / 'python')
+        return str(target_skill / "runtime" / ".venv" / "bin" / "python")
 
 
 def _generate_command_doc(
@@ -304,18 +324,22 @@ def _generate_command_doc(
         "命令结束后，仅返回 bash 的原始输出。",
     ]
     if usage_hint:
-        lines.extend([
-            "",
-            "## 常用参数",
-            "",
-            f"{usage_hint}",
-        ])
+        lines.extend(
+            [
+                "",
+                "## 常用参数",
+                "",
+                f"{usage_hint}",
+            ]
+        )
     if examples:
-        lines.extend([
-            "",
-            "## 使用示例",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## 使用示例",
+                "",
+            ]
+        )
         for example in examples:
             lines.append(f"- {example}")
     lines.append("")
@@ -357,8 +381,12 @@ def _write_commands(target_skill: Path) -> None:
 
     # Get paths
     py_cmd = _get_python_command(target_skill)
-    run_budget_script = str(target_skill / 'runtime' / 'scripts' / 'run_until_budget.py')
-    resolved_id_script = str(target_skill / 'runtime' / 'scripts' / 'run_with_resolved_id.py')
+    run_budget_script = str(
+        target_skill / "runtime" / "scripts" / "run_until_budget.py"
+    )
+    resolved_id_script = str(
+        target_skill / "runtime" / "scripts" / "run_with_resolved_id.py"
+    )
 
     # Define all commands in a structured way
     commands = [
@@ -430,14 +458,15 @@ def _write_commands(target_skill: Path) -> None:
     (cmd_dir / "sql-optimizer-verify.md").unlink(missing_ok=True)
 
 
-def _create_project_config(root_dir: Path, target_skill: Path, project_dir: Path) -> None:
+def _create_project_config(
+    root_dir: Path, target_skill: Path, project_dir: Path
+) -> None:
     template = root_dir / "templates" / "sqlopt.example.yml"
     config_path = project_dir / "sqlopt.yml"
     if not template.exists() or config_path.exists():
         return
-    scanner_jar = normalize_jar_path_for_yaml(target_skill / "runtime" / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar")
     text = template.read_text(encoding="utf-8")
-    config_path.write_text(replace_template_var(text, "__SCANNER_JAR__", scanner_jar), encoding="utf-8")
+    config_path.write_text(text, encoding="utf-8")
     print(f"created project config: {config_path}")
 
 
@@ -463,7 +492,7 @@ def main() -> None:
         else:
             backup_root = opencode_home() / "skill_backups" / SKILL_NAME
             backup_root.mkdir(parents=True, exist_ok=True)
-            backup = backup_root / datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup = backup_root / datetime.now().strftime("%Y%m%d_%H%M%S")
             target_skill.rename(backup)
             print(f"existing skill moved to: {backup}")
 
@@ -479,7 +508,17 @@ def main() -> None:
     run_cmd([sys.executable, "-m", "venv", str(runtime_dir / ".venv")])
     py = venv_python(runtime_dir)
     run_cmd([str(py), "-m", "pip", "install", "--upgrade", "pip"], quiet=True)
-    run_cmd([str(py), "-m", "pip", "install", "-r", str(runtime_dir / "install" / "requirements.txt")], quiet=True)
+    run_cmd(
+        [
+            str(py),
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(runtime_dir / "install" / "requirements.txt"),
+        ],
+        quiet=True,
+    )
 
     wrapper = write_cli_wrapper(target_skill)
     _write_commands(target_skill)
@@ -489,9 +528,13 @@ def main() -> None:
     print(f"skill dir: {target_skill}")
     print(f"project dir: {project_dir}")
     if sys.platform.startswith("win"):
-        print(f"next: python {root_dir / 'install' / 'doctor.py'} --project {project_dir}")
+        print(
+            f"next: python {root_dir / 'install' / 'doctor.py'} --project {project_dir}"
+        )
     else:
-        print(f"next: bash {root_dir / 'install' / 'doctor.sh'} --project {project_dir}")
+        print(
+            f"next: bash {root_dir / 'install' / 'doctor.sh'} --project {project_dir}"
+        )
 
     print(f"cli: {wrapper}")
     path_ok = _print_path_hint(wrapper.parent, auto_add=not args.no_auto_path)

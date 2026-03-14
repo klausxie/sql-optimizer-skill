@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from sqlopt.adapters.scanner_java import run_scan
+from sqlopt.stages.scan import run_scan
 from sqlopt.contracts import ContractValidator
 from sqlopt.io_utils import read_jsonl, write_jsonl
 from sqlopt.platforms.sql.validator_sql import validate_proposal
@@ -38,7 +38,11 @@ ROADMAP_THEMES = {
 VALIDATE_STATUSES = {"PASS", "NEED_MORE_PARAMS", "FAIL"}
 SEMANTIC_TARGETS = {"PASS", "UNCERTAIN", "BLOCKED", "FAIL"}
 PATCHABILITY_TARGETS = {"READY", "REVIEW", "BLOCKED"}
-VALIDATE_EVIDENCE_MODES = {"compare_disabled", "exact_match_improved", "rowcount_mismatch"}
+VALIDATE_EVIDENCE_MODES = {
+    "compare_disabled",
+    "exact_match_improved",
+    "rowcount_mismatch",
+}
 BLOCKER_FAMILIES = {"READY", "SECURITY", "SEMANTIC", "TEMPLATE_UNSUPPORTED"}
 
 
@@ -58,13 +62,21 @@ def summarize_fixture_scenarios(scenarios: list[dict]) -> dict[str, object]:
         roadmap_stage = str(row.get("roadmapStage") or "")
         roadmap_theme = str(row.get("roadmapTheme") or "")
         if scenario_class:
-            scenario_class_counts[scenario_class] = scenario_class_counts.get(scenario_class, 0) + 1
+            scenario_class_counts[scenario_class] = (
+                scenario_class_counts.get(scenario_class, 0) + 1
+            )
         if blocker_family:
-            blocker_family_counts[blocker_family] = blocker_family_counts.get(blocker_family, 0) + 1
+            blocker_family_counts[blocker_family] = (
+                blocker_family_counts.get(blocker_family, 0) + 1
+            )
         if roadmap_stage:
-            roadmap_stage_counts[roadmap_stage] = roadmap_stage_counts.get(roadmap_stage, 0) + 1
+            roadmap_stage_counts[roadmap_stage] = (
+                roadmap_stage_counts.get(roadmap_stage, 0) + 1
+            )
         if roadmap_theme:
-            roadmap_theme_counts[roadmap_theme] = roadmap_theme_counts.get(roadmap_theme, 0) + 1
+            roadmap_theme_counts[roadmap_theme] = (
+                roadmap_theme_counts.get(roadmap_theme, 0) + 1
+            )
         if roadmap_stage == "NEXT":
             next_target_sql_keys.append(str(row.get("sqlKey") or ""))
     return {
@@ -88,19 +100,27 @@ def scan_fixture_project() -> tuple[list[dict], dict[str, dict], dict[str, dict]
             },
             "db": {"platform": "postgresql"},
         }
-        units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+        units, warnings = run_scan(
+            config, run_dir, run_dir / "pipeline" / "manifest.jsonl"
+        )
         fragments = read_jsonl(run_dir / "pipeline" / "scan" / "fragments.jsonl")
 
     if warnings:
         raise AssertionError(f"unexpected scan warnings: {warnings}")
 
     units_by_key = {str(row["sqlKey"]): row for row in units}
-    fragment_catalog = {str(row.get("fragmentKey") or ""): row for row in fragments if str(row.get("fragmentKey") or "").strip()}
+    fragment_catalog = {
+        str(row.get("fragmentKey") or ""): row
+        for row in fragments
+        if str(row.get("fragmentKey") or "").strip()
+    }
     return units, units_by_key, fragment_catalog
 
 
 def semantic_gate_bucket(result: dict) -> str:
-    feedback_code = str(((result.get("feedback") or {}).get("reason_code") or "")).strip()
+    feedback_code = str(
+        ((result.get("feedback") or {}).get("reason_code") or "")
+    ).strip()
     if feedback_code.startswith("VALIDATE_SECURITY_"):
         return "BLOCKED"
     gate = result.get("semanticEquivalence") or {}
@@ -108,7 +128,9 @@ def semantic_gate_bucket(result: dict) -> str:
 
 
 def patchability_bucket(result: dict) -> str:
-    feedback_code = str(((result.get("feedback") or {}).get("reason_code") or "")).strip()
+    feedback_code = str(
+        ((result.get("feedback") or {}).get("reason_code") or "")
+    ).strip()
     if feedback_code.startswith("VALIDATE_SECURITY_"):
         return "BLOCKED"
     patchability = result.get("patchability") or {}
@@ -127,7 +149,9 @@ def primary_blocker(result: dict) -> str | None:
     code = str(patchability.get("blockingReason") or "").strip()
     if code:
         return code
-    feedback_code = str(((result.get("feedback") or {}).get("reason_code") or "")).strip()
+    feedback_code = str(
+        ((result.get("feedback") or {}).get("reason_code") or "")
+    ).strip()
     if feedback_code:
         return feedback_code
     gate = result.get("semanticEquivalence") or {}
@@ -136,12 +160,21 @@ def primary_blocker(result: dict) -> str | None:
 
 
 def validate_blocker_family(result: dict) -> str:
-    if bool((result.get("patchability") or {}).get("eligible")) or str(result.get("status") or "").upper() == "PASS":
+    if (
+        bool((result.get("patchability") or {}).get("eligible"))
+        or str(result.get("status") or "").upper() == "PASS"
+    ):
         return "READY"
-    feedback_code = str(((result.get("feedback") or {}).get("reason_code") or "")).strip().upper()
+    feedback_code = (
+        str(((result.get("feedback") or {}).get("reason_code") or "")).strip().upper()
+    )
     if feedback_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
         return "SECURITY"
-    gate_status = str(((result.get("semanticEquivalence") or {}).get("status") or "")).strip().upper()
+    gate_status = (
+        str(((result.get("semanticEquivalence") or {}).get("status") or ""))
+        .strip()
+        .upper()
+    )
     if gate_status == "FAIL" or str(result.get("status") or "").upper() == "FAIL":
         return "SEMANTIC"
     return "TEMPLATE_UNSUPPORTED"
@@ -150,10 +183,16 @@ def validate_blocker_family(result: dict) -> str:
 def patch_blocker_family(patch: dict) -> str:
     if patch.get("strategyType") or patch.get("applicable") is True:
         return "READY"
-    reason_code = str(((patch.get("selectionReason") or {}).get("code") or "")).strip().upper()
+    reason_code = (
+        str(((patch.get("selectionReason") or {}).get("code") or "")).strip().upper()
+    )
     if reason_code == "PATCH_VALIDATION_BLOCKED_SECURITY":
         return "SECURITY"
-    gate_status = str(((patch.get("gates") or {}).get("semanticEquivalenceStatus") or "")).strip().upper()
+    gate_status = (
+        str(((patch.get("gates") or {}).get("semanticEquivalenceStatus") or ""))
+        .strip()
+        .upper()
+    )
     if reason_code == "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS" or gate_status == "FAIL":
         return "SEMANTIC"
     return "TEMPLATE_UNSUPPORTED"
@@ -194,7 +233,9 @@ def fake_semantics_for_mode(mode: str) -> dict:
             "keySetHash": {"status": "MATCH"},
             "rowSampleHash": {"status": "MATCH"},
             "evidenceRefs": [],
-            "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            "evidenceRefObjects": [
+                {"source": "DB_FINGERPRINT", "match_strength": "EXACT"}
+            ],
         }
     if mode == "rowcount_mismatch":
         return {
@@ -204,7 +245,9 @@ def fake_semantics_for_mode(mode: str) -> dict:
             "keySetHash": {"status": "MISMATCH"},
             "rowSampleHash": {"status": "MISMATCH"},
             "evidenceRefs": [],
-            "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "PARTIAL"}],
+            "evidenceRefObjects": [
+                {"source": "DB_FINGERPRINT", "match_strength": "PARTIAL"}
+            ],
         }
     raise AssertionError(mode)
 
@@ -248,17 +291,44 @@ def validate_fixture_scenario(
     with tempfile.TemporaryDirectory(prefix="sqlopt_fixture_validate_") as td:
         evidence_dir = Path(td)
         if mode == "compare_disabled":
-            result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir, fragment_catalog=fragment_catalog)
+            result = validate_proposal(
+                unit,
+                proposal,
+                True,
+                config=config,
+                evidence_dir=evidence_dir,
+                fragment_catalog=fragment_catalog,
+            )
         else:
-            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", return_value=fake_semantics_for_mode(mode)), patch(
-                "sqlopt.platforms.sql.validator_sql.compare_plan",
-                return_value=fake_plan_for_mode(mode),
+            with (
+                patch(
+                    "sqlopt.platforms.sql.validator_sql.compare_semantics",
+                    return_value=fake_semantics_for_mode(mode),
+                ),
+                patch(
+                    "sqlopt.platforms.sql.validator_sql.compare_plan",
+                    return_value=fake_plan_for_mode(mode),
+                ),
             ):
-                result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir, fragment_catalog=fragment_catalog)
+                result = validate_proposal(
+                    unit,
+                    proposal,
+                    True,
+                    config=config,
+                    evidence_dir=evidence_dir,
+                    fragment_catalog=fragment_catalog,
+                )
     return proposal, result.to_contract()
 
 
-def run_fixture_validate_harness() -> tuple[list[dict], list[dict], list[dict], dict[str, dict], dict[str, dict], dict[str, dict]]:
+def run_fixture_validate_harness() -> tuple[
+    list[dict],
+    list[dict],
+    list[dict],
+    dict[str, dict],
+    dict[str, dict],
+    dict[str, dict],
+]:
     scenarios = load_fixture_scenarios()
     units, units_by_key, fragment_catalog = scan_fixture_project()
     proposals: list[dict] = []
@@ -274,11 +344,27 @@ def run_fixture_validate_harness() -> tuple[list[dict], list[dict], list[dict], 
         proposals.append(proposal)
         acceptance_rows.append(acceptance)
         acceptance_by_key[str(scenario["sqlKey"])] = acceptance
-    return scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, fragment_catalog
+    return (
+        scenarios,
+        proposals,
+        acceptance_rows,
+        units_by_key,
+        acceptance_by_key,
+        fragment_catalog,
+    )
 
 
-def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list[dict], list[dict], object]:
-    scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, _fragment_catalog = run_fixture_validate_harness()
+def run_fixture_patch_and_report_harness() -> tuple[
+    list[dict], list[dict], list[dict], list[dict], object
+]:
+    (
+        scenarios,
+        proposals,
+        acceptance_rows,
+        units_by_key,
+        acceptance_by_key,
+        _fragment_catalog,
+    ) = run_fixture_validate_harness()
     validator = ContractValidator(ROOT)
 
     with tempfile.TemporaryDirectory(prefix="sqlopt_fixture_patch_") as td:
@@ -302,8 +388,16 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
                 validator,
                 config=patch_config,
             )
-            patch_files = [Path(str(x)) for x in (patch_row.get("patchFiles") or []) if str(x).strip()]
-            patch_texts = [path.read_text(encoding="utf-8") for path in patch_files if path.exists()]
+            patch_files = [
+                Path(str(x))
+                for x in (patch_row.get("patchFiles") or [])
+                if str(x).strip()
+            ]
+            patch_texts = [
+                path.read_text(encoding="utf-8")
+                for path in patch_files
+                if path.exists()
+            ]
             patch_row["_patchTexts"] = patch_texts
             patches.append(patch_row)
 
