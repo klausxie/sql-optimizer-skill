@@ -11,7 +11,7 @@ __pycache__/
 venv/
 
 # Build artifacts
-java/**/target/
+dist/
 
 # Local runtime data
 .opencode-data/
