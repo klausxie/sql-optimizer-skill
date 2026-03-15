@@ -77,3 +77,9 @@ sqlopt-cli run --config sqlopt.yml \
 python3 -m pytest -q
 python3 scripts/ci/release_acceptance.py
 ```
+
+## 架构设计
+
+- **功能全景图**：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 完整功能架构和执行流程
+
+> 推荐先阅读功能全景图，了解整体设计后再深入其他文档。
