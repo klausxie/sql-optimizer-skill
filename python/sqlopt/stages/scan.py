@@ -470,33 +470,32 @@ def execute(
         fragments_path=fragments_path,
     )
 
-    # Export branches
+    # Export branches (streaming write to reduce memory)
     export_cfg = branch_cfg.get("export", {})
     if export_cfg.get("enabled", True):
         export_path = export_cfg.get("path", "branches.jsonl")
         branches_file = run_dir / export_path
-        branch_records = []
-        for unit in units:
-            unit_branches = unit.get("branches", [])
-            template_sql = unit.get("templateSql", unit.get("sql", ""))
-            for branch in unit_branches:
-                branch_record = {
-                    "sqlKey": unit.get("sqlKey"),
-                    "templateSql": template_sql,
-                    "xmlPath": unit.get("xmlPath"),
-                    "namespace": unit.get("namespace"),
-                    "statementId": unit.get("statementId"),
-                    "branch": branch,
-                }
-                branch_records.append(branch_record)
+        branch_count = 0
         with branches_file.open("w", encoding="utf-8") as f:
-            for record in branch_records:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            for unit in units:
+                unit_branches = unit.get("branches", [])
+                template_sql = unit.get("templateSql", unit.get("sql", ""))
+                for branch in unit_branches:
+                    branch_record = {
+                        "sqlKey": unit.get("sqlKey"),
+                        "templateSql": template_sql,
+                        "xmlPath": unit.get("xmlPath"),
+                        "namespace": unit.get("namespace"),
+                        "statementId": unit.get("statementId"),
+                        "branch": branch,
+                    }
+                    f.write(json.dumps(branch_record, ensure_ascii=False) + "\n")
+                    branch_count += 1
         log_event(
             manifest_path,
             "branch_export",
             "done",
-            {"path": str(branches_file), "count": len(branch_records)},
+            {"path": str(branches_file), "count": branch_count},
         )
 
     for fragment in read_jsonl(fragments_path):
