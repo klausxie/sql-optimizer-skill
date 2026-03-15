@@ -7,9 +7,10 @@ from uuid import uuid4
 from ..config import load_config
 from ..contracts import ContractValidator
 from ..manifest import log_event
+from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
 from ..stages import apply as apply_stage
-from . import run_index, workflow_engine
+from . import config_service, run_index, workflow_engine
 from .run_selection import apply_selection_to_config, normalize_run_selection, selection_matches
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
@@ -33,6 +34,13 @@ def start_run(
         sql_keys=list((selection or {}).get("sql_keys") or []),
     )
     config = apply_selection_to_config(config, normalized_selection)
+    runtime_checks = config_service.prepare_runtime_prerequisites(
+        config,
+        to_stage=to_stage,
+        config_path=config_path,
+    )
+    if runtime_checks.get("warning"):
+        get_progress_reporter().report_warning(str(runtime_checks["warning"]))
     resolved_run_id = run_id or f"run_{uuid4().hex[:12]}"
     runs_root = workflow_engine.runs_root(config)
     run_dir = runs_root / resolved_run_id
@@ -73,6 +81,14 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     config = load_config(paths.config_resolved_path)
     repository = RunRepository(run_dir)
     plan = repository.get_plan()
+    runtime_checks = config_service.prepare_runtime_prerequisites(
+        config,
+        to_stage=str(plan.get("to_stage", "patch_generate")),
+        config_path=paths.config_resolved_path,
+    )
+    if runtime_checks.get("warning"):
+        get_progress_reporter().report_warning(str(runtime_checks["warning"]))
+    repository.write_resolved_config(config)
     validator = ContractValidator(repo_root)
     return workflow_engine.advance_one_step_request(
         AdvanceStepRequest(

@@ -4,6 +4,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from ..utils import statement_key
+
 
 def _normalize_relative_project_path(project_root: Path, raw_path: str) -> str:
     text = str(raw_path or "").strip()
@@ -98,17 +100,78 @@ def selection_scope(plan: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _selection_aliases(unit: dict[str, Any]) -> set[str]:
+    sql_key = str(unit.get("sqlKey") or "").strip()
+    statement_id = str(unit.get("statementId") or "").strip()
+    variant_id = str(unit.get("variantId") or "").strip()
+    aliases = {sql_key}
+    stmt_key = statement_key(sql_key) if sql_key else ""
+    if stmt_key:
+        aliases.add(stmt_key)
+    if statement_id:
+        aliases.add(statement_id)
+        if variant_id:
+            aliases.add(f"{statement_id}#{variant_id}")
+    return {alias for alias in aliases if alias}
+
+
+def _suffix_matches(unit: dict[str, Any], requested: str) -> bool:
+    candidate = str(requested or "").strip()
+    if not candidate:
+        return False
+    for alias in _selection_aliases(unit):
+        if alias.endswith(f".{candidate}"):
+            return True
+    return False
+
+
 def filter_units_by_sql_keys(
     units: list[dict[str, Any]],
     sql_keys: list[str] | None,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, Any]], list[str], dict[str, list[str]]]:
     requested = [str(row).strip() for row in (sql_keys or []) if str(row).strip()]
     if not requested:
-        return list(units), []
-    units_by_key = {str(row.get("sqlKey") or ""): row for row in units if str(row.get("sqlKey") or "").strip()}
-    selected = [units_by_key[key] for key in requested if key in units_by_key]
-    missing = [key for key in requested if key not in units_by_key]
-    return selected, missing
+        return list(units), [], {}
+
+    alias_map: dict[str, list[dict[str, Any]]] = {}
+    ordered_units = [row for row in units if str(row.get("sqlKey") or "").strip()]
+    for unit in ordered_units:
+        for alias in _selection_aliases(unit):
+            alias_map.setdefault(alias, []).append(unit)
+
+    selected: list[dict[str, Any]] = []
+    selected_keys: set[str] = set()
+    missing: list[str] = []
+    ambiguous: dict[str, list[str]] = {}
+
+    for token in requested:
+        matches = list(alias_map.get(token) or [])
+        if not matches:
+            matches = [unit for unit in ordered_units if _suffix_matches(unit, token)]
+
+        deduped: list[dict[str, Any]] = []
+        seen_sql_keys: set[str] = set()
+        for unit in matches:
+            sql_key = str(unit.get("sqlKey") or "").strip()
+            if not sql_key or sql_key in seen_sql_keys:
+                continue
+            seen_sql_keys.add(sql_key)
+            deduped.append(unit)
+
+        if not deduped:
+            missing.append(token)
+            continue
+        if len(deduped) > 1:
+            ambiguous[token] = [str(unit.get("sqlKey") or "") for unit in deduped]
+            continue
+
+        matched = deduped[0]
+        sql_key = str(matched.get("sqlKey") or "").strip()
+        if sql_key and sql_key not in selected_keys:
+            selected.append(matched)
+            selected_keys.add(sql_key)
+
+    return selected, missing, ambiguous
 
 
 def finalize_selection_summary(

@@ -91,6 +91,43 @@ cat runs/index.json
 
 ---
 
+## SCAN_SELECTION_SQL_KEY_NOT_FOUND / SCAN_SELECTION_SQL_KEY_AMBIGUOUS
+
+现象：
+- `--sql-key findUsers` 报未匹配或匹配多个 SQL
+
+诊断命令：
+
+```bash
+sqlopt-cli run --config sqlopt.yml --to-stage scan --sql-key findUsers
+```
+
+修复动作：
+- `--sql-key` 可使用完整 `sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`
+- 如果只给方法名且命中多个 SQL，改用更具体的 `namespace.statementId` 或完整 `sqlKey`
+- 必要时配合 `--mapper-path` 缩小扫描范围
+
+---
+
+## DB_CONNECTION_FAILED
+
+现象：
+- `validate-config` 或 DB-backed run 在开始前直接报数据库连接失败
+
+诊断命令：
+
+```bash
+sqlopt-cli validate-config --config sqlopt.yml
+```
+
+修复动作：
+- 先检查 `db.platform` 是否与实际数据库一致
+- 检查 `db.dsn` 是否仍包含 `<user>`、`<password>`、`<database>` 等占位符
+- 修正用户名、密码、主机、端口、库名后重试
+- 需要更细的连接确认时，直接用对应客户端手工连接同一个 DSN
+
+---
+
 ## RUNTIME_STAGE_TIMEOUT / RUNTIME_RETRY_EXHAUSTED
 
 现象：

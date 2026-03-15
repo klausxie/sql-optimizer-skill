@@ -111,32 +111,48 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
             "name": "sql-scan",
             "description": "扫描并识别潜在慢 SQL",
             "argument_hint": "范围=SQL ID或文件路径",
-            "full_description": "扫描 MyBatis XML 文件，识别潜在的慢 SQL。只输出慢 SQL 列表，不做深度优化建议。",
+            "full_description": "扫描 MyBatis XML 文件并确认当前选择范围。`--sql-key` 支持完整 sqlKey、namespace.statementId、statementId、statementId#vN；如果命中多个 SQL，会返回候选 full key。",
             "parameters": [
                 {
                     "name": "范围",
                     "required": False,
                     "default": None,
-                    "description": "SQL ID、文件路径或配置文件，如 findUsers、UserMapper.xml、@sql-list.txt",
+                    "description": "SQL ID、完整 sqlKey、文件路径或配置文件，如 findUsers、demo.user.findUsers#v1、UserMapper.xml、@sql-list.txt",
                 },
             ],
             "examples": [
                 f"{cli_cmd} run --to-stage scan --sql-key findUsers",
                 f"{cli_cmd} run --to-stage scan --mapper-path UserMapper.xml",
             ],
-            "interaction": "扫描完成后，Agent 必须提示用户：'是否执行这些 SQL 获取性能数据？'",
         },
         {
-            "name": "sql-execute",
-            "description": "执行 SQL 获取性能数据",
+            "name": "sql-validate-config",
+            "description": "验证配置与数据库连通性",
             "argument_hint": "config=./sqlopt.yml",
-            "full_description": "在数据库上执行扫描发现的慢 SQL，收集实际执行时间、EXPLAIN 结果等性能数据。",
+            "full_description": "检查 sqlopt.yml、mapper 匹配结果和数据库连通性。遇到占位符 DSN、认证失败或数据库不可达时，先修配置再继续 full run。",
             "parameters": [
                 {
                     "name": "config",
                     "required": False,
                     "default": "./sqlopt.yml",
-                    "description": "配置文件路径（需包含数据库 DSN）",
+                    "description": "配置文件路径",
+                },
+            ],
+            "examples": [
+                f"{cli_cmd} validate-config --config ./sqlopt.yml",
+            ],
+        },
+        {
+            "name": "sql-execute",
+            "description": "推进到 validate 阶段",
+            "argument_hint": "config=./sqlopt.yml",
+            "full_description": "继续推进当前 run 到 validate 阶段并尝试收集数据库验证证据。当前 CLI 没有 scan 之后的额外交互确认；调用此命令本身就表示继续。",
+            "parameters": [
+                {
+                    "name": "config",
+                    "required": False,
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径（需已通过 validate-config）",
                 },
             ],
             "examples": [
@@ -144,10 +160,10 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
             ],
         },
         {
-            "name": "sql-analyze",
-            "description": "分析执行结果确认瓶颈",
+            "name": "sql-status",
+            "description": "查看运行状态与下一步",
             "argument_hint": "run-id=<运行ID>",
-            "full_description": "分析执行结果，确认真正的慢 SQL 及其性能瓶颈（全表扫描、索引缺失、N+1问题等）。",
+            "full_description": "查看当前 run 的 phase、next_action、剩余语句数，以及是否需要 report-rebuild。它是观察入口，不是独立计算阶段。",
             "parameters": [
                 {
                     "name": "run-id",
@@ -164,7 +180,7 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
             "name": "sql-optimize",
             "description": "生成优化建议",
             "argument_hint": "run-id=<运行ID>",
-            "full_description": "根据分析结果生成针对性优化建议。简单场景用规则优化，复杂场景用 LLM 优化。",
+            "full_description": "启动或继续到 optimize 阶段，用于先生成 rewrite 候选而不继续进入 validate/patch。",
             "parameters": [
                 {
                     "name": "run-id",
@@ -179,9 +195,9 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
         },
         {
             "name": "sql-apply",
-            "description": "生成并应用 XML 补丁",
+            "description": "应用已生成的补丁",
             "argument_hint": "run-id=<运行ID>",
-            "full_description": "根据优化建议生成 MyBatis XML 补丁，用户确认后应用到项目。",
+            "full_description": "应用已生成的 `.patch` 文件。默认 PATCH_ONLY 模式不会直接改源码；如果没有 patch 文件，输出会明确给出 skipped reason 汇总。",
             "parameters": [
                 {
                     "name": "run-id",
@@ -247,27 +263,31 @@ argument-hint: {cmd["argument_hint"]}
 - `.git/` - Git 目录
 - `node_modules/` - Node.js 依赖
 
+### SQL Key 选择
+
+- 支持完整 `sqlKey`
+- 支持 `namespace.statementId`
+- 支持 `statementId`
+- 支持 `statementId#vN`
+- 如果一个方法名匹配多个 SQL，CLI 会返回候选 full key，而不是自动猜测
+
 """
 
         # 添加下一步建议
         next_steps = {
-            "sql-scan": ("sql-execute", "⚠️ 必须提示用户确认执行"),
-            "sql-execute": ("sql-analyze", None),
-            "sql-analyze": ("sql-optimize", None),
-            "sql-optimize": ("sql-apply", None),
+            "sql-scan": ("sql-validate-config", "如果下一步要进入 validate/report，先确认数据库配置"),
+            "sql-validate-config": ("sql-execute", "配置通过后再推进到 validate"),
+            "sql-execute": ("sql-status", "查看 next_action、report-rebuild 和 validate 结果"),
+            "sql-status": ("sql-apply", "仅当 patch 结果里存在 patchFiles"),
+            "sql-optimize": ("sql-execute", "需要数据库验证时再继续"),
             "sql-apply": (None, "流程完成"),
         }
 
         content += "## 下一步建议\n\n"
         next_cmd, condition = next_steps.get(cmd["name"], (None, None))
         if next_cmd:
-            if condition and condition.startswith("⚠️"):
-                # 特殊提示，需要单独显示
-                content += f"{condition}\n\n"
-                content += f"用户确认后 → 执行 `/{next_cmd}`\n"
-            else:
-                cond_text = f" ({condition})" if condition else ""
-                content += f"本阶段完成后 → 执行 `/{next_cmd}`{cond_text}\n"
+            cond_text = f" ({condition})" if condition else ""
+            content += f"本阶段完成后 → 执行 `/{next_cmd}`{cond_text}\n"
         elif condition:
             # 没有下一步但有特殊消息
             content += f"{condition}\n"

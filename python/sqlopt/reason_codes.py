@@ -83,6 +83,20 @@ REASON_CODES = {
         description="Scanner coverage below acceptable threshold",
         user_message="Scanner could not fully analyze all SQL statements. Some statements may be skipped.",
     ),
+    "SCAN_SELECTION_SQL_KEY_NOT_FOUND": ReasonCode(
+        code="SCAN_SELECTION_SQL_KEY_NOT_FOUND",
+        category="scan",
+        severity="fatal",
+        description="Requested SQL key does not match any scanned SQL",
+        user_message="The requested SQL key did not match the scanned SQL statements. Use a more specific key or rescan the correct mapper.",
+    ),
+    "SCAN_SELECTION_SQL_KEY_AMBIGUOUS": ReasonCode(
+        code="SCAN_SELECTION_SQL_KEY_AMBIGUOUS",
+        category="scan",
+        severity="fatal",
+        description="Requested SQL key matched multiple scanned SQL statements",
+        user_message="The requested SQL key matched multiple SQL statements. Use a namespace-qualified key or the full sqlKey.",
+    ),
     "SCAN_CLASS_RESOLUTION_DEGRADED": ReasonCode(
         code="SCAN_CLASS_RESOLUTION_DEGRADED",
         category="scan",

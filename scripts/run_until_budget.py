@@ -19,7 +19,7 @@ if str(_PYTHON_ROOT) not in sys.path:
 
 from sqlopt.application import lifecycle_policy
 
-STAGE_ORDER = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
+STAGE_ORDER = ["scan", "optimize", "validate", "patch_generate", "report"]
 
 
 @dataclass

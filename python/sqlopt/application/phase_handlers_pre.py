@@ -8,6 +8,11 @@ from ..run_paths import canonical_paths
 from .run_selection import filter_units_by_sql_keys, finalize_selection_summary
 
 
+def _selection_examples(units: list[dict[str, Any]], *, limit: int = 5) -> str:
+    examples = [str(row.get("sqlKey") or "").strip() for row in units if str(row.get("sqlKey") or "").strip()]
+    return ", ".join(examples[:limit])
+
+
 def advance_scan(
     ctx: Any,
     *,
@@ -38,12 +43,27 @@ def advance_scan(
         if isinstance(ctx.plan.get("selection"), dict)
         else None
     )
-    selected_units, missing_sql_keys = filter_units_by_sql_keys(
+    selected_units, missing_sql_keys, ambiguous_sql_keys = filter_units_by_sql_keys(
         scanned_units, (selection or {}).get("sql_keys")
     )
-    if missing_sql_keys:
+    if ambiguous_sql_keys:
+        details = []
+        for requested, matches in ambiguous_sql_keys.items():
+            details.append(f"{requested} -> {', '.join(matches[:5])}")
         exc = StageError(
-            f"scan selection did not match sql keys: {', '.join(missing_sql_keys)}",
+            "scan selection matched multiple sql keys; use a more specific key. "
+            + "; ".join(details),
+            reason_code="SCAN_SELECTION_SQL_KEY_AMBIGUOUS",
+        )
+        handle_phase_failure(ctx, "scan", exc)
+        raise exc
+    if missing_sql_keys:
+        examples = _selection_examples(scanned_units)
+        exc = StageError(
+            "scan selection did not match sql keys: "
+            + ", ".join(missing_sql_keys)
+            + ". Accepted forms: full sqlKey, namespace.statementId, statementId, or statementId#vN."
+            + (f" Available sqlKeys: {examples}" if examples else ""),
             reason_code="SCAN_SELECTION_SQL_KEY_NOT_FOUND",
         )
         handle_phase_failure(ctx, "scan", exc)

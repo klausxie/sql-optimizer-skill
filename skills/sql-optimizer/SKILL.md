@@ -1,257 +1,98 @@
 ---
 name: sql-optimizer
-description: 面向 MyBatis 项目的 SQL 优化 Skill。扫描识别慢 SQL → 执行获取性能数据 → 分析瓶颈 → 优化建议 → 应用补丁。支持精准范围分析。
+description: 面向 MyBatis 项目的 SQL 优化 skill。用于在本地仓库里运行 `sqlopt-cli` 的 `validate-config / run / status / apply` 工作流，排查 SQL key 选择、数据库连通性、报告与补丁产物问题；适合需要按 mapper、statementId 或 sqlKey 做可恢复分析时使用。
 ---
 
 # SQL Optimizer Skill
 
-## 概述
+## Start Here
 
-SQL Optimizer 是一个用于优化 MyBatis SQL 的 Skill，支持：
-- 三种执行模式：单条SQL、多条指定SQL、批量文件
-- 5步优化流程
-- 规则+大模型双模式优化
+- 先执行 `sqlopt-cli validate-config --config sqlopt.yml`。
+- 再执行 `sqlopt-cli run --config sqlopt.yml`。
+- 需要查看中间状态时执行 `sqlopt-cli status`。
+- 只有在 `patch_results` 里确实存在 patch 文件时，才执行 `sqlopt-cli apply`。
 
-## 安装
+## Use The Real Workflow
 
-### 全局安装
+当前 CLI 的真实阶段顺序是：
 
-安装到全局配置目录（`~/.config/opencode/`）：
+`scan -> optimize -> validate -> patch_generate -> report`
 
-```bash
-python install/install_skill.py --global
-```
+按下面的方式引导，而不是虚构额外阶段：
 
-安装后：
-- Skill: `~/.config/opencode/skills/sql-optimizer/`
-- 命令: `~/.config/opencode/commands/sql-*.md`
+1. `validate-config`
+2. `run`
+3. `status` 或 `scripts/run_until_budget.py`
+4. 查看 `runs/<run-id>/overview/report.summary.md` 和 `runs/<run-id>/pipeline/patch_generate/patch.results.jsonl`
+5. 只有存在可应用 patch 时再 `apply`
 
-### 项目安装
+## Do Not Over-Promise
 
-安装到项目目录（`<project>/.opencode/`）：
+- 不要声称 scan 之后一定会出现“是否继续执行 SQL”的交互确认。当前 CLI 没有独立的手动确认闸门；如果你调用了目标阶段为 `validate` 或更后的命令，就表示继续推进。
+- 不要把 `sqlopt-cli apply` 描述成“必然改动源码”。默认 `PATCH_ONLY` 模式只汇总 patch 结果，不修改项目文件。
+- 不要把没有数据库证据的结果描述成“已完成真实性能分析”。数据库不可达时，validate 会明确降级。
+- 不要把 skipped patch、空 patch 目录或 `NEED_MORE_PARAMS` 结果包装成成功交付。
 
-```bash
-python install/install_skill.py --project /path/to/your/project
-```
+## SQL Key Selection
 
-安装后：
-- Skill: `<project>/.opencode/skills/sql-optimizer/`
-- 命令: `<project>/.opencode/commands/sql-*.md`
+`--sql-key` 现在支持 4 种输入：
 
-### 选择哪种安装方式？
+- 完整 `sqlKey`
+- `namespace.statementId`
+- `statementId`
+- `statementId#vN`
 
-| 场景 | 推荐方式 |
-|------|----------|
-| 多项目共享同一版本 | 全局安装 |
-| 项目需要独立版本 | 项目安装 |
-| CI/CD 自动化 | 项目安装 |
-| 个人开发环境 | 全局安装 |
+如果一个 `statementId` 命中了多个 SQL，CLI 会返回候选 full key 列表。遇到这种情况时：
 
-## 执行模式
+- 向用户展示冲突项
+- 改用更具体的 `namespace.statementId` 或完整 `sqlKey`
+- 不要假设工具会替用户自动选一个
 
-**核心原则**：用户指定哪个范围，就只分析哪个范围，不扩散。
+当用户已经给了明确文件范围时，优先配合 `--mapper-path` 一起缩小扫描面。
 
-| 模式 | 说明 | 示例 |
-|------|------|------|
-| 单个 SQL | 只分析指定的一个 SQL | "扫描 findUsers" |
-| 多个 SQL | 只分析指定的几个 SQL | "扫描 findUsers, findOrders" |
-| 文件范围 | 只分析指定文件 | "扫描 UserMapper.xml" |
-| 配置批量 | 从配置文件读取范围 | "扫描 @sql-list.txt" |
+## Database Guidance
 
-**⚠️ 禁止行为**：
-- 不要主动列出所有 SQL 让用户选择
-- 不要在用户指定范围后扫描其他文件
-- 不要在报告中列出无关的 SQL
+在任何 DB-backed run 之前：
 
-## 执行流程
+- 先跑 `sqlopt-cli validate-config --config sqlopt.yml`
+- 如果 `db.dsn` 还包含占位符，先修配置，不要继续推进
+- 如果数据库不可达，明确告诉用户当前结果会降级，或者先修复连通性再继续
 
-```
-用户输入（指定范围）
-    │
-    ▼
-Step 1: Scan (扫描)
-    │  - 解析用户指定的范围
-    │  - 提取 SQL，识别潜在慢 SQL
-    │
-    ▼
-Step 2: Execute (执行) [交互提示]
-    │  ⚠️ Agent 提示: "是否执行这些 SQL 获取实际性能数据？"
-    │  - 用户确认后执行
-    │  - 收集执行计划和耗时
-    │
-    ▼
-Step 3: Analyze (分析)
-    │  - 分析执行结果
-    │  - 确认慢 SQL 及其瓶颈
-    │
-    ▼
-Step 4: Optimize (优化)
-    │  - 生成针对性优化建议
-    │
-    ▼
-Step 5: Apply (应用)
-    │  - 生成 XML 补丁
-    │  - 用户确认后应用
-    │
-    ▼
-完成
-```
+优先解释这些失败：
 
-## 详细流程
+- `DB_CONNECTION_FAILED`
+- `SCAN_SELECTION_SQL_KEY_NOT_FOUND`
+- `SCAN_SELECTION_SQL_KEY_AMBIGUOUS`
+- `VALIDATE_DB_UNREACHABLE`
 
-### Step 1: Scan (扫描)
+更多细节见 [failure-codes.md](references/failure-codes.md)。
 
-**目标**：识别潜在的慢 SQL，不做深度优化建议
+## Time Budgets
 
-**输入范围**（用户指定哪个就只扫描哪个）：
-- 单个 SQL ID：`findUsers`
-- 多个 SQL ID：`findUsers, findOrders, findProducts`
-- 文件范围：`UserMapper.xml`
-- 配置文件批量：`@sql-list.txt`
+- 单条命令可能被外部环境限制在约 120 秒内。
+- 需要分时间片推进时，优先使用 [runtime-budget.md](references/runtime-budget.md) 里的 `run_until_budget.py` 方案。
+- 如果 `status.next_action=report-rebuild`，继续用 `run --to-stage report --run-id <run-id>`，不要误判为“已经完全结束”。
 
-**输出**：
-- 潜在慢 SQL 列表（基于规则：SELECT *、LIKE %x%、缺少索引等）
-- **不输出**：详细的优化建议（留到优化阶段）
+## Windows
 
-### Step 2: Execute (执行)
+- 在 Windows 上优先使用 `sqlopt-cli`、`python scripts/sqlopt_cli.py`，或 skill 自带的 `scripts/run_one_step.cmd`。
+- `*.sh` 辅助脚本默认面向 POSIX shell；不要假设它们在 PowerShell / CMD / Git Bash 中都能直接工作。
+- 如果命令包装器异常，直接调用 Python 入口比继续调 shell wrapper 更可靠。
 
-**⚠️ 必须交互提示**：
-```
-发现 3 个潜在慢 SQL：
-  - findUsers (可能全表扫描)
-  - findOrders (LIKE 前缀通配符)
-  - getReport (嵌套子查询)
+## Output Expectations
 
-是否执行这些 SQL 获取实际性能数据？[Y/n]
-```
+优先给用户这些高信号产物和结论：
 
-**执行后收集**：
-- 实际执行时间
-- EXPLAIN 分析结果
-- 扫描行数 vs 返回行数
+- 当前 `run_id`
+- `current_phase`、`next_action`、剩余语句数
+- 是否已验证数据库配置
+- 是否存在真实 patch 文件
+- 如果没有 patch，给出 skipped reason code，而不是只说“可应用”
 
-### Step 3: Analyze (分析)
+## References
 
-**目标**：确认真正的慢 SQL 及其瓶颈
-
-**分析内容**：
-- 实际耗时排序
-- 识别瓶颈（全表扫描、索引缺失、N+1 问题等）
-
-### Step 4: Optimize (优化)
-
-- 简单场景 → 规则优化 (Rules)
-- 复杂场景 → 大模型优化 (LLM)
-
-### Step 5: Apply (应用)
-
-- 生成 XML 补丁
-- 用户确认后应用
-
-## 交互节点
-
-| 节点 | 交互内容 | 触发条件 |
-|------|----------|----------|
-| **执行确认** | "是否执行这些 SQL 获取性能数据？" | 扫描完成后，必须提示 |
-| 数据库配置 | 提示配置 DSN | 需要执行但未配置时 |
-| 确认修改 | 是否应用补丁 | Apply 前确认 |
-
-## 复杂度判断
-
-| 场景 | 方式 |
-|------|------|
-| SELECT * | Rules |
-| 缺少索引 | Rules |
-| LIKE %xxx% | Rules |
-| 业务逻辑复杂 | LLM |
-| 多表关联 | LLM |
-| 嵌套子查询 | LLM |
-
-## 相关文档
-
-- [功能全景图](../docs/ARCHITECTURE.md)
-- [快速入门](../docs/QUICKSTART.md)
-- [配置说明](../docs/CONFIG.md)
-
-## 流程指引
-
-```
-/sql-scan → [提示执行] → /sql-execute → /sql-analyze → /sql-optimize → /sql-apply
-    ↓                          ↓               ↓              ↓             ↓
- 识别慢SQL    用户确认后执行    收集性能数据    确认瓶颈      生成补丁
-```
-
-**每个阶段的下一步建议**：
-- 扫描后 → **必须提示用户**："是否执行获取性能数据？"
-- 执行后 → 执行 `/sql-analyze` (分析执行结果)
-- 分析后 → 执行 `/sql-optimize` (生成优化建议)
-- 优化后 → 执行 `/sql-apply` (应用补丁)
-
-## 扫描策略
-
-**扫描阶段目标**：识别潜在的慢 SQL，不做深度优化建议。
-
-### 慢 SQL 识别规则
-
-| 规则 | 模式 | 风险等级 |
-|------|------|----------|
-| 全字段查询 | `SELECT *` | 高 |
-| 前缀通配符 | `LIKE '%xxx'` | 高 |
-| 双端通配符 | `LIKE '%xxx%'` | 高 |
-| 函数包裹索引列 | `UPPER(column)` | 中 |
-| 嵌套子查询 | `SELECT ... WHERE ... IN (SELECT ...)` | 中 |
-| 无 WHERE 条件 | `DELETE FROM table` | 高 |
-
-**扫描输出格式**：
-```
-发现 3 个潜在慢 SQL：
-
-1. findUsers (UserMapper.xml:15)
-   - 风险: SELECT * 全字段查询
-   - 风险: LIKE '%name%' 双端通配符
-
-2. findOrders (OrderMapper.xml:23)
-   - 风险: 嵌套子查询
-
-3. getReport (ReportMapper.xml:45)
-   - 风险: UPPER(status) 函数包裹索引列
-
-是否执行这些 SQL 获取实际性能数据？[Y/n]
-```
-
-### Maven 标准结构 (优先)
-
-如果项目根目录有 `pom.xml`，自动使用以下搜索路径：
-
-| 优先级 | 路径 | 说明 |
-|--------|------|------|
-| 1 | `src/main/resources/**/*.xml` | 标准 Maven 资源目录 |
-| 2 | `src/main/resources/mapper/**/*.xml` | MyBatis mapper 子目录 |
-| 3 | `src/main/resources/mybatis/**/*.xml` | MyBatis 配置子目录 |
-| 4 | `**/*Mapper.xml` | 任意 Mapper 文件 |
-| 5 | `**/*mapper.xml` | 任意小写 mapper 文件 |
-
-### 自动排除
-
-以下目录会被自动排除：
-- `target/` - Maven 构建输出
-- `.git/` - Git 目录
-- `node_modules/` - Node.js 依赖
-- `**/test/**` - 测试目录
-
-## 分析范围限制
-
-**重要**：当用户指定了特定的 SQL ID 或方法名时，只分析指定的 SQL，不要列出全部 SQL。
-
-| 用户输入 | 正确行为 | 错误行为 |
-|----------|----------|----------|
-| "扫描 findUsers" | 只扫描 findUsers | 列出所有 SQL 再选一个 |
-| "扫描 UserMapper.xml" | 只扫描 UserMapper.xml | 扫描所有 Mapper 文件 |
-| "扫描 findUsers, findOrders" | 只扫描这两个方法 | 列出所有方法让用户选择 |
-| "扫描所有 SQL" | 扫描全部 | - |
-
-**精准分析原则**：
-1. 用户指定了哪些 SQL，就只扫描哪些 SQL
-2. 不要主动列出所有 SQL 让用户选择
-3. 不要在报告中列出无关的 SQL
-4. 保持输出简洁，聚焦用户关注的目标
+- [runtime-budget.md](references/runtime-budget.md)
+- [failure-codes.md](references/failure-codes.md)
+- [contracts.md](references/contracts.md)
+- [README.md](../../README.md)
+- [docs/QUICKSTART.md](../../docs/QUICKSTART.md)

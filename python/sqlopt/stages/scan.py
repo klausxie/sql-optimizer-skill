@@ -16,6 +16,7 @@ from ..contracts import ContractValidator
 from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
+from ..progress import get_progress_reporter
 from ..adapters.branch_generator import generate_branches
 from ..adapters.mapper_catalog import enrich_sql_units_with_catalog
 from ..scripting.fragment_registry import build_fragment_registry
@@ -252,6 +253,7 @@ def _perform_scan(
     warnings: list[dict[str, Any]] = []
 
     files = _resolve_mapper_files(project_root, mapper_globs)
+    reporter = get_progress_reporter()
 
     if not files:
         warnings.append(
@@ -263,8 +265,12 @@ def _perform_scan(
         )
         return [], warnings
 
-    for fp in files:
+    reporter.report_info(f"Resolved {len(files)} mapper file(s) from scan.mapper_globs")
+    total_files = len(files)
+    for index, fp in enumerate(files, start=1):
         path = Path(fp)
+        if total_files > 1 and (index == 1 or index == total_files or index % 10 == 0):
+            reporter.report_info(f"Parsing mapper {index}/{total_files}: {path.name}")
         try:
             root = ET.parse(path).getroot()
         except Exception as exc:

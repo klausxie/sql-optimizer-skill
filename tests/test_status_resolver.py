@@ -4,6 +4,7 @@ import unittest
 
 from sqlopt.application.requests import RunStatusRequest
 from sqlopt.application.status_resolver import StatusResolver
+from sqlopt.application.workflow_facade import build_status_snapshot
 from sqlopt.application.workflow_definition import PHASE_POLICIES, STAGE_ORDER
 
 
@@ -37,6 +38,31 @@ class StatusResolverTest(unittest.TestCase):
         )
         self.assertTrue(result.complete)
         self.assertEqual(result.next_action, "none")
+
+    def test_build_status_snapshot_marks_current_pending_phase_as_running(self) -> None:
+        snapshot = build_status_snapshot(
+            RunStatusRequest(
+                run_id="run_demo",
+                state={
+                    "current_phase": "scan",
+                    "phase_status": {
+                        "scan": "PENDING",
+                        "optimize": "PENDING",
+                        "validate": "PENDING",
+                        "patch_generate": "PENDING",
+                        "report": "PENDING",
+                    },
+                    "statements": {},
+                    "attempts_by_phase": {},
+                    "report_rebuild_required": False,
+                },
+                plan={"to_stage": "scan", "sql_keys": []},
+                meta={"status": "RUNNING"},
+                config={"report": {"enabled": True}},
+            )
+        )
+
+        self.assertEqual(snapshot["phase_status"]["scan"], "RUNNING")
 
 
 if __name__ == "__main__":

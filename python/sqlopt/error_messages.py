@@ -62,6 +62,35 @@ ERROR_MESSAGES = {
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#database-connection",
     },
+    "SCAN_SELECTION_SQL_KEY_NOT_FOUND": {
+        "title": "未找到匹配的 SQL Key",
+        "description": "给定的 --sql-key 没有匹配到扫描结果中的 SQL。",
+        "causes": [
+            "只输入了错误的方法名或 SQL key",
+            "目标 SQL 不在当前 mapper 选择范围内",
+            "statementId 存在版本后缀或命名空间差异",
+        ],
+        "suggestions": [
+            "先运行 scan 查看当前范围内的 SQL",
+            "改用 namespace.statementId 或完整 sqlKey",
+            "如果一个方法名匹配多个 SQL，缩小 mapper 范围或使用完整 key",
+        ],
+        "doc_link": "docs/TROUBLESHOOTING.md#scan_selection_sql_key_not_found--scan_selection_sql_key_ambiguous",
+    },
+    "SCAN_SELECTION_SQL_KEY_AMBIGUOUS": {
+        "title": "SQL Key 匹配不唯一",
+        "description": "给定的 --sql-key 匹配到了多个 SQL。",
+        "causes": [
+            "多个 mapper 中存在同名 statementId",
+            "仅提供了方法名，没有提供命名空间或版本",
+        ],
+        "suggestions": [
+            "改用 namespace.statementId",
+            "改用完整 sqlKey（含 #vN）",
+            "配合 --mapper-path 缩小扫描范围",
+        ],
+        "doc_link": "docs/TROUBLESHOOTING.md#scan_selection_sql_key_not_found--scan_selection_sql_key_ambiguous",
+    },
     "SCHEMA_VALIDATION_FAILED": {
         "title": "Schema 验证失败",
         "description": "输出数据不符合预期的 JSON schema。",

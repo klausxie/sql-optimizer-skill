@@ -22,6 +22,7 @@ db:
   platform: postgresql
   # PostgreSQL: postgresql://user:pass@host:5432/db?sslmode=disable
   # MySQL:      mysql://user:pass@host:3306/db
+  # 注意：下面是占位示例；在执行 validate/report 相关阶段前必须替换为真实连接信息。
   dsn: postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable
   # 可选：非默认 schema/database 名（尤其是 PostgreSQL）
   # schema: public
