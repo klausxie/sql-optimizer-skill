@@ -19,7 +19,17 @@ def home_dir() -> Path:
 
 
 def opencode_home() -> Path:
-    return home_dir() / ".opencode"
+    """Returns the config directory for OpenCode skills."""
+    # Global: ~/.config/opencode/
+    # Project-local: <project>/.opencode/
+    config_home = os.environ.get("XDG_CONFIG_HOME") or (home_dir() / ".config")
+    return config_home / "opencode"
+
+
+def opencode_project_local() -> Path:
+    """Returns the project-local OpenCode directory."""
+    # For project-local installation, use <project>/.opencode/
+    return Path.cwd() / ".opencode"
 
 
 def is_windows() -> bool:
@@ -28,6 +38,10 @@ def is_windows() -> bool:
 
 def skill_dir() -> Path:
     return opencode_home() / "skills" / SKILL_NAME
+
+
+def project_skill_dir(project_dir: Path) -> Path:
+    return project_dir / ".opencode" / "skills" / SKILL_NAME
 
 
 def commands_dir() -> Path:
@@ -83,6 +97,10 @@ def run_cmd(cmd: list[str], *, quiet: bool = False) -> None:
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL
     subprocess.run(cmd, **kwargs)
+
+
+def normalize_jar_path_for_yaml(path: Path) -> str:
+    return str(path.resolve()).replace("\\", "/")
 
 
 def replace_template_var(template_text: str, key: str, value: str) -> str:

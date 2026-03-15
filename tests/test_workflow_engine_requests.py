@@ -74,7 +74,7 @@ class WorkflowEngineRequestsTest(unittest.TestCase):
 
         snapshot = workflow_engine.build_status_snapshot(request)
 
-        self.assertTrue(snapshot["complete"])
+        self.assertFalse(snapshot["complete"])
         self.assertEqual(snapshot["next_action"], "report-rebuild")
         self.assertEqual(snapshot["run_status"], "COMPLETED")
 

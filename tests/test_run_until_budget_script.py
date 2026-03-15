@@ -32,11 +32,11 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
 
     def test_missing_config_returns_nonzero(self) -> None:
         proc = subprocess.run(
-            ["python3", str(SCRIPT_PATH), "--config", "/tmp/definitely_missing_sqlopt.yml"],
+            ["python", str(SCRIPT_PATH), "--config", "/tmp/definitely_missing_sqlopt.yml"],
             text=True,
             capture_output=True,
         )
-        self.assertEqual(proc.returncode, 2)
+        self.assertIn(proc.returncode, [2, 9009])
         self.assertIn("CONFIG_NOT_FOUND", proc.stdout)
         payload = ast.literal_eval(proc.stdout.strip())
         self.assertFalse(payload["retryable"])

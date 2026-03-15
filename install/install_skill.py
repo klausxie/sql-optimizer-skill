@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -27,11 +25,10 @@ _bootstrap()
 
 from sqlopt.install_support import (  # noqa: E402
     SKILL_NAME,
-    cli_run_command,
     commands_dir,
     find_skill_source,
-    is_windows,
     opencode_home,
+    project_skill_dir,
     replace_template_var,
     run_cmd,
     runtime_base,
@@ -43,226 +40,30 @@ from sqlopt.install_support import (  # noqa: E402
 
 
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser()
-    p.add_argument("--project", default=".")
-    p.add_argument("--force", action="store_true")
-    p.add_argument(
-        "--verify", action="store_true", help="verify installed CLI and PATH only"
+    p = argparse.ArgumentParser(description="Install SQL Optimizer skill")
+    mode_group = p.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--global",
+        dest="global_install",
+        action="store_true",
+        help="Install to global skill directory (~/.opencode/skills/sql-optimizer/) [default]",
+    )
+    mode_group.add_argument(
+        "--project",
+        default=None,
+        help="Install to project-specific directory (<project>/.sqlopt/)",
     )
     p.add_argument(
-        "--no-auto-path",
-        action="store_true",
-        help="skip automatic PATH update during install",
+        "--force", action="store_true", help="Force overwrite existing installation"
     )
     return p.parse_args()
-
-
-def _cli_wrapper_path(target_skill: Path) -> Path:
-    return target_skill / "bin" / ("sqlopt-cli.cmd" if is_windows() else "sqlopt-cli")
-
-
-def _normalize_path_text(raw_path: str, *, windows: bool) -> str:
-    clean = raw_path.strip().strip('"').strip("'")
-    if not clean:
-        return ""
-    normalized = os.path.normpath(clean)
-    if windows:
-        normalized = normalized.lower()
-    return normalized.rstrip("\\/")
-
-
-def _is_dir_on_path(target_dir: Path, env_path: str | None = None) -> bool:
-    windows = is_windows()
-    path_value = env_path if env_path is not None else os.environ.get("PATH", "")
-    target_norm = _normalize_path_text(str(target_dir), windows=windows)
-    if not target_norm:
-        return False
-    separator = ";" if windows else os.pathsep
-    for entry in path_value.split(separator):
-        if _normalize_path_text(entry, windows=windows) == target_norm:
-            return True
-    return False
-
-
-def _prepend_path_entry(path_value: str, entry: Path, *, windows: bool) -> str:
-    separator = ";" if windows else os.pathsep
-    entries = [item for item in path_value.split(separator) if item.strip()]
-    entry_text = str(entry)
-    target_norm = _normalize_path_text(entry_text, windows=windows)
-    for item in entries:
-        if _normalize_path_text(item, windows=windows) == target_norm:
-            return separator.join(entries)
-    return separator.join([entry_text, *entries]).strip(separator)
-
-
-def _choose_shell_rc_file(home: Path, shell: str) -> Path:
-    shell_name = Path(shell).name.lower()
-    if "zsh" in shell_name:
-        return home / ".zshrc"
-    if "bash" in shell_name:
-        return home / ".bashrc"
-    zsh_rc = home / ".zshrc"
-    if zsh_rc.exists():
-        return zsh_rc
-    return home / ".bashrc"
-
-
-def _auto_add_path_windows(bin_dir: Path) -> tuple[bool, str]:
-    try:
-        import winreg  # type: ignore
-    except Exception as exc:
-        return False, f"winreg unavailable: {exc}"
-
-    key = None
-    try:
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            "Environment",
-            0,
-            winreg.KEY_READ | winreg.KEY_WRITE,
-        )
-        try:
-            current_user_path, _ = winreg.QueryValueEx(key, "Path")
-        except FileNotFoundError:
-            current_user_path = ""
-
-        updated_user_path = _prepend_path_entry(
-            str(current_user_path or ""), bin_dir, windows=True
-        )
-        if updated_user_path != str(current_user_path or ""):
-            winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, updated_user_path)
-
-        current_process = os.environ.get("PATH", "")
-        os.environ["PATH"] = _prepend_path_entry(current_process, bin_dir, windows=True)
-        return True, "updated user PATH in registry"
-    except Exception as exc:
-        return False, str(exc)
-    finally:
-        if key is not None:
-            winreg.CloseKey(key)
-
-
-def _auto_add_path_unix(bin_dir: Path) -> tuple[bool, str]:
-    home = Path.home()
-    rc_file = _choose_shell_rc_file(home, os.environ.get("SHELL", ""))
-    entry_text = str(bin_dir)
-    export_line = f'export PATH="{entry_text}:$PATH"'
-    try:
-        existing = rc_file.read_text(encoding="utf-8") if rc_file.exists() else ""
-        if entry_text not in existing:
-            prefix = "" if existing.endswith("\n") or not existing else "\n"
-            block = f"{prefix}# sql-optimizer skill\n{export_line}\n"
-            rc_file.parent.mkdir(parents=True, exist_ok=True)
-            with rc_file.open("a", encoding="utf-8") as fh:
-                fh.write(block)
-
-        current_process = os.environ.get("PATH", "")
-        os.environ["PATH"] = _prepend_path_entry(
-            current_process, bin_dir, windows=False
-        )
-        return True, f"updated {rc_file}"
-    except Exception as exc:
-        return False, str(exc)
-
-
-def _auto_add_path(bin_dir: Path) -> tuple[bool, str]:
-    if is_windows():
-        return _auto_add_path_windows(bin_dir)
-    return _auto_add_path_unix(bin_dir)
-
-
-def _print_path_hint(bin_dir: Path, *, auto_add: bool) -> bool:
-    print(f"path entry: {bin_dir}")
-    if _is_dir_on_path(bin_dir):
-        print(f"path: ok ({bin_dir})")
-        return True
-
-    print(f"path: missing ({bin_dir})")
-    if auto_add:
-        ok, detail = _auto_add_path(bin_dir)
-        if ok:
-            print(f"path auto: ok ({detail})")
-        else:
-            print(f"path auto: failed ({detail})")
-        if _is_dir_on_path(bin_dir):
-            print(f"path: ok ({bin_dir})")
-            return True
-
-    if is_windows():
-        escaped = str(bin_dir).replace("'", "''")
-        print("add to PATH parameter:")
-        print(f"  {bin_dir}")
-        print("add to PATH (PowerShell current session):")
-        print(f'  $env:Path = "{bin_dir};$env:Path"')
-        print("add to PATH (PowerShell persistent, new terminals):")
-        print("  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')")
-        print(
-            f"  [Environment]::SetEnvironmentVariable('Path', '{escaped};' + $userPath, 'User')"
-        )
-        print("then reopen PowerShell")
-        print("cmd current session:")
-        print(f"  set PATH={bin_dir};%PATH%")
-        return False
-
-    shell = os.environ.get("SHELL", "")
-    rc_file = "~/.zshrc" if shell.endswith("zsh") else "~/.bashrc"
-    print("add to PATH parameter:")
-    print(f"  {bin_dir}")
-    print(f"add to PATH ({rc_file}):")
-    print(f"  echo 'export PATH=\"{bin_dir}:$PATH\"' >> {rc_file}")
-    print(f"  source {rc_file}")
-    return False
-
-
-def _run_cli_self_check(wrapper: Path) -> tuple[bool, str]:
-    if not wrapper.exists():
-        return False, f"wrapper missing: {wrapper}"
-    cmd = cli_run_command(wrapper, "--help")
-    try:
-        proc = subprocess.run(
-            cmd, check=False, capture_output=True, text=True, timeout=20
-        )
-    except (FileNotFoundError, OSError) as exc:
-        return False, f"runtime missing: {exc}"
-    except subprocess.TimeoutExpired:
-        return False, "self-check timeout (>20s)"
-    if proc.returncode != 0:
-        detail = (
-            proc.stderr or proc.stdout or ""
-        ).strip() or f"exit code {proc.returncode}"
-        return False, detail
-    first_line = next(
-        (line.strip() for line in (proc.stdout or "").splitlines() if line.strip()),
-        "ok",
-    )
-    return True, first_line
-
-
-def _verify_installed_cli(target_skill: Path) -> int:
-    wrapper = _cli_wrapper_path(target_skill)
-    print(f"verify skill: {target_skill}")
-    print(f"verify cli: {wrapper}")
-    path_ok = _print_path_hint(wrapper.parent, auto_add=False)
-    cli_ok, detail = _run_cli_self_check(wrapper)
-    if cli_ok:
-        print(f"self-check: ok ({detail})")
-    else:
-        print(f"self-check: failed ({detail})")
-    if path_ok and cli_ok:
-        print("verify result: OK (global command available)")
-        return 0
-    if cli_ok:
-        print("verify result: PARTIAL (runtime ok, PATH missing)")
-        return 1
-    print("verify result: FAILED")
-    return 1
 
 
 def _copy_runtime(root_dir: Path, target_skill: Path) -> None:
     target_runtime = target_skill / "runtime"
     target_runtime.mkdir(parents=True, exist_ok=True)
     base = runtime_base(root_dir)
-    for name in ["python", "scripts", "contracts", "java"]:
+    for name in ["python", "scripts", "contracts"]:
         src = base / name
         if not src.exists():
             raise SystemExit(f"missing runtime folder: {src}")
@@ -287,85 +88,84 @@ def _get_python_command(target_skill: Path) -> str:
 
 def _generate_command_doc(
     description: str,
-    exec_command: str,
-    *,
-    usage_hint: str | None = None,
+    argument_hint: str,
+    command_template: str,
+    parameters: list[dict] | None = None,
     examples: list[str] | None = None,
+    notes: list[str] | None = None,
 ) -> str:
-    """Generate markdown template for an OpenCode command.
+    """Generate markdown documentation for a single command.
 
-    The template is written as explicit tool instructions so the model executes
-    the command directly instead of asking follow-up questions.
+    Args:
+        description: Command description for the frontmatter
+        argument_hint: Argument hint string for the frontmatter
+        command_template: Full command template with placeholders
+        parameters: Optional list of parameter definitions with name, required, default, description
+        examples: Optional list of usage examples
+        notes: Optional list of additional notes
+
+    Returns:
+        Markdown documentation string
     """
     lines = [
         "---",
         f"description: {description}",
+        f"argument-hint: {argument_hint}",
         "---",
         "",
-        "# 执行指令",
+        "## 命令格式",
         "",
-        "你是命令执行器。遵循以下规则：",
+        f"`{command_template}`",
         "",
-        "1. **立即执行**：不要调用 skill 工具，不要读取/修改文件，不要先提问",
-        "2. **单次调用**：你必须立刻调用一次 bash 工具，且只调用这一次。",
-        "3. **参数处理**：当使用 `$ARGUMENTS` 时，必须按原样直接拼接，不要整体加引号。",
-        "",
-        "## 执行命令",
-        "",
-        "- 当 `$ARGUMENTS` 为空时，执行：",
-        f"  `{exec_command}`",
-        "",
-        "- 当 `$ARGUMENTS` 非空时，执行：",
-        f"  `{exec_command} $ARGUMENTS`",
-        "",
-        "## 输出规则",
-        "",
-        "命令结束后，仅返回 bash 的原始输出。",
     ]
-    if usage_hint:
+
+    if parameters:
         lines.extend(
             [
+                "## 参数说明",
                 "",
-                "## 常用参数",
-                "",
-                f"{usage_hint}",
             ]
         )
+        for param in parameters:
+            name = param["name"]
+            required = param.get("required", True)
+            default = param.get("default")
+            desc = param.get("description", "")
+
+            if required:
+                lines.append(f"- `{name}` **(必需)**: {desc}")
+            else:
+                if default:
+                    lines.append(f"- `{name}` (可选，默认: `{default}`): {desc}")
+                else:
+                    lines.append(f"- `{name}` (可选): {desc}")
+        lines.append("")
+
     if examples:
         lines.extend(
             [
-                "",
                 "## 使用示例",
                 "",
             ]
         )
         for example in examples:
-            lines.append(f"- {example}")
-    lines.append("")
+            lines.append(f"```bash")
+            lines.append(example)
+            lines.append("```")
+            lines.append("")
+
+    if notes:
+        lines.extend(
+            [
+                "## 注意事项",
+                "",
+            ]
+        )
+        for note in notes:
+            lines.append(f"- {note}")
+        lines.append("")
+
     return "\n".join(lines)
-
-
-def _retire_legacy_skill_backups(skills_root: Path) -> int:
-    """Disable legacy backup skills under ~/.opencode/skills.
-
-    OpenCode scans folders under ~/.opencode/skills and treats each SKILL.md as
-    an active skill. Historical backup folders like `sql-optimizer.bak.*` may
-    shadow the latest version and cause command routing to stale instructions.
-    We keep backup files but disable skill discovery by renaming SKILL.md.
-    """
-    retired = 0
-    for backup in sorted(skills_root.glob(f"{SKILL_NAME}.bak.*")):
-        if not backup.is_dir():
-            continue
-        marker = backup / "SKILL.md"
-        if not marker.exists():
-            continue
-        disabled = backup / "SKILL.md.disabled"
-        if disabled.exists():
-            disabled.unlink()
-        marker.rename(disabled)
-        retired += 1
-    return retired
 
 
 def _write_commands(target_skill: Path) -> None:
@@ -392,69 +192,186 @@ def _write_commands(target_skill: Path) -> None:
         {
             "name": "sql-optimizer-run",
             "description": "为项目执行一次 SQL 优化时间片（单次调用不保证跑完）",
-            "exec_command": f"{py_cmd} {run_budget_script}",
-            "usage_hint": "--config ./sqlopt.yml --to-stage patch_generate --run-id run_xxx --max-steps 200 --max-seconds 95",
+            "argument_hint": "config=./sqlopt.yml to_stage=patch_generate run_id=RUN_ID max_steps=200 max_seconds=95",
+            "script": run_budget_script,
+            "args": "--config <config> --to-stage <to_stage> --run-id <run_id> --max-steps <max_steps> --max-seconds <max_seconds>",
+            "parameters": [
+                {
+                    "name": "config",
+                    "required": False,
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径",
+                },
+                {
+                    "name": "to_stage",
+                    "required": False,
+                    "default": "patch_generate",
+                    "description": "目标阶段，可选值: preflight, scan, optimize, validate, patch_generate, report",
+                },
+                {
+                    "name": "run_id",
+                    "required": False,
+                    "default": "自动生成",
+                    "description": "运行 ID，省略时自动生成新的 run_id",
+                },
+                {
+                    "name": "max_steps",
+                    "required": False,
+                    "default": "200",
+                    "description": "最大执行步数",
+                },
+                {
+                    "name": "max_seconds",
+                    "required": False,
+                    "default": "95",
+                    "description": "最大执行时间（秒）",
+                },
+            ],
             "examples": [
-                "开始运行直到完成：--config ./sqlopt.yml",
-                "继续指定运行直到完成：--config ./sqlopt.yml --run-id run_xxx",
+                "# 最简单的用法（使用所有默认值）",
+                f"{py_cmd} {run_budget_script}",
+                "",
+                "# 指定配置文件和目标阶段",
+                f"{py_cmd} {run_budget_script} --config ./sqlopt.yml --to-stage patch_generate",
+                "",
+                "# 继续已有的运行",
+                f"{py_cmd} {run_budget_script} --run-id run_abc123",
+            ],
+            "notes": [
+                "单次调用约 95 秒，不保证完成所有 SQL 优化",
+                "需要循环调用直到返回 complete=true",
+                "返回 JSON 格式包含 run_id、complete、phase 等信息",
+                "可选参数不传时使用默认值",
             ],
         },
         {
             "name": "sql-optimizer-status",
-            "description": "查询优化运行状态和进度（省略 run-id 时使用最近一次运行）",
-            "exec_command": f"{py_cmd} {resolved_id_script} status",
-            "usage_hint": "--project . [--run-id run_xxx]",
+            "description": "查询 sql-optimizer 运行状态（省略 run_id 时默认使用最近一次）",
+            "argument_hint": "run_id=RUN_ID project=.",
+            "script": resolved_id_script,
+            "args": "status --run-id <run_id> --project <project>",
+            "parameters": [
+                {
+                    "name": "project",
+                    "required": False,
+                    "default": ".",
+                    "description": "项目根目录路径",
+                },
+                {
+                    "name": "run_id",
+                    "required": False,
+                    "default": "最近一次运行",
+                    "description": "运行 ID，省略时自动使用最近一次运行",
+                },
+            ],
             "examples": [
-                "查看最近运行：--project .",
-                "查看指定运行：--project . --run-id run_xxx",
+                "# 最简单的用法（使用所有默认值）",
+                f"{py_cmd} {resolved_id_script} status",
+                "",
+                "# 查询最近一次运行的状态",
+                f"{py_cmd} {resolved_id_script} status --project .",
+                "",
+                "# 查询指定 run_id 的状态",
+                f"{py_cmd} {resolved_id_script} status --run-id run_abc123",
+            ],
+            "notes": [
+                "省略 run_id 时自动使用最近一次运行",
+                "省略 project 时默认使用当前目录",
+                "返回 JSON 格式包含 current_phase、remaining_statements、complete 等信息",
+                "可选参数不传时使用默认值",
             ],
         },
         {
             "name": "sql-optimizer-resume",
-            "description": "继续执行未完成的优化运行直到完成或失败（省略 run-id 时使用最近一次运行）",
-            "exec_command": f"{py_cmd} {run_budget_script}",
-            "usage_hint": "--config ./sqlopt.yml [--run-id run_xxx] --max-seconds 95",
+            "description": "继续推进一次 sql-optimizer 运行（省略 run_id 时默认使用最近一次）",
+            "argument_hint": "run_id=RUN_ID project=.",
+            "script": resolved_id_script,
+            "args": "resume --run-id <run_id> --project <project>",
+            "parameters": [
+                {
+                    "name": "project",
+                    "required": False,
+                    "default": ".",
+                    "description": "项目根目录路径",
+                },
+                {
+                    "name": "run_id",
+                    "required": False,
+                    "default": "最近一次运行",
+                    "description": "运行 ID，省略时自动使用最近一次运行",
+                },
+            ],
             "examples": [
-                "继续最近运行直到完成：--config ./sqlopt.yml",
-                "继续指定运行直到完成：--config ./sqlopt.yml --run-id run_xxx",
+                "# 最简单的用法（使用所有默认值）",
+                f"{py_cmd} {resolved_id_script} resume",
+                "",
+                "# 继续最近一次运行",
+                f"{py_cmd} {resolved_id_script} resume --project .",
+                "",
+                "# 继续指定 run_id 的运行",
+                f"{py_cmd} {resolved_id_script} resume --run-id run_abc123",
+            ],
+            "notes": [
+                "省略 run_id 时自动使用最近一次运行",
+                "省略 project 时默认使用当前目录",
+                "从上次中断的地方继续执行",
+                "返回 JSON 格式包含执行结果",
+                "可选参数不传时使用默认值",
             ],
         },
         {
             "name": "sql-optimizer-apply",
-            "description": "应用生成的 SQL 优化补丁到项目文件（省略 run-id 时使用最近一次运行）",
-            "exec_command": f"{py_cmd} {resolved_id_script} apply",
-            "usage_hint": "--project . [--run-id run_xxx] [--mode APPLY_IN_PLACE]",
-            "examples": [
-                "应用最近运行的补丁：--project .",
-                "应用指定运行的补丁：--project . --run-id run_xxx",
-                "直接修改文件：--project . --mode APPLY_IN_PLACE",
+            "description": "对 sql-optimizer 运行执行 apply（省略 run_id 时默认使用最近一次）",
+            "argument_hint": "run_id=RUN_ID project=.",
+            "script": resolved_id_script,
+            "args": "apply --run-id <run_id> --project <project>",
+            "parameters": [
+                {
+                    "name": "project",
+                    "required": False,
+                    "default": ".",
+                    "description": "项目根目录路径",
+                },
+                {
+                    "name": "run_id",
+                    "required": False,
+                    "default": "最近一次运行",
+                    "description": "运行 ID，省略时自动使用最近一次运行",
+                },
             ],
-        },
-        {
-            "name": "sql-optimizer-report",
-            "description": "生成或查看优化运行的详细报告",
-            "exec_command": f"{py_cmd} {resolved_id_script} report",
-            "usage_hint": "--project . [--run-id run_xxx] [--format markdown]",
             "examples": [
-                "查看最近报告：--project .",
-                "生成 JSON 报告：--project . --format json",
+                "# 最简单的用法（使用所有默认值）",
+                f"{py_cmd} {resolved_id_script} apply",
+                "",
+                "# 应用最近一次运行的补丁",
+                f"{py_cmd} {resolved_id_script} apply --project .",
+                "",
+                "# 应用指定 run_id 的补丁",
+                f"{py_cmd} {resolved_id_script} apply --run-id run_abc123",
+            ],
+            "notes": [
+                "省略 run_id 时自动使用最近一次运行",
+                "省略 project 时默认使用当前目录",
+                "默认模式为 PATCH_ONLY（生成补丁文件，不修改源文件）",
+                "如需直接修改源文件，在 sqlopt.yml 中设置 apply.mode: APPLY_IN_PLACE",
+                "可选参数不传时使用默认值",
             ],
         },
     ]
 
     # Generate and write documentation for each command
     for cmd in commands:
+        command_template = f"{py_cmd} {cmd['script']} {cmd['args']}"
         doc_content = _generate_command_doc(
             description=cmd["description"],
-            exec_command=str(cmd["exec_command"]).strip(),
-            usage_hint=str(cmd.get("usage_hint") or "").strip() or None,
+            argument_hint=cmd["argument_hint"],
+            command_template=command_template,
+            parameters=cmd.get("parameters"),
             examples=cmd.get("examples"),
+            notes=cmd.get("notes"),
         )
         output_file = cmd_dir / f"{cmd['name']}.md"
         output_file.write_text(doc_content, encoding="utf-8")
-
-    # Cleanup legacy command docs that are no longer supported.
-    (cmd_dir / "sql-optimizer-verify.md").unlink(missing_ok=True)
 
 
 def _create_project_config(
@@ -464,8 +381,7 @@ def _create_project_config(
     config_path = project_dir / "sqlopt.yml"
     if not template.exists() or config_path.exists():
         return
-    text = template.read_text(encoding="utf-8")
-    config_path.write_text(text, encoding="utf-8")
+    shutil.copy2(template, config_path)
     print(f"created project config: {config_path}")
 
 
@@ -473,31 +389,30 @@ def main() -> None:
     args = _parse_args()
     script_dir = Path(__file__).resolve().parent
     root_dir = script_dir.parent
-    project_dir = Path(args.project).resolve()
-    target_skill = skill_dir()
-    skills_root = target_skill.parent
-
-    if args.verify:
-        raise SystemExit(_verify_installed_cli(target_skill))
-
     source_skill = find_skill_source(root_dir)
 
-    opencode_home().mkdir(parents=True, exist_ok=True)
-    skills_root.mkdir(parents=True, exist_ok=True)
+    # Determine installation mode
+    if args.project:
+        # Project-level installation: <project>/.opencode/skills/sql-optimizer/
+        project_dir = Path(args.project).resolve()
+        target_skill = project_skill_dir(project_dir)
+        target_skill.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Global installation: ~/.config/opencode/skills/sql-optimizer/
+        project_dir = Path.cwd()
+        target_skill = skill_dir()
+        target_skill.parent.mkdir(parents=True, exist_ok=True)
 
     if target_skill.exists():
         if args.force:
             safe_rmtree(target_skill)
         else:
-            backup_root = opencode_home() / "skill_backups" / SKILL_NAME
-            backup_root.mkdir(parents=True, exist_ok=True)
-            backup = backup_root / datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup = (
+                target_skill.parent
+                / f"{SKILL_NAME}.bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
             target_skill.rename(backup)
             print(f"existing skill moved to: {backup}")
-
-    retired_count = _retire_legacy_skill_backups(skills_root)
-    if retired_count:
-        print(f"disabled {retired_count} legacy backup skill marker(s)")
 
     target_skill.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_skill, target_skill, dirs_exist_ok=True)
@@ -526,26 +441,16 @@ def main() -> None:
     print(f"installed skill: {SKILL_NAME}")
     print(f"skill dir: {target_skill}")
     print(f"project dir: {project_dir}")
+    print(f"install mode: {'project-level' if args.project else 'global'}")
     if sys.platform.startswith("win"):
         print(
             f"next: python {root_dir / 'install' / 'doctor.py'} --project {project_dir}"
         )
+        print(f"cli: {wrapper}")
     else:
         print(
             f"next: bash {root_dir / 'install' / 'doctor.sh'} --project {project_dir}"
         )
-
-    print(f"cli: {wrapper}")
-    path_ok = _print_path_hint(wrapper.parent, auto_add=not args.no_auto_path)
-    cli_ok, detail = _run_cli_self_check(wrapper)
-    if cli_ok:
-        print(f"self-check: ok ({detail})")
-    else:
-        print(f"self-check: failed ({detail})")
-    if path_ok:
-        print("direct command: sqlopt-cli --help")
-    else:
-        print("direct command: pending PATH update")
 
 
 if __name__ == "__main__":

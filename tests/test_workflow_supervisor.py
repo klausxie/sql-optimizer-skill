@@ -35,7 +35,7 @@ def run_cli(*args: str) -> dict:
 class WorkflowSupervisorTest(unittest.TestCase):
     def _write_cfg(self, td: str, *, report_enabled: bool = True, mapper_glob: str | None = None) -> Path:
         cfg = Path(td) / "sqlopt.yml"
-        mapper = mapper_glob or "src/main/resources/com/example/mapper/user/user_mapper.xml"
+        mapper = mapper_glob or "src/main/resources/com/example/mapper/user/simple_user_mapper.xml"
         report_flag = "true" if report_enabled else "false"
         cfg.write_text(
             "\n".join(

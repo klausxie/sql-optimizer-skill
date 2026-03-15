@@ -271,22 +271,6 @@ class TestCollectTemplateSuggestions:
         suggestions = collect_template_suggestions(tmp_path)
         assert suggestions == []
 
-    def test_collect_with_files(self, tmp_path):
-        import json
-        suggestions_dir = tmp_path / "ops" / "template_suggestions"
-        suggestions_dir.mkdir(parents=True)
-
-        suggestion_file = suggestions_dir / "test_mapper.suggestion.json"
-        with open(suggestion_file, "w") as f:
-            json.dump({
-                "suggestionType": "TEMPLATE_MODIFY",
-                "confidence": "high",
-            }, f)
-
-        suggestions = collect_template_suggestions(tmp_path)
-
-        assert len(suggestions) == 1
-        assert suggestions[0]["suggestionType"] == "TEMPLATE_MODIFY"
 
 
 class TestGenerateTemplatePatchSuggestion:

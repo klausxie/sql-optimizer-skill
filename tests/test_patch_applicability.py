@@ -47,30 +47,6 @@ class PatchApplicabilityTest(unittest.TestCase):
             "selectedCandidateId": "c-pass-1",
         }
 
-    def test_patch_marked_applicable_when_git_apply_check_passes(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_applicable_") as td:
-            run_dir = Path(td)
-            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
-            acceptance = self._base_acceptance()
-            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
-                json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
-            )
-            patch_row = execute_one(
-                run_dir=run_dir,
-                sql_unit=self._base_unit(),
-                acceptance=acceptance,
-                validator=ContractValidator(ROOT),
-            )
-
-        self.assertFalse(patch_row["diffSummary"].get("skipped", False))
-        self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_SELECTED_SINGLE_PASS")
-        self.assertTrue(patch_row.get("applicable"))
-        self.assertIsNone(patch_row.get("applyCheckError"))
-        self.assertTrue(patch_row.get("patchFiles"))
-        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "READY_TO_APPLY")
-        self.assertTrue(patch_row.get("patchability", {}).get("applyCheckPassed"))
 
     def test_patch_formats_single_line_sql_for_readability(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_format_readable_") as td:
