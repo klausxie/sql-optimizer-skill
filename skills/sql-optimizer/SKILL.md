@@ -1,74 +1,131 @@
 ---
 name: sql-optimizer
-description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 run/status/resume/apply 命令、契约校验、扫描桥接检查、回放基线与 patch-only 输出。支持 LLM 增强功能（Phase 1-6）。
+description: 面向 MyBatis 项目的 SQL 优化 Skill，支持三种执行模式(单条/多条/批量)，5步优化流程(Parse/Scan/Execute/Analyze/Optimize/Apply)，规则+大模型双模式优化。
 ---
 
-# sql-optimizer
+# SQL Optimizer Skill (V2)
 
-## 工作流
-1. 先校验配置与 contracts。
-2. `sql-optimizer-run` 是单次时间片命令（约 95 秒，不保证一次完成）。
-3. skill 必须自动循环执行多个时间片，直到 `complete=true` 或失败。
-4. 当 `report.enabled=true`（默认）时，即使 `to_stage` 更早，运行收尾也会完成 report。
-5. 生成报告并检查 ops 产物。
-6. 若用户当前只在改 scanner/scan verification，优先先做一次 scan-only smoke，再决定是否继续全流程。
-7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 支持 5.6+（含 5.7、8.0+），不支持 MariaDB。
-8. MySQL 不做 PostgreSQL 方言兼容；若 SQL 含 `ILIKE` 等不支持语法，应按语法错误处理，并检查 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+## 概述
 
-## LLM 增强功能（Phase 1-6）
+SQL Optimizer 是一个用于优化 MyBatis SQL 的 Skill，支持：
+- 三种执行模式：单条SQL、多条指定SQL、批量文件
+- 5步优化流程
+- 规则+大模型双模式优化
 
-所有 LLM 增强功能已集成到主流程，默认启用：
+## 执行模式
 
-| Phase | 功能 | 产物位置 |
-|-------|------|----------|
-| Phase 1 | LLM 输出质量控制（语法/启发式检查） | `proposals/*.llmValidationResults` |
-| Phase 2 | LLM 重试 + 反馈机制 | `proposals/*.llmRetryStats` |
-| Phase 3 | validate 阶段 LLM 语义判断 | `acceptance/*.llmSemanticCheck` |
-| Phase 4 | 规则引擎 ↔ LLM 双向反馈 | `ops/llm_feedback.jsonl` |
-| Phase 5 | patch_generate 阶段 LLM 辅助 | `ops/template_suggestions/*.json` |
-| Phase 6 | LLM Trace 完整性增强 | `traces/*.optimize.llm.json` |
+| 模式 | 说明 | 示例 |
+|------|------|------|
+| 单条SQL | 优化单条SQL | `"优化这条SQL: select * from users"` |
+| 多条指定SQL | 优化指定的多条SQL | `"优化findUsers, findOrders这3个方法"` |
+| 批量文件 | 优化整个Mapper文件 | `"优化UserMapper.xml"` |
 
-配置控制见主文档 `LLM 增强功能配置` 章节。
+## 执行流程
 
-## 自动续跑策略
-1. 先执行 `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`。
-2. 解析最新结构化输出 payload。
-3. 若 `complete=true`，停止并汇报最终状态。
-4. 若 payload 包含 `error` 或 `run_status=FAILED`，停止并汇报 `reason_code` 与恢复命令。
-5. 若 `complete=false` 且无错误，立即继续：
-   - 优先执行 payload 中的 `next_action`。
-   - 若无 `next_action`，使用同一 `run_id` 重新执行 `run_until_budget.py`。
-6. 每轮输出精简进度：`run_id`、`current_phase`、`remaining_statements`、`reason`。
+```
+用户输入
+    │
+    ▼
+Step 1: Parse (解析输入)
+    │
+    ▼
+Step 2: Scan (扫描)
+    │
+    ▼
+Step 3: Execute (执行) [可选]
+    │
+    ▼
+Step 4: Analyze (分析)
+    │
+    ▼
+Step 5: Optimize (优化)
+    │
+    ▼
+Step 6: Apply (应用)
+    │
+    ▼
+完成
+```
 
-默认目标阶段为 `patch_generate`，除非用户明确指定其他阶段。
+## 详细流程
 
-## Scan-only 验证
-当用户当前在改 scanner、动态标签覆盖或 scan verification：
+### Step 1: Parse (解析输入)
+解析用户输入，提取优化目标
 
-1. 优先执行：
-   `python3 scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-seconds 30 --max-steps 10`
-2. 检查：
-   - `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
-   - `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
-   - `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
-3. 关键判断：
-   - `searchUsersAdvanced` 应识别 `FOREACH / INCLUDE / IF / CHOOSE / WHERE / BIND`
-   - `patchUserStatusAdvanced` 不应再出现重复 `SET SET`
-   - `includeTrace` 已解析时，不应误报 `SCAN_INCLUDE_TRACE_PARTIAL`
+### Step 2: Scan (扫描)
+解析XML文件，提取SQL，展开动态标签
 
-## 命令入口
-- `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`
-- `python scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-seconds 30 --max-steps 10`
-- `python scripts/run_with_resolved_id.py status --project . [--run-id <run_id>]`
-- `python scripts/run_with_resolved_id.py resume --project . [--run-id <run_id>]`
-- `python scripts/run_with_resolved_id.py apply --project . [--run-id <run_id>]`
-- 推荐先做首轮检查：`python scripts/sqlopt_cli.py run --config <path> --to-stage preflight`
-- MySQL 项目建议先设置 `llm.enabled=false` + `llm.provider=heuristic` 做一轮离线 smoke，再切换真实 `mysql://` DSN 打开 compare。
-- MySQL 本地测试库可用：`mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql`
-- apply 行为为内置 `PATCH_ONLY`（不通过 `sqlopt.yml` 暴露 `apply.mode` 配置）。
+### Step 3: Execute (执行) [可选]
+- real模式：实际执行SQL，采集EXPLAIN + 性能数据
+- mock模式：LLM推测执行计划
 
-## 参考资料
-- `references/contracts.md`
-- `references/postgresql.md`
-- `references/failure-codes.md`
-- `references/runtime-budget.md`
+### Step 4: Analyze (分析)
+分析问题 + 判断复杂度 + 选择优化方式
+
+### Step 5: Optimize (优化)
+- 简单场景 → 规则优化 (Rules Skill)
+- 复杂场景 → 大模型优化 (LLM)
+
+### Step 6: Apply (应用)
+生成Diff + 用户确认 + 修改XML
+
+## 交互节点
+
+| 节点 | 交互内容 | 触发条件 |
+|------|----------|----------|
+| 数据库配置 | 提示配置DSN | 需要验证但未配置时 |
+| 执行模式 | real vs mock | optimize开始时 |
+| 确认修改 | 是否执行修改 | apply前确认 |
+
+## 配置参数
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `--mode` | `real` | 实际执行，需要数据库 |
+| `--mode` | `mock` | Mock模式，不需要数据库 |
+| `--method` | `rules` | 使用规则优化 |
+| `--method` | `diff` | 使用大模型Diff |
+
+## 产物结构
+
+```
+task_xxx/
+├── requirements.md      # 需求文档
+├── plan.md            # 方案文档
+├── tasks.md           # 任务清单
+├── steps/
+│   ├── 1_scan/
+│   │   ├── status.json
+│   │   ├── scan.sqlunits.jsonl
+│   │   └── scan.branches.jsonl
+│   ├── 2_execute/          [可选]
+│   │   ├── status.json
+│   │   └── execute_results.jsonl
+│   ├── 3_analyze/
+│   │   ├── status.json
+│   │   └── analysis.json
+│   ├── 4_optimize/
+│   │   ├── status.json
+│   │   └── proposals/
+│   └── 5_apply/
+│       ├── status.json
+│       └── diff/
+└── summary.md         # 执行总结
+```
+
+## 复杂度判断
+
+| 场景 | 方式 |
+|------|------|
+| SELECT * | Rules |
+| 缺少索引 | Rules |
+| LIKE %xxx% | Rules |
+| 业务逻辑复杂 | LLM |
+| 多表关联 | LLM |
+| 嵌套子查询 | LLM |
+
+## 相关文档
+
+- [功能全景图](../docs/ARCHITECTURE.md)
+- [快速入门](../docs/QUICKSTART.md)
+- [配置说明](../docs/CONFIG.md)
