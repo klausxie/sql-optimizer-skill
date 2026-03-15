@@ -1106,5 +1106,35 @@
     "targetBlockerFamily": "READY",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "AGGREGATION_SEMANTICS"
+  },
+  {
+    "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+    "statementType": "SELECT",
+    "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
+    "domain": "user",
+    "scenarioClass": "PATCH_READY_STATEMENT",
+    "purpose": "single-table distinct query with redundant table alias can normalize to the canonical distinct query",
+    "expectedScanFeatures": [],
+    "expectedRiskFlags": [],
+    "validateCandidateSql": "SELECT DISTINCT status FROM users ORDER BY status",
+    "validateEvidenceMode": "exact_match_improved",
+    "targetValidateStatus": "PASS",
+    "targetSemanticGate": "PASS",
+    "targetPatchability": "READY",
+    "targetPatchStrategy": "EXACT_TEMPLATE_EDIT",
+    "targetPrimaryBlocker": null,
+    "targetPatchReasonCode": "PATCH_SELECTED_SINGLE_PASS",
+    "targetPatchMustContain": [
+      "SELECT DISTINCT status",
+      "FROM users",
+      "ORDER BY status"
+    ],
+    "targetPatchMustNotContain": [
+      "FROM users u",
+      "u.status"
+    ],
+    "targetBlockerFamily": "READY",
+    "roadmapStage": "BASELINE",
+    "roadmapTheme": "AGGREGATION_SEMANTICS"
   }
 ]

@@ -321,13 +321,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 当前阶段基线：
 
-1. full run 基线固定为 `run_fixture_project_full_aggregation_ready_v2`
+1. full run 基线固定为 `run_fixture_project_full_aggregation_ready_v3`
 2. 当前阶段验收通过条件：
    - `semantic_gate_uncertain_count = 0`
    - `semantic_gate_fail_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
-   - `aggregation_ready_patch_count >= 5`
+   - `aggregation_ready_patch_count >= 6`
    - 3 条 DML clean blocker 为 `PASS`：
    - `demo.order.harness.updateOrderStatusByNos#v6`
    - `demo.shipment.harness.markShipmentsDeleted#v5`
@@ -374,6 +374,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
    - `REDUNDANT_DISTINCT_WRAPPER`
    - `GROUP_BY_FROM_ALIAS_CLEANUP`
    - `GROUP_BY_HAVING_FROM_ALIAS_CLEANUP`
+   - `DISTINCT_FROM_ALIAS_CLEANUP`
 
 ## 10. 下一阶段
 

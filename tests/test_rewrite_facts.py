@@ -466,6 +466,30 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.aggregation_query.capability_profile.capability_tier, "SAFE_BASELINE")
         self.assertEqual(model.aggregation_query.capability_profile.constraint_family, "SAFE_BASELINE")
 
+    def test_build_rewrite_facts_model_detects_distinct_from_alias_cleanup_safe_baseline(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+            "sql": "SELECT DISTINCT u.status FROM users u ORDER BY u.status",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "listDistinctUserStatusesAliased",
+            "templateSql": "SELECT DISTINCT u.status FROM users u ORDER BY u.status",
+            "dynamicFeatures": [],
+        }
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT DISTINCT status FROM users ORDER BY status",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_COUNT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.aggregation_query.present)
+        self.assertTrue(model.aggregation_query.distinct_present)
+        self.assertEqual(model.aggregation_query.capability_profile.safe_baseline_family, "DISTINCT_FROM_ALIAS_CLEANUP")
+        self.assertEqual(model.aggregation_query.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertEqual(model.aggregation_query.capability_profile.constraint_family, "SAFE_BASELINE")
+
     def test_build_rewrite_facts_model_captures_having_wrapper_shape(self) -> None:
         sql_unit = {
             "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped#v10",

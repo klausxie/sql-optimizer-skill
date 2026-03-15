@@ -171,6 +171,21 @@ def groupby_from_alias_cleanup_sql(original_sql: str) -> str | None:
     return normalize_sql(f"SELECT {cleaned_select} {cleaned_from_suffix}")
 
 
+def distinct_from_alias_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    direct_match = SELECT_DIRECT_RE.match(normalized_original)
+    if direct_match is None or not DISTINCT_RE.search(normalized_original):
+        return None
+    select_text = str(direct_match.group("select") or "")
+    from_suffix = str(direct_match.group("from") or "")
+    if re.search(r"\bgroup\s+by\b|\bhaving\b|\bunion\b|\bover\s*\(", from_suffix, flags=re.IGNORECASE):
+        return None
+    cleaned_select, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    if not changed:
+        return None
+    return normalize_sql(f"SELECT {cleaned_select} {cleaned_from_suffix}")
+
+
 def find_matching_paren(text: str, start_idx: int) -> int:
     depth = 0
     for idx in range(start_idx, len(text)):
@@ -342,6 +357,19 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                     "confidence": "medium",
                 }
             ]
+
+    distinct_from_alias = distinct_from_alias_cleanup_sql(normalized_original)
+    if distinct_from_alias is not None:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_distinct_from_alias_cleanup",
+                "source": "llm",
+                "rewrittenSql": distinct_from_alias,
+                "rewriteStrategy": "REMOVE_REDUNDANT_DISTINCT_FROM_ALIAS_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
 
     parsed_outer_select, parsed_inner_select, parsed_inner_from, parsed_outer_suffix = parse_simple_select_wrapper_parts(
         normalized_original

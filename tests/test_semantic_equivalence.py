@@ -338,6 +338,23 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertIn("SEMANTIC_SAFE_BASELINE_GROUP_BY_HAVING_FROM_ALIAS_CLEANUP", result["reasons"])
         self.assertEqual(result["confidence"], "MEDIUM")
 
+    def test_distinct_from_alias_cleanup_is_treated_as_semantically_stable(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="SELECT DISTINCT u.status FROM users u ORDER BY u.status",
+            rewritten_sql="SELECT DISTINCT status FROM users ORDER BY status",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v1",
+                "rowCount": {"status": "ERROR", "error": "aggregate compare unsupported"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_SAFE_BASELINE_DISTINCT_FROM_ALIAS_CLEANUP")
+        self.assertIn("SEMANTIC_SAFE_BASELINE_DISTINCT_FROM_ALIAS_CLEANUP", result["reasons"])
+        self.assertEqual(result["confidence"], "MEDIUM")
+
     def test_simple_select_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
         result = build_semantic_equivalence(
             original_sql="""

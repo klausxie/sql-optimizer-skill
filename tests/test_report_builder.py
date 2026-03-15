@@ -658,6 +658,55 @@ class ReportBuilderTest(unittest.TestCase):
         )
         self.assertEqual(artifacts.report.stats["aggregation_ready_patch_count"], 1)
 
+    def test_build_report_artifacts_tracks_distinct_alias_ready_family(self) -> None:
+        inputs = ReportInputs(
+            units=[{"sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19"}],
+            proposals=[],
+            acceptance=[
+                {
+                    "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+                    "status": "PASS",
+                    "perfComparison": {"reasonCodes": []},
+                    "securityChecks": {"dollar_substitution_removed": True},
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                    "rewriteFacts": {
+                        "aggregationQuery": {
+                            "capabilityProfile": {
+                                "shapeFamily": "DISTINCT",
+                                "capabilityTier": "SAFE_BASELINE",
+                                "constraintFamily": "SAFE_BASELINE",
+                                "safeBaselineFamily": "DISTINCT_FROM_ALIAS_CLEANUP",
+                            }
+                        }
+                    },
+                    "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                    "riskFlags": [],
+                }
+            ],
+            patches=[],
+            state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
+            manifest_rows=[],
+            verification_rows=[],
+        )
+        config = {
+            "policy": {},
+            "runtime": {
+                "stage_timeout_ms": {"report": 300},
+                "stage_retry_max": {"report": 2},
+                "stage_retry_backoff_ms": 50,
+            },
+            "llm": {"enabled": False},
+        }
+
+        with tempfile.TemporaryDirectory(prefix="report_builder_distinct_alias_") as td:
+            artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
+
+        self.assertEqual(
+            artifacts.report.stats["aggregation_ready_family_counts"],
+            {"DISTINCT_FROM_ALIAS_CLEANUP": 1},
+        )
+        self.assertEqual(artifacts.report.stats["aggregation_ready_patch_count"], 1)
+
     def test_build_report_artifacts_warns_on_optimize_db_explain_syntax_error(self) -> None:
         inputs = ReportInputs(
             units=[{"sqlKey": "demo.user.findUsers#v1"}],

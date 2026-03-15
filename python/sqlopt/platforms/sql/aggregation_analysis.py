@@ -143,6 +143,10 @@ def _safe_baseline_family(original_sql: str, rewritten_sql: str) -> str | None:
     if original_direct is not None and rewritten_direct is not None:
         original_select = normalize_sql_text(original_direct.group("select"))
         original_from = normalize_sql_text(original_direct.group("from"))
+        if original_select.lower().startswith("distinct "):
+            cleaned_select, cleaned_from, changed = cleanup_single_table_alias_references(original_select, original_from)
+            if changed and normalize_sql_text(f"SELECT {cleaned_select} {cleaned_from}") == normalize_sql_text(rewritten_sql):
+                return "DISTINCT_FROM_ALIAS_CLEANUP"
         if _extract_top_level_clause(original_from, "group by"):
             cleaned_select, cleaned_from, changed = cleanup_single_table_alias_references(original_select, original_from)
             cleaned_select, _ = cleanup_redundant_select_aliases(cleaned_select)

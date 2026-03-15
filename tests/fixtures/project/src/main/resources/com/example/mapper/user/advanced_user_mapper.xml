@@ -216,4 +216,10 @@
         </where>
         ORDER BY created_at DESC
     </select>
+
+    <select id="listDistinctUserStatusesAliased" resultType="map">
+        SELECT DISTINCT u.status
+        FROM users u
+        ORDER BY u.status
+    </select>
 </mapper>

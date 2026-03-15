@@ -110,11 +110,30 @@ def _normalize_groupby_from_alias_cleanup(sql: str) -> str | None:
     return f"SELECT {cleaned_select} {cleaned_from}"
 
 
+def _normalize_distinct_from_alias_cleanup(sql: str) -> str | None:
+    direct_match = SELECT_DIRECT_RE.match(str(sql or "").strip())
+    if direct_match is None:
+        return None
+    select_text = str(direct_match.group("select") or "").strip()
+    from_suffix = str(direct_match.group("from") or "").strip()
+    if not select_text.lower().startswith("distinct "):
+        return None
+    if re.search(r"\bgroup\s+by\b|\bhaving\b|\bunion\b|\bover\s*\(", from_suffix, flags=re.IGNORECASE):
+        return None
+    cleaned_select, cleaned_from, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    if not changed:
+        return None
+    return f"SELECT {cleaned_select} {cleaned_from}"
+
+
 def _semantic_subject_sql(sql: str) -> str:
     normalized = strip_sql_comments(str(sql or "")).strip()
     collapsed_count = _inline_simple_count_wrapper(normalized)
     if collapsed_count:
         return collapsed_count
+    distinct_alias_cleanup = _normalize_distinct_from_alias_cleanup(normalized)
+    if distinct_alias_cleanup:
+        return distinct_alias_cleanup
     groupby_alias_cleanup = _normalize_groupby_from_alias_cleanup(normalized)
     if groupby_alias_cleanup:
         return groupby_alias_cleanup
@@ -280,6 +299,8 @@ def _is_safe_aggregation_wrapper_equivalent(original_sql: str, rewritten_sql: st
         return "SEMANTIC_SAFE_BASELINE_REDUNDANT_GROUP_BY_WRAPPER"
     if family == "REDUNDANT_HAVING_WRAPPER":
         return "SEMANTIC_SAFE_BASELINE_REDUNDANT_HAVING_WRAPPER"
+    if family == "DISTINCT_FROM_ALIAS_CLEANUP":
+        return "SEMANTIC_SAFE_BASELINE_DISTINCT_FROM_ALIAS_CLEANUP"
     if family == "GROUP_BY_FROM_ALIAS_CLEANUP":
         return "SEMANTIC_SAFE_BASELINE_GROUP_BY_FROM_ALIAS_CLEANUP"
     if family == "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP":

@@ -7,6 +7,7 @@ from sqlopt.platforms.sql.candidate_generation_policy import (
     recover_candidates_from_shape,
 )
 from sqlopt.platforms.sql.candidate_generation_support import (
+    distinct_from_alias_cleanup_sql,
     dynamic_filter_from_alias_cleanup_sql,
     groupby_from_alias_cleanup_sql,
     simple_where_predicate_signature,
@@ -265,6 +266,23 @@ class CandidateGenerationPolicyTest(unittest.TestCase):
             recovered[0]["rewrittenSql"],
             "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
         )
+
+    def test_distinct_from_alias_cleanup_sql_removes_single_table_alias_references(self) -> None:
+        cleaned = distinct_from_alias_cleanup_sql(
+            "SELECT DISTINCT u.status FROM users u ORDER BY u.status"
+        )
+
+        self.assertEqual(cleaned, "SELECT DISTINCT status FROM users ORDER BY status")
+
+    def test_recover_candidates_from_shape_handles_distinct_from_alias_cleanup(self) -> None:
+        recovered = recover_candidates_from_shape(
+            "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+            "SELECT DISTINCT u.status FROM users u ORDER BY u.status",
+        )
+
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["rewriteStrategy"], "REMOVE_REDUNDANT_DISTINCT_FROM_ALIAS_RECOVERED")
+        self.assertEqual(recovered[0]["rewrittenSql"], "SELECT DISTINCT status FROM users ORDER BY status")
 
     def test_build_candidate_generation_diagnostics_marks_window_empty_reason(self) -> None:
         diagnostics, recovered = build_candidate_generation_diagnostics(
