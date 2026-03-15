@@ -62,10 +62,14 @@ from .report_stats import (
 _OPS_TOPOLOGY_STAGE_KEYS = ("scan", "optimize", "validate", "apply", "report")
 
 
-def _filter_runtime_policy_for_ops_topology(runtime_cfg: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
+def _filter_runtime_policy_for_ops_topology(
+    runtime_cfg: dict[str, Any],
+) -> tuple[dict[str, int], dict[str, int]]:
     timeout_src = dict(runtime_cfg.get("stage_timeout_ms") or {})
     retry_src = dict(runtime_cfg.get("stage_retry_max") or {})
-    timeout = {k: int(timeout_src[k]) for k in _OPS_TOPOLOGY_STAGE_KEYS if k in timeout_src}
+    timeout = {
+        k: int(timeout_src[k]) for k in _OPS_TOPOLOGY_STAGE_KEYS if k in timeout_src
+    }
     retry = {k: int(retry_src[k]) for k in _OPS_TOPOLOGY_STAGE_KEYS if k in retry_src}
     return timeout, retry
 
@@ -81,10 +85,26 @@ def _build_sql_artifact_rows(
     sql_outcomes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     paths = canonical_paths(run_dir)
-    outcome_by_sql_key = {str(row.get("sql_key") or ""): row for row in sql_outcomes if str(row.get("sql_key") or "").strip()}
-    proposal_by_sql_key = {str(row.get("sqlKey") or ""): row for row in proposals if str(row.get("sqlKey") or "").strip()}
-    acceptance_by_sql_key = {str(row.get("sqlKey") or ""): row for row in acceptance if str(row.get("sqlKey") or "").strip()}
-    patch_by_statement = {str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()}
+    outcome_by_sql_key = {
+        str(row.get("sql_key") or ""): row
+        for row in sql_outcomes
+        if str(row.get("sql_key") or "").strip()
+    }
+    proposal_by_sql_key = {
+        str(row.get("sqlKey") or ""): row
+        for row in proposals
+        if str(row.get("sqlKey") or "").strip()
+    }
+    acceptance_by_sql_key = {
+        str(row.get("sqlKey") or ""): row
+        for row in acceptance
+        if str(row.get("sqlKey") or "").strip()
+    }
+    patch_by_statement = {
+        str(row.get("statementKey") or ""): row
+        for row in patches
+        if str(row.get("statementKey") or "").strip()
+    }
     verification_keys = {
         str(row.get("sql_key") or "").strip()
         for row in verification_rows
@@ -102,7 +122,9 @@ def _build_sql_artifact_rows(
         patch_row = patch_by_statement.get(statement_key, {})
         sql_path = to_posix_relative(run_dir, paths.sql_artifact_dir(sql_key))
         trace_path = paths.sql_trace_path(sql_key)
-        candidate_generation_diagnostics_path = paths.sql_candidate_generation_diagnostics_path(sql_key)
+        candidate_generation_diagnostics_path = (
+            paths.sql_candidate_generation_diagnostics_path(sql_key)
+        )
         evidence_dir = paths.sql_evidence_dir(sql_key)
         rows.append(
             {
@@ -110,13 +132,21 @@ def _build_sql_artifact_rows(
                 "statement_key": statement_key,
                 "sql_path": sql_path,
                 "sql_index": f"{sql_path}/index.json",
-                "delivery_status": outcome.get("delivery_status") or outcome.get("delivery_tier") or "BLOCKED",
+                "delivery_status": outcome.get("delivery_status")
+                or outcome.get("delivery_tier")
+                or "BLOCKED",
                 "blocker_primary_code": outcome.get("blocker_primary_code"),
                 "blocker_family": outcome.get("blocker_family"),
                 "aggregation_shape_family": outcome.get("aggregation_shape_family"),
-                "aggregation_capability_tier": outcome.get("aggregation_capability_tier"),
-                "aggregation_constraint_family": outcome.get("aggregation_constraint_family"),
-                "aggregation_safe_baseline_family": outcome.get("aggregation_safe_baseline_family"),
+                "aggregation_capability_tier": outcome.get(
+                    "aggregation_capability_tier"
+                ),
+                "aggregation_constraint_family": outcome.get(
+                    "aggregation_constraint_family"
+                ),
+                "aggregation_safe_baseline_family": outcome.get(
+                    "aggregation_safe_baseline_family"
+                ),
                 "dynamic_shape_family": outcome.get("dynamic_shape_family"),
                 "dynamic_capability_tier": outcome.get("dynamic_capability_tier"),
                 "dynamic_patch_surface": outcome.get("dynamic_patch_surface"),
@@ -126,15 +156,25 @@ def _build_sql_artifact_rows(
                 "evidence_availability": outcome.get("evidence_availability"),
                 "artifact_refs": {
                     "report": REL_OVERVIEW_REPORT_JSON,
-                    "acceptance": REL_PIPELINE_VALIDATE_ACCEPTANCE if acceptance_row else None,
+                    "acceptance": REL_PIPELINE_VALIDATE_ACCEPTANCE
+                    if acceptance_row
+                    else None,
                     "patches": REL_PIPELINE_PATCH_RESULTS if patch_row else None,
-                    "proposals": REL_PIPELINE_OPTIMIZE_PROPOSALS if proposal_row else None,
-                    "verification": REL_PIPELINE_VERIFICATION_LEDGER if sql_key in verification_keys else None,
-                    "trace": f"{sql_path}/trace.optimize.llm.json" if trace_path.exists() else None,
+                    "proposals": REL_PIPELINE_OPTIMIZE_PROPOSALS
+                    if proposal_row
+                    else None,
+                    "verification": REL_PIPELINE_VERIFICATION_LEDGER
+                    if sql_key in verification_keys
+                    else None,
+                    "trace": f"{sql_path}/trace.optimize.llm.json"
+                    if trace_path.exists()
+                    else None,
                     "candidate_generation_diagnostics": f"{sql_path}/candidate_generation_diagnostics.json"
                     if candidate_generation_diagnostics_path.exists()
                     else None,
-                    "evidence_dir": f"{sql_path}/evidence" if evidence_dir.exists() else None,
+                    "evidence_dir": f"{sql_path}/evidence"
+                    if evidence_dir.exists()
+                    else None,
                 },
             }
         )
@@ -166,12 +206,20 @@ def _build_run_index_payload(
             issues.append("MISSING_PATCH_REF")
         if _phase_done("patch_generate") and not refs.get("verification"):
             issues.append("MISSING_VERIFICATION_REF")
-        if str(row.get("evidence_availability") or "").strip().upper() == "READY" and not refs.get("evidence_dir"):
+        if str(
+            row.get("evidence_availability") or ""
+        ).strip().upper() == "READY" and not refs.get("evidence_dir"):
             issues.append("READY_EVIDENCE_DIR_MISSING")
         return issues, missing_refs
 
-    sql_keys = [str(row.get("sql_key") or "") for row in sql_artifact_rows if str(row.get("sql_key") or "").strip()]
-    alignment_ok = set(sql_keys) == set(str(x) for x in outcome_sql_keys if str(x).strip())
+    sql_keys = [
+        str(row.get("sql_key") or "")
+        for row in sql_artifact_rows
+        if str(row.get("sql_key") or "").strip()
+    ]
+    alignment_ok = set(sql_keys) == set(
+        str(x) for x in outcome_sql_keys if str(x).strip()
+    )
     sql_ref_null_counts: dict[str, int] = {}
     sql_ref_issue_counts: dict[str, int] = {}
     sql_ref_issues: list[dict[str, Any]] = []
@@ -261,32 +309,50 @@ def build_report_artifacts(
     llm_generated = sum(len(x.get("llmCandidates", []) or []) for x in inputs.proposals)
     llm_timeout_count = count_llm_timeouts(run_dir, inputs.proposals)
     perf_improved_count = sum(
-        1 for x in inputs.acceptance if x.get("status") == "PASS" and (x.get("perfComparison") or {}).get("improved") is True
+        1
+        for x in inputs.acceptance
+        if x.get("status") == "PASS"
+        and (x.get("perfComparison") or {}).get("improved") is True
     )
     perf_not_improved_count = sum(
-        1 for x in inputs.acceptance if x.get("status") == "PASS" and (x.get("perfComparison") or {}).get("improved") is False
+        1
+        for x in inputs.acceptance
+        if x.get("status") == "PASS"
+        and (x.get("perfComparison") or {}).get("improved") is False
     )
     blocked_sql_count = sum(
         1
         for row in inputs.acceptance
         if str(row.get("status") or "").upper() != "PASS"
-        or str(((row.get("semanticEquivalence") or {}).get("status") or "PASS")).upper() != "PASS"
-        or str(((row.get("semanticEquivalence") or {}).get("confidence") or "HIGH")).upper() == "LOW"
+        or str(((row.get("semanticEquivalence") or {}).get("status") or "PASS")).upper()
+        != "PASS"
+        or str(
+            ((row.get("semanticEquivalence") or {}).get("confidence") or "HIGH")
+        ).upper()
+        == "LOW"
     )
     repairable_blocked_count = sum(
         1
         for row in inputs.acceptance
         if str(row.get("status") or "").upper() != "PASS"
         and (
-            str(((row.get("repairability") or {}).get("status") or "")).strip().upper() == "REPAIRABLE"
-            or str(((row.get("feedback") or {}).get("reason_code") or "")).strip().upper() == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+            str(((row.get("repairability") or {}).get("status") or "")).strip().upper()
+            == "REPAIRABLE"
+            or str(((row.get("feedback") or {}).get("reason_code") or ""))
+            .strip()
+            .upper()
+            == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
         )
     )
     patch_file_count = sum(len(x.get("patchFiles", [])) for x in inputs.patches)
-    patch_applicable_count = sum(1 for x in inputs.patches if x.get("applicable") is True)
+    patch_applicable_count = sum(
+        1 for x in inputs.patches if x.get("applicable") is True
+    )
     materialization_counts = materialization_mode_counts(inputs.acceptance)
     materialization_reason_counts_map = materialization_reason_counts(inputs.acceptance)
-    materialization_reason_group_counts_map = materialization_reason_group_counts(materialization_reason_counts_map)
+    materialization_reason_group_counts_map = materialization_reason_group_counts(
+        materialization_reason_counts_map
+    )
     patch_strategy_counts: dict[str, int] = {}
     canonical_rule_match_counts: dict[str, int] = {}
     aggregation_shape_counts: dict[str, int] = {}
@@ -309,12 +375,16 @@ def build_report_artifacts(
     patch_strategy_by_sql: dict[str, str] = {}
     for row in inputs.acceptance:
         sql_key = str(row.get("sqlKey") or "").strip()
-        strategy_type = str(((row.get("selectedPatchStrategy") or {}).get("strategyType") or "")).strip()
+        strategy_type = str(
+            ((row.get("selectedPatchStrategy") or {}).get("strategyType") or "")
+        ).strip()
         if sql_key and strategy_type and sql_key not in patch_strategy_by_sql:
             patch_strategy_by_sql[sql_key] = strategy_type
     for row in inputs.patches:
         sql_key = str(row.get("sqlKey") or "").strip()
-        strategy_type = str((row.get("strategyType") or row.get("dynamicTemplateStrategy") or "")).strip()
+        strategy_type = str(
+            (row.get("strategyType") or row.get("dynamicTemplateStrategy") or "")
+        ).strip()
         if sql_key and strategy_type:
             patch_strategy_by_sql[sql_key] = strategy_type
 
@@ -322,49 +392,91 @@ def build_report_artifacts(
         canonical = dict(row.get("canonicalization") or {})
         canonical_rule = str(canonical.get("ruleId") or "").strip()
         if canonical_rule:
-            canonical_rule_match_counts[canonical_rule] = canonical_rule_match_counts.get(canonical_rule, 0) + 1
+            canonical_rule_match_counts[canonical_rule] = (
+                canonical_rule_match_counts.get(canonical_rule, 0) + 1
+            )
         if bool(canonical.get("preferred")):
             canonical_preference_applied_count += 1
-        aggregation_profile = dict((((row.get("rewriteFacts") or {}).get("aggregationQuery") or {}).get("capabilityProfile") or {}))
+        aggregation_profile = dict(
+            (
+                ((row.get("rewriteFacts") or {}).get("aggregationQuery") or {}).get(
+                    "capabilityProfile"
+                )
+                or {}
+            )
+        )
         shape_family = str(aggregation_profile.get("shapeFamily") or "").strip().upper()
         if shape_family and shape_family != "NONE":
-            aggregation_shape_counts[shape_family] = aggregation_shape_counts.get(shape_family, 0) + 1
-        constraint_family = str(aggregation_profile.get("constraintFamily") or "").strip().upper()
+            aggregation_shape_counts[shape_family] = (
+                aggregation_shape_counts.get(shape_family, 0) + 1
+            )
+        constraint_family = (
+            str(aggregation_profile.get("constraintFamily") or "").strip().upper()
+        )
         if constraint_family and constraint_family != "NONE":
-            aggregation_constraint_counts[constraint_family] = aggregation_constraint_counts.get(constraint_family, 0) + 1
-        safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
+            aggregation_constraint_counts[constraint_family] = (
+                aggregation_constraint_counts.get(constraint_family, 0) + 1
+            )
+        safe_baseline_family = str(
+            aggregation_profile.get("safeBaselineFamily") or ""
+        ).strip()
         if safe_baseline_family:
-            aggregation_safe_baseline_counts[safe_baseline_family] = aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
+            aggregation_safe_baseline_counts[safe_baseline_family] = (
+                aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
+            )
         dynamic_template = dict(row.get("dynamicTemplate") or {})
-        dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
+        dynamic_baseline_family = str(
+            dynamic_template.get("baselineFamily") or ""
+        ).strip()
         if dynamic_baseline_family:
-            dynamic_baseline_family_counts[dynamic_baseline_family] = dynamic_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
-        dynamic_delivery_class = str(dynamic_template.get("deliveryClass") or "").strip()
+            dynamic_baseline_family_counts[dynamic_baseline_family] = (
+                dynamic_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
+            )
+        dynamic_delivery_class = str(
+            dynamic_template.get("deliveryClass") or ""
+        ).strip()
         if dynamic_delivery_class:
-            dynamic_delivery_class_counts[dynamic_delivery_class] = dynamic_delivery_class_counts.get(dynamic_delivery_class, 0) + 1
+            dynamic_delivery_class_counts[dynamic_delivery_class] = (
+                dynamic_delivery_class_counts.get(dynamic_delivery_class, 0) + 1
+            )
             normalized_dynamic_delivery_class = dynamic_delivery_class.upper()
             if normalized_dynamic_delivery_class == "READY_DYNAMIC_PATCH":
                 dynamic_ready_patch_count += 1
                 if dynamic_baseline_family:
                     dynamic_ready_baseline_family_counts[dynamic_baseline_family] = (
-                        dynamic_ready_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
+                        dynamic_ready_baseline_family_counts.get(
+                            dynamic_baseline_family, 0
+                        )
+                        + 1
                     )
-            elif normalized_dynamic_delivery_class in {"SAFE_BASELINE_BLOCKED", "SAFE_BASELINE_NO_DIFF"}:
+            elif normalized_dynamic_delivery_class in {
+                "SAFE_BASELINE_BLOCKED",
+                "SAFE_BASELINE_NO_DIFF",
+            }:
                 dynamic_safe_baseline_blocked_count += 1
             elif normalized_dynamic_delivery_class == "REVIEW_ONLY":
                 dynamic_review_only_count += 1
     for strategy_type in patch_strategy_by_sql.values():
-        patch_strategy_counts[strategy_type] = patch_strategy_counts.get(strategy_type, 0) + 1
+        patch_strategy_counts[strategy_type] = (
+            patch_strategy_counts.get(strategy_type, 0) + 1
+        )
     for proposal in inputs.proposals:
         diagnostics = dict(proposal.get("candidateGenerationDiagnostics") or {})
         degradation_kind = str(diagnostics.get("degradationKind") or "").strip()
         if degradation_kind:
-            candidate_degradation_counts[degradation_kind] = candidate_degradation_counts.get(degradation_kind, 0) + 1
+            candidate_degradation_counts[degradation_kind] = (
+                candidate_degradation_counts.get(degradation_kind, 0) + 1
+            )
         pruned_low_value = int(diagnostics.get("prunedLowValueCount") or 0)
         low_value_pruned_count += pruned_low_value
         if bool(diagnostics.get("recoverySucceeded")):
-            recovery_strategy = str(diagnostics.get("recoveryStrategy") or "").strip() or "RECOVERY_SUCCEEDED"
-            candidate_recovery_counts[recovery_strategy] = candidate_recovery_counts.get(recovery_strategy, 0) + 1
+            recovery_strategy = (
+                str(diagnostics.get("recoveryStrategy") or "").strip()
+                or "RECOVERY_SUCCEEDED"
+            )
+            candidate_recovery_counts[recovery_strategy] = (
+                candidate_recovery_counts.get(recovery_strategy, 0) + 1
+            )
             if degradation_kind == "ONLY_LOW_VALUE_CANDIDATES":
                 low_value_replaced_count += 1
             if degradation_kind == "EMPTY_CANDIDATES":
@@ -377,50 +489,83 @@ def build_report_artifacts(
                 empty_candidate_blocked_reason_counts[blocked_reason] = (
                     empty_candidate_blocked_reason_counts.get(blocked_reason, 0) + 1
                 )
-    semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(inputs.acceptance)
-    semantic_confidence_distribution, semantic_evidence_level_distribution, semantic_hard_conflict_top_codes = (
-        summarize_semantic_gate_quality(inputs.acceptance)
+    semantic_gate_counts, semantic_gate_reason_counts = summarize_semantic_gates(
+        inputs.acceptance
     )
-    confidence_upgraded_count, confidence_upgrade_by_evidence_source = summarize_semantic_confidence_upgrades(inputs.acceptance)
+    (
+        semantic_confidence_distribution,
+        semantic_evidence_level_distribution,
+        semantic_hard_conflict_top_codes,
+    ) = summarize_semantic_gate_quality(inputs.acceptance)
+    confidence_upgraded_count, confidence_upgrade_by_evidence_source = (
+        summarize_semantic_confidence_upgrades(inputs.acceptance)
+    )
     confidence_upgrade_rate = (
-        confidence_upgraded_count / len(inputs.acceptance)
-        if inputs.acceptance
-        else 0.0
+        confidence_upgraded_count / len(inputs.acceptance) if inputs.acceptance else 0.0
     )
     uncertain_upgrade_count = sum(
         1
         for row in inputs.acceptance
-        if bool(((row.get("semanticEquivalence") or {}).get("confidenceUpgradeApplied")))
-        and str(((row.get("semanticEquivalence") or {}).get("status") or "")).strip().upper() == "PASS"
-        and str(((row.get("semanticEquivalence") or {}).get("confidenceBeforeUpgrade") or "LOW")).strip().upper() in {"LOW", "UNKNOWN"}
+        if bool(
+            ((row.get("semanticEquivalence") or {}).get("confidenceUpgradeApplied"))
+        )
+        and str(((row.get("semanticEquivalence") or {}).get("status") or ""))
+        .strip()
+        .upper()
+        == "PASS"
+        and str(
+            (
+                (row.get("semanticEquivalence") or {}).get("confidenceBeforeUpgrade")
+                or "LOW"
+            )
+        )
+        .strip()
+        .upper()
+        in {"LOW", "UNKNOWN"}
     )
     semantic_false_block_recovered_count = sum(
         1
         for row in inputs.acceptance
-        if bool(((row.get("semanticEquivalence") or {}).get("equivalenceOverrideApplied")))
+        if bool(
+            ((row.get("semanticEquivalence") or {}).get("equivalenceOverrideApplied"))
+        )
     )
     include_safe_materialized_count = sum(
         1
         for row in inputs.acceptance
-        if str(((row.get("rewriteMaterialization") or {}).get("mode") or "")).strip() == FRAGMENT_TEMPLATE_SAFE_AUTO
+        if str(((row.get("rewriteMaterialization") or {}).get("mode") or "")).strip()
+        == FRAGMENT_TEMPLATE_SAFE_AUTO
     )
-    wrapper_collapse_recovered_count = patch_strategy_counts.get("SAFE_WRAPPER_COLLAPSE", 0)
+    wrapper_collapse_recovered_count = patch_strategy_counts.get(
+        "SAFE_WRAPPER_COLLAPSE", 0
+    )
     patchability_lift_rate = (
-        repairable_blocked_count / blocked_sql_count
-        if blocked_sql_count > 0
-        else 0.0
+        repairable_blocked_count / blocked_sql_count if blocked_sql_count > 0 else 0.0
     )
 
     generated_at = datetime.now(timezone.utc).isoformat()
     stats = {
         "sql_units": len(inputs.units),
         "proposals": len(inputs.proposals),
-        "acceptance_pass": sum(1 for x in inputs.acceptance if x.get("status") == "PASS"),
-        "pass_with_warn_count": sum(1 for x in inputs.acceptance if x.get("status") == "PASS" and (x.get("warnings") or [])),
-        "acceptance_fail": sum(1 for x in inputs.acceptance if x.get("status") == "FAIL"),
-        "acceptance_need_more_params": sum(1 for x in inputs.acceptance if x.get("status") == "NEED_MORE_PARAMS"),
+        "acceptance_pass": sum(
+            1 for x in inputs.acceptance if x.get("status") == "PASS"
+        ),
+        "pass_with_warn_count": sum(
+            1
+            for x in inputs.acceptance
+            if x.get("status") == "PASS" and (x.get("warnings") or [])
+        ),
+        "acceptance_fail": sum(
+            1 for x in inputs.acceptance if x.get("status") == "FAIL"
+        ),
+        "acceptance_need_more_params": sum(
+            1 for x in inputs.acceptance if x.get("status") == "NEED_MORE_PARAMS"
+        ),
         "semantic_error_count": sum(
-            1 for x in inputs.acceptance if "VALIDATE_SEMANTIC_ERROR" in ((x.get("perfComparison") or {}).get("reasonCodes") or [])
+            1
+            for x in inputs.acceptance
+            if "VALIDATE_SEMANTIC_ERROR"
+            in ((x.get("perfComparison") or {}).get("reasonCodes") or [])
         ),
         "semantic_gate_pass_count": semantic_gate_counts["pass"],
         "semantic_gate_fail_count": semantic_gate_counts["fail"],
@@ -432,7 +577,11 @@ def build_report_artifacts(
         "confidence_upgraded_count": confidence_upgraded_count,
         "confidence_upgrade_rate": round(confidence_upgrade_rate, 4),
         "confidence_upgrade_by_evidence_source": confidence_upgrade_by_evidence_source,
-        "dollar_substitution_count": sum(1 for x in inputs.acceptance if "DOLLAR_SUBSTITUTION" in (x.get("riskFlags") or [])),
+        "dollar_substitution_count": sum(
+            1
+            for x in inputs.acceptance
+            if "DOLLAR_SUBSTITUTION" in (x.get("riskFlags") or [])
+        ),
         "patch_files": patch_file_count,
         "patch_applicable_count": patch_applicable_count,
         "materialization_mode_counts": materialization_counts,
@@ -467,13 +616,17 @@ def build_report_artifacts(
         "wrapper_collapse_recovered_count": wrapper_collapse_recovered_count,
         "patchability_lift_rate": round(patchability_lift_rate, 4),
         "db_unreachable_count": sum(
-            1 for x in inputs.acceptance if "VALIDATE_DB_UNREACHABLE" in (x.get("perfComparison", {}).get("reasonCodes") or [])
+            1
+            for x in inputs.acceptance
+            if "VALIDATE_DB_UNREACHABLE"
+            in (x.get("perfComparison", {}).get("reasonCodes") or [])
         ),
         "llm_candidates_generated": llm_generated,
         "llm_candidates_accepted": report_acceptance_llm_count(inputs.acceptance),
-        "llm_candidates_rejected": max(llm_generated - report_acceptance_llm_count(inputs.acceptance), 0),
+        "llm_candidates_rejected": max(
+            llm_generated - report_acceptance_llm_count(inputs.acceptance), 0
+        ),
         "llm_timeout_count": llm_timeout_count,
-        "preflight_failure_count": 0,
         "phase_reason_code_counts": {},
         "ineffective_reason_counts": {},
         "fatal_count": 0,
@@ -481,7 +634,9 @@ def build_report_artifacts(
         "degradable_count": 0,
     }
 
-    runtime_timeout, runtime_retry = _filter_runtime_policy_for_ops_topology(config["runtime"])
+    runtime_timeout, runtime_retry = _filter_runtime_policy_for_ops_topology(
+        config["runtime"]
+    )
     topology = OpsTopologyDocument(
         run_id=run_id,
         executor="python",
@@ -497,9 +652,6 @@ def build_report_artifacts(
     )
 
     failures = build_failures(inputs.acceptance, inputs.manifest_rows)
-    stats["preflight_failure_count"] = sum(
-        1 for row in inputs.manifest_rows if row.stage == "preflight" and row.event == "failed"
-    )
     reason_counts, phase_reason_counts, class_counts = summarize_failures(failures)
     stats["ineffective_reason_counts"] = reason_counts
     stats["phase_reason_code_counts"] = phase_reason_counts
@@ -507,17 +659,25 @@ def build_report_artifacts(
     stats["retryable_count"] = class_counts.get("retryable", 0)
     stats["degradable_count"] = class_counts.get("degradable", 0)
     stats["pipeline_coverage"] = phase_status
-    verification_summary = summarize_records(run_id, inputs.verification_rows, total_sql=len(inputs.units)).to_contract()
-    stats["verification"] = {k: v for k, v in verification_summary.items() if k != "generated_at"}
-    validation_warnings, evidence_confidence, verification_gate = build_verification_gate(
-        inputs.acceptance,
-        inputs.patches,
-        inputs.verification_rows,
+    verification_summary = summarize_records(
+        run_id, inputs.verification_rows, total_sql=len(inputs.units)
+    ).to_contract()
+    stats["verification"] = {
+        k: v for k, v in verification_summary.items() if k != "generated_at"
+    }
+    validation_warnings, evidence_confidence, verification_gate = (
+        build_verification_gate(
+            inputs.acceptance,
+            inputs.patches,
+            inputs.verification_rows,
+        )
     )
     stats["verification"].update(verification_gate)
     stats["validation_warnings"] = validation_warnings
     stats["evidence_confidence"] = evidence_confidence
-    stats["actionability"] = summarize_actionability(inputs.proposals, inputs.acceptance, inputs.patches)
+    stats["actionability"] = summarize_actionability(
+        inputs.proposals, inputs.acceptance, inputs.patches
+    )
     all_sql_outcomes = build_top_actionable_sql(
         inputs.units,
         inputs.proposals,
@@ -622,7 +782,9 @@ def build_report_artifacts(
             generated_at=generated_at,
             phase_status=phase_status,
             sql_artifact_rows=sql_artifact_rows,
-            outcome_sql_keys=[str(row.get("sql_key") or "") for row in all_sql_outcomes],
+            outcome_sql_keys=[
+                str(row.get("sql_key") or "") for row in all_sql_outcomes
+            ],
         ),
         verification_summary=verification_summary,
     )

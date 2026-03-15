@@ -19,7 +19,9 @@ from ..run_paths import (
 )
 
 
-def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, phase_status: dict[str, str]) -> str:
+def render_summary_md(
+    run_id: str, verdict: str, readiness: str, stats: dict, phase_status: dict[str, str]
+) -> str:
     verification = stats.get("verification") or {}
     top_actionable = (stats.get("top_actionable_sql") or [])[:3]
     validation_warnings = stats.get("validation_warnings") or []
@@ -28,7 +30,9 @@ def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, ph
     semantic_gate_uncertain = stats.get("semantic_gate_uncertain_count", 0)
     confidence_upgraded_count = stats.get("confidence_upgraded_count", 0)
     confidence_upgrade_rate = stats.get("confidence_upgrade_rate", 0)
-    confidence_upgrade_by_source = stats.get("confidence_upgrade_by_evidence_source", {})
+    confidence_upgrade_by_source = stats.get(
+        "confidence_upgrade_by_evidence_source", {}
+    )
     lines = [
         f"# SQL 优化总结：{run_id}",
         "",
@@ -68,7 +72,7 @@ def render_summary_md(run_id: str, verdict: str, readiness: str, stats: dict, ph
         lines.append("")
     lines.extend(
         [
-            f"- 阶段状态：preflight `{phase_status.get('preflight', 'PENDING')}`, scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
+            f"- 阶段状态：scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
             "",
         ]
     )
@@ -119,7 +123,11 @@ def render_report_md(
             ]
         )
         for row in top_actionable:
-            patch_label = "true" if row.get("patch_applicable") is True else ("false" if row.get("patch_applicable") is False else "n/a")
+            patch_label = (
+                "true"
+                if row.get("patch_applicable") is True
+                else ("false" if row.get("patch_applicable") is False else "n/a")
+            )
             delivery = row.get("delivery_status") or row.get("delivery_tier")
             lines.append(
                 f"| `{row.get('sql_key')}` | `{row.get('priority')}` | `{row.get('actionability_tier')}` | `{delivery}` | `{row.get('blocker_primary_code') or 'n/a'}` | `{patch_label}` | {row.get('why_now') or 'n/a'} | {row.get('summary')} |"
@@ -145,7 +153,6 @@ def render_report_md(
         [
             "",
             "## 交付状态",
-            f"- preflight: `{phase_status.get('preflight', 'PENDING')}`",
             f"- scan: `{phase_status.get('scan', 'PENDING')}` (尝试 `{attempts_by_phase.get('scan', 0)}`)",
             f"- optimize: `{phase_status.get('optimize', 'PENDING')}` (尝试 `{attempts_by_phase.get('optimize', 0)}`)",
             f"- validate: `{phase_status.get('validate', 'PENDING')}` (尝试 `{attempts_by_phase.get('validate', 0)}`)",
@@ -158,10 +165,20 @@ def render_report_md(
         ]
     )
     for row in sql_rows:
-        perf_label = "改进" if row.get("perf_improved") is True else ("未改进" if row.get("perf_improved") is False else "未知")
+        perf_label = (
+            "改进"
+            if row.get("perf_improved") is True
+            else ("未改进" if row.get("perf_improved") is False else "未知")
+        )
         patch_app = row.get("patch_applicable")
-        patch_label = "true" if patch_app is True else ("false" if patch_app is False else "n/a")
-        materialization = row.get("rewrite_materialization_mode") or row.get("rewrite_materialization_reason") or "n/a"
+        patch_label = (
+            "true" if patch_app is True else ("false" if patch_app is False else "n/a")
+        )
+        materialization = (
+            row.get("rewrite_materialization_mode")
+            or row.get("rewrite_materialization_reason")
+            or "n/a"
+        )
         semantic_gate_status = row.get("semantic_gate_status") or "UNKNOWN"
         semantic_confidence = row.get("semantic_gate_confidence") or "UNKNOWN"
         confidence_before_upgrade = row.get("semantic_confidence_before_upgrade")
@@ -170,8 +187,14 @@ def render_report_md(
         semantic_unupgraded_reason = row.get("semantic_unupgraded_reason") or "n/a"
         semantic_blocked_reason = row.get("semantic_blocked_reason") or "n/a"
         if row.get("semantic_confidence_upgraded"):
-            upgrade_path = f"{confidence_before_upgrade or 'UNKNOWN'}->{semantic_confidence}"
-            upgrade_proof = ",".join(semantic_upgrade_sources) or ",".join(semantic_upgrade_reasons) or "evidence"
+            upgrade_path = (
+                f"{confidence_before_upgrade or 'UNKNOWN'}->{semantic_confidence}"
+            )
+            upgrade_proof = (
+                ",".join(semantic_upgrade_sources)
+                or ",".join(semantic_upgrade_reasons)
+                or "evidence"
+            )
             semantic_upgrade_trace = f"{upgrade_path} ({upgrade_proof})"
         else:
             semantic_upgrade_trace = "未升级"
@@ -179,7 +202,14 @@ def render_report_md(
             f"| `{row.get('sql_key')}` | `{row.get('status')}` | `{semantic_gate_status}` | `{semantic_confidence}` | `{semantic_upgrade_trace}` | `{semantic_unupgraded_reason}` | `{semantic_blocked_reason}` | `{row.get('selected_source')}` | `{perf_label}` | `{materialization}` | `{patch_label}` | `{row.get('patch_selection_code') or 'n/a'}` |"
         )
 
-    lines.extend(["", "## 优化建议分析", "| SQL 键 | 结论 | 问题 | LLM 候选 |", "|---|---|---|---|"])
+    lines.extend(
+        [
+            "",
+            "## 优化建议分析",
+            "| SQL 键 | 结论 | 问题 | LLM 候选 |",
+            "|---|---|---|---|",
+        ]
+    )
     if proposal_rows:
         for row in proposal_rows:
             issues = ",".join(row.get("issue_codes") or []) or "无"
@@ -199,7 +229,9 @@ def render_report_md(
         lines.append(
             f"- `{row.get('sql_key')}`: 行检查 `{row.get('row_status') or 'n/a'}`, 成本 `{row.get('before_cost')}` -> `{row.get('after_cost')}`"
         )
-        if row.get("rewrite_materialization_mode") or row.get("rewrite_materialization_reason"):
+        if row.get("rewrite_materialization_mode") or row.get(
+            "rewrite_materialization_reason"
+        ):
             lines.append(
                 f"  物化：`{row.get('rewrite_materialization_mode') or 'n/a'}` / `{row.get('rewrite_materialization_reason') or 'n/a'}`"
             )

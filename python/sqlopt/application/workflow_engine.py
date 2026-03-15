@@ -63,8 +63,6 @@ _HANDLERS = _build_handler_registry(
     ),
     resolve_report_resume_decision=resolve_report_resume_decision,
     report_phase_complete_for_result=report_phase_complete_for_result,
-    # preflight stage removed - providing no-op for backward compatibility
-    preflight_execute=lambda config, run_dir: None,
     scan_execute=lambda config, run_dir, validator: scan_stage.execute(
         config, run_dir, validator
     ),
@@ -78,7 +76,6 @@ _HANDLERS = _build_handler_registry(
 )
 
 _complete_phase_result = _HANDLERS.complete_phase_result
-# preflight stage removed
 _scan = _HANDLERS.advance_scan
 _advance_optimize = _HANDLERS.advance_optimize
 _advance_validate = _HANDLERS.advance_validate
