@@ -86,115 +86,32 @@ def _get_python_command(target_skill: Path) -> str:
         return str(target_skill / "runtime" / ".venv" / "bin" / "python")
 
 
-def _generate_command_doc(
-    description: str,
-    argument_hint: str,
-    command_template: str,
-    parameters: list[dict] | None = None,
-    examples: list[str] | None = None,
-    notes: list[str] | None = None,
-) -> str:
-    """Generate markdown documentation for a single command.
-
-    Args:
-        description: Command description for the frontmatter
-        argument_hint: Argument hint string for the frontmatter
-        command_template: Full command template with placeholders
-        parameters: Optional list of parameter definitions with name, required, default, description
-        examples: Optional list of usage examples
-        notes: Optional list of additional notes
-
-    Returns:
-        Markdown documentation string
-    """
-    lines = [
-        "---",
-        f"description: {description}",
-        f"argument-hint: {argument_hint}",
-        "---",
-        "",
-        "## 命令格式",
-        "",
-        f"`{command_template}`",
-        "",
-    ]
-
-    if parameters:
-        lines.extend(
-            [
-                "## 参数说明",
-                "",
-            ]
-        )
-        for param in parameters:
-            name = param["name"]
-            required = param.get("required", True)
-            default = param.get("default")
-            desc = param.get("description", "")
-
-            if required:
-                lines.append(f"- `{name}` **(必需)**: {desc}")
-            else:
-                if default:
-                    lines.append(f"- `{name}` (可选，默认: `{default}`): {desc}")
-                else:
-                    lines.append(f"- `{name}` (可选): {desc}")
-        lines.append("")
-
-    if examples:
-        lines.extend(
-            [
-                "## 使用示例",
-                "",
-            ]
-        )
-        for example in examples:
-            lines.append(f"```bash")
-            lines.append(example)
-            lines.append("```")
-            lines.append("")
-
-    if notes:
-        lines.extend(
-            [
-                "## 注意事项",
-                "",
-            ]
-        )
-        for note in notes:
-            lines.append(f"- {note}")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-def _write_commands(target_skill: Path) -> None:
-    """Generate OpenCode command documentation files.
-
-    This function creates markdown files for each SQL Optimizer command
-    that can be invoked through OpenCode. The commands are defined in a
-    data-driven way to reduce duplication and improve maintainability.
-    """
-    cmd_dir = commands_dir()
-    cmd_dir.mkdir(parents=True, exist_ok=True)
-
-    # Get paths
-    py_cmd = _get_python_command(target_skill)
-    run_budget_script = str(
-        target_skill / "runtime" / "scripts" / "run_until_budget.py"
+def _get_cli_command(target_skill: Path) -> str:
+    """Get the sqlopt-cli command string for the target skill."""
+    cli_wrapper = (
+        target_skill
+        / "bin"
+        / ("sqlopt-cli.cmd" if sys.platform.startswith("win") else "sqlopt-cli")
     )
-    resolved_id_script = str(
-        target_skill / "runtime" / "scripts" / "run_with_resolved_id.py"
-    )
+    if cli_wrapper.exists():
+        return str(cli_wrapper)
+    # Fallback to direct python script invocation
+    py = _get_python_command(target_skill)
+    script = target_skill / "runtime" / "scripts" / "sqlopt_cli.py"
+    return f"{py} {script}"
 
-    # Define all commands in a structured way
+
+def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
+    """Generate OpenCode slash command documentation files for phase capabilities."""
+
+    cli_cmd = _get_cli_command(target_skill)
+
     commands = [
         {
-            "name": "sql-optimizer-run",
-            "description": "为项目执行一次 SQL 优化时间片（单次调用不保证跑完）",
-            "argument_hint": "config=./sqlopt.yml to_stage=patch_generate run_id=RUN_ID max_steps=200 max_seconds=95",
-            "script": run_budget_script,
-            "args": "--config <config> --to-stage <to_stage> --run-id <run_id> --max-steps <max_steps> --max-seconds <max_seconds>",
+            "name": "sql-scan",
+            "description": "扫描 MyBatis XML 文件",
+            "argument_hint": "config=./sqlopt.yml project=.",
+            "full_description": "扫描 MyBatis XML 映射文件，识别其中的 SQL 语句，为后续优化做准备。",
             "parameters": [
                 {
                     "name": "config",
@@ -203,175 +120,149 @@ def _write_commands(target_skill: Path) -> None:
                     "description": "配置文件路径",
                 },
                 {
-                    "name": "to_stage",
+                    "name": "project",
                     "required": False,
-                    "default": "patch_generate",
-                    "description": "目标阶段，可选值: preflight, scan, optimize, validate, patch_generate, report",
-                },
-                {
-                    "name": "run_id",
-                    "required": False,
-                    "default": "自动生成",
-                    "description": "运行 ID，省略时自动生成新的 run_id",
-                },
-                {
-                    "name": "max_steps",
-                    "required": False,
-                    "default": "200",
-                    "description": "最大执行步数",
-                },
-                {
-                    "name": "max_seconds",
-                    "required": False,
-                    "default": "95",
-                    "description": "最大执行时间（秒）",
+                    "default": ".",
+                    "description": "项目根目录路径",
                 },
             ],
             "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {run_budget_script}",
-                "",
-                "# 指定配置文件和目标阶段",
-                f"{py_cmd} {run_budget_script} --config ./sqlopt.yml --to-stage patch_generate",
-                "",
-                "# 继续已有的运行",
-                f"{py_cmd} {run_budget_script} --run-id run_abc123",
-            ],
-            "notes": [
-                "单次调用约 95 秒，不保证完成所有 SQL 优化",
-                "需要循环调用直到返回 complete=true",
-                "返回 JSON 格式包含 run_id、complete、phase 等信息",
-                "可选参数不传时使用默认值",
+                f"{cli_cmd} run --to-stage scan --config ./sqlopt.yml --project .",
+                f"{cli_cmd} run --to-stage scan --config ./sqlopt.yml",
             ],
         },
         {
-            "name": "sql-optimizer-status",
-            "description": "查询 sql-optimizer 运行状态（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "status --run-id <run_id> --project <project>",
+            "name": "sql-optimize",
+            "description": "优化 SQL 语句",
+            "argument_hint": "config=./sqlopt.yml project=.",
+            "full_description": "使用 LLM 分析扫描到的 SQL 语句，生成优化建议。",
             "parameters": [
+                {
+                    "name": "config",
+                    "required": False,
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径",
+                },
                 {
                     "name": "project",
                     "required": False,
                     "default": ".",
                     "description": "项目根目录路径",
                 },
-                {
-                    "name": "run_id",
-                    "required": False,
-                    "default": "最近一次运行",
-                    "description": "运行 ID，省略时自动使用最近一次运行",
-                },
             ],
             "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} status",
-                "",
-                "# 查询最近一次运行的状态",
-                f"{py_cmd} {resolved_id_script} status --project .",
-                "",
-                "# 查询指定 run_id 的状态",
-                f"{py_cmd} {resolved_id_script} status --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "返回 JSON 格式包含 current_phase、remaining_statements、complete 等信息",
-                "可选参数不传时使用默认值",
+                f"{cli_cmd} run --to-stage optimize --config ./sqlopt.yml --project .",
+                f"{cli_cmd} run --to-stage optimize --config ./sqlopt.yml",
             ],
         },
         {
-            "name": "sql-optimizer-resume",
-            "description": "继续推进一次 sql-optimizer 运行（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "resume --run-id <run_id> --project <project>",
+            "name": "sql-validate",
+            "description": "验证优化效果",
+            "argument_hint": "config=./sqlopt.yml project=.",
+            "full_description": "在目标数据库上验证优化建议的实际效果，包括性能对比和结果一致性检查。",
             "parameters": [
+                {
+                    "name": "config",
+                    "required": False,
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径",
+                },
                 {
                     "name": "project",
                     "required": False,
                     "default": ".",
                     "description": "项目根目录路径",
                 },
-                {
-                    "name": "run_id",
-                    "required": False,
-                    "default": "最近一次运行",
-                    "description": "运行 ID，省略时自动使用最近一次运行",
-                },
             ],
             "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} resume",
-                "",
-                "# 继续最近一次运行",
-                f"{py_cmd} {resolved_id_script} resume --project .",
-                "",
-                "# 继续指定 run_id 的运行",
-                f"{py_cmd} {resolved_id_script} resume --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "从上次中断的地方继续执行",
-                "返回 JSON 格式包含执行结果",
-                "可选参数不传时使用默认值",
+                f"{cli_cmd} run --to-stage validate --config ./sqlopt.yml --project .",
+                f"{cli_cmd} run --to-stage validate --config ./sqlopt.yml",
             ],
         },
         {
-            "name": "sql-optimizer-apply",
-            "description": "对 sql-optimizer 运行执行 apply（省略 run_id 时默认使用最近一次）",
-            "argument_hint": "run_id=RUN_ID project=.",
-            "script": resolved_id_script,
-            "args": "apply --run-id <run_id> --project <project>",
+            "name": "sql-patch",
+            "description": "生成 XML 补丁",
+            "argument_hint": "config=./sqlopt.yml project=.",
+            "full_description": "根据验证通过的优化建议，生成可应用的 MyBatis XML 补丁文件。",
             "parameters": [
+                {
+                    "name": "config",
+                    "required": False,
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径",
+                },
                 {
                     "name": "project",
                     "required": False,
                     "default": ".",
                     "description": "项目根目录路径",
                 },
+            ],
+            "examples": [
+                f"{cli_cmd} run --to-stage patch_generate --config ./sqlopt.yml --project .",
+                f"{cli_cmd} run --to-stage patch_generate --config ./sqlopt.yml",
+            ],
+        },
+        {
+            "name": "sql-report",
+            "description": "查看优化报告",
+            "argument_hint": "config=./sqlopt.yml project=.",
+            "full_description": "生成或查看完整的 SQL 优化报告，包括扫描结果、优化建议、验证数据和补丁信息。",
+            "parameters": [
                 {
-                    "name": "run_id",
+                    "name": "config",
                     "required": False,
-                    "default": "最近一次运行",
-                    "description": "运行 ID，省略时自动使用最近一次运行",
+                    "default": "./sqlopt.yml",
+                    "description": "配置文件路径",
+                },
+                {
+                    "name": "project",
+                    "required": False,
+                    "default": ".",
+                    "description": "项目根目录路径",
                 },
             ],
             "examples": [
-                "# 最简单的用法（使用所有默认值）",
-                f"{py_cmd} {resolved_id_script} apply",
-                "",
-                "# 应用最近一次运行的补丁",
-                f"{py_cmd} {resolved_id_script} apply --project .",
-                "",
-                "# 应用指定 run_id 的补丁",
-                f"{py_cmd} {resolved_id_script} apply --run-id run_abc123",
-            ],
-            "notes": [
-                "省略 run_id 时自动使用最近一次运行",
-                "省略 project 时默认使用当前目录",
-                "默认模式为 PATCH_ONLY（生成补丁文件，不修改源文件）",
-                "如需直接修改源文件，在 sqlopt.yml 中设置 apply.mode: APPLY_IN_PLACE",
-                "可选参数不传时使用默认值",
+                f"{cli_cmd} run --to-stage report --config ./sqlopt.yml --project .",
+                f"{cli_cmd} run --to-stage report --config ./sqlopt.yml",
             ],
         },
     ]
 
-    # Generate and write documentation for each command
+    commands_dir.mkdir(parents=True, exist_ok=True)
+
     for cmd in commands:
-        command_template = f"{py_cmd} {cmd['script']} {cmd['args']}"
-        doc_content = _generate_command_doc(
-            description=cmd["description"],
-            argument_hint=cmd["argument_hint"],
-            command_template=command_template,
-            parameters=cmd.get("parameters"),
-            examples=cmd.get("examples"),
-            notes=cmd.get("notes"),
-        )
-        output_file = cmd_dir / f"{cmd['name']}.md"
-        output_file.write_text(doc_content, encoding="utf-8")
+        content = f"""---
+description: {cmd["description"]}
+argument-hint: {cmd["argument_hint"]}
+---
+
+## 描述
+
+{cmd["full_description"]}
+
+## 参数
+
+"""
+        for param in cmd["parameters"]:
+            name = param["name"]
+            required = param.get("required", True)
+            default = param.get("default")
+            desc = param.get("description", "")
+
+            if required:
+                content += f"- `{name}` **(必需)**: {desc}\n"
+            else:
+                if default:
+                    content += f"- `{name}` (可选，默认: `{default}`): {desc}\n"
+                else:
+                    content += f"- `{name}` (可选): {desc}\n"
+        content += "\n## 示例\n\n"
+        for example in cmd["examples"]:
+            content += f"```bash\n{example}\n```\n\n"
+
+        output_file = commands_dir / f"{cmd['name']}.md"
+        output_file.write_text(content, encoding="utf-8")
 
 
 def _create_project_config(
@@ -435,7 +326,9 @@ def main() -> None:
     )
 
     wrapper = write_cli_wrapper(target_skill)
-    _write_commands(target_skill)
+    # 生成斜杠命令文档
+    slash_commands_dir = target_skill.parent.parent / "commands"
+    _write_slash_commands(target_skill, slash_commands_dir)
     _create_project_config(root_dir, target_skill, project_dir)
 
     print(f"installed skill: {SKILL_NAME}")
