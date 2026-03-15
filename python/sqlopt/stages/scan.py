@@ -17,7 +17,6 @@ from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
 from ..adapters.branch_generator import generate_branches
-from ..adapters.branch_diagnose import diagnose_branches
 from ..adapters.mapper_catalog import enrich_sql_units_with_catalog
 from ..scripting.fragment_registry import build_fragment_registry
 
@@ -438,7 +437,9 @@ def execute(
                 reason_code="SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD",
             )
 
-    # Generate branches (enabled by default for branch diagnosis)
+    # Generate branches (enabled by default)
+    # NOTE: Scan stage ONLY generates branches, does NOT diagnose problems
+    # Problem diagnosis is done in the Analyze stage
     branch_cfg = config.get("branch", {})
     if branch_cfg.get("enabled", True):
         branch_config = dict(config)
@@ -447,14 +448,8 @@ def execute(
         )
         for unit in units:
             branches = generate_branches(unit, branch_config)
-            if branch_cfg.get("diagnose", True):
-                branches = diagnose_branches(branches, branch_config)
             unit["branches"] = branches
             unit["branchCount"] = len(branches)
-            problem_branches = [
-                b for b in branches if b.get("baseline", {}).get("problematic", False)
-            ]
-            unit["problemBranchCount"] = len(problem_branches)
 
     # Validate and write
     for unit in units:
