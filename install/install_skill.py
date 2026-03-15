@@ -257,6 +257,48 @@ argument-hint: {cmd["argument_hint"]}
                     content += f"- `{name}` (可选，默认: `{default}`): {desc}\n"
                 else:
                     content += f"- `{name}` (可选): {desc}\n"
+
+        # 为 sql-scan 添加扫描策略
+        if cmd["name"] == "sql-scan":
+            content += """
+## 扫描策略
+
+### Maven 标准结构 (优先)
+
+如果项目根目录有 `pom.xml`，自动使用以下搜索路径：
+
+| 优先级 | 路径 | 说明 |
+|--------|------|------|
+| 1 | `src/main/resources/**/*.xml` | 标准 Maven 资源目录 |
+| 2 | `src/main/resources/mapper/**/*.xml` | MyBatis mapper 子目录 |
+| 3 | `**/*Mapper.xml` | 任意 Mapper 文件 |
+
+### 自动排除
+
+以下目录会被自动排除：
+- `target/` - Maven 构建输出
+- `.git/` - Git 目录
+- `node_modules/` - Node.js 依赖
+
+"""
+
+        # 添加下一步建议
+        next_steps = {
+            "sql-scan": ("sql-optimize", "如果发现问题"),
+            "sql-optimize": ("sql-validate", None),
+            "sql-validate": ("sql-patch", "如果验证通过"),
+            "sql-patch": ("sql-report", None),
+            "sql-report": (None, None),
+        }
+
+        content += "## 下一步建议\n\n"
+        next_cmd, condition = next_steps.get(cmd["name"], (None, None))
+        if next_cmd:
+            cond_text = f" ({condition})" if condition else ""
+            content += f"本阶段完成后 → 执行 `/{next_cmd}`{cond_text}\n"
+        else:
+            content += "流程已完成。\n"
+
         content += "\n## 示例\n\n"
         for example in cmd["examples"]:
             content += f"```bash\n{example}\n```\n\n"
@@ -287,11 +329,13 @@ def main() -> None:
         # Project-level installation: <project>/.opencode/skills/sql-optimizer/
         project_dir = Path(args.project).resolve()
         target_skill = project_skill_dir(project_dir)
+        target_commands = project_dir / ".opencode" / "commands"
         target_skill.parent.mkdir(parents=True, exist_ok=True)
     else:
         # Global installation: ~/.config/opencode/skills/sql-optimizer/
         project_dir = Path.cwd()
         target_skill = skill_dir()
+        target_commands = commands_dir()  # ~/.config/opencode/commands/
         target_skill.parent.mkdir(parents=True, exist_ok=True)
 
     if target_skill.exists():
@@ -327,12 +371,12 @@ def main() -> None:
 
     wrapper = write_cli_wrapper(target_skill)
     # 生成斜杠命令文档
-    slash_commands_dir = target_skill.parent.parent / "commands"
-    _write_slash_commands(target_skill, slash_commands_dir)
+    _write_slash_commands(target_skill, target_commands)
     _create_project_config(root_dir, target_skill, project_dir)
 
     print(f"installed skill: {SKILL_NAME}")
     print(f"skill dir: {target_skill}")
+    print(f"commands dir: {target_commands}")
     print(f"project dir: {project_dir}")
     print(f"install mode: {'project-level' if args.project else 'global'}")
     if sys.platform.startswith("win"):
