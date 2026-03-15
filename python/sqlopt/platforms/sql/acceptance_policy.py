@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .error_intel import humanize_sql_runtime_error, parse_sql_runtime_error
 from .models import AcceptanceDecision, EquivalenceCheck, PerfComparison, ValidationResult
 
 
@@ -211,7 +212,16 @@ def build_acceptance_decision(
         status = "NEED_MORE_PARAMS"
         if "VALIDATE_SEMANTIC_ERROR" not in reason_codes:
             reason_codes.append("VALIDATE_SEMANTIC_ERROR")
-        feedback = {"reason_code": "VALIDATE_SEMANTIC_ERROR", "message": "semantic check error, manual review required"}
+        details = parse_sql_runtime_error(str((equivalence.row_count or {}).get("error") or ""))
+        human_message = humanize_sql_runtime_error(details)
+        feedback = {
+            "reason_code": "VALIDATE_SEMANTIC_ERROR",
+            "message": human_message or "semantic check error, manual review required",
+        }
+        if details:
+            feedback["details"] = details
+        if human_message:
+            feedback["human_message"] = human_message
     elif improved:
         status = "PASS"
     elif semantic_match and validation_profile in {"balanced", "relaxed"}:

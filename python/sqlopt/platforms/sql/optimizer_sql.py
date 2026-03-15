@@ -5,6 +5,25 @@ from typing import Any
 from ..dispatch import collect_sql_evidence
 from .rules import evaluate_rules
 
+_ROW_SENSITIVE_RULES = {"SELECT_STAR", "FULL_SCAN_RISK", "NO_LIMIT"}
+
+
+def _max_estimated_rows(table_stats: list[dict[str, Any]] | None) -> int | None:
+    values: list[int] = []
+    for row in table_stats or []:
+        if not isinstance(row, dict):
+            continue
+        raw_value = row.get("estimatedRows")
+        if isinstance(raw_value, bool):
+            continue
+        try:
+            values.append(int(raw_value))
+        except (TypeError, ValueError):
+            continue
+    if not values:
+        return None
+    return max(values)
+
 
 def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
     sql = str(sql_unit.get("sql") or "")
@@ -12,6 +31,13 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     suggestions = [row for row in (proposal.get("suggestions") or []) if isinstance(row, dict)]
     issues = [row for row in (proposal.get("issues") or []) if isinstance(row, dict)]
     verdict = str(proposal.get("verdict") or "").strip()
+    db_summary = proposal.get("dbEvidenceSummary", {}) or {}
+    max_estimated_rows = _max_estimated_rows(db_summary.get("tableStats") or [])
+    issue_codes = {
+        str(row.get("code") or "").strip()
+        for row in issues
+        if isinstance(row, dict) and str(row.get("code") or "").strip()
+    }
     blocked_trigger_rules = [
         str(row.get("ruleId") or "").strip()
         for row in (proposal.get("triggeredRules") or [])
@@ -54,6 +80,13 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     if not dynamic_features:
         score += 10
         reasons.append("static statement is easier to patch automatically")
+    if max_estimated_rows is not None and issue_codes and issue_codes.issubset(_ROW_SENSITIVE_RULES):
+        if max_estimated_rows < 1000:
+            score -= 35
+            reasons.append("small-table row count reduces the payoff of generic scan warnings")
+        elif max_estimated_rows < 10000:
+            score -= 15
+            reasons.append("estimated row count suggests this is a medium-priority performance cleanup")
 
     score = max(0, min(score, 100))
     if score == 0:
@@ -200,8 +233,14 @@ def build_optimize_prompt(
 
 
 def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
-    rule_result = evaluate_rules(sql_unit, config)
     db_evidence, plan_summary = collect_sql_evidence(config, sql_unit["sql"])
+    rule_result = evaluate_rules(
+        {
+            **sql_unit,
+            "tableStats": list((db_evidence or {}).get("tableStats") or []),
+        },
+        config,
+    )
     proposal = {
         "sqlKey": sql_unit["sqlKey"],
         "issues": rule_result["issues"],

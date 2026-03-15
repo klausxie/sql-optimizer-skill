@@ -2,116 +2,87 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import TextIO
+
+
+def _supports_unicode(output: TextIO) -> bool:
+    encoding = str(getattr(output, "encoding", "") or "").lower()
+    if "utf-8" in encoding or "utf8" in encoding:
+        return True
+    if os.name != "nt":
+        return True
+    return False
 
 
 class ProgressReporter:
     """Reports progress information to stderr for human readability."""
 
     def __init__(self, enabled: bool = True, output: TextIO = sys.stderr):
-        """Initialize progress reporter.
-
-        Args:
-            enabled: Whether progress reporting is enabled
-            output: Output stream for progress messages (default: stderr)
-        """
         self.enabled = enabled
         self.output = output
+        if _supports_unicode(output):
+            self._prefixes = {
+                "phase_start": "▶",
+                "phase_complete": "✓",
+                "info": "i",
+                "warn": "!",
+            }
+        else:
+            self._prefixes = {
+                "phase_start": ">",
+                "phase_complete": "[ok]",
+                "info": "[i]",
+                "warn": "[warn]",
+            }
 
     def report_phase_start(self, phase: str, description: str = "") -> None:
-        """Report the start of a phase.
-
-        Args:
-            phase: Phase name
-            description: Optional description
-        """
         if not self.enabled:
             return
-        msg = f"▶ 开始阶段：{phase}"
+        msg = f"{self._prefixes['phase_start']} start phase: {phase}"
         if description:
             msg += f" - {description}"
         self._write(msg)
 
     def report_phase_complete(self, phase: str) -> None:
-        """Report phase completion.
-
-        Args:
-            phase: Phase name
-        """
         if not self.enabled:
             return
-        self._write(f"✓ 完成阶段：{phase}")
+        self._write(f"{self._prefixes['phase_complete']} phase complete: {phase}")
 
     def report_statement_progress(self, current: int, total: int, sql_key: str = "") -> None:
-        """Report progress on statement processing.
-
-        Args:
-            current: Current statement number (1-indexed)
-            total: Total number of statements
-            sql_key: Optional SQL key being processed
-        """
         if not self.enabled:
             return
-        msg = f"  处理语句 {current}/{total}"
+        msg = f"  statement {current}/{total}"
         if sql_key:
             msg += f" ({sql_key})"
         self._write(msg)
 
     def report_info(self, message: str) -> None:
-        """Report informational message.
-
-        Args:
-            message: Message to report
-        """
         if not self.enabled:
             return
-        self._write(f"ℹ {message}")
+        self._write(f"{self._prefixes['info']} {message}")
 
     def report_warning(self, message: str) -> None:
-        """Report warning message.
-
-        Args:
-            message: Warning message
-        """
         if not self.enabled:
             return
-        self._write(f"⚠ {message}")
+        self._write(f"{self._prefixes['warn']} {message}")
 
     def _write(self, message: str) -> None:
-        """Write message to output stream.
-
-        Args:
-            message: Message to write
-        """
         self.output.write(message + "\n")
         self.output.flush()
 
 
-# Global progress reporter instance
 _progress_reporter: ProgressReporter | None = None
 
 
 def init_progress_reporter(enabled: bool = True) -> ProgressReporter:
-    """Initialize the global progress reporter.
-
-    Args:
-        enabled: Whether progress reporting is enabled
-
-    Returns:
-        The initialized progress reporter
-    """
     global _progress_reporter
     _progress_reporter = ProgressReporter(enabled=enabled)
     return _progress_reporter
 
 
 def get_progress_reporter() -> ProgressReporter:
-    """Get the global progress reporter.
-
-    Returns:
-        The global progress reporter, or a disabled one if not initialized
-    """
     global _progress_reporter
     if _progress_reporter is None:
         _progress_reporter = ProgressReporter(enabled=False)
