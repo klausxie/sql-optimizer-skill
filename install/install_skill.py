@@ -109,122 +109,89 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
     commands = [
         {
             "name": "sql-scan",
-            "description": "扫描 MyBatis XML 文件",
-            "argument_hint": "config=./sqlopt.yml project=.",
-            "full_description": "扫描 MyBatis XML 映射文件，识别其中的 SQL 语句，为后续优化做准备。",
+            "description": "扫描并识别潜在慢 SQL",
+            "argument_hint": "范围=SQL ID或文件路径",
+            "full_description": "扫描 MyBatis XML 文件，识别潜在的慢 SQL。只输出慢 SQL 列表，不做深度优化建议。",
             "parameters": [
                 {
-                    "name": "config",
+                    "name": "范围",
                     "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
-                },
-                {
-                    "name": "project",
-                    "required": False,
-                    "default": ".",
-                    "description": "项目根目录路径",
+                    "default": None,
+                    "description": "SQL ID、文件路径或配置文件，如 findUsers、UserMapper.xml、@sql-list.txt",
                 },
             ],
             "examples": [
-                f"{cli_cmd} run --to-stage scan --config ./sqlopt.yml --project .",
-                f"{cli_cmd} run --to-stage scan --config ./sqlopt.yml",
+                f"{cli_cmd} run --to-stage scan --sql-key findUsers",
+                f"{cli_cmd} run --to-stage scan --mapper-path UserMapper.xml",
             ],
+            "interaction": "扫描完成后，Agent 必须提示用户：'是否执行这些 SQL 获取性能数据？'",
         },
         {
-            "name": "sql-optimize",
-            "description": "优化 SQL 语句",
-            "argument_hint": "config=./sqlopt.yml project=.",
-            "full_description": "使用 LLM 分析扫描到的 SQL 语句，生成优化建议。",
+            "name": "sql-execute",
+            "description": "执行 SQL 获取性能数据",
+            "argument_hint": "config=./sqlopt.yml",
+            "full_description": "在数据库上执行扫描发现的慢 SQL，收集实际执行时间、EXPLAIN 结果等性能数据。",
             "parameters": [
                 {
                     "name": "config",
                     "required": False,
                     "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
-                },
-                {
-                    "name": "project",
-                    "required": False,
-                    "default": ".",
-                    "description": "项目根目录路径",
+                    "description": "配置文件路径（需包含数据库 DSN）",
                 },
             ],
             "examples": [
-                f"{cli_cmd} run --to-stage optimize --config ./sqlopt.yml --project .",
-                f"{cli_cmd} run --to-stage optimize --config ./sqlopt.yml",
-            ],
-        },
-        {
-            "name": "sql-validate",
-            "description": "验证优化效果",
-            "argument_hint": "config=./sqlopt.yml project=.",
-            "full_description": "在目标数据库上验证优化建议的实际效果，包括性能对比和结果一致性检查。",
-            "parameters": [
-                {
-                    "name": "config",
-                    "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
-                },
-                {
-                    "name": "project",
-                    "required": False,
-                    "default": ".",
-                    "description": "项目根目录路径",
-                },
-            ],
-            "examples": [
-                f"{cli_cmd} run --to-stage validate --config ./sqlopt.yml --project .",
                 f"{cli_cmd} run --to-stage validate --config ./sqlopt.yml",
             ],
         },
         {
-            "name": "sql-patch",
-            "description": "生成 XML 补丁",
-            "argument_hint": "config=./sqlopt.yml project=.",
-            "full_description": "根据验证通过的优化建议，生成可应用的 MyBatis XML 补丁文件。",
+            "name": "sql-analyze",
+            "description": "分析执行结果确认瓶颈",
+            "argument_hint": "run-id=<运行ID>",
+            "full_description": "分析执行结果，确认真正的慢 SQL 及其性能瓶颈（全表扫描、索引缺失、N+1问题等）。",
             "parameters": [
                 {
-                    "name": "config",
+                    "name": "run-id",
                     "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
-                },
-                {
-                    "name": "project",
-                    "required": False,
-                    "default": ".",
-                    "description": "项目根目录路径",
+                    "default": None,
+                    "description": "运行ID，不指定则使用最新",
                 },
             ],
             "examples": [
-                f"{cli_cmd} run --to-stage patch_generate --config ./sqlopt.yml --project .",
-                f"{cli_cmd} run --to-stage patch_generate --config ./sqlopt.yml",
+                f"{cli_cmd} status --run-id latest",
             ],
         },
         {
-            "name": "sql-report",
-            "description": "查看优化报告",
-            "argument_hint": "config=./sqlopt.yml project=.",
-            "full_description": "生成或查看完整的 SQL 优化报告，包括扫描结果、优化建议、验证数据和补丁信息。",
+            "name": "sql-optimize",
+            "description": "生成优化建议",
+            "argument_hint": "run-id=<运行ID>",
+            "full_description": "根据分析结果生成针对性优化建议。简单场景用规则优化，复杂场景用 LLM 优化。",
             "parameters": [
                 {
-                    "name": "config",
+                    "name": "run-id",
                     "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
-                },
-                {
-                    "name": "project",
-                    "required": False,
-                    "default": ".",
-                    "description": "项目根目录路径",
+                    "default": None,
+                    "description": "运行ID，不指定则使用最新",
                 },
             ],
             "examples": [
-                f"{cli_cmd} run --to-stage report --config ./sqlopt.yml --project .",
-                f"{cli_cmd} run --to-stage report --config ./sqlopt.yml",
+                f"{cli_cmd} run --to-stage optimize",
+            ],
+        },
+        {
+            "name": "sql-apply",
+            "description": "生成并应用 XML 补丁",
+            "argument_hint": "run-id=<运行ID>",
+            "full_description": "根据优化建议生成 MyBatis XML 补丁，用户确认后应用到项目。",
+            "parameters": [
+                {
+                    "name": "run-id",
+                    "required": False,
+                    "default": None,
+                    "description": "运行ID，不指定则使用最新",
+                },
+            ],
+            "examples": [
+                f"{cli_cmd} apply --run-id latest",
             ],
         },
     ]
@@ -284,18 +251,26 @@ argument-hint: {cmd["argument_hint"]}
 
         # 添加下一步建议
         next_steps = {
-            "sql-scan": ("sql-optimize", "如果发现问题"),
-            "sql-optimize": ("sql-validate", None),
-            "sql-validate": ("sql-patch", "如果验证通过"),
-            "sql-patch": ("sql-report", None),
-            "sql-report": (None, None),
+            "sql-scan": ("sql-execute", "⚠️ 必须提示用户确认执行"),
+            "sql-execute": ("sql-analyze", None),
+            "sql-analyze": ("sql-optimize", None),
+            "sql-optimize": ("sql-apply", None),
+            "sql-apply": (None, "流程完成"),
         }
 
         content += "## 下一步建议\n\n"
         next_cmd, condition = next_steps.get(cmd["name"], (None, None))
         if next_cmd:
-            cond_text = f" ({condition})" if condition else ""
-            content += f"本阶段完成后 → 执行 `/{next_cmd}`{cond_text}\n"
+            if condition and condition.startswith("⚠️"):
+                # 特殊提示，需要单独显示
+                content += f"{condition}\n\n"
+                content += f"用户确认后 → 执行 `/{next_cmd}`\n"
+            else:
+                cond_text = f" ({condition})" if condition else ""
+                content += f"本阶段完成后 → 执行 `/{next_cmd}`{cond_text}\n"
+        elif condition:
+            # 没有下一步但有特殊消息
+            content += f"{condition}\n"
         else:
             content += "流程已完成。\n"
 
