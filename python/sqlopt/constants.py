@@ -16,18 +16,54 @@ ROOT_KEYS = {
 
 RUNTIME_PROFILE_DEFAULTS = {
     "fast": {
-        "stage_timeout_ms": {"preflight": 8000, "scan": 30000, "optimize": 20000, "validate": 20000, "apply": 10000, "report": 10000},
-        "stage_retry_max": {"preflight": 0, "scan": 0, "optimize": 0, "validate": 0, "apply": 0, "report": 0},
+        "stage_timeout_ms": {
+            "scan": 30000,
+            "optimize": 20000,
+            "validate": 20000,
+            "apply": 10000,
+            "report": 10000,
+        },
+        "stage_retry_max": {
+            "scan": 0,
+            "optimize": 0,
+            "validate": 0,
+            "apply": 0,
+            "report": 0,
+        },
         "stage_retry_backoff_ms": 500,
     },
     "balanced": {
-        "stage_timeout_ms": {"preflight": 12000, "scan": 60000, "optimize": 60000, "validate": 60000, "apply": 15000, "report": 15000},
-        "stage_retry_max": {"preflight": 1, "scan": 1, "optimize": 1, "validate": 1, "apply": 1, "report": 1},
+        "stage_timeout_ms": {
+            "scan": 60000,
+            "optimize": 60000,
+            "validate": 60000,
+            "apply": 15000,
+            "report": 15000,
+        },
+        "stage_retry_max": {
+            "scan": 1,
+            "optimize": 1,
+            "validate": 1,
+            "apply": 1,
+            "report": 1,
+        },
         "stage_retry_backoff_ms": 1000,
     },
     "resilient": {
-        "stage_timeout_ms": {"preflight": 15000, "scan": 90000, "optimize": 90000, "validate": 90000, "apply": 20000, "report": 20000},
-        "stage_retry_max": {"preflight": 2, "scan": 2, "optimize": 2, "validate": 2, "apply": 2, "report": 2},
+        "stage_timeout_ms": {
+            "scan": 90000,
+            "optimize": 90000,
+            "validate": 90000,
+            "apply": 20000,
+            "report": 20000,
+        },
+        "stage_retry_max": {
+            "scan": 2,
+            "optimize": 2,
+            "validate": 2,
+            "apply": 2,
+            "report": 2,
+        },
         "stage_retry_backoff_ms": 1500,
     },
 }

@@ -123,7 +123,6 @@ class TestReasonCodeRegistry:
         categories = set(c.category for c in REASON_CODES.values())
         expected_categories = {
             "runtime",
-            "preflight",
             "scan",
             "optimize",
             "validate",

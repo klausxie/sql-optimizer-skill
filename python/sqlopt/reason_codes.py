@@ -54,35 +54,6 @@ REASON_CODES = {
         description="Stage retry attempts exhausted",
         user_message="The stage failed after multiple retry attempts.",
     ),
-    # Preflight errors
-    "PREFLIGHT_CHECK_FAILED": ReasonCode(
-        code="PREFLIGHT_CHECK_FAILED",
-        category="preflight",
-        severity="fatal",
-        description="Preflight validation check failed",
-        user_message="Pre-execution validation failed. Check your configuration and environment.",
-    ),
-    "PREFLIGHT_DB_UNREACHABLE": ReasonCode(
-        code="PREFLIGHT_DB_UNREACHABLE",
-        category="preflight",
-        severity="degradable",
-        description="Database connection failed during preflight",
-        user_message="Cannot connect to the database. Verify your database connection settings.",
-    ),
-    "PREFLIGHT_LLM_UNREACHABLE": ReasonCode(
-        code="PREFLIGHT_LLM_UNREACHABLE",
-        category="preflight",
-        severity="degradable",
-        description="LLM provider unreachable during preflight",
-        user_message="Cannot connect to the LLM provider. Check your LLM configuration.",
-    ),
-    "PREFLIGHT_SCANNER_MISSING": ReasonCode(
-        code="PREFLIGHT_SCANNER_MISSING",
-        category="preflight",
-        severity="fatal",
-        description="Legacy Java scanner JAR file not found",
-        user_message="Legacy scanner JAR file is missing. Current versions use Python fallback scanner by default.",
-    ),
     # Scan errors
     "SCAN_MAPPER_NOT_FOUND": ReasonCode(
         code="SCAN_MAPPER_NOT_FOUND",

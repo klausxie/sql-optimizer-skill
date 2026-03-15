@@ -7,14 +7,31 @@ from ..contracts import ContractValidator
 from ..progress import get_progress_reporter
 from ..stages import optimize as optimize_stage
 from ..stages import patch_generate as patch_stage
-from ..stages import preflight as preflight_stage
+
 from ..stages import scan as scan_stage
 from ..stages import validate as validate_stage
 from .workflow_facade import ResumeDecision, StatusResolution
-from .workflow_facade import build_status_snapshot, finalize_report_if_enabled, finalize_without_report
-from .workflow_facade import is_complete_to_stage, load_index, next_pending_sql, pending_by_phase
-from .workflow_facade import record_failure, report_enabled, report_phase_complete_for_result
-from .workflow_facade import report_rebuild_required, resolve_report_resume_decision, resolve_status
+from .workflow_facade import (
+    build_status_snapshot,
+    finalize_report_if_enabled,
+    finalize_without_report,
+)
+from .workflow_facade import (
+    is_complete_to_stage,
+    load_index,
+    next_pending_sql,
+    pending_by_phase,
+)
+from .workflow_facade import (
+    record_failure,
+    report_enabled,
+    report_phase_complete_for_result,
+)
+from .workflow_facade import (
+    report_rebuild_required,
+    resolve_report_resume_decision,
+    resolve_status,
+)
 from .workflow_facade import run_phase_action, runs_root, runtime_cfg
 from .workflow_definition import (
     PHASE_TRANSITIONS,
@@ -27,8 +44,12 @@ from .workflow_handlers_adapter import build_handler_registry as _build_handler_
 from .workflow_step_runner import build_advance_context as _build_advance_context
 from .workflow_step_runner import run_advance_pipeline as _run_advance_pipeline
 
-RunPhaseAction = Callable[[dict[str, Any], str, Callable[[], object]], tuple[object, int]]
-FinalizeReport = Callable[[Path, dict[str, Any], ContractValidator, dict[str, Any]], bool]
+RunPhaseAction = Callable[
+    [dict[str, Any], str, Callable[[], object]], tuple[object, int]
+]
+FinalizeReport = Callable[
+    [Path, dict[str, Any], ContractValidator, dict[str, Any]], bool
+]
 FinalizeWithoutReport = Callable[[Path, dict[str, Any]], None]
 RecordFailure = Callable[[Path, dict[str, Any], str, str, str], None]
 
@@ -42,16 +63,23 @@ _HANDLERS = _build_handler_registry(
     ),
     resolve_report_resume_decision=resolve_report_resume_decision,
     report_phase_complete_for_result=report_phase_complete_for_result,
-    preflight_execute=lambda config, run_dir: preflight_stage.execute(config, run_dir),
-    scan_execute=lambda config, run_dir, validator: scan_stage.execute(config, run_dir, validator),
-    optimize_execute_one=lambda *args, **kwargs: optimize_stage.execute_one(*args, **kwargs),
-    validate_execute_one=lambda *args, **kwargs: validate_stage.execute_one(*args, **kwargs),
+    # preflight stage removed - providing no-op for backward compatibility
+    preflight_execute=lambda config, run_dir: None,
+    scan_execute=lambda config, run_dir, validator: scan_stage.execute(
+        config, run_dir, validator
+    ),
+    optimize_execute_one=lambda *args, **kwargs: optimize_stage.execute_one(
+        *args, **kwargs
+    ),
+    validate_execute_one=lambda *args, **kwargs: validate_stage.execute_one(
+        *args, **kwargs
+    ),
     patch_execute_one=lambda *args, **kwargs: patch_stage.execute_one(*args, **kwargs),
 )
 
 _complete_phase_result = _HANDLERS.complete_phase_result
-_advance_preflight = _HANDLERS.advance_preflight
-_advance_scan = _HANDLERS.advance_scan
+# preflight stage removed
+_scan = _HANDLERS.advance_scan
 _advance_optimize = _HANDLERS.advance_optimize
 _advance_validate = _HANDLERS.advance_validate
 _advance_patch_generate = _HANDLERS.advance_patch_generate

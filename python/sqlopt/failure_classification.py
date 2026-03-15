@@ -7,12 +7,6 @@ GLOBAL_CLASSIFICATION = {
 }
 
 PHASE_CLASSIFICATION = {
-    "preflight": {
-        "PREFLIGHT_CHECK_FAILED": "fatal",
-        "PREFLIGHT_DB_UNREACHABLE": "fatal",
-        "PREFLIGHT_LLM_UNREACHABLE": "fatal",
-        "PREFLIGHT_SCANNER_MISSING": "fatal",
-    },
     "scan": {
         "SCAN_CLASS_RESOLUTION_DEGRADED": "degradable",
         "SCAN_CLASS_NOT_FOUND": "degradable",

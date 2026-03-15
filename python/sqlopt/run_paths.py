@@ -22,14 +22,14 @@ REL_PIPELINE_VALIDATE_ACCEPTANCE = "pipeline/validate/acceptance.results.jsonl"
 REL_PIPELINE_PATCH_RESULTS = "pipeline/patch_generate/patch.results.jsonl"
 REL_PIPELINE_SUPERVISOR_STATE = "pipeline/supervisor/state.json"
 REL_PIPELINE_SUPERVISOR_PLAN = "pipeline/supervisor/plan.json"
-REL_PIPELINE_SUPERVISOR_RESULTS_PREFLIGHT = "pipeline/supervisor/results/preflight.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = "pipeline/supervisor/results/scan.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = "pipeline/supervisor/results/patch_generate.jsonl"
+REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = (
+    "pipeline/supervisor/results/patch_generate.jsonl"
+)
 REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = "pipeline/supervisor/results/report.jsonl"
 REL_PIPELINE_OPS_TOPOLOGY = "pipeline/ops/topology.json"
-REL_PIPELINE_OPS_PREFLIGHT = "pipeline/ops/preflight.json"
 REL_PIPELINE_OPS_HEALTH = "pipeline/ops/health.json"
 REL_PIPELINE_OPS_FAILURES = "pipeline/ops/failures.jsonl"
 REL_PIPELINE_VERIFICATION_LEDGER = "pipeline/verification/ledger.jsonl"
@@ -56,14 +56,12 @@ REPORT_RUN_INDEX_PIPELINE_GROUP = [
     REL_PIPELINE_PATCH_RESULTS,
     REL_PIPELINE_SUPERVISOR_STATE,
     REL_PIPELINE_SUPERVISOR_PLAN,
-    REL_PIPELINE_SUPERVISOR_RESULTS_PREFLIGHT,
     REL_PIPELINE_SUPERVISOR_RESULTS_SCAN,
     REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE,
     REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE,
     REL_PIPELINE_SUPERVISOR_RESULTS_PATCH,
     REL_PIPELINE_SUPERVISOR_RESULTS_REPORT,
     REL_PIPELINE_OPS_TOPOLOGY,
-    REL_PIPELINE_OPS_PREFLIGHT,
     REL_PIPELINE_OPS_HEALTH,
     REL_PIPELINE_OPS_FAILURES,
     REL_PIPELINE_VERIFICATION_LEDGER,
@@ -154,10 +152,6 @@ class RunPaths:
     @property
     def ops_dir(self) -> Path:
         return self.pipeline_dir / "ops"
-
-    @property
-    def preflight_path(self) -> Path:
-        return self.ops_dir / "preflight.json"
 
     @property
     def topology_path(self) -> Path:
