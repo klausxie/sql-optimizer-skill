@@ -21,25 +21,34 @@ SQL Optimizer 支持三种执行模式：
 ## 2. 执行流程概览
 
 ```
-用户输入
-    │
-    ▼
-Step 0: Parse (解析输入)
+用户输入（指定范围）
     │
     ▼
 Step 1: Scan (扫描)
+    │  - 解析用户指定范围
+    │  - 推断动态分支 (if/foreach/choose)
+    │  - 识别潜在慢SQL
     │
     ▼
-Step 2: Execute (执行) [可选]
+Step 2: Execute (执行) [交互提示]
+    │  ⚠️ Agent 必须提示: "是否执行获取性能数据？"
+    │  - 收集执行计划 (EXPLAIN)
+    │  - 收集实际耗时
     │
     ▼
 Step 3: Analyze (分析)
+    │  - 诊断分支问题
+    │  - 确认慢SQL及其瓶颈
+    │  - 判断优化方式 (rules/llm)
     │
     ▼
 Step 4: Optimize (优化)
+    │  - 生成针对性优化建议
     │
     ▼
 Step 5: Apply (应用)
+    │  - 生成 XML 补丁
+    │  - 用户确认后应用
     │
     ▼
 完成
@@ -47,47 +56,65 @@ Step 5: Apply (应用)
 
 ---
 
-## 3. 各阶段输入输出
+## 3. 阶段职责
 
-### Step 0: Parse (解析输入)
-
-**输入**: 用户输入文本
-
-**处理**: 解析输入类型 + 提取目标
-
-**输出**: Target列表
-
-**产物**: 无
+| 阶段 | 职责 | 不应该做 |
+|------|------|----------|
+| **Scan** | 解析范围、推断动态分支、识别潜在慢SQL | 问题分析、优化建议 |
+| **Execute** | 执行SQL收集性能数据 | - |
+| **Analyze** | 诊断分支问题、确认瓶颈 | - |
+| **Optimize** | 生成优化建议 | - |
+| **Apply** | 应用补丁 | - |
 
 ---
+
+## 4. 各阶段输入输出
 
 ### Step 1: Scan (扫描)
 
+**目标**：只推断动态分支，不做深度问题分析
+
 **输入**:
-- 文件路径: src/main/resources/UserMapper.xml
+- 用户指定范围（SQL ID、文件路径、配置文件）
 - 配置: scan.mapper_globs
-- [DB配置]: 如需要验证则需要
 
 **处理**:
-1. 解析XML文件
-2. 提取SQL语句
-3. 展开动态标签(if/foreach/choose) → 生成执行模板
+1. 解析用户指定范围（不扩散）
+2. 解析XML文件
+3. 推断动态分支 (if/foreach/choose)
+4. 生成执行模板
 
 **输出**:
 - SQL单元列表
-- 分支执行模板
+- 动态分支列表
+- 分支数量
 
-**产物**: steps/1_scan/
-- status.json              # 扫描状态
+**产物**: runs/<run-id>/
 - scan.sqlunits.jsonl     # SQL单元列表
-- scan.branches.jsonl     # 分支执行模板
+- branches.jsonl          # 分支执行模板
+
+**精准分析原则**：
+- 用户指定哪个SQL就只分析哪个
+- 不主动列出所有SQL让用户选择
+- 不在报告中列出无关的SQL
 
 ---
 
-### Step 2: Execute (执行) [可选]
+### Step 2: Execute (执行)
+
+**⚠️ 必须交互提示**：
+```
+发现 3 个潜在慢 SQL：
+  - findUsers (可能全表扫描)
+  - findOrders (LIKE 前缀通配符)
+  - getReport (嵌套子查询)
+
+是否执行这些 SQL 获取实际性能数据？[Y/n]
+```
 
 **输入**:
-- scan.branches.jsonl    # 分支执行模板
+- scan.sqlunits.jsonl    # SQL单元
+- branches.jsonl         # 分支执行模板
 - DB连接: dsn配置
 
 **处理**:
@@ -99,8 +126,7 @@ Step 5: Apply (应用)
 - 每个分支的实际耗时
 - 每个分支的返回行数
 
-**产物**: steps/2_execute/
-- status.json              # 执行状态
+**产物**: runs/<run-id>/
 - execute_results.jsonl   # 执行结果
 
 **execute_results.jsonl 示例**:
@@ -123,20 +149,21 @@ Step 5: Apply (应用)
 - execute_results.jsonl      # 执行结果
 
 **处理**:
-1. 分析问题 (全表扫描/缺少索引/LIMIT等)
-2. 判断复杂度 (简单/复杂)
-3. 选择优化方式 (规则/大模型)
+1. 诊断分支问题 (调用 diagnose_branches)
+2. 确认慢SQL及其瓶颈
+3. 判断复杂度 (简单/复杂)
+4. 选择优化方式 (rules/llm)
 
 **输出**:
-- 问题列表
+- 问题分支列表
+- 瓶颈分析
 - 优化方向
 - 复杂度判断
 
-**产物**: steps/3_analyze/
-- status.json              # 分析状态
-- analysis.json            # 分析报告
+**产物**: runs/<run-id>/
+- analyzed.sqlunits.jsonl  # 分析后的SQL单元
 
-**analysis.json 示例**:
+**analysis 示例**:
 ```json
 {
   "issues": [
@@ -144,7 +171,8 @@ Step 5: Apply (应用)
     {"type": "NO_LIMIT", "severity": "MEDIUM"}
   ],
   "complexity": "simple",
-  "optimization_method": "rules"
+  "optimizationMethod": "rules",
+  "problemBranchCount": 3
 }
 ```
 
@@ -153,9 +181,9 @@ Step 5: Apply (应用)
 ### Step 4: Optimize (优化)
 
 **输入**:
-- analysis.json           # 分析结果
-- rules/                 # 规则Skill (如用规则)
-- llm/                   # LLM接口 (如用大模型)
+- analyzed.sqlunits.jsonl  # 分析结果
+- rules/                   # 规则Skill (如用规则)
+- llm/                     # LLM接口 (如用大模型)
 
 **处理**:
 - 规则优化: 应用固化规则生成优化建议
@@ -166,10 +194,8 @@ Step 5: Apply (应用)
 - 预测性能提升
 - Diff内容 (如需要)
 
-**产物**: steps/4_optimize/
-- status.json              # 优化状态
+**产物**: runs/<run-id>/
 - proposals/               # 优化建议
-- diff/                   # Diff内容 (如用大模型)
 
 **proposals 示例**:
 ```json
@@ -188,7 +214,7 @@ Step 5: Apply (应用)
 
 **输入**:
 - proposals/               # 优化建议
-- diff/                   # Diff内容
+- 用户确认
 
 **处理**:
 1. 生成最终Diff
@@ -199,62 +225,39 @@ Step 5: Apply (应用)
 - 修改后的XML
 - 修改对比
 
-**产物**: steps/5_apply/
-- status.json              # 应用状态
-- diff/                    # 最终Diff
-- modified/                # 修改后的文件
+**产物**: runs/<run-id>/
+- patches/                 # 补丁文件
+- report.md                # 报告
 
 ---
 
-## 4. 完整产物结构
+## 5. 完整产物结构
 
 ```
-task_20240315_001/
-├── requirements.md          # 需求文档
-├── plan.md                 # 方案文档
-├── tasks.md               # 任务清单
-├── steps/
-│   ├── 1_scan/
-│   │   ├── status.json
-│   │   ├── scan.sqlunits.jsonl
-│   │   └── scan.branches.jsonl
-│   ├── 2_execute/                  [可选]
-│   │   ├── status.json
-│   │   └── execute_results.jsonl
-│   ├── 3_analyze/
-│   │   ├── status.json
-│   │   └── analysis.json
-│   ├── 4_optimize/
-│   │   ├── status.json
-│   │   ├── proposals/
-│   │   └── diff/                   [可选]
-│   └── 5_apply/
-│       ├── status.json
-│       ├── diff/
-│       └── modified/
-└── summary.md               # 执行总结
+runs/<run-id>/
+├── supervisor/
+│   ├── meta.json          # 运行元信息
+│   ├── plan.json          # 语句列表
+│   └── state.json         # 阶段状态
+├── scan.sqlunits.jsonl    # 扫描产物
+├── branches.jsonl         # 分支模板
+├── execute_results.jsonl  # 执行结果
+├── analyzed.sqlunits.jsonl # 分析结果
+├── proposals/             # 优化建议
+├── patches/               # 补丁产物
+├── report.json            # JSON 报告
+└── report.md              # Markdown 报告
 ```
 
 ---
 
-## 5. 交互节点
+## 6. 交互节点
 
 | 节点 | 交互内容 | 触发条件 |
 |------|----------|----------|
-| **数据库配置** | 提示配置DSN | 需要验证但未配置时 |
-| **执行模式** | real vs mock | optimize开始时 |
-| **确认修改** | 是否执行修改 | apply前确认 |
-
----
-
-## 6. 执行模式参数
-
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `--mode` | `real` | 实际执行，需要数据库 |
-| `--mode` | `mock` | Mock模式，不需要数据库 |
-| `--method` | `rules` | 使用规则优化 |
-| `--method` | `diff` | 使用大模型Diff |
+| **执行确认** | "是否执行获取性能数据？" | 扫描完成后，**必须提示** |
+| **数据库配置** | 提示配置DSN | 需要执行但未配置时 |
+| **确认修改** | 是否应用补丁 | Apply前确认 |
 
 ---
 
