@@ -132,7 +132,7 @@
             "sql": "SELECT  FROM orders o AND o.status = #{orderStatus}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -191,7 +191,7 @@
             "sql": "SELECT * FROM orders WHERE <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" /> AND status = #{orderStatus}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -207,7 +207,7 @@
             "sql": "SELECT * FROM orders WHERE <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -223,7 +223,7 @@
             "sql": "SELECT * FROM orders WHERE status = #{orderStatus}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -237,7 +237,7 @@
             "sql": "SELECT * FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -303,7 +303,7 @@
             "sql": "SELECT * FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -364,7 +364,7 @@
             "sql": "SELECT * FROM orders WHERE <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" /> AND id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -380,7 +380,7 @@
             "sql": "SELECT * FROM orders WHERE <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -396,7 +396,7 @@
             "sql": "SELECT * FROM orders WHERE id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -410,7 +410,7 @@
             "sql": "SELECT * FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -459,7 +459,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -473,7 +473,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -523,7 +523,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -539,7 +539,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -555,7 +555,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -569,7 +569,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -620,7 +620,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -637,7 +637,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -654,7 +654,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -670,7 +670,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -687,7 +687,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -703,7 +703,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -719,7 +719,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -733,7 +733,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -785,7 +785,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -803,7 +803,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -821,7 +821,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -838,7 +838,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -856,7 +856,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -873,7 +873,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -890,7 +890,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -906,7 +906,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -924,7 +924,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -941,7 +941,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -958,7 +958,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -974,7 +974,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -991,7 +991,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1007,7 +1007,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1023,7 +1023,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1037,7 +1037,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1084,7 +1084,7 @@
             "sql": "SELECT * FROM users AND type = 'VIP' AND type = 'NORMAL'",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1131,7 +1131,7 @@
             "sql": "SELECT * FROM users AND type = 'VIP' AND type = 'NORMAL' AND type = 'PREMIUM'",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1180,7 +1180,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1194,7 +1194,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1247,7 +1247,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1264,7 +1264,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1281,7 +1281,7 @@
             "sql": "UPDATE users name = #{name} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1297,7 +1297,7 @@
             "sql": "UPDATE users name = #{name},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1314,7 +1314,7 @@
             "sql": "UPDATE users email = #{email} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1330,7 +1330,7 @@
             "sql": "UPDATE users email = #{email},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1346,7 +1346,7 @@
             "sql": "UPDATE users WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1360,7 +1360,7 @@
             "sql": "UPDATE users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1405,7 +1405,7 @@
             "sql": "SELECT * FROM users WHERE id IN #{id}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1455,7 +1455,7 @@
             "sql": "SELECT * FROM users name = #{name} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1471,7 +1471,7 @@
             "sql": "SELECT * FROM users name = #{name} AND",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1487,7 +1487,7 @@
             "sql": "SELECT * FROM users status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1501,7 +1501,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1553,7 +1553,7 @@
             "sql": "SELECT * FROM users WHERE <choose> <when test=\"status == '1'\">AND status = '1'</when> <when test=\"status == '2'\">AND status = '2'</when> </choose> AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1569,7 +1569,7 @@
             "sql": "SELECT * FROM users WHERE <choose> <when test=\"status == '1'\">AND status = '1'</when> <when test=\"status == '2'\">AND status = '2'</when> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1585,7 +1585,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1599,7 +1599,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1651,7 +1651,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1669,7 +1669,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1687,7 +1687,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1704,7 +1704,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1722,7 +1722,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1739,7 +1739,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1756,7 +1756,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1772,7 +1772,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1790,7 +1790,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1807,7 +1807,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1824,7 +1824,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1840,7 +1840,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1857,7 +1857,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1873,7 +1873,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1889,7 +1889,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1903,7 +1903,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1956,7 +1956,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1973,7 +1973,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -1990,7 +1990,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2006,7 +2006,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2023,7 +2023,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2039,7 +2039,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2055,7 +2055,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE status = #{status}AND type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE status = #{status}AND type = 'NORMAL' </when> <otherwise> WHERE status = #{status} </otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2069,7 +2069,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\"> WHERE type = 'VIP' </when> <when test=\"type == 'NORMAL'\"> WHERE type = 'NORMAL' </when> <otherwise> </otherwise> </choose>",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2121,7 +2121,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2137,7 +2137,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2153,7 +2153,7 @@
             "sql": "SELECT * FROM users WHERE id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2167,7 +2167,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2214,7 +2214,7 @@
             "sql": "SELECT * FROM users AND status = '1' AND type = #{type} AND status = '1'",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2267,7 +2267,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2284,7 +2284,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2301,7 +2301,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2317,7 +2317,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2334,7 +2334,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2350,7 +2350,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2366,7 +2366,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE status = #{status}AND type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE status = #{status}AND type = 'NORMAL'</when> <otherwise>WHERE status = #{status}</otherwise> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2380,7 +2380,7 @@
             "sql": "SELECT * FROM users <choose> <when test=\"type == 'VIP'\">WHERE type = 'VIP'</when> <when test=\"type == 'NORMAL'\">WHERE type = 'NORMAL'</when> <otherwise></otherwise> </choose>",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2432,7 +2432,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2450,7 +2450,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2468,7 +2468,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2485,7 +2485,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2503,7 +2503,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2520,7 +2520,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2537,7 +2537,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2553,7 +2553,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2571,7 +2571,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2588,7 +2588,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2605,7 +2605,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2621,7 +2621,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2638,7 +2638,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2654,7 +2654,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2670,7 +2670,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2684,7 +2684,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2731,7 +2731,7 @@
             "sql": "SELECT * FROM users AND status = '1' AND type = 'VIP' AND status = '1' AND type = 'NORMAL' AND status = '1' AND status IN ('1', '2')",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2783,7 +2783,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') <choose> <when test=\"status != null and status == '1'\">AND status = '1'</when> <when test=\"type == 'VIP'\">AND type = 'VIP'</when> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2799,7 +2799,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') <choose> <when test=\"status != null and status == '1'\">AND status = '1'</when> <when test=\"type == 'VIP'\">AND type = 'VIP'</when> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2815,7 +2815,7 @@
             "sql": "SELECT * FROM users WHERE email LIKE CONCAT('%', #{email}, '%') <choose> <when test=\"status != null and status == '1'\">AND status = '1'</when> <when test=\"type == 'VIP'\">AND type = 'VIP'</when> </choose>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2829,7 +2829,7 @@
             "sql": "SELECT * FROM users WHERE <choose> <when test=\"status != null and status == '1'\">AND status = '1'</when> <when test=\"type == 'VIP'\">AND type = 'VIP'</when> </choose>",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2881,7 +2881,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%') ORDER BY ${orderField} ${orderType}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2897,7 +2897,7 @@
             "sql": "SELECT * FROM users WHERE name LIKE CONCAT('%', #{name}, '%')",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2913,7 +2913,7 @@
             "sql": "SELECT * FROM users ORDER BY ${orderField} ${orderType}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2927,7 +2927,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2979,7 +2979,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> SELECT * FROM users WHERE name LIKE #{namePattern} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -2995,7 +2995,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> SELECT * FROM users WHERE name LIKE #{namePattern}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3011,7 +3011,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> SELECT * FROM users WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3025,7 +3025,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3075,7 +3075,7 @@
             "sql": "SELECT * FROM users AND name = #{name} OR email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3091,7 +3091,7 @@
             "sql": "SELECT * FROM users AND name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3107,7 +3107,7 @@
             "sql": "SELECT * FROM users OR email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3121,7 +3121,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3166,7 +3166,7 @@
             "sql": "INSERT INTO users (name, email, status, type) VALUES (#{user.name}, #{user.email}, #{user.status}, #{user.type})",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3213,7 +3213,7 @@
             "sql": "SELECT id FROM users",
             "type": "boundary",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3229,7 +3229,7 @@
             "sql": "SELECT name, id FROM users",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3245,7 +3245,7 @@
             "sql": "SELECT email, id FROM users",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3261,7 +3261,7 @@
             "sql": "SELECT status, id FROM users",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3277,7 +3277,7 @@
             "sql": "SELECT type id FROM users",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3293,7 +3293,7 @@
             "sql": "SELECT id FROM users WHERE name = #{name}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3310,7 +3310,7 @@
             "sql": "SELECT name, email, id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3327,7 +3327,7 @@
             "sql": "SELECT name, status, id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3344,7 +3344,7 @@
             "sql": "SELECT name, type id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3361,7 +3361,7 @@
             "sql": "SELECT name, id FROM users WHERE name = #{name}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3378,7 +3378,7 @@
             "sql": "SELECT email, status, id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3395,7 +3395,7 @@
             "sql": "SELECT email, type id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3412,7 +3412,7 @@
             "sql": "SELECT email, id FROM users WHERE name = #{name}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3429,7 +3429,7 @@
             "sql": "SELECT status, type id FROM users",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3446,7 +3446,7 @@
             "sql": "SELECT status, id FROM users WHERE name = #{name}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3463,7 +3463,7 @@
             "sql": "SELECT type id FROM users WHERE name = #{name}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3510,7 +3510,7 @@
             "sql": "SELECT * FROM users AND status = #{status} AND type = #{type} AND name = #{name} AND status = #{status} AND type = #{type} AND status = #{status} AND type = #{type} AND name = #{name} AND type = #{type} 1=1",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3559,7 +3559,7 @@
             "sql": "UPDATE users",
             "type": "boundary",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3575,7 +3575,7 @@
             "sql": "UPDATE users name = #{name},",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3591,7 +3591,7 @@
             "sql": "UPDATE users email = #{email},",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3607,7 +3607,7 @@
             "sql": "UPDATE users status = #{status},",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3623,7 +3623,7 @@
             "sql": "UPDATE users type = #{type},",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3639,7 +3639,7 @@
             "sql": "UPDATE users WHERE id = #{id}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3656,7 +3656,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3673,7 +3673,7 @@
             "sql": "UPDATE users name = #{name}, status = #{status},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3690,7 +3690,7 @@
             "sql": "UPDATE users name = #{name}, type = #{type},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3707,7 +3707,7 @@
             "sql": "UPDATE users name = #{name} WHERE id = #{id}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3724,7 +3724,7 @@
             "sql": "UPDATE users email = #{email}, status = #{status},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3741,7 +3741,7 @@
             "sql": "UPDATE users email = #{email}, type = #{type},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3758,7 +3758,7 @@
             "sql": "UPDATE users email = #{email} WHERE id = #{id}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3775,7 +3775,7 @@
             "sql": "UPDATE users status = #{status}, type = #{type},",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3792,7 +3792,7 @@
             "sql": "UPDATE users status = #{status} WHERE id = #{id}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3809,7 +3809,7 @@
             "sql": "UPDATE users type = #{type} WHERE id = #{id}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3860,7 +3860,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status} AND name = #{name} AND email = #{email} AND name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3877,7 +3877,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status} AND name = #{name} AND email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3894,7 +3894,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status} AND name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3910,7 +3910,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3927,7 +3927,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email} AND name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3943,7 +3943,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3959,7 +3959,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -3973,7 +3973,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4022,7 +4022,7 @@
             "sql": "SELECT * FROM users id IN #{id} status = #{status} 1=1",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4076,7 +4076,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email}, status = #{status} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4094,7 +4094,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email}, status = #{status},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4112,7 +4112,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4129,7 +4129,7 @@
             "sql": "UPDATE users name = #{name}, email = #{email},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4147,7 +4147,7 @@
             "sql": "UPDATE users name = #{name}, status = #{status} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4164,7 +4164,7 @@
             "sql": "UPDATE users name = #{name}, status = #{status},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4181,7 +4181,7 @@
             "sql": "UPDATE users name = #{name} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4197,7 +4197,7 @@
             "sql": "UPDATE users name = #{name},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4215,7 +4215,7 @@
             "sql": "UPDATE users email = #{email}, status = #{status} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4232,7 +4232,7 @@
             "sql": "UPDATE users email = #{email}, status = #{status},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4249,7 +4249,7 @@
             "sql": "UPDATE users email = #{email} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4265,7 +4265,7 @@
             "sql": "UPDATE users email = #{email},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4282,7 +4282,7 @@
             "sql": "UPDATE users status = #{status} WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4298,7 +4298,7 @@
             "sql": "UPDATE users status = #{status},",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4314,7 +4314,7 @@
             "sql": "UPDATE users WHERE id = #{id}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4328,7 +4328,7 @@
             "sql": "UPDATE users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4382,7 +4382,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>me LIKE CONCAT('%', #{name}, '%') <if test=\"ids != null and ids.size() &gt; 0\">AND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4400,7 +4400,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>me LIKE CONCAT('%', #{name}, '%') <if test=\"ids != null and ids.size() &gt; 0\">AND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4418,7 +4418,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4435,7 +4435,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4453,7 +4453,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>ND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4470,7 +4470,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>ND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4487,7 +4487,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4503,7 +4503,7 @@
             "sql": "SELECT * FROM users <where> AND status = #{status} <if test=\"types != null and types.size() &gt; 0\">AND type IN <foreach collection=\"types\" item=\"t\" open=\"(\" separator=\",\" close=\")\">#{t}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4521,7 +4521,7 @@
             "sql": "SELECT * FROM users <where> me LIKE CONCAT('%', #{name}, '%') <if test=\"ids != null and ids.size() &gt; 0\">AND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4538,7 +4538,7 @@
             "sql": "SELECT * FROM users <where> me LIKE CONCAT('%', #{name}, '%') <if test=\"ids != null and ids.size() &gt; 0\">AND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4555,7 +4555,7 @@
             "sql": "SELECT * FROM users <where>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4571,7 +4571,7 @@
             "sql": "SELECT * FROM users <where>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4588,7 +4588,7 @@
             "sql": "SELECT * FROM users <where> ND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4604,7 +4604,7 @@
             "sql": "SELECT * FROM users <where> ND id NOT IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4620,7 +4620,7 @@
             "sql": "SELECT * FROM users <where>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4634,7 +4634,7 @@
             "sql": "SELECT * FROM users <where>",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4686,7 +4686,7 @@
             "sql": "SELECT id, name, email, status, type, created_at FROM users WHERE id = #{id}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4749,7 +4749,7 @@
             "sql": "SELECT * FROM users AND status = #{status} AND type = #{type}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4817,7 +4817,7 @@
             "sql": "SELECT id, name, email, status, type, created_at FROM users AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4878,7 +4878,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"complexCondition\" /> AND name = #{name}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4892,7 +4892,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"complexCondition\" />",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4960,7 +4960,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"statusCondition\" /> <include refid=\"typeCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4976,7 +4976,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"statusCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -4992,7 +4992,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"typeCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5006,7 +5006,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5078,7 +5078,7 @@
             "sql": "SELECT * FROM users AND status = #{status} AND type = #{type} AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%')",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5130,7 +5130,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> <bind name=\"emailPattern\" value=\"'%' + email + '%'\" /> <bind name=\"effectiveStatus\" value=\"status != null ? status : '1'\" /> SELECT * FROM users WHERE name LIKE #{namePattern} AND email LIKE #{emailPattern} AND status = #{effectiveStatus}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5146,7 +5146,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> <bind name=\"emailPattern\" value=\"'%' + email + '%'\" /> <bind name=\"effectiveStatus\" value=\"status != null ? status : '1'\" /> SELECT * FROM users WHERE name LIKE #{namePattern} AND status = #{effectiveStatus}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5162,7 +5162,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> <bind name=\"emailPattern\" value=\"'%' + email + '%'\" /> <bind name=\"effectiveStatus\" value=\"status != null ? status : '1'\" /> SELECT * FROM users WHERE email LIKE #{emailPattern} AND status = #{effectiveStatus}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5176,7 +5176,7 @@
             "sql": "<bind name=\"namePattern\" value=\"'%' + name + '%'\" /> <bind name=\"emailPattern\" value=\"'%' + email + '%'\" /> <bind name=\"effectiveStatus\" value=\"status != null ? status : '1'\" /> SELECT * FROM users WHERE status = #{effectiveStatus}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5234,7 +5234,7 @@
             "sql": "SELECT * FROM users AND status = #{status} AND status = #{defaultStatus}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5283,7 +5283,7 @@
             "sql": "SELECT * FROM users WHERE 1=0",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5297,7 +5297,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5344,7 +5344,7 @@
             "sql": "SELECT * FROM users AND status = '1'",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5394,7 +5394,7 @@
             "sql": "SELECT * FROM users name = #{name} AND email = #{email} AND",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5410,7 +5410,7 @@
             "sql": "SELECT * FROM users name = #{name} AND",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5426,7 +5426,7 @@
             "sql": "SELECT * FROM users email = #{email} AND",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5440,7 +5440,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5493,7 +5493,7 @@
             "sql": "SELECT * FROM users WHERE status IN <foreach collection=\"statusList\" item=\"s\" open=\"(\" separator=\",\" close=\")\"> <choose> <when test=\"s == 'active'\">'1'</when> <when test=\"s == 'inactive'\">'0'</when> <otherwise>#{s}</otherwise> </choose> </foreach>",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5507,7 +5507,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5563,7 +5563,7 @@
             "sql": "SELECT * FROM users AND status = #{status}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5610,7 +5610,7 @@
             "sql": "SELECT * FROM users",
             "type": "boundary",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5626,7 +5626,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5642,7 +5642,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5658,7 +5658,7 @@
             "sql": "SELECT * FROM users WHERE 1=0",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5674,7 +5674,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5690,7 +5690,7 @@
             "sql": "SELECT * FROM users WHERE 1=0",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5706,7 +5706,7 @@
             "sql": "SELECT * FROM users WHERE 1=0",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5722,7 +5722,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type}",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5738,7 +5738,7 @@
             "sql": "SELECT * FROM users WHERE 1=0",
             "type": "single",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5755,7 +5755,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND email = #{email}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5772,7 +5772,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5789,7 +5789,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND status = #{status}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5806,7 +5806,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5823,7 +5823,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5840,7 +5840,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5857,7 +5857,7 @@
             "sql": "SELECT * FROM users WHERE name = #{name} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5874,7 +5874,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5891,7 +5891,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND status = #{status}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5908,7 +5908,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5925,7 +5925,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5942,7 +5942,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5959,7 +5959,7 @@
             "sql": "SELECT * FROM users WHERE email = #{email} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5976,7 +5976,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND status = #{status}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -5993,7 +5993,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6010,7 +6010,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6027,7 +6027,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6044,7 +6044,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6061,7 +6061,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6078,7 +6078,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6095,7 +6095,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6112,7 +6112,7 @@
             "sql": "SELECT * FROM users WHERE status = #{status} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6129,7 +6129,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6146,7 +6146,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6163,7 +6163,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6180,7 +6180,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND type = #{type}",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6197,7 +6197,7 @@
             "sql": "SELECT * FROM users WHERE 1=0 AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6214,7 +6214,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type} AND 1=0",
             "type": "pair",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6261,7 +6261,7 @@
             "sql": "INSERT INTO users (name, email, status, type) VALUES (#{u.name}, #{u.email}, #{u.status}'1', #{u.type}'NORMAL')",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6299,7 +6299,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6337,7 +6337,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LEFT JOIN orders o ON u.id = o.user_id LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6375,7 +6375,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, oi.product_id as productId, p.name as productName, oi.quantity, oi.price FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN order_items oi ON o.id = oi.order_id INNER JOIN products p ON oi.product_id = p.id WHERE u.id = #{userId}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6425,7 +6425,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{status} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6441,7 +6441,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6457,7 +6457,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.status = #{status} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6471,7 +6471,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6516,7 +6516,7 @@
             "sql": "SELECT * FROM users WHERE id IN #{id}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6554,7 +6554,7 @@
             "sql": "SELECT * FROM users u WHERE EXISTS ( SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status} ) LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6592,7 +6592,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) as orderCount FROM users u WHERE u.id IN (SELECT DISTINCT user_id FROM orders) LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6644,7 +6644,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6662,7 +6662,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6680,7 +6680,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6697,7 +6697,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6715,7 +6715,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6732,7 +6732,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6749,7 +6749,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6765,7 +6765,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6783,7 +6783,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6800,7 +6800,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6817,7 +6817,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6833,7 +6833,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LEFT JOIN orders o ON u.id = o.user_id LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6850,7 +6850,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} AND o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6866,7 +6866,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE u.id = #{userId} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6882,7 +6882,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u WHERE o.status = #{orderStatus} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6896,7 +6896,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6934,7 +6934,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type} UNION SELECT * FROM users WHERE status = '1'",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -6972,7 +6972,7 @@
             "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.amount >= #{minAmount} AND o.user_id IN ( SELECT user_id FROM orders WHERE amount > (SELECT AVG(amount) FROM orders) ) LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7010,7 +7010,7 @@
             "sql": "SELECT COUNT(*) FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7048,7 +7048,7 @@
             "sql": "SELECT COUNT(*) FROM users WHERE status = #{status}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7086,7 +7086,7 @@
             "sql": "SELECT COALESCE(SUM(amount), 0) FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7124,7 +7124,7 @@
             "sql": "SELECT COALESCE(AVG(amount), 0) FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7162,7 +7162,7 @@
             "sql": "SELECT MAX(amount) as maxAmount, MIN(amount) as minAmount FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7200,7 +7200,7 @@
             "sql": "SELECT status, COUNT(*) as count FROM orders GROUP BY status",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7238,7 +7238,7 @@
             "sql": "SELECT user_id as userId, status, COUNT(*) as count FROM orders WHERE user_id = #{userId} GROUP BY user_id, status",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7276,7 +7276,7 @@
             "sql": "SELECT status, COUNT(*) as count FROM orders GROUP BY status HAVING COUNT(*) >= #{minCount}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7314,7 +7314,7 @@
             "sql": "SELECT id as orderId, order_no as orderNo, status, amount, CASE status WHEN 'completed' THEN '已完成' WHEN 'pending' THEN '待处理' WHEN 'processing' THEN '处理中' WHEN 'cancelled' THEN '已取消' ELSE '未知' END as statusLabel FROM orders LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7352,7 +7352,7 @@
             "sql": "SELECT id as orderId, order_no as orderNo, created_at as createdAt, YEAR(created_at) as year, MONTH(created_at) as month, DAY(created_at) as day FROM orders WHERE YEAR(created_at) = #{year} LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7390,7 +7390,7 @@
             "sql": "SELECT * FROM users WHERE CONCAT(name, '-', email) LIKE CONCAT(#{prefix}, '%')",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7428,7 +7428,7 @@
             "sql": "SELECT * FROM users WHERE SUBSTRING(email, 1, 3) = #{pattern}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7466,7 +7466,7 @@
             "sql": "SELECT COALESCE(SUM(CASE WHEN status = #{status} THEN amount ELSE 0 END), 0) FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7504,7 +7504,7 @@
             "sql": "SELECT status, COUNT(*) as count, SUM(amount) as sum, AVG(amount) as avg, MAX(amount) as max, MIN(amount) as min FROM orders GROUP BY status",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7542,7 +7542,7 @@
             "sql": "SELECT id as orderId, order_no as orderNo, amount, (SELECT COUNT(*) FROM orders o2 WHERE o2.amount > orders.amount) + 1 as `rank` FROM orders ORDER BY `rank` LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7580,7 +7580,7 @@
             "sql": "SELECT * FROM orders ORDER BY id LIMIT #{limit}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7618,7 +7618,7 @@
             "sql": "SELECT * FROM orders ORDER BY id LIMIT #{limit} OFFSET #{offset}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7665,7 +7665,7 @@
             "sql": "SELECT * FROM orders ORDER BY id LIMIT #{pageSize} OFFSET #{offset}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7679,7 +7679,7 @@
             "sql": "SELECT * FROM orders ORDER BY id",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7717,7 +7717,7 @@
             "sql": "SELECT DISTINCT status FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7755,7 +7755,7 @@
             "sql": "SELECT DISTINCT name, email FROM users WHERE status IS NOT NULL",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7793,7 +7793,7 @@
             "sql": "INSERT INTO users (id, name, email, status, type) VALUES (#{id}, #{name}, #{email}, #{status}, #{type}) ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), status = VALUES(status), type = VALUES(type)",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7831,7 +7831,7 @@
             "sql": "SELECT * FROM orders WHERE id = 1",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7880,7 +7880,7 @@
             "sql": "SELECT DISTINCT status FROM orders WHERE status = #{status} LIMIT 10",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7894,7 +7894,7 @@
             "sql": "SELECT DISTINCT status FROM orders LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7943,7 +7943,7 @@
             "sql": "SELECT COUNT(DISTINCT user_id) FROM orders WHERE status = #{status}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -7957,7 +7957,7 @@
             "sql": "SELECT COUNT(DISTINCT user_id) FROM orders",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8004,7 +8004,7 @@
             "sql": "SELECT * FROM orders ORDER BY status, amount DESC LIMIT #{pageSize} OFFSET #{offset}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8018,7 +8018,7 @@
             "sql": "SELECT * FROM orders ORDER BY status, amount DESC",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8056,7 +8056,7 @@
             "sql": "SELECT status, COUNT(*) as count FROM orders WHERE amount > #{minAmount} GROUP BY status HAVING COUNT(*) > 0 ORDER BY count DESC LIMIT 10",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8094,7 +8094,7 @@
             "sql": "SELECT * FROM users WHERE type = #{type} UNION SELECT * FROM users WHERE status = '1' LIMIT #{limit}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8153,7 +8153,7 @@
             "sql": "SELECT FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8221,7 +8221,7 @@
             "sql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" />, <include refid=\"com.test.mapper.CommonMapper.auditColumns\" /> FROM users WHERE name LIKE CONCAT('%', #{name}, '%') <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8235,7 +8235,7 @@
             "sql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" />, <include refid=\"com.test.mapper.CommonMapper.auditColumns\" /> FROM users WHERE <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8302,7 +8302,7 @@
             "sql": "SELECT * FROM users AND type = #{type}",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8368,7 +8368,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8438,7 +8438,7 @@
             "sql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" /> FROM users WHERE id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach> <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" /> <include refid=\"com.test.mapper.CommonMapper.paginationCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8452,7 +8452,7 @@
             "sql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" /> FROM users WHERE <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" /> <include refid=\"com.test.mapper.CommonMapper.paginationCondition\" />",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8497,7 +8497,7 @@
             "sql": "SELECT u1.id, u1.name, u1.email, u1.status, u1.type FROM users u1 INNER JOIN users u2 ON u1.type = u2.type u1.status = #{status} AND u2.status = u1.status",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8555,7 +8555,7 @@
             "sql": "SELECT * FROM users WHERE <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8569,7 +8569,7 @@
             "sql": "SELECT * FROM users",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8627,7 +8627,7 @@
             "sql": "SELECT * FROM users <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" /> AND type = #{type}",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8641,7 +8641,7 @@
             "sql": "SELECT * FROM users <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8701,7 +8701,7 @@
             "sql": "UPDATE users status = #{status}, updated_at = NOW() WHERE <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />",
             "type": "dynamic",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8715,7 +8715,7 @@
             "sql": "UPDATE users updated_at = NOW() WHERE <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,
@@ -8776,7 +8776,7 @@
             "sql": "SELECT * FROM users AND type IS NOT NULL",
             "type": "static",
             "baseline": {
-              "error": "invalid dsn: invalid connection option \"mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset\"\n",
+              "error": "invalid dsn: invalid connection option \"mysql://<user>:<password>@<host>:<port>/<database>?charset\"\n",
               "executionTime": null,
               "rowsExamined": null,
               "rowsReturned": null,

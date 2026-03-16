@@ -2,7 +2,7 @@
 
 **Run ID**: run_8c1719c37556  
 **执行时间**: 2026-03-10  
-**数据库**: MySQL (100.101.41.123:3306/sql_optimizer_test)
+**数据库**: MySQL (<host>:<port>/<database>)
 
 ---
 

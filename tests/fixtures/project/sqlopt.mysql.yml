@@ -7,14 +7,14 @@ scan:
 
 db:
   platform: mysql
-  dsn: mysql://root:root@127.0.0.1:3306/sqlopt_test
+  dsn: mysql://<user>:<password>@<host>:<port>/<database>
 
 llm:
   enabled: true
   provider: direct_openai_compatible
   timeout_ms: 80000
   api_base: https://api.deepseek.com/v1
-  api_key: sk-56f90dbbfd6e44aab99fa2f5f04037a8
+  api_key: <api_key>
   api_model: deepseek-chat
   api_timeout_ms: 30000
 

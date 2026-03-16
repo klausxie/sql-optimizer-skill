@@ -14,11 +14,11 @@
 - tests/fixtures/sql_local/schema.sql 已执行
 
 运行方式:
-    export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sqlopt_test"
+    export TEST_DATABASE_URL="postgresql://<user>:<password>@localhost:5432/<database>"
     python -m pytest tests/test_e2e_baseline.py -v
 
     或 MySQL:
-    export TEST_DATABASE_URL="mysql://root:root@localhost:3306/sqlopt_test"
+    export TEST_DATABASE_URL="mysql://<user>:<password>@localhost:3306/<database>"
     python -m pytest tests/test_e2e_baseline.py -v
 """
 

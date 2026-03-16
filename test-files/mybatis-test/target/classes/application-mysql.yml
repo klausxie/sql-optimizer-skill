@@ -2,10 +2,10 @@ spring:
   application:
     name: mybatis-test
   datasource:
-    url: jdbc:mysql://100.101.41.123:3306/sql_optimizer_test?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://<host>:<port>/<database>
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: root
+    username: <user>
+    password: <password>
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5

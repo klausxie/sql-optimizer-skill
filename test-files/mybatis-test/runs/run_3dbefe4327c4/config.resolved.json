@@ -10,7 +10,7 @@
   },
   "db": {
     "platform": "mysql",
-    "dsn": "mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset=utf8mb4",
+    "dsn": "mysql://<user>:<password>@<host>:<port>/<database>?charset=utf8mb4",
     "schema": null,
     "statement_timeout_ms": 3000,
     "allow_explain_analyze": false

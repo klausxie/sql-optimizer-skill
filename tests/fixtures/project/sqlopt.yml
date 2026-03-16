@@ -7,7 +7,7 @@ scan:
 
 db:
   platform: postgresql
-  dsn: postgresql://postgres:Aa28012801@127.0.0.1:5432/postgres?sslmode=disable
+  dsn: postgresql://<user>:<password>@<host>:<port>/<database>
   schema: public
 
 llm:

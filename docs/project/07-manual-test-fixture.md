@@ -42,7 +42,7 @@ mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysq
 ### 2.1 数据库连通性
 
 ```bash
-psql "postgresql://postgres:Aa28012801@127.0.0.1:5432/postgres?sslmode=disable" -c "select 1;"
+psql "postgresql://<user>:<password>@<host>:<port>/<database>" -c "select 1;"
 ```
 
 预期：返回 `1`。

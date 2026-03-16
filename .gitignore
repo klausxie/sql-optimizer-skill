@@ -18,6 +18,10 @@ dist/
 .sqlopt-run-index.json
 tests/fixtures/project/runs/
 
+# Test fixtures - should never be committed
+test-files/mybatis-test/runs/
+test-files/mybatis-test/target/
+
 # Logs / temp
 *.log
 *.tmp

@@ -2,10 +2,10 @@ spring:
   application:
     name: mybatis-test
   datasource:
-    url: jdbc:postgresql://100.101.41.123:5432/postgres?currentSchema=public&connectTimeout=10&socketTimeout=30
+    url: jdbc:postgresql://<host>:<port>/<database>
     driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: postgres
+    username: <user>
+    password: <password>
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
