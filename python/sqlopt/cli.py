@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
+
+# Windows UTF-8 encoding fix
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass  # Fallback to default if reconfigure not available
 
 from .application import config_service, run_index, run_service, workflow_engine
 from .application.run_resolution import resolve_run_id
