@@ -23,7 +23,9 @@ def _run_label(run_id: str | None) -> str:
     return value if value else "latest"
 
 
-def _resolve_requested_run_id(requested_run_id: str | None, project: str | Path | None = None) -> str:
+def _resolve_requested_run_id(
+    requested_run_id: str | None, project: str | Path | None = None
+) -> str:
     # Keep explicit run_id passthrough for backward compatibility; only auto-resolve when omitted.
     if str(requested_run_id or "").strip():
         return str(requested_run_id)
@@ -36,8 +38,12 @@ def _resolve_run_dir(run_id: str) -> Path:
     return run_index.resolve_run_dir(run_id, repo_root_fn=_repo_root)
 
 
-def _interrupt_payload(run_id: str | None, *, next_action: str | None = None) -> dict[str, Any]:
-    return run_service.build_interrupt_payload(_run_label(run_id), next_action=next_action)
+def _interrupt_payload(
+    run_id: str | None, *, next_action: str | None = None
+) -> dict[str, Any]:
+    return run_service.build_interrupt_payload(
+        _run_label(run_id), next_action=next_action
+    )
 
 
 def _validate_budget_args(args: argparse.Namespace) -> None:
@@ -47,7 +53,9 @@ def _validate_budget_args(args: argparse.Namespace) -> None:
         raise ValueError("max_seconds must be >= 0")
 
 
-def _run_phase_action(config: dict[str, Any], phase: str, fn: Callable[[], object]) -> tuple[object, int]:
+def _run_phase_action(
+    config: dict[str, Any], phase: str, fn: Callable[[], object]
+) -> tuple[object, int]:
     """Compatibility wrapper used by legacy tests and integrations."""
     return workflow_engine.run_phase_action(config, phase, fn)
 
@@ -71,7 +79,9 @@ def _finalize_report_if_enabled(
     )
 
 
-def _advance_one_step(run_dir: Path, config: dict[str, Any], to_stage: str, validator: Any) -> dict[str, Any]:
+def _advance_one_step(
+    run_dir: Path, config: dict[str, Any], to_stage: str, validator: Any
+) -> dict[str, Any]:
     """Compatibility wrapper around workflow_engine.advance_one_step."""
     return workflow_engine.advance_one_step(
         run_dir,
@@ -109,14 +119,38 @@ def _advance_until_complete(
 def cmd_run(args: argparse.Namespace) -> None:
     config_path = Path(args.config).resolve()
     if not config_path.exists():
-        error_info = format_error_message("CONFIG_NOT_FOUND", f"Config file not found: {config_path}")
+        error_info = format_error_message(
+            "CONFIG_NOT_FOUND", f"Config file not found: {config_path}"
+        )
         fallback_run_id = args.run_id or "<pending>"
         print({"run_id": fallback_run_id, "error": error_info})
         raise SystemExit(2)
 
+    validation_result = config_service.validate_config(
+        config_path, check_connectivity=True
+    )
+    if not validation_result.get("valid", False):
+        error_info = format_error_message(
+            "CONFIG_INVALID",
+            f"Configuration validation failed: {validation_result.get('error', 'Unknown error')}",
+        )
+        fallback_run_id = args.run_id or "<pending>"
+        print(
+            {
+                "run_id": fallback_run_id,
+                "error": error_info,
+                "validation_details": validation_result,
+            }
+        )
+        raise SystemExit(2)
+
     repo_root = _repo_root()
     run_id: str | None = None
-    requested_run_id = str(args.run_id).strip() if str(args.run_id or "").strip() else f"run_{uuid4().hex[:12]}"
+    requested_run_id = (
+        str(args.run_id).strip()
+        if str(args.run_id or "").strip()
+        else f"run_{uuid4().hex[:12]}"
+    )
     try:
         _validate_budget_args(args)
         get_progress_reporter().report_info(f"run_id={requested_run_id}")
@@ -146,7 +180,11 @@ def cmd_run(args: argparse.Namespace) -> None:
         raise SystemExit(2)
     except FileNotFoundError:
         reason_code = "RUN_NOT_FOUND" if run_id else "CONFIG_NOT_FOUND"
-        message = f"run_id not found in run index: {run_id}" if run_id else f"Config file not found: {config_path}"
+        message = (
+            f"run_id not found in run index: {run_id}"
+            if run_id
+            else f"Config file not found: {config_path}"
+        )
         error_info = format_error_message(reason_code, message)
         fallback_run_id = run_id or requested_run_id or "<pending>"
         print({"run_id": fallback_run_id, "error": error_info})
@@ -163,7 +201,11 @@ def cmd_run(args: argparse.Namespace) -> None:
         raise SystemExit(2)
     except KeyboardInterrupt:
         target_run_id = run_id or requested_run_id or "<pending>"
-        next_action = f"sqlopt-cli resume --run-id {target_run_id}" if target_run_id not in {"<pending>", "latest"} else None
+        next_action = (
+            f"sqlopt-cli resume --run-id {target_run_id}"
+            if target_run_id not in {"<pending>", "latest"}
+            else None
+        )
         print(_interrupt_payload(target_run_id, next_action=next_action))
         raise SystemExit(130)
 
@@ -172,32 +214,52 @@ def cmd_resume(args: argparse.Namespace) -> None:
     resolved_run_id: str | None = None
     try:
         _validate_budget_args(args)
-        resolved_run_id = _resolve_requested_run_id(getattr(args, "run_id", None), getattr(args, "project", "."))
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
         get_progress_reporter().report_info(f"run_id={resolved_run_id}")
         initial_result = run_service.resume_run(resolved_run_id, repo_root=_repo_root())
         outcome = run_service.advance_run_until_complete(
             resolved_run_id,
             initial_result,
-            step_fn=lambda: run_service.resume_run(resolved_run_id or "", repo_root=_repo_root()),
+            step_fn=lambda: run_service.resume_run(
+                resolved_run_id or "", repo_root=_repo_root()
+            ),
             max_steps=int(args.max_steps),
             max_seconds=int(args.max_seconds),
         )
         print(run_service.build_progress_payload(resolved_run_id, outcome))
     except ValueError as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
-        print({"run_id": _run_label(getattr(args, "run_id", None)), "error": error_info})
+        print(
+            {"run_id": _run_label(getattr(args, "run_id", None)), "error": error_info}
+        )
         raise SystemExit(2)
     except FileNotFoundError:
-        error_info = format_error_message("RUN_NOT_FOUND", "run_id not found in run index")
-        print({"run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)), "error": error_info})
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
         raise SystemExit(2)
     except StageError as exc:
         error_info = format_error_message(exc.reason_code or "UNKNOWN_ERROR", str(exc))
-        print({"run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)), "error": error_info})
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
         raise SystemExit(2)
     except KeyboardInterrupt:
         target_run_id = resolved_run_id or getattr(args, "run_id", None)
-        next_action = f"sqlopt-cli resume --run-id {target_run_id}" if target_run_id else None
+        next_action = (
+            f"sqlopt-cli resume --run-id {target_run_id}" if target_run_id else None
+        )
         print(_interrupt_payload(target_run_id, next_action=next_action))
         raise SystemExit(130)
 
@@ -205,11 +267,20 @@ def cmd_resume(args: argparse.Namespace) -> None:
 def cmd_status(args: argparse.Namespace) -> None:
     resolved_run_id: str | None = None
     try:
-        resolved_run_id = _resolve_requested_run_id(getattr(args, "run_id", None), getattr(args, "project", "."))
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
         print(run_service.get_status(resolved_run_id, repo_root=_repo_root()))
     except FileNotFoundError:
-        error_info = format_error_message("RUN_NOT_FOUND", "run_id not found in run index")
-        print({"run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)), "error": error_info})
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
         raise SystemExit(2)
 
 
@@ -217,7 +288,9 @@ def cmd_validate_config(args: argparse.Namespace) -> None:
     config_path = Path(args.config).resolve()
 
     if not config_path.exists():
-        error_info = format_error_message("CONFIG_NOT_FOUND", f"Config file not found: {config_path}")
+        error_info = format_error_message(
+            "CONFIG_NOT_FOUND", f"Config file not found: {config_path}"
+        )
         print({"error": error_info})
         raise SystemExit(2)
 
@@ -235,11 +308,48 @@ def cmd_validate_config(args: argparse.Namespace) -> None:
 def cmd_apply(args: argparse.Namespace) -> None:
     resolved_run_id: str | None = None
     try:
-        resolved_run_id = _resolve_requested_run_id(getattr(args, "run_id", None), getattr(args, "project", "."))
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
+
+        if not getattr(args, "force", False):
+            run_dir = run_index.resolve_run_dir(
+                resolved_run_id, repo_root_fn=_repo_root
+            )
+            from .stages.apply import _resolved_config
+
+            try:
+                cfg = _resolved_config(run_dir)
+                apply_cfg = (
+                    (cfg.get("apply", {}) or {}) if isinstance(cfg, dict) else {}
+                )
+                mode = str(apply_cfg.get("mode", "PATCH_ONLY")).strip().upper()
+
+                if mode == "APPLY_IN_PLACE":
+                    from .stages.apply import _collect_patch_files
+
+                    patch_files = _collect_patch_files(run_dir)
+                    if patch_files:
+                        print(f"\n警告: 即将修改 {len(patch_files)} 个文件!")
+                        print("将使用 git apply 命令应用补丁。")
+                        response = input("\n确认应用补丁? (y/N): ")
+                        if response.lower() not in ("y", "yes"):
+                            print("已取消操作。")
+                            return
+            except Exception:
+                pass
+
         print(run_service.apply_run(resolved_run_id, repo_root=_repo_root()))
     except FileNotFoundError:
-        error_info = format_error_message("RUN_NOT_FOUND", "run_id not found in run index")
-        print({"run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)), "error": error_info})
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
         raise SystemExit(2)
 
 
@@ -277,10 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser(
         "run",
         help="开始新的优化运行",
-        description=(
-            "启动新的优化运行。\n"
-            "默认会自动持续推进，直到 complete=true。"
-        ),
+        description=("启动新的优化运行。\n默认会自动持续推进，直到 complete=true。"),
         epilog=(
             "示例:\n"
             "  sqlopt-cli run\n"
@@ -315,7 +422,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--to-stage",
         default="patch_generate",
         choices=STAGE_ORDER,
-        help="目标运行阶段（默认：patch_generate）。可用阶段：" + ", ".join(STAGE_ORDER),
+        help="目标运行阶段（默认：patch_generate）。可用阶段："
+        + ", ".join(STAGE_ORDER),
     )
     p_run.add_argument(
         "--max-steps",
@@ -334,10 +442,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_resume = sub.add_parser(
         "resume",
         help="恢复现有运行",
-        description=(
-            "从中断处恢复运行。\n"
-            "默认会持续推进，直到 complete=true。"
-        ),
+        description=("从中断处恢复运行。\n默认会持续推进，直到 complete=true。"),
         epilog=(
             "示例:\n"
             "  sqlopt-cli resume\n"
@@ -413,14 +518,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=".",
         help="项目目录，用于在省略 --run-id 时解析最新运行（默认：当前目录）",
     )
+    p_apply.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="强制应用补丁，无需确认（适用于 APPLY_IN_PLACE 模式）",
+    )
     p_apply.set_defaults(func=cmd_apply)
 
     p_validate = sub.add_parser(
         "validate-config",
         help="验证配置文件",
         description=(
-            "验证配置文件是否有效且完整。\n"
-            "退出码：0=合法，1=不合法，2=执行异常。"
+            "验证配置文件是否有效且完整。\n退出码：0=合法，1=不合法，2=执行异常。"
         ),
         epilog=(
             "示例:\n"
