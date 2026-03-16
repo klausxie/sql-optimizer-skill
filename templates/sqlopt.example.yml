@@ -4,7 +4,7 @@
 # 外部可配置主根键：project / scan / db / llm / report / config_version
 # 外部可配置扩展键：rules / prompt_injections
 # 以下历史键已移除（出现即报错）：
-# validate, policy, apply, patch, diagnostics, runtime, verification
+# validate, policy, diagnostics, runtime, verification
 
 config_version: v1
 

@@ -114,8 +114,18 @@ class RunPaths:
         return self.pipeline_dir / "scan"
 
     @property
+    def diagnose_dir(self) -> Path:
+        """Alias for scan_dir - diagnose is the new stage name."""
+        return self.pipeline_dir / "scan"
+
+    @property
     def scan_units_path(self) -> Path:
         return self.scan_dir / "sqlunits.jsonl"
+
+    @property
+    def diagnose_units_path(self) -> Path:
+        """Alias for scan_units_path."""
+        return self.scan_units_path
 
     @property
     def scan_fragments_path(self) -> Path:
@@ -139,6 +149,10 @@ class RunPaths:
 
     @property
     def patch_generate_dir(self) -> Path:
+        return self.pipeline_dir / "patch_generate"
+
+    @property
+    def apply_dir(self) -> Path:
         return self.pipeline_dir / "patch_generate"
 
     @property
