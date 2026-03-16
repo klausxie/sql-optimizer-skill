@@ -357,18 +357,23 @@ def main() -> None:
     runtime_dir = target_skill / "runtime"
     run_cmd([sys.executable, "-m", "venv", str(runtime_dir / ".venv")])
     py = venv_python(runtime_dir)
-    run_cmd([str(py), "-m", "pip", "install", "--upgrade", "pip"], quiet=True)
-    run_cmd(
-        [
-            str(py),
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            str(runtime_dir / "install" / "requirements.txt"),
-        ],
-        quiet=True,
-    )
+
+    # pip install 失败不中止，继续生成斜杠命令（不依赖这些包）
+    try:
+        run_cmd([str(py), "-m", "pip", "install", "--upgrade", "pip"], quiet=True)
+        run_cmd(
+            [
+                str(py),
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                str(runtime_dir / "install" / "requirements.txt"),
+            ],
+            quiet=True,
+        )
+    except Exception as e:
+        print(f"WARNING: pip install failed ({e}), continuing anyway...")
 
     wrapper = write_cli_wrapper(target_skill)
     # 生成斜杠命令文档
