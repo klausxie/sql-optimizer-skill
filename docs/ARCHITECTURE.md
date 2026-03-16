@@ -45,7 +45,7 @@
 
 - `--config`: 配置文件路径 (默认: `sqlopt.yml`)
 - `--run-id`: 指定运行 ID
-- `--to-stage`: 目标阶段 (scan/optimize/validate/patch_generate/report)
+- `--to-stage`: 目标阶段 (diagnose/optimize/validate/apply/report)
 - `--sql-key`: 指定 SQL key (支持完整 key / namespace.statementId / statementId / statementId#vN)
 - `--mapper-path`: 指定 mapper 文件路径
 - `--max-steps`: 最大步数限制
@@ -57,15 +57,15 @@
 ## 3. 阶段流水线 (真实架构)
 
 ```
-┌────────┐   ┌─────────┐   ┌─────────┐   ┌───────────────┐   ┌────────┐
-│  Scan  │──▶│Optimize │──▶│Validate │──▶│Patch Generate│──▶│ Report │
-└────────┘   └─────────┘   └─────────┘   └───────────────┘   └────────┘
-    │            │            │              │                  │
-    ▼            ▼            ▼              ▼                  ▼
- ┌──────┐   ┌──────┐   ┌────────┐    ┌───────────┐      ┌─────────┐
- │扫描SQL│   │LLM   │   │语义验证│    │生成补丁   │      │生成报告 │
- │单元   │   │优化建议│   │+性能  │    │文件       │      │+风险   │
- └──────┘   └──────┘   └────────┘    └───────────┘      └─────────┘
+┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌────────┐
+│ Diagnose │──▶│Optimize │──▶│Validate │──▶│ Apply   │──▶│ Report │
+└─────────┘   └─────────┘   └─────────┘   └─────────┘   └────────┘
+    │            │            │              │               │
+    ▼            ▼            ▼              ▼               ▼
+┌──────┐   ┌──────┐   ┌────────┐    ┌───────────┐    ┌─────────┐
+│诊断SQL│   │LLM   │   │语义验证│    │生成补丁   │    │生成报告 │
+│分支   │   │优化建议│   │+性能  │    │文件       │    │+风险   │
+└──────┘   └──────┘   └────────┘    └───────────┘    └─────────┘
 ```
 
 > **注意**: preflight 阶段已移除，配置验证已合并到 run 命令开头自动执行。
@@ -74,10 +74,10 @@
 
 | 阶段 | 输入 | 输出 | 功能 |
 |------|------|------|------|
-| **Scan** | Mapper XML | SQL单元 | 扫描 MyBatis XML 中的 SQL 语句 |
+| **Diagnose** | Mapper XML | SQL单元 | 扫描 MyBatis XML 中的 SQL 语句，分析分支 |
 | **Optimize** | SQL单元 | 优化建议 | 通过 LLM 生成优化建议 |
 | **Validate** | 优化建议 | 验证结果 | 数据库语义验证 + 性能对比 |
-| **Patch Generate** | 验证结果 | 补丁文件 | 生成可应用的 XML 补丁 |
+| **Apply** | 验证结果 | 补丁文件 | 生成可应用的 XML 补丁 |
 | **Report** | 所有阶段结果 | 报告 | 生成汇总报告和风险评估 |
 
 ---
@@ -94,10 +94,10 @@
 - `config_service.py`: 配置加载验证
 
 ### 4.3 阶段处理
-- `scan.py`: SQL 扫描
+- `diagnose.py`: SQL 扫描与分支诊断
 - `optimize.py`: LLM 优化建议生成
 - `validate.py`: 语义验证
-- `patch_generate.py`: 补丁生成
+- `apply.py`: 补丁生成
 - `report.py` / `report_*.py`: 报告生成
 
 ### 4.4 脚本 (新增)

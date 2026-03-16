@@ -3,7 +3,7 @@
 ## 1. 逻辑架构
 当前实现按三层组织：
 1. `orchestrator`：命令入口、阶段编排、状态推进、超时与重试。
-2. `stage core`：`scan / execute / analyze / optimize / validate / patch_generate / report` 领域逻辑。
+2. `stage core`：`diagnose / optimize / validate / apply / report` 领域逻辑。
 3. `contracts & artifacts`：schema 校验、运行产物落盘、报告与 ops 诊断。
 
 稳定约束：
@@ -96,13 +96,13 @@ Current:
 Default:
 1. fragment 级模板物化由内部策略保持默认关闭
 
-### 2.6 `patch_generate`
+### 2.6 `apply`
 Current:
 1. 优先消费 validate 已规划的 `selectedPatchStrategy`
 2. 当前策略选择由内部 planner 统一产出：
    - `SAFE_WRAPPER_COLLAPSE`
    - `EXACT_TEMPLATE_EDIT`
-3. `templateRewriteOps` 仍是 patch_generate 的直接执行输入
+3. `templateRewriteOps` 仍是 apply 的直接执行输入
 4. 只有当 `rewriteMaterialization.replayVerified=true` 时，才允许真正落地模板级 patch
 5. 若没有模板级计划，则回退到原有静态 SQL patch 路径
 6. 对动态模板 statement，不允许直接用扁平 SQL 覆盖 mapper XML

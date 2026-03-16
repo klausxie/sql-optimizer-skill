@@ -152,7 +152,7 @@ done
 ```bash
 python3 scripts/run_until_budget.py \
   --config tests/fixtures/project/sqlopt.scan.local.yml \
-  --to-stage scan \
+  --to-stage diagnose \
   --max-steps 10 \
   --max-seconds 30
 ```
@@ -174,10 +174,10 @@ python3 scripts/run_until_budget.py \
 
 建议至少检查：
 
-1. `pipeline/scan/sqlunits.jsonl`
-   - `searchUsersAdvanced.dynamicFeatures` 含 `FOREACH/INCLUDE/IF/CHOOSE/WHERE/BIND`
-   - `patchUserStatusAdvanced.sql` 不含重复 `SET SET`
-2. `pipeline/scan/fragments.jsonl`
+1. `pipeline/diagnose/sqlunits.jsonl`
+    - `searchUsersAdvanced.dynamicFeatures` 含 `FOREACH/INCLUDE/IF/CHOOSE/WHERE/BIND`
+    - `patchUserStatusAdvanced.sql` 不含重复 `SET SET`
+2. `pipeline/diagnose/fragments.jsonl`
    - `ActiveOnly` / `TenantGuard` 两个 fragment 都存在
 3. `pipeline/verification/ledger.jsonl`
    - 两条 statement 都是 `SCAN_EVIDENCE_VERIFIED`
@@ -195,7 +195,7 @@ tests/fixtures/project/runs/<run-id>/
 1. `pipeline/manifest.jsonl`：阶段事件、失败原因。
 2. `pipeline/optimize/optimization.proposals.jsonl`：优化候选。
 3. `pipeline/validate/acceptance.results.jsonl`：validate 结论。
-4. `pipeline/patch_generate/patch.results.jsonl`：补丁生成与 apply-check 结果。
+4. `pipeline/apply/patch.results.jsonl`：补丁生成与 apply-check 结果。
 5. `overview/report.json`：汇总统计。
 
 常用查看命令：
@@ -204,7 +204,7 @@ tests/fixtures/project/runs/<run-id>/
 tail -n 50 tests/fixtures/project/runs/<run-id>/pipeline/manifest.jsonl
 cat tests/fixtures/project/runs/<run-id>/overview/report.json
 cat tests/fixtures/project/runs/<run-id>/pipeline/validate/acceptance.results.jsonl
-cat tests/fixtures/project/runs/<run-id>/pipeline/patch_generate/patch.results.jsonl
+cat tests/fixtures/project/runs/<run-id>/pipeline/apply/patch.results.jsonl
 ```
 
 ## 5. 手工应用 patch（可选）
@@ -244,7 +244,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 
 ## 6.3 patch 文件无法 apply
 
-检查 `pipeline/patch_generate/patch.results.jsonl`：
+检查 `pipeline/apply/patch.results.jsonl`：
 
 - `applicable: false` 表示 `git apply --check` 未通过。
 - `applyCheckError` 会给出具体冲突/上下文不匹配原因。
@@ -581,7 +581,7 @@ PYTHONPATH=python .venv/bin/python -m unittest tests.test_fixture_project_patch_
 这组测试会：
 
 1. 复用矩阵驱动的 validate 结果。
-2. 对每个 statement 调用真实 `patch_generate.execute_one(...)`。
+2. 对每个 statement 调用真实 `apply.execute_one(...)`。
 3. 断言 `selectionReason.code / strategyType / patchFiles / applicable` 与矩阵一致。
 4. 对 patch-ready 场景继续断言 patch 文本必须包含/不包含的关键片段。
 5. 再基于真实 patch 结果构建 report，并校验核心统计项。

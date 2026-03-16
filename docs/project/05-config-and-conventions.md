@@ -89,11 +89,11 @@
 4. `overview/report.summary.md`
 5. `overview/config.resolved.json`
 6. `pipeline/manifest.jsonl`
-7. `pipeline/scan/sqlunits.jsonl`
-8. `pipeline/scan/fragments.jsonl`
+7. `pipeline/diagnose/sqlunits.jsonl`
+8. `pipeline/diagnose/fragments.jsonl`
 9. `pipeline/optimize/optimization.proposals.jsonl`
 10. `pipeline/validate/acceptance.results.jsonl`
-11. `pipeline/patch_generate/patch.results.jsonl`
+11. `pipeline/apply/patch.results.jsonl`
 12. `pipeline/supervisor/*`
 13. `pipeline/ops/*`
 14. `pipeline/verification/*`

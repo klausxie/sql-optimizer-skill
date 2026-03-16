@@ -35,7 +35,7 @@ Current:
 
 ## fragment catalog（当前默认开启）
 当 fragment catalog 内置开关开启（当前默认）时，scanner 还应输出：
-1. `pipeline/scan/fragments.jsonl`
+1. `pipeline/diagnose/fragments.jsonl`
 2. 每条 fragment 的稳定键
 3. statement / fragment 的源码 range locator
 4. `<include><property>` 绑定信息
@@ -51,7 +51,7 @@ scanner 当前需要输出：
 
 这些元信息的作用：
 1. 让 validate 能做模板物化判定
-2. 让 patch_generate 能区分静态 statement patch、模板级 patch、动态保守跳过
+2. 让 apply 能区分静态 statement patch、模板级 patch、动态保守跳过
 
 ## fallback scanner 约束
 Current:

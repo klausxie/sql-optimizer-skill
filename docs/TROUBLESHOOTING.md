@@ -99,7 +99,7 @@ cat runs/index.json
 诊断命令：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage scan --sql-key findUsers
+sqlopt-cli run --config sqlopt.yml --to-stage diagnose --sql-key findUsers
 ```
 
 修复动作：
@@ -211,7 +211,7 @@ python install/doctor.py --project .
 
 ```bash
 tail -n 100 runs/<run-id>/pipeline/manifest.jsonl
-wc -l runs/<run-id>/pipeline/scan/sqlunits.jsonl
+wc -l runs/<run-id>/pipeline/diagnose/sqlunits.jsonl
 ```
 
 修复动作：

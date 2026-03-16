@@ -81,14 +81,14 @@ sqlopt-cli apply --run-id <run-id>
 - `runs/<run-id>/overview/report.json`
 - `runs/<run-id>/overview/report.summary.md`（摘要）
 - `runs/<run-id>/overview/report.md`（详细版）
-- `runs/<run-id>/pipeline/patch_generate/patch.results.jsonl`
+- `runs/<run-id>/apply/patch.results.jsonl`
 
 ## 6. 常见分支
 
 - 只想先验证扫描：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage scan
+sqlopt-cli run --config sqlopt.yml --to-stage diagnose
 ```
 
 - 只知道方法名，不知道完整 key：

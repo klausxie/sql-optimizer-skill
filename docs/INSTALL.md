@@ -132,7 +132,7 @@ llm:
 ```
 
 ```bash
-sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
+sqlopt-cli --quiet run --config sqlopt.yml --to-stage apply
 sqlopt-cli status
 sqlopt-cli resume
 ```

@@ -35,10 +35,10 @@
 这些文件记录阶段执行结果，是运行恢复和排障的主要索引：
 
 - `pipeline/supervisor/results/preflight.jsonl`
-- `pipeline/supervisor/results/scan.jsonl`
+- `pipeline/supervisor/results/diagnose.jsonl`
 - `pipeline/supervisor/results/optimize.jsonl`
 - `pipeline/supervisor/results/validate.jsonl`
-- `pipeline/supervisor/results/patch_generate.jsonl`
+- `pipeline/supervisor/results/apply.jsonl`
 - `pipeline/supervisor/results/report.jsonl`
 
 规则：
@@ -51,11 +51,11 @@
 
 这些文件是阶段执行的直接输出，可在同一输入下重新生成：
 
-- `pipeline/scan/sqlunits.jsonl`
-- `pipeline/scan/fragments.jsonl`
+- `pipeline/diagnose/sqlunits.jsonl`
+- `pipeline/diagnose/fragments.jsonl`
 - `pipeline/optimize/optimization.proposals.jsonl`
 - `pipeline/validate/acceptance.results.jsonl`
-- `pipeline/patch_generate/patch.results.jsonl`
+- `pipeline/apply/patch.results.jsonl`
 
 规则：
 
