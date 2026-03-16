@@ -86,25 +86,36 @@ def _get_python_command(target_skill: Path) -> str:
         return str(target_skill / "runtime" / ".venv" / "bin" / "python")
 
 
-def _get_cli_command(target_skill: Path) -> str:
-    """Get the sqlopt-cli command string for the target skill."""
+def _get_cli_command(target_skill: Path, project_dir: Path) -> str:
+    """Get the sqlopt-cli command string for the target skill (relative path)."""
     cli_wrapper = (
         target_skill
         / "bin"
         / ("sqlopt-cli.cmd" if sys.platform.startswith("win") else "sqlopt-cli")
     )
     if cli_wrapper.exists():
-        return str(cli_wrapper)
+        # Return relative path from project_dir
+        try:
+            return str(cli_wrapper.relative_to(project_dir))
+        except ValueError:
+            return str(cli_wrapper)
     # Fallback to direct python script invocation
-    py = _get_python_command(target_skill)
+    py = Path(_get_python_command(target_skill))
     script = target_skill / "runtime" / "scripts" / "sqlopt_cli.py"
-    return f"{py} {script}"
+    try:
+        py_rel = str(py.relative_to(project_dir))
+        script_rel = str(script.relative_to(project_dir))
+    except ValueError:
+        return f"{py} {script}"
+    return f"{py_rel} {script_rel}"
 
 
-def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
+def _write_slash_commands(
+    target_skill: Path, commands_dir: Path, project_dir: Path
+) -> None:
     """Generate OpenCode slash command documentation files for phase capabilities."""
 
-    cli_cmd = _get_cli_command(target_skill)
+    cli_cmd = _get_cli_command(target_skill, project_dir)
 
     commands = [
         {
@@ -377,7 +388,7 @@ def main() -> None:
 
     wrapper = write_cli_wrapper(target_skill)
     # 生成斜杠命令文档
-    _write_slash_commands(target_skill, target_commands)
+    _write_slash_commands(target_skill, target_commands, project_dir)
     _create_project_config(root_dir, target_skill, project_dir)
 
     print(f"installed skill: {SKILL_NAME}")
