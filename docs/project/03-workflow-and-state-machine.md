@@ -20,12 +20,26 @@
 正常项目多sql情况下很容易超过 120s。
 5. `report` 是唯一允许重生（regenerate）的阶段；其余已完成阶段默认跳过，不重复执行。
 
+## 2.1 架构说明：CLI 与 Skill 分工
+
+SQL Optimizer 采用 CLI + Skill 双层架构：
+
+- **CLI (sqlopt-cli)**：负责工程化能力
+  - 扫描 MyBatis XML、生成分支、收集数据库上下文
+  - 构建 LLM prompt、执行 SQL 验证、应用补丁
+  
+- **Skill**：负责 AI/LLM 能力  
+  - 调用 LLM 生成优化建议
+  - 读取 CLI 输出的 prompt，做出优化决策
+
+完整流程：CLI diagnose → Skill optimize → CLI validate → CLI apply → CLI report
+
 ## 3. 监督状态文件（Supervisor）
 运行时必须维护：
-1. `runs/<run-id>/pipeline/supervisor/meta.json`
-2. `runs/<run-id>/pipeline/supervisor/plan.json`
-3. `runs/<run-id>/pipeline/supervisor/state.json`
-4. `runs/<run-id>/pipeline/supervisor/results/*.jsonl`
+1. `runs/<run-id>/supervisor/meta.json`
+2. `runs/<run-id>/supervisor/plan.json`
+3. `runs/<run-id>/supervisor/state.json`
+4. `runs/<run-id>/supervisor/results/*.jsonl`
 
 要求：
 1. `plan` 固化 statement 列表与顺序。

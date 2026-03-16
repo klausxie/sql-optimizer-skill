@@ -54,6 +54,28 @@
 
 ---
 
+## 2.1 架构说明：CLI 与 Skill 分工
+
+SQL Optimizer 采用 **CLI + Skill** 双层架构：
+
+| 组件 | 职责 | 说明 |
+|------|------|------|
+| **CLI** | 工程化能力 | 扫描 XML、生成分支、构建 prompt、执行 SQL、应用补丁 |
+| **Skill** | AI/LLM 能力 | 调用 LLM 生成优化建议 |
+
+### 完整流程
+
+```
+CLI diagnose → Skill optimize → CLI validate → CLI apply → CLI report
+```
+
+### 产物交互
+
+- CLI 输出 prompt 到 `proposals/<sql_key>.prompt.json`
+- Skill 读取 prompt，调用 LLM，输出建议到 `proposals/<sql_key>.json`
+
+---
+
 ## 3. 阶段流水线 (真实架构)
 
 ```
@@ -151,6 +173,10 @@ db:
 llm:
   enabled: true
   provider: opencode_run
+
+external_llm:
+  enabled: false  # true: CLI 输出 prompt，Skill 调用 LLM
+                 # false: CLI 使用本地/启发式模式
 
 apply:
   mode: PATCH_ONLY  # 或 APPLY_IN_PLACE

@@ -67,6 +67,25 @@ sqlopt-cli status
 sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
+## 4.1 架构说明：CLI 与 Skill 分工
+
+SQL Optimizer 采用 CLI + Skill 双层架构：
+
+- **CLI (sqlopt-cli)**：负责工程化能力
+  - 扫描 MyBatis XML
+  - 生成分支
+  - 收集数据库上下文
+  - 构建 LLM prompt
+  - 执行 SQL 验证
+  - 应用补丁
+
+- **Skill**：负责 AI/LLM 能力
+  - 调用 LLM 生成优化建议
+  - 读取 CLI 输出的 prompt
+  - 做出优化决策
+
+完整流程：CLI diagnose → Skill optimize → CLI validate → CLI apply → CLI report
+
 ## 5. 查看产物并应用补丁
 
 ```bash
@@ -77,11 +96,11 @@ sqlopt-cli apply --run-id <run-id>
 ```
 
 重点产物：
-- `runs/<run-id>/pipeline/supervisor/state.json`
-- `runs/<run-id>/overview/report.json`
-- `runs/<run-id>/overview/report.summary.md`（摘要）
-- `runs/<run-id>/overview/report.md`（详细版）
-- `runs/<run-id>/apply/patch.results.jsonl`
+- `runs/<run-id>/supervisor/state.json`
+- `runs/<run-id>/report.json`
+- `runs/<run-id>/report.summary.md`（摘要）
+- `runs/<run-id>/report.md`（详细版）
+- `runs/<run-id>/patches/`
 
 ## 6. 常见分支
 
