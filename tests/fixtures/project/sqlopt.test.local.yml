@@ -1,0 +1,20 @@
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - scan_samples/dynamic_tags_mapper.xml
+
+db:
+  platform: mysql
+  dsn: mysql://test:test@localhost:3306/testdb
+
+validate:
+  allow_db_unreachable_fallback: true
+
+llm:
+  enabled: false
+  provider: heuristic
+
+report:
+  enabled: false

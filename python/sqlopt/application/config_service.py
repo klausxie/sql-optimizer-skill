@@ -167,7 +167,14 @@ def validate_config(
             }
         )
         if not ok:
-            results["valid"] = False
+            validate_cfg = config.get("validate", {})
+            allow_fallback = bool(
+                validate_cfg.get("allow_db_unreachable_fallback", True)
+            )
+            if not allow_fallback:
+                results["valid"] = False
+            else:
+                results["checks"][-1]["status"] = "warning"
 
     mapper_globs = config.get("scan", {}).get("mapper_globs", [])
     if mapper_globs:

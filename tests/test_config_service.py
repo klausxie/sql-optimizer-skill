@@ -150,35 +150,58 @@ class ConfigServiceTest(unittest.TestCase):
 
             with patch(
                 "sqlopt.application.config_service.check_db_connectivity",
-                return_value={"ok": False, "error": "Access denied", "reason_code": "PREFLIGHT_DB_UNREACHABLE"},
+                return_value={
+                    "ok": False,
+                    "error": "Access denied",
+                    "reason_code": "PREFLIGHT_DB_UNREACHABLE",
+                },
             ):
-                results = config_service.validate_config(config, check_connectivity=True)
+                results = config_service.validate_config(
+                    config, check_connectivity=True
+                )
 
-        self.assertFalse(results["valid"])
+        # With allow_db_unreachable_fallback=True (default), valid should be True and status should be warning
+        self.assertTrue(results["valid"])
         checks = {row["field"]: row for row in results["checks"]}
-        self.assertEqual(checks["db.connection"]["status"], "error")
+        self.assertEqual(checks["db.connection"]["status"], "warning")
         self.assertIn("Access denied", checks["db.connection"]["message"])
 
-    def test_prepare_runtime_prerequisites_marks_db_unreachable_when_fallback_allowed(self) -> None:
+    def test_prepare_runtime_prerequisites_marks_db_unreachable_when_fallback_allowed(
+        self,
+    ) -> None:
         config = {
-            "db": {"platform": "postgresql", "dsn": "postgresql://user:pass@127.0.0.1:5432/demo"},
+            "db": {
+                "platform": "postgresql",
+                "dsn": "postgresql://user:pass@127.0.0.1:5432/demo",
+            },
             "validate": {"allow_db_unreachable_fallback": True},
         }
 
         with patch(
             "sqlopt.application.config_service.check_db_connectivity",
-            return_value={"ok": False, "error": "connection refused", "reason_code": "PREFLIGHT_DB_UNREACHABLE"},
+            return_value={
+                "ok": False,
+                "error": "connection refused",
+                "reason_code": "PREFLIGHT_DB_UNREACHABLE",
+            },
         ):
-            result = config_service.prepare_runtime_prerequisites(config, to_stage="validate")
+            result = config_service.prepare_runtime_prerequisites(
+                config, to_stage="validate"
+            )
 
         self.assertTrue(result["requires_db"])
         self.assertFalse(result["db_reachable"])
         self.assertIn("connection refused", result["warning"])
         self.assertFalse(config["validate"]["db_reachable"])
 
-    def test_prepare_runtime_prerequisites_rejects_placeholder_dsn_for_db_stage(self) -> None:
+    def test_prepare_runtime_prerequisites_rejects_placeholder_dsn_for_db_stage(
+        self,
+    ) -> None:
         config = {
-            "db": {"platform": "postgresql", "dsn": "postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable"},
+            "db": {
+                "platform": "postgresql",
+                "dsn": "postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable",
+            },
             "validate": {"allow_db_unreachable_fallback": True},
         }
 

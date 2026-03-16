@@ -60,14 +60,14 @@ from typing import Any
 
 DEFAULT_RUNTIME = {
     "stage_timeout_ms": {
-        "scan": 60000,
+        "diagnose": 60000,
         "optimize": 60000,
         "validate": 60000,
         "apply": 15000,
         "report": 15000,
     },
     "stage_retry_max": {
-        "scan": 1,
+        "diagnose": 1,
         "optimize": 1,
         "validate": 1,
         "apply": 1,
