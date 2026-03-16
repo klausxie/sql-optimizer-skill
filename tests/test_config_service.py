@@ -31,6 +31,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "  dsn: postgresql://user:pass@localhost:5432/demo",
                         "llm:",
                         "  provider: heuristic",
+                        "validate:",
+                        "  allow_db_unreachable_fallback: true",
                     ]
                 )
                 + "\n",
@@ -61,6 +63,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "  dsn: mysql://user:pass@localhost:3306/demo",
                         "llm:",
                         "  provider: heuristic",
+                        "validate:",
+                        "  allow_db_unreachable_fallback: true",
                     ]
                 )
                 + "\n",
@@ -89,6 +93,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "  dsn: sqlite:///tmp/demo.db",
                         "llm:",
                         "  provider: heuristic",
+                        "validate:",
+                        "  allow_db_unreachable_fallback: true",
                     ]
                 )
                 + "\n",
@@ -114,6 +120,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "  dsn: postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable",
                         "llm:",
                         "  provider: heuristic",
+                        "validate:",
+                        "  allow_db_unreachable_fallback: true",
                     ]
                 )
                 + "\n",
@@ -142,6 +150,8 @@ class ConfigServiceTest(unittest.TestCase):
                         "  dsn: mysql://user:pass@127.0.0.1:3306/demo",
                         "llm:",
                         "  provider: heuristic",
+                        "validate:",
+                        "  allow_db_unreachable_fallback: true",
                     ]
                 )
                 + "\n",
@@ -160,7 +170,7 @@ class ConfigServiceTest(unittest.TestCase):
                     config, check_connectivity=True
                 )
 
-        # With allow_db_unreachable_fallback=True (default), valid should be True and status should be warning
+        # With allow_db_unreachable_fallback=true (explicit), valid should be True and status should be warning
         self.assertTrue(results["valid"])
         checks = {row["field"]: row for row in results["checks"]}
         self.assertEqual(checks["db.connection"]["status"], "warning")

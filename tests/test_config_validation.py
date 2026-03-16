@@ -161,7 +161,7 @@ class ValidationModuleTest(unittest.TestCase):
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["validate"] = {}
         validate_user_config(cfg)
-        self.assertNotIn("validate", cfg)
+        self.assertIn("validate", cfg)  # validate is now allowed
 
     def test_validate_user_config_rejects_unknown_root_keys(self) -> None:
         """Test that unknown root keys are rejected."""

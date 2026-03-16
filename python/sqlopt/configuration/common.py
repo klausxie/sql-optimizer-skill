@@ -32,7 +32,6 @@ LEGACY_DOTTED_KEYS = {
 # Removed keys with migration hints
 REMOVED_KEYS_WITH_HINTS = {
     # Root sections - now auto-injected internally
-    "validate": "This section is now auto-injected internally. Remove it from your config file.",
     "policy": "This section is now auto-injected internally. Remove it from your config file.",
     "apply": "This section is now auto-injected internally. Remove it from your config file.",
     "patch": "This section is now auto-injected internally. Remove it from your config file.",

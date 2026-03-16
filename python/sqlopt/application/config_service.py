@@ -78,10 +78,10 @@ def prepare_runtime_prerequisites(
     error_text = str(connectivity.get("error") or "unknown connection error").strip()
     warning = f"database connectivity check failed for {_mask_dsn(dsn)}: {error_text}"
     result["warning"] = warning
-    if not bool(validate_cfg.get("allow_db_unreachable_fallback", True)):
+    if not bool(validate_cfg.get("allow_db_unreachable_fallback", False)):
         config_hint = f" in {config_path}" if config_path is not None else ""
         raise StageError(
-            f"{warning}. Fix db.dsn{config_hint} or re-run sqlopt-cli validate-config.",
+            f"{warning}. Fix db.dsn{config_hint} or set validate.allow_db_unreachable_fallback: true to allow fallback.",
             reason_code="DB_CONNECTION_FAILED",
         )
     return result
@@ -169,7 +169,7 @@ def validate_config(
         if not ok:
             validate_cfg = config.get("validate", {})
             allow_fallback = bool(
-                validate_cfg.get("allow_db_unreachable_fallback", True)
+                validate_cfg.get("allow_db_unreachable_fallback", False)
             )
             if not allow_fallback:
                 results["valid"] = False

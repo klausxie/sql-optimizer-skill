@@ -12,6 +12,7 @@ ROOT_KEYS = {
     "config_version",
     "rules",
     "prompt_injections",
+    "validate",  # 用户可配置的验证选项
 }
 
 RUNTIME_PROFILE_DEFAULTS = {

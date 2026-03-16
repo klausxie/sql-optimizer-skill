@@ -164,21 +164,17 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
         "allow_seq_scan_if_rows_below": 0,
         "semantic_strict_mode": True,
     }
-    cfg["validate"] = {
-        "db_reachable": True,
-        "plan_compare_enabled": False,
-        "allow_db_unreachable_fallback": True,
-        "validation_profile": "balanced",
-        "selection_mode": "patchability_first",
-        "require_semantic_match": True,
-        "require_perf_evidence_for_pass": False,
-        "require_verified_evidence_for_pass": False,
-        "delivery_bias": "conservative",
-        "llm_semantic_check": {
-            "enabled": False,
-            "only_on_db_mismatch": True,
-        },
-    }
+    validate_cfg = cfg.setdefault("validate", {})
+    validate_cfg.setdefault("db_reachable", True)
+    validate_cfg.setdefault("plan_compare_enabled", False)
+    validate_cfg.setdefault("allow_db_unreachable_fallback", False)  # 默认不允许自动fallback，需用户显式配置
+    validate_cfg.setdefault("validation_profile", "balanced")
+    validate_cfg.setdefault("selection_mode", "patchability_first")
+    validate_cfg.setdefault("require_semantic_match", True)
+    validate_cfg.setdefault("require_perf_evidence_for_pass", False)
+    validate_cfg.setdefault("require_verified_evidence_for_pass", False)
+    validate_cfg.setdefault("delivery_bias", "conservative")
+    validate_cfg.setdefault("llm_semantic_check", {"enabled": False, "only_on_db_mismatch": True})
     cfg["patch"] = {
         "llm_assist": {
             "enabled": False,

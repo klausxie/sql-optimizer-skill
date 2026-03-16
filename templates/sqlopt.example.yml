@@ -21,6 +21,9 @@ llm:
   enabled: true
   timeout_ms: 80000
 
+# validate:
+#   allow_db_unreachable_fallback: false  # 默认不允许自动fallback，需显式配置true启用
+
 report:
   enabled: true
 

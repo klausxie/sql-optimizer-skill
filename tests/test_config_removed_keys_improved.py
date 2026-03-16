@@ -18,13 +18,13 @@ class ImprovedRemovedKeysTest(unittest.TestCase):
         cfg = {"validate": {}, "policy": {}}
         warnings = check_removed_keys(cfg)
 
-        self.assertEqual(len(warnings), 2)
+        self.assertEqual(len(warnings), 1)  # validate is no longer removed
         # Check that warnings contain keys and hints
         keys = [w[0] for w in warnings]
         hints = [w[1] for w in warnings]
 
         self.assertIn("policy", keys)
-        self.assertIn("validate", keys)
+        # validate is no longer a removed key - user can provide values
         # Check that hints are helpful
         for hint in hints:
             self.assertIn("auto-injected", hint.lower())
