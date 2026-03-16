@@ -9,7 +9,11 @@ from .run_selection import filter_units_by_sql_keys, finalize_selection_summary
 
 
 def _selection_examples(units: list[dict[str, Any]], *, limit: int = 5) -> str:
-    examples = [str(row.get("sqlKey") or "").strip() for row in units if str(row.get("sqlKey") or "").strip()]
+    examples = [
+        str(row.get("sqlKey") or "").strip()
+        for row in units
+        if str(row.get("sqlKey") or "").strip()
+    ]
     return ", ".join(examples[:limit])
 
 
@@ -84,7 +88,7 @@ def advance_scan(
     ctx.state["phase_status"]["scan"] = "DONE"
     ctx.state["current_phase"] = str(phase_transitions["scan"])
     ctx.state["statements"] = {
-        k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
+        k: {"optimize": "PENDING", "validate": "PENDING", "apply": "PENDING"}
         for k in ctx.plan["sql_keys"]
     }
     mark_updated(ctx.state)

@@ -4,17 +4,17 @@ from typing import Any, Literal, TypedDict
 
 
 class PhaseStatusMap(TypedDict):
-    scan: str
+    diagnose: str
     optimize: str
     validate: str
-    patch_generate: str
+    apply: str
     report: str
 
 
 class StatementPhaseState(TypedDict):
     optimize: str
     validate: str
-    patch_generate: str
+    apply: str
 
 
 class RunState(TypedDict, total=False):

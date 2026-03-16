@@ -19,15 +19,13 @@ REL_PIPELINE_SCAN_UNITS = "pipeline/scan/sqlunits.jsonl"
 REL_PIPELINE_SCAN_FRAGMENTS = "pipeline/scan/fragments.jsonl"
 REL_PIPELINE_OPTIMIZE_PROPOSALS = "pipeline/optimize/optimization.proposals.jsonl"
 REL_PIPELINE_VALIDATE_ACCEPTANCE = "pipeline/validate/acceptance.results.jsonl"
-REL_PIPELINE_PATCH_RESULTS = "pipeline/patch_generate/patch.results.jsonl"
+REL_PIPELINE_PATCH_RESULTS = "pipeline/apply/patch.results.jsonl"
 REL_PIPELINE_SUPERVISOR_STATE = "pipeline/supervisor/state.json"
 REL_PIPELINE_SUPERVISOR_PLAN = "pipeline/supervisor/plan.json"
 REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = "pipeline/supervisor/results/scan.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = (
-    "pipeline/supervisor/results/patch_generate.jsonl"
-)
+REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = "pipeline/supervisor/results/apply.jsonl"
 REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = "pipeline/supervisor/results/report.jsonl"
 REL_PIPELINE_OPS_TOPOLOGY = "pipeline/ops/topology.json"
 REL_PIPELINE_OPS_HEALTH = "pipeline/ops/health.json"
@@ -124,8 +122,8 @@ class RunPaths:
 
     @property
     def diagnose_units_path(self) -> Path:
-        """Alias for scan_units_path."""
-        return self.scan_units_path
+        """Path to SQL units with baseline diagnostics."""
+        return self.scan_dir / "diagnose.sqlunits.jsonl"
 
     @property
     def scan_fragments_path(self) -> Path:
@@ -148,20 +146,21 @@ class RunPaths:
         return self.validate_dir / "acceptance.results.jsonl"
 
     @property
-    def patch_generate_dir(self) -> Path:
-        return self.pipeline_dir / "patch_generate"
+    def apply_dir(self) -> Path:
+        return self.pipeline_dir / "apply"
 
     @property
-    def apply_dir(self) -> Path:
-        return self.pipeline_dir / "patch_generate"
+    def patch_generate_dir(self) -> Path:
+        """Alias for apply_dir - deprecated, use apply_dir."""
+        return self.apply_dir
 
     @property
     def patches_path(self) -> Path:
-        return self.patch_generate_dir / "patch.results.jsonl"
+        return self.apply_dir / "patch.results.jsonl"
 
     @property
     def patch_files_dir(self) -> Path:
-        return self.patch_generate_dir / "files"
+        return self.apply_dir / "files"
 
     @property
     def ops_dir(self) -> Path:
@@ -238,7 +237,7 @@ class RunPaths:
             self.scan_dir,
             self.optimize_dir,
             self.validate_dir,
-            self.patch_generate_dir,
+            self.apply_dir,
             self.ops_dir,
             self.verification_dir,
             self.overview_dir,

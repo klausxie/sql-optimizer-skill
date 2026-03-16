@@ -46,7 +46,7 @@ def prepare_runtime_prerequisites(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     target_stage = str(to_stage or "").strip().lower()
-    requires_db = target_stage in {"validate", "patch_generate", "report"}
+    requires_db = target_stage in {"validate", "apply", "report"}
     result = {
         "requires_db": requires_db,
         "db_reachable": None,
@@ -87,7 +87,9 @@ def prepare_runtime_prerequisites(
     return result
 
 
-def validate_config(config_path: Path, *, check_connectivity: bool = False) -> dict[str, Any]:
+def validate_config(
+    config_path: Path, *, check_connectivity: bool = False
+) -> dict[str, Any]:
     config = load_config(config_path)
     results: dict[str, Any] = {
         "valid": True,
@@ -150,7 +152,11 @@ def validate_config(config_path: Path, *, check_connectivity: bool = False) -> d
     elif check_connectivity:
         connectivity = check_db_connectivity(config)
         ok = bool(connectivity.get("ok", False))
-        message = "database connection verified" if ok else str(connectivity.get("error") or "database connection failed").strip()
+        message = (
+            "database connection verified"
+            if ok
+            else str(connectivity.get("error") or "database connection failed").strip()
+        )
         results["checks"].append(
             {
                 "field": "db.connection",
@@ -178,7 +184,9 @@ def validate_config(config_path: Path, *, check_connectivity: bool = False) -> d
             {
                 "field": "scan.mapper_globs",
                 "status": "ok" if found_files else "warning",
-                "message": f"Found {len(found_files)} mapper file(s)" if found_files else "No mapper files found",
+                "message": f"Found {len(found_files)} mapper file(s)"
+                if found_files
+                else "No mapper files found",
             }
         )
 

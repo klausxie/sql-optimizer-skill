@@ -15,7 +15,11 @@ def _read_ledger(run_dir: Path) -> list[dict]:
     ledger = run_dir / "pipeline" / "verification" / "ledger.jsonl"
     if not ledger.exists():
         return []
-    return [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line)
+        for line in ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 class PatchVerificationTest(unittest.TestCase):
@@ -26,9 +30,14 @@ class PatchVerificationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_ok_") as td:
             run_dir = Path(td)
             patch = {
-                "selectionReason": {"code": "PATCH_SELECTED_SINGLE_PASS", "message": "selected"},
+                "selectionReason": {
+                    "code": "PATCH_SELECTED_SINGLE_PASS",
+                    "message": "selected",
+                },
                 "applicable": True,
-                "patchFiles": [str(run_dir / "pipeline" / "patch_generate" / "files" / "demo.patch")],
+                "patchFiles": [
+                    str(run_dir / "pipeline" / "apply" / "files" / "demo.patch")
+                ],
             }
             acceptance = {"status": "PASS"}
             append_patch_verification(
@@ -46,15 +55,20 @@ class PatchVerificationTest(unittest.TestCase):
             )
             rows = _read_ledger(run_dir)
 
-        self.assertEqual(rows[0]["phase"], "patch_generate")
+        self.assertEqual(rows[0]["phase"], "apply")
         self.assertEqual(rows[0]["status"], "VERIFIED")
         self.assertEqual(rows[0]["reason_code"], "PATCH_SELECTED_SINGLE_PASS")
 
     def test_template_ops_without_replay_are_recorded_unverified(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_unverified_") as td:
+        with tempfile.TemporaryDirectory(
+            prefix="sqlopt_patch_verification_unverified_"
+        ) as td:
             run_dir = Path(td)
             patch = {
-                "selectionReason": {"code": "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE", "message": "needs rewrite"},
+                "selectionReason": {
+                    "code": "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+                    "message": "needs rewrite",
+                },
                 "applicable": None,
                 "patchFiles": [],
             }
@@ -82,10 +96,15 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["reason_code"], "PATCH_TEMPLATE_REPLAY_NOT_VERIFIED")
 
     def test_semantic_gate_block_is_recorded_with_explicit_reason(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_semantic_gate_") as td:
+        with tempfile.TemporaryDirectory(
+            prefix="sqlopt_patch_verification_semantic_gate_"
+        ) as td:
             run_dir = Path(td)
             patch = {
-                "selectionReason": {"code": "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS", "message": "blocked by semantic gate"},
+                "selectionReason": {
+                    "code": "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+                    "message": "blocked by semantic gate",
+                },
                 "applicable": None,
                 "patchFiles": [],
             }
@@ -111,11 +130,18 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "VERIFIED")
         self.assertEqual(rows[0]["reason_code"], "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS")
 
-    def test_semantic_low_confidence_block_is_recorded_with_explicit_reason(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_semantic_confidence_") as td:
+    def test_semantic_low_confidence_block_is_recorded_with_explicit_reason(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="sqlopt_patch_verification_semantic_confidence_"
+        ) as td:
             run_dir = Path(td)
             patch = {
-                "selectionReason": {"code": "PATCH_SEMANTIC_CONFIDENCE_LOW", "message": "blocked by low confidence"},
+                "selectionReason": {
+                    "code": "PATCH_SEMANTIC_CONFIDENCE_LOW",
+                    "message": "blocked by low confidence",
+                },
                 "applicable": None,
                 "patchFiles": [],
             }

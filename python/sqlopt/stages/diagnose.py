@@ -58,8 +58,8 @@ def execute(
         )
 
     # Step 2: Run optional baseline diagnostics
-    diagnose_cfg = config.get("diagnose", {})
-    baseline_enabled = diagnose_cfg.get("baseline_enabled", True)
+    branch_cfg = config.get("branch", {})
+    baseline_enabled = branch_cfg.get("diagnose", True)
 
     if baseline_enabled and _is_db_reachable(config):
         reporter.report_info("Diagnose: Running baseline diagnostics...")
@@ -94,7 +94,7 @@ def execute(
 
 
 def _is_db_reachable(config: dict[str, Any]) -> bool:
-    """Check if database is reachable.
+    """Check if database is reachable by attempting an actual connection.
 
     Args:
         config: Configuration dict
@@ -108,28 +108,34 @@ def _is_db_reachable(config: dict[str, Any]) -> bool:
     if not dsn:
         return False
 
+    platform = db_cfg.get("platform", "postgresql").lower()
+
     try:
-        # Try to get the appropriate connection function
-        platform = db_cfg.get("platform", "postgresql").lower()
-
         if platform == "mysql":
-            try:
-                import pymysql  # noqa: F401
-            except ImportError:
-                try:
-                    import mysql.connector  # noqa: F401
-                except ImportError:
-                    return False
-        else:
-            try:
-                import psycopg  # noqa: F401
-            except ImportError:
-                try:
-                    import psycopg2  # noqa: F401
-                except ImportError:
-                    return False
+            import pymysql
 
-        return True
+            conn = pymysql.connect(
+                dsn,
+                connect_timeout=5,
+                read_timeout=5,
+                write_timeout=5,
+            )
+            conn.close()
+            return True
+        else:
+            # PostgreSQL
+            try:
+                import psycopg
+
+                conn = psycopg.connect(dsn, connect_timeout=5)
+                conn.close()
+                return True
+            except ImportError:
+                import psycopg2
+
+                conn = psycopg2.connect(dsn, connect_timeout=5)
+                conn.close()
+                return True
     except Exception:
         return False
 
@@ -190,9 +196,13 @@ def _run_baseline_diagnostics(
         # Determine if this SQL needs optimization
         unit["needsOptimization"] = len(problem_branches) > 0
 
-    # Write updated units with baseline info
+    # Write updated units with baseline info to diagnose.sqlunits.jsonl
     units_path = run_dir / "diagnose.sqlunits.jsonl"
     write_jsonl(units_path, units)
+
+    # Also update scan.sqlunits.jsonl for backward compatibility
+    scan_units_path = run_dir / "scan.sqlunits.jsonl"
+    write_jsonl(scan_units_path, units)
 
     return units
 

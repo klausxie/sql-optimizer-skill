@@ -285,7 +285,7 @@ def build_verification_gate(
     unverified_patch_sql = {
         str(row.get("sql_key") or "")
         for row in verification_rows
-        if str(row.get("phase") or "") == "patch_generate"
+        if str(row.get("phase") or "") == "apply"
         and str(row.get("status") or "").upper() == "UNVERIFIED"
     }
     pass_sql = {

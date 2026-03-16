@@ -237,10 +237,10 @@ def _pick_primary_blocker(
         phase = "validate"
     elif patch_selection_code:
         code = str(patch_selection_code).strip().upper()
-        phase = "patch_generate"
+        phase = "apply"
     elif delivery_status == "BLOCKED":
         code = "DELIVERY_BLOCKED"
-        phase = "patch_generate"
+        phase = "apply"
     return code, phase, _primary_blocker_message(code)
 
 

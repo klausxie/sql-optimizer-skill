@@ -15,7 +15,7 @@ class HandlerRegistry:
     advance_scan: Callable[[Any], dict[str, Any] | None]
     advance_optimize: Callable[[Any, Any], dict[str, Any] | None]
     advance_validate: Callable[[Any, Any], dict[str, Any] | None]
-    advance_patch_generate: Callable[[Any, Any], dict[str, Any] | None]
+    advance_apply: Callable[[Any, Any], dict[str, Any] | None]
     advance_report: Callable[[Any], dict[str, Any] | None]
     pre_index_handlers: tuple[Callable[[Any], dict[str, Any] | None], ...]
     indexed_handlers: tuple[Callable[[Any, Any], dict[str, Any] | None], ...]
@@ -135,8 +135,8 @@ def build_handler_registry(
             validate_execute_one=validate_execute_one,
         )
 
-    def _advance_patch_generate(ctx: Any, index: Any) -> dict[str, Any] | None:
-        return phase_handlers.advance_patch_generate(
+    def _advance_apply(ctx: Any, index: Any) -> dict[str, Any] | None:
+        return phase_handlers.advance_apply(
             ctx,
             index,
             phase_transitions=phase_transitions,
@@ -158,14 +158,14 @@ def build_handler_registry(
         )
 
     pre_index_handlers = (_advance_diagnose,)
-    indexed_handlers = (_advance_optimize, _advance_validate, _advance_patch_generate)
+    indexed_handlers = (_advance_optimize, _advance_validate, _advance_apply)
     return HandlerRegistry(
         complete_phase_result=_complete_phase_result,
         advance_diagnose=_advance_diagnose,
         advance_scan=_advance_scan,
         advance_optimize=_advance_optimize,
         advance_validate=_advance_validate,
-        advance_patch_generate=_advance_patch_generate,
+        advance_apply=_advance_apply,
         advance_report=_advance_report,
         pre_index_handlers=pre_index_handlers,
         indexed_handlers=indexed_handlers,

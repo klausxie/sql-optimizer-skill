@@ -72,7 +72,7 @@ def render_summary_md(
         lines.append("")
     lines.extend(
         [
-            f"- 阶段状态：scan `{phase_status.get('scan', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, patch_generate `{phase_status.get('patch_generate', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
+            f"- 阶段状态：diagnose `{phase_status.get('diagnose', 'PENDING')}`, optimize `{phase_status.get('optimize', 'PENDING')}`, validate `{phase_status.get('validate', 'PENDING')}`, apply `{phase_status.get('apply', 'PENDING')}`, report `{phase_status.get('report', 'DONE')}`",
             "",
         ]
     )
@@ -156,10 +156,10 @@ def render_report_md(
         [
             "",
             "## 交付状态",
-            f"- scan: `{phase_status.get('scan', 'PENDING')}` (尝试 `{attempts_by_phase.get('scan', 0)}`)",
+            f"- diagnose: `{phase_status.get('diagnose', 'PENDING')}` (尝试 `{attempts_by_phase.get('diagnose', 0)}`)",
             f"- optimize: `{phase_status.get('optimize', 'PENDING')}` (尝试 `{attempts_by_phase.get('optimize', 0)}`)",
             f"- validate: `{phase_status.get('validate', 'PENDING')}` (尝试 `{attempts_by_phase.get('validate', 0)}`)",
-            f"- patch_generate: `{phase_status.get('patch_generate', 'PENDING')}` (尝试 `{attempts_by_phase.get('patch_generate', 0)}`)",
+            f"- apply: `{phase_status.get('apply', 'PENDING')}` (尝试 `{attempts_by_phase.get('apply', 0)}`)",
             f"- report: `{phase_status.get('report', 'DONE')}`",
             "",
             "## 变更组合",

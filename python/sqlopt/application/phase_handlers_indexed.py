@@ -42,7 +42,10 @@ def _advance_statement_phase(
     handle_phase_failure: Callable[[Any, str, StageError], None],
     after_complete: Callable[[], None] | None = None,
 ) -> dict[str, Any] | None:
-    if ctx.to_stage not in statement_phase_targets[phase] or ctx.state["phase_status"][phase] == "DONE":
+    if (
+        ctx.to_stage not in statement_phase_targets[phase]
+        or ctx.state["phase_status"][phase] == "DONE"
+    ):
         return None
 
     key = next_pending_sql(ctx.state, phase)
@@ -57,7 +60,9 @@ def _advance_statement_phase(
         )
 
     total_statements = len(ctx.plan["sql_keys"])
-    completed = sum(1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE")
+    completed = sum(
+        1 for v in ctx.state["statements"].values() if v.get(phase) == "DONE"
+    )
     if int(ctx.state["attempts_by_phase"].get(phase, 0)) == 0:
         ctx.progress.report_phase_start(phase, phase_start_message)
     ctx.progress.report_statement_progress(completed + 1, total_statements, key)
@@ -72,7 +77,9 @@ def _advance_statement_phase(
     ctx.state["statements"][key][phase] = "DONE"
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(phase, "DONE", sql_key=key, artifact_refs=[artifact_ref])
+    ctx.repo.append_step_result(
+        phase, "DONE", sql_key=key, artifact_refs=[artifact_ref]
+    )
     return {"complete": False, "phase": phase, "sql_key": key}
 
 
@@ -95,7 +102,7 @@ def advance_optimize(
     def _after_complete() -> None:
         if ctx.to_stage == phase:
             ctx.state["phase_status"]["validate"] = "SKIPPED"
-            ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
+            ctx.state["phase_status"]["apply"] = "SKIPPED"
             ctx.repo.save_state(ctx.state)
             finalize_completed_run(ctx)
 
@@ -105,7 +112,9 @@ def advance_optimize(
         phase=phase,
         artifact_ref=str(paths.proposals_path),
         phase_start_message="Generating optimization proposals",
-        execute_for_key=lambda key: optimize_execute_one(index.units[key], ctx.run_dir, ctx.validator),
+        execute_for_key=lambda key: optimize_execute_one(
+            index.units[key], ctx.run_dir, ctx.validator
+        ),
         phase_transitions=phase_transitions,
         statement_phase_targets=statement_phase_targets,
         next_pending_sql=next_pending_sql,
@@ -135,7 +144,7 @@ def advance_validate(
 
     def _after_complete() -> None:
         if ctx.to_stage == phase:
-            ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
+            ctx.state["phase_status"]["apply"] = "SKIPPED"
             ctx.repo.save_state(ctx.state)
             finalize_completed_run(ctx)
 
@@ -164,7 +173,7 @@ def advance_validate(
     )
 
 
-def advance_patch_generate(
+def advance_apply(
     ctx: Any,
     index: Any,
     *,
@@ -178,7 +187,7 @@ def advance_patch_generate(
     patch_execute_one: Callable[..., dict[str, Any]],
 ) -> dict[str, Any] | None:
     paths = canonical_paths(ctx.run_dir)
-    phase = "patch_generate"
+    phase = "apply"
 
     def _after_complete() -> None:
         ctx.repo.set_meta_status("READY_TO_FINALIZE")

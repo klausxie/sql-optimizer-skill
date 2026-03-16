@@ -8,7 +8,7 @@ from .constants import CONTRACT_VERSION, SKILL_VERSION
 from .io_utils import append_jsonl, read_json, write_json
 from .run_paths import RunPaths, canonical_paths
 
-PHASES = ["scan", "optimize", "validate", "patch_generate", "report"]
+PHASES = ["diagnose", "optimize", "validate", "apply", "report"]
 
 
 def get_run_paths(run_dir: Path) -> RunPaths:
@@ -31,12 +31,12 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
     )
     write_json(
         p.supervisor_dir / "plan.json",
-        {"phases": PHASES, "to_stage": "patch_generate", "sql_keys": []},
+        {"phases": PHASES, "to_stage": "apply", "sql_keys": []},
     )
     write_json(
         p.supervisor_dir / "state.json",
         {
-            "current_phase": "scan",
+            "current_phase": "diagnose",
             "phase_status": {k: "PENDING" for k in PHASES},
             "statements": {},
             "attempts_by_phase": {k: 0 for k in PHASES},

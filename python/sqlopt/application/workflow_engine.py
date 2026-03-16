@@ -7,7 +7,7 @@ from ..contracts import ContractValidator
 from ..progress import get_progress_reporter
 from ..stages import diagnose as diagnose_stage
 from ..stages import optimize as optimize_stage
-from ..stages import patch_generate as patch_stage
+from ..stages import patch_generate as apply_stage
 
 from ..stages import scan as scan_stage
 from ..stages import validate as validate_stage
@@ -76,14 +76,14 @@ _HANDLERS = _build_handler_registry(
     validate_execute_one=lambda *args, **kwargs: validate_stage.execute_one(
         *args, **kwargs
     ),
-    patch_execute_one=lambda *args, **kwargs: patch_stage.execute_one(*args, **kwargs),
+    patch_execute_one=lambda *args, **kwargs: apply_stage.execute_one(*args, **kwargs),
 )
 
 _complete_phase_result = _HANDLERS.complete_phase_result
 _diagnose = _HANDLERS.advance_diagnose
 _advance_optimize = _HANDLERS.advance_optimize
 _advance_validate = _HANDLERS.advance_validate
-_advance_patch_generate = _HANDLERS.advance_patch_generate
+_advance_apply = _HANDLERS.advance_apply
 _advance_report = _HANDLERS.advance_report
 
 PRE_INDEX_HANDLERS = _HANDLERS.pre_index_handlers

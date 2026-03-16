@@ -20,14 +20,20 @@ def _infer_semantic_unupgraded_reason(semantic_gate: dict[str, Any]) -> str | No
         return "SEMANTIC_GATE_MISSING"
     if bool(semantic_gate.get("confidenceUpgradeApplied")):
         return None
-    hard_conflicts = [str(code or "").strip() for code in (semantic_gate.get("hardConflicts") or []) if str(code or "").strip()]
+    hard_conflicts = [
+        str(code or "").strip()
+        for code in (semantic_gate.get("hardConflicts") or [])
+        if str(code or "").strip()
+    ]
     if hard_conflicts:
         return f"HARD_CONFLICT:{hard_conflicts[0]}"
     confidence = str(semantic_gate.get("confidence") or "").strip().upper()
     if confidence in {"MEDIUM", "HIGH"}:
         return "ALREADY_CONFIDENT"
     evidence = dict(semantic_gate.get("evidence") or {})
-    fingerprint_strength = str(evidence.get("fingerprintStrength") or "").strip().upper()
+    fingerprint_strength = (
+        str(evidence.get("fingerprintStrength") or "").strip().upper()
+    )
     row_count_status = str(evidence.get("rowCountStatus") or "").strip().upper()
     if fingerprint_strength in {"EXACT", "PARTIAL"}:
         return "UPGRADE_NOT_NEEDED"
@@ -38,7 +44,9 @@ def _infer_semantic_unupgraded_reason(semantic_gate: dict[str, Any]) -> str | No
     return "UPGRADE_CRITERIA_NOT_MET"
 
 
-def _infer_semantic_blocked_reason(acceptance_row: dict[str, Any], semantic_gate: dict[str, Any]) -> str | None:
+def _infer_semantic_blocked_reason(
+    acceptance_row: dict[str, Any], semantic_gate: dict[str, Any]
+) -> str | None:
     status = str(semantic_gate.get("status") or "PASS").strip().upper()
     confidence = str(semantic_gate.get("confidence") or "HIGH").strip().upper()
     if status != "PASS":
@@ -54,7 +62,13 @@ def _infer_semantic_blocked_reason(acceptance_row: dict[str, Any], semantic_gate
 
 def _normalize_delivery_status(tier: str) -> str:
     normalized = str(tier or "").strip().upper()
-    if normalized in {"READY_TO_APPLY", "PATCHABLE_WITH_REWRITE", "MANUAL_REVIEW", "NEEDS_REVIEW", "BLOCKED"}:
+    if normalized in {
+        "READY_TO_APPLY",
+        "PATCHABLE_WITH_REWRITE",
+        "MANUAL_REVIEW",
+        "NEEDS_REVIEW",
+        "BLOCKED",
+    }:
         return normalized
     if normalized == "READY":
         return "NEEDS_REVIEW"
@@ -94,9 +108,17 @@ def _pick_primary_blocker(
     code: str | None = None
     phase: str | None = None
     if evidence_state == "CRITICAL_GAP":
-        code = str((critical_gaps or [None])[0] or "VERIFICATION_CRITICAL_GAP").strip().upper()
+        code = (
+            str((critical_gaps or [None])[0] or "VERIFICATION_CRITICAL_GAP")
+            .strip()
+            .upper()
+        )
         phase = "verification"
-    elif semantic_blocked_reason in {"VALIDATE_SEMANTIC_CONFIDENCE_LOW", "SEMANTIC_GATE_FAIL", "SEMANTIC_GATE_UNCERTAIN"}:
+    elif semantic_blocked_reason in {
+        "VALIDATE_SEMANTIC_CONFIDENCE_LOW",
+        "SEMANTIC_GATE_FAIL",
+        "SEMANTIC_GATE_UNCERTAIN",
+    }:
         code = str(semantic_blocked_reason).strip().upper()
         phase = "validate"
     elif acceptance_reason_code:
@@ -104,10 +126,10 @@ def _pick_primary_blocker(
         phase = "validate"
     elif patch_selection_code:
         code = str(patch_selection_code).strip().upper()
-        phase = "patch_generate"
+        phase = "apply"
     elif delivery_status == "BLOCKED":
         code = "DELIVERY_BLOCKED"
-        phase = "patch_generate"
+        phase = "apply"
     return code, phase, _primary_blocker_message(code)
 
 
@@ -120,9 +142,17 @@ def _derive_evidence_availability(
 ) -> tuple[str, str | None, str | None]:
     code = str(blocker_primary_code or "").strip().upper()
     if evidence_state == "CRITICAL_GAP":
-        return "MISSING", "CRITICAL_GAP_UNVERIFIED_OUTPUT", "补齐关键验证证据并重跑 report"
+        return (
+            "MISSING",
+            "CRITICAL_GAP_UNVERIFIED_OUTPUT",
+            "补齐关键验证证据并重跑 report",
+        )
     if code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
-        return "MISSING", "SKIPPED_BY_SECURITY_BLOCK", "移除 ${} 动态 SQL（改为参数绑定+白名单）后重跑"
+        return (
+            "MISSING",
+            "SKIPPED_BY_SECURITY_BLOCK",
+            "移除 ${} 动态 SQL（改为参数绑定+白名单）后重跑",
+        )
     equivalence = dict(acceptance_row.get("equivalence") or {})
     checked = equivalence.get("checked")
     refs = [str(x) for x in (equivalence.get("evidenceRefs") or []) if str(x).strip()]
@@ -132,10 +162,22 @@ def _derive_evidence_availability(
     if checked is True and evidence_level in {"DB_FINGERPRINT", "DB_COUNT"}:
         return "READY", None, None
     if checked is True:
-        return "PARTIAL", "STRUCTURE_ONLY_OR_REFERENCE_MISSING", "补充数据库语义证据（DB_COUNT/DB_FINGERPRINT）"
+        return (
+            "PARTIAL",
+            "STRUCTURE_ONLY_OR_REFERENCE_MISSING",
+            "补充数据库语义证据（DB_COUNT/DB_FINGERPRINT）",
+        )
     if checked is False or checked is None:
-        return "MISSING", "SEMANTIC_EVIDENCE_NOT_COLLECTED", "恢复语义校验并重跑 validate"
-    return "PARTIAL", "EVIDENCE_STATE_UNCERTAIN", "人工审查 acceptance 与 verification 证据"
+        return (
+            "MISSING",
+            "SEMANTIC_EVIDENCE_NOT_COLLECTED",
+            "恢复语义校验并重跑 validate",
+        )
+    return (
+        "PARTIAL",
+        "EVIDENCE_STATE_UNCERTAIN",
+        "人工审查 acceptance 与 verification 证据",
+    )
 
 
 def _verify_decision_summary(
@@ -144,7 +186,10 @@ def _verify_decision_summary(
     semantic_blocked_reason: str | None,
     blocker_primary_code: str | None,
 ) -> str:
-    if str(blocker_primary_code or "").strip().upper() == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+    if (
+        str(blocker_primary_code or "").strip().upper()
+        == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+    ):
         return "unsafe ${} dynamic SQL blocks automatic patch generation until the mapper is rewritten safely"
     if evidence_state == "CRITICAL_GAP":
         return "critical verification evidence is incomplete for this output"
@@ -172,16 +217,23 @@ def _verify_why_now(
     semantic_blocked_reason: str | None,
     blocker_primary_code: str | None,
 ) -> str:
-    if str(blocker_primary_code or "").strip().upper() == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+    if (
+        str(blocker_primary_code or "").strip().upper()
+        == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+    ):
         return "remove ${} risk first, then rerun validation to recover candidate and patch delivery paths"
     if evidence_state == "CRITICAL_GAP":
-        return "the main blocker is missing verification evidence, so rollout should wait"
+        return (
+            "the main blocker is missing verification evidence, so rollout should wait"
+        )
     if bool(assessment.get("db_recheck_recommended")):
         return "the rewrite may be viable, but DB-backed validation needs to be restored first"
     if semantic_blocked_reason == "VALIDATE_SEMANTIC_CONFIDENCE_LOW":
         return "the main gap is semantic evidence strength, not candidate generation"
     if str(semantic_blocked_reason or "").startswith("SEMANTIC_GATE_"):
-        return "semantic gate blockers should be resolved before delivery path decisions"
+        return (
+            "semantic gate blockers should be resolved before delivery path decisions"
+        )
     if delivery_assessment == "READY_TO_APPLY":
         return "this is the fastest safe win because the patch is already ready"
     if delivery_assessment == "PATCHABLE_WITH_REWRITE":
@@ -189,7 +241,9 @@ def _verify_why_now(
     if delivery_assessment == "MANUAL_REVIEW":
         return "the SQL is promising and only manual patch conflict handling remains"
     if delivery_assessment == "NEEDS_REVIEW":
-        return "the rewrite is validated, but a human still needs to decide the patch path"
+        return (
+            "the rewrite is validated, but a human still needs to decide the patch path"
+        )
     return "this item still needs stronger validation or a clearer delivery path"
 
 
@@ -215,7 +269,10 @@ def _verify_recommended_next_step(
             "reason": action_reason("restore-db-validation"),
             "command": None,
         }
-    if str(blocker_primary_code or "").strip().upper() == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
+    if (
+        str(blocker_primary_code or "").strip().upper()
+        == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+    ):
         return {
             "action": "remove-dollar",
             "reason": action_reason("remove-dollar"),
@@ -266,7 +323,11 @@ def _verify_recommended_next_step(
 
 def _verify_warnings(assessment: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
-    reason_codes = [str(code).strip() for code in (assessment.get("reason_codes") or []) if str(code).strip()]
+    reason_codes = [
+        str(code).strip()
+        for code in (assessment.get("reason_codes") or [])
+        if str(code).strip()
+    ]
     if "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR" in reason_codes:
         warnings.append(
             "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR: optimize DB evidence hit a SQL syntax error; inspect dbEvidenceSummary.explainError"
@@ -288,33 +349,55 @@ def build_verify_payload(
     assessment = assess_sql_outcome(acceptance_rows, patch_rows, records)
     best_acceptance = dict(assessment.get("best_acceptance") or {})
     semantic_gate = dict(best_acceptance.get("semanticEquivalence") or {})
-    semantic_blocked_reason = _infer_semantic_blocked_reason(best_acceptance, semantic_gate)
+    semantic_blocked_reason = _infer_semantic_blocked_reason(
+        best_acceptance, semantic_gate
+    )
     semantic_unupgraded_reason = _infer_semantic_unupgraded_reason(semantic_gate)
     has_unverified = str(assessment.get("evidence_state") or "") == "CRITICAL_GAP"
-    has_partial = any(str(row.get("status") or "").upper() == "PARTIAL" for row in records)
+    has_partial = any(
+        str(row.get("status") or "").upper() == "PARTIAL" for row in records
+    )
     delivery_assessment = str(assessment.get("delivery_assessment") or "BLOCKED")
     delivery_status = _normalize_delivery_status(delivery_assessment)
     critical_gaps = list(assessment.get("critical_gaps") or [])
     evidence_state = str(assessment.get("evidence_state") or "NONE")
-    acceptance_reason_code = str(((best_acceptance.get("feedback") or {}).get("reason_code") or "").strip()) or None
+    acceptance_reason_code = (
+        str(((best_acceptance.get("feedback") or {}).get("reason_code") or "").strip())
+        or None
+    )
     best_patch = dict(assessment.get("best_patch") or {})
-    patch_selection_code = str(((best_patch.get("selectionReason") or {}).get("code") or "")).strip() or None
-    blocker_primary_code, blocker_primary_phase, blocker_primary_message = _pick_primary_blocker(
-        delivery_status=delivery_status,
-        evidence_state=evidence_state,
-        critical_gaps=critical_gaps,
-        semantic_blocked_reason=semantic_blocked_reason,
-        acceptance_reason_code=acceptance_reason_code,
-        patch_selection_code=patch_selection_code,
+    patch_selection_code = (
+        str(((best_patch.get("selectionReason") or {}).get("code") or "")).strip()
+        or None
     )
-    evidence_availability, evidence_missing_reason, evidence_next_required = _derive_evidence_availability(
-        acceptance_row=best_acceptance,
-        semantic_gate=semantic_gate,
-        evidence_state=evidence_state,
-        blocker_primary_code=blocker_primary_code,
+    blocker_primary_code, blocker_primary_phase, blocker_primary_message = (
+        _pick_primary_blocker(
+            delivery_status=delivery_status,
+            evidence_state=evidence_state,
+            critical_gaps=critical_gaps,
+            semantic_blocked_reason=semantic_blocked_reason,
+            acceptance_reason_code=acceptance_reason_code,
+            patch_selection_code=patch_selection_code,
+        )
     )
-    decision_summary = _verify_decision_summary(delivery_status, evidence_state, semantic_blocked_reason, blocker_primary_code)
-    why_now = _verify_why_now(delivery_status, evidence_state, assessment, semantic_blocked_reason, blocker_primary_code)
+    evidence_availability, evidence_missing_reason, evidence_next_required = (
+        _derive_evidence_availability(
+            acceptance_row=best_acceptance,
+            semantic_gate=semantic_gate,
+            evidence_state=evidence_state,
+            blocker_primary_code=blocker_primary_code,
+        )
+    )
+    decision_summary = _verify_decision_summary(
+        delivery_status, evidence_state, semantic_blocked_reason, blocker_primary_code
+    )
+    why_now = _verify_why_now(
+        delivery_status,
+        evidence_state,
+        assessment,
+        semantic_blocked_reason,
+        blocker_primary_code,
+    )
     recommended_next_step = _verify_recommended_next_step(
         run_id,
         delivery_status,
@@ -350,10 +433,17 @@ def build_verify_payload(
         "semantic_gate_status": semantic_gate.get("status") or "UNKNOWN",
         "semantic_gate_confidence": semantic_gate.get("confidence") or "UNKNOWN",
         "semantic_gate_evidence_level": semantic_gate.get("evidenceLevel") or "UNKNOWN",
-        "semantic_confidence_before_upgrade": semantic_gate.get("confidenceBeforeUpgrade"),
-        "semantic_confidence_upgraded": bool(semantic_gate.get("confidenceUpgradeApplied")),
+        "semantic_confidence_before_upgrade": semantic_gate.get(
+            "confidenceBeforeUpgrade"
+        ),
+        "semantic_confidence_upgraded": bool(
+            semantic_gate.get("confidenceUpgradeApplied")
+        ),
         "semantic_upgrade_reasons": semantic_gate.get("confidenceUpgradeReasons") or [],
-        "semantic_upgrade_sources": semantic_gate.get("confidenceUpgradeEvidenceSources") or [],
+        "semantic_upgrade_sources": semantic_gate.get(
+            "confidenceUpgradeEvidenceSources"
+        )
+        or [],
         "semantic_hard_conflicts": semantic_gate.get("hardConflicts") or [],
         "semantic_unupgraded_reason": semantic_unupgraded_reason,
         "semantic_blocked_reason": semantic_blocked_reason,

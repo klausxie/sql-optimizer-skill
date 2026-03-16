@@ -1,4 +1,4 @@
-"""patch_generate 阶段 LLM 辅助功能
+"""apply 阶段 LLM 辅助功能
 
 对于复杂动态 SQL，引入 LLM 生成模板级改写建议。
 主要用于：
@@ -22,6 +22,7 @@ from ..run_paths import canonical_paths
 @dataclass
 class TemplatePatchSuggestion:
     """模板补丁建议"""
+
     suggestion_type: str  # "TEMPLATE_MODIFY" | "FRAGMENT_EXPAND" | "MANUAL_REVIEW"
     template_diff: str | None  # 模板差异
     manual_guidance: str | None  # 人工指导
@@ -71,7 +72,8 @@ def build_template_patch_prompt(
                 "fragmentSql": f.get("fragmentSql"),
                 "dynamicFeatures": f.get("dynamicFeatures"),
             }
-            for f in include_fragments if isinstance(f, dict)
+            for f in include_fragments
+            if isinstance(f, dict)
         ],
         "patch_skip_reason": {
             "code": reason_code,
@@ -81,7 +83,9 @@ def build_template_patch_prompt(
     }
 
 
-def _parse_llm_template_suggestion(response_text: str, prompt: dict[str, Any]) -> TemplatePatchSuggestion:
+def _parse_llm_template_suggestion(
+    response_text: str, prompt: dict[str, Any]
+) -> TemplatePatchSuggestion:
     """解析 LLM 返回的模板建议
 
     Args:
@@ -139,7 +143,8 @@ def _parse_llm_template_suggestion(response_text: str, prompt: dict[str, Any]) -
     if "fragment" in response_lower:
         # 简单提取 fragment 引用
         import re
-        fragment_refs = re.findall(r'ref\.(\w+)', response_text, re.IGNORECASE)
+
+        fragment_refs = re.findall(r"ref\.(\w+)", response_text, re.IGNORECASE)
         referenced_fragments = list(set(fragment_refs))[:5]  # 最多 5 个
 
     return TemplatePatchSuggestion(
@@ -260,13 +265,17 @@ def attach_llm_suggestion_to_patch(
         patch_result["repairHints"] = []
 
     if suggestion.suggestion_type != "MANUAL_REVIEW":
-        patch_result["repairHints"].append({
-            "hintId": "llm-template-suggestion",
-            "title": f"LLM suggested {suggestion.suggestion_type}",
-            "detail": suggestion.reasoning[:200] if suggestion.reasoning else "LLM provided template modification guidance",
-            "actionType": "LLM_ASSISTED",
-            "command": None,
-        })
+        patch_result["repairHints"].append(
+            {
+                "hintId": "llm-template-suggestion",
+                "title": f"LLM suggested {suggestion.suggestion_type}",
+                "detail": suggestion.reasoning[:200]
+                if suggestion.reasoning
+                else "LLM provided template modification guidance",
+                "actionType": "LLM_ASSISTED",
+                "command": None,
+            }
+        )
 
     return patch_result
 
@@ -324,5 +333,7 @@ def generate_template_suggestion_summary(
         "total_suggestions": total,
         "suggestion_type_distribution": type_counts,
         "confidence_distribution": confidence_counts,
-        "high_confidence_suggestions": sum(1 for s in suggestions if s.get("confidence") == "high"),
+        "high_confidence_suggestions": sum(
+            1 for s in suggestions if s.get("confidence") == "high"
+        ),
     }

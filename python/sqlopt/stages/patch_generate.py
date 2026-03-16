@@ -21,9 +21,13 @@ from .patch_decision import build_patch_repair_hints as _build_patch_repair_hint
 from .patch_decision import should_call_llm_assist as _should_call_llm_assist_impl
 from .patch_decision_engine import decide_patch_result as _decide_patch_result
 from .patch_finalize import finalize_generated_patch as _finalize_generated_patch_impl
-from .patch_formatting import detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops
+from .patch_formatting import (
+    detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops,
+)
 from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
-from .patch_formatting import format_template_ops_for_patch as _format_template_ops_for_patch
+from .patch_formatting import (
+    format_template_ops_for_patch as _format_template_ops_for_patch,
+)
 from .patch_generate_llm import (
     generate_template_patch_suggestion as _generate_template_patch_suggestion,
     attach_llm_suggestion_to_patch as _attach_llm_suggestion,
@@ -49,7 +53,9 @@ def _check_patch_applicable(patch_file: Path, workdir: Path) -> tuple[bool, str 
     return False, detail
 
 
-def _build_patch_repair_hints(reason_code: str, apply_check_error: str | None, sql_unit: dict) -> list[dict]:
+def _build_patch_repair_hints(
+    reason_code: str, apply_check_error: str | None, sql_unit: dict
+) -> list[dict]:
     return _build_patch_repair_hints_impl(reason_code, apply_check_error, sql_unit)
 
 
@@ -85,12 +91,20 @@ def _finalize_generated_patch(
     )
 
 
-def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: ContractValidator, config: dict[str, Any] | None = None) -> dict:
+def execute_one(
+    sql_unit: dict,
+    acceptance: dict,
+    run_dir: Path,
+    validator: ContractValidator,
+    config: dict[str, Any] | None = None,
+) -> dict:
     paths = canonical_paths(run_dir)
     acceptance_rows = read_jsonl(paths.acceptance_path)
 
     project_root = Path.cwd().resolve()
-    configured_root = str((((config or {}).get("project", {}) or {}).get("root_path") or "")).strip()
+    configured_root = str(
+        (((config or {}).get("project", {}) or {}).get("root_path") or "")
+    ).strip()
     if configured_root:
         candidate_root = Path(configured_root).resolve()
         if candidate_root.exists():
@@ -125,7 +139,9 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
     llm_suggestion = None
     if llm_assist_enabled:
         # 判断是否需要 LLM 辅助
-        dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
+        dynamic_features = [
+            str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()
+        ]
         is_dynamic_sql = bool(dynamic_features)
 
         # 仅在动态 SQL 或配置允许时调用
@@ -163,7 +179,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
     )
     log_event(
         paths.manifest_path,
-        "patch_generate",
+        "apply",
         "done",
         {"statement_key": decision_ctx.sql_key},
     )

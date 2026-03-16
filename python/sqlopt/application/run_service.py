@@ -11,7 +11,11 @@ from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
 from ..stages import apply as apply_stage
 from . import config_service, run_index, workflow_engine
-from .run_selection import apply_selection_to_config, normalize_run_selection, selection_matches
+from .run_selection import (
+    apply_selection_to_config,
+    normalize_run_selection,
+    selection_matches,
+)
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
 from .requests import AdvanceStepRequest, RunStatusRequest
@@ -27,7 +31,9 @@ def start_run(
     selection: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     config = load_config(config_path)
-    project_root = Path(str((config.get("project", {}) or {}).get("root_path") or ".")).resolve()
+    project_root = Path(
+        str((config.get("project", {}) or {}).get("root_path") or ".")
+    ).resolve()
     normalized_selection = normalize_run_selection(
         project_root=project_root,
         mapper_paths=list((selection or {}).get("mapper_paths") or []),
@@ -48,15 +54,26 @@ def start_run(
     if not run_dir.exists():
         repository.initialize(config, resolved_run_id)
         repository.write_resolved_config(config)
-        log_event(canonical_paths(run_dir).manifest_path, "initialize", "done", {"run_id": resolved_run_id})
+        log_event(
+            canonical_paths(run_dir).manifest_path,
+            "initialize",
+            "done",
+            {"run_id": resolved_run_id},
+        )
     run_index.remember_run(resolved_run_id, run_dir, config_path, runs_root)
     repository.set_meta_status("RUNNING")
 
     plan = repository.get_plan()
     plan["to_stage"] = to_stage
-    existing_selection = dict(plan.get("selection") or {}) if isinstance(plan.get("selection"), dict) else None
+    existing_selection = (
+        dict(plan.get("selection") or {})
+        if isinstance(plan.get("selection"), dict)
+        else None
+    )
     if existing_selection:
-        if normalized_selection is not None and not selection_matches(existing_selection, normalized_selection):
+        if normalized_selection is not None and not selection_matches(
+            existing_selection, normalized_selection
+        ):
             raise ValueError("run selection does not match the existing run plan")
     elif normalized_selection:
         plan["selection"] = normalized_selection
@@ -83,7 +100,7 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     plan = repository.get_plan()
     runtime_checks = config_service.prepare_runtime_prerequisites(
         config,
-        to_stage=str(plan.get("to_stage", "patch_generate")),
+        to_stage=str(plan.get("to_stage", "apply")),
         config_path=paths.config_resolved_path,
     )
     if runtime_checks.get("warning"):
@@ -94,7 +111,7 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
         AdvanceStepRequest(
             run_dir=run_dir,
             config=config,
-            to_stage=plan.get("to_stage", "patch_generate"),
+            to_stage=plan.get("to_stage", "apply"),
             validator=validator,
             repository=repository,
         )
@@ -147,7 +164,9 @@ def build_progress_payload(run_id: str, outcome: LifecycleOutcome) -> dict[str, 
     return lifecycle_policy.build_progress_payload(run_id, outcome)
 
 
-def build_interrupt_payload(run_id: str, *, next_action: str | None = None) -> dict[str, Any]:
+def build_interrupt_payload(
+    run_id: str, *, next_action: str | None = None
+) -> dict[str, Any]:
     return lifecycle_policy.build_interrupt_payload(run_id, next_action=next_action)
 
 

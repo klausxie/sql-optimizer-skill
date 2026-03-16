@@ -32,7 +32,7 @@ PHASE_CLASSIFICATION = {
         "VALIDATE_EQUIVALENCE_MISMATCH": "fatal",
         "VALIDATE_TIMEOUT": "retryable",
     },
-    "patch_generate": {
+    "apply": {
         "PATCH_CONFLICT_NO_CLEAR_WINNER": "degradable",
         "PATCH_LOCATOR_AMBIGUOUS": "degradable",
         "PATCH_VALIDATION_BLOCKED_SECURITY": "degradable",

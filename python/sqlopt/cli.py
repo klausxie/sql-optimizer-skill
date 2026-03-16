@@ -420,10 +420,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_run.add_argument(
         "--to-stage",
-        default="patch_generate",
+        default="apply",
         choices=STAGE_ORDER,
-        help="目标运行阶段（默认：patch_generate）。可用阶段："
-        + ", ".join(STAGE_ORDER),
+        help="目标运行阶段（默认：apply）。可用阶段：" + ", ".join(STAGE_ORDER),
     )
     p_run.add_argument(
         "--max-steps",

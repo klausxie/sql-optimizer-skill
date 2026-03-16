@@ -9,13 +9,12 @@ from sqlopt.application.status_resolver import PhaseExecutionPolicy, StatusResol
 class StatusResolverModuleTest(unittest.TestCase):
     def _resolver(self) -> StatusResolver:
         return StatusResolver(
-            stage_order=["preflight", "scan", "optimize", "validate", "patch_generate", "report"],
+            stage_order=["diagnose", "optimize", "validate", "apply", "report"],
             phase_policies={
-                "preflight": PhaseExecutionPolicy("preflight"),
-                "scan": PhaseExecutionPolicy("scan"),
+                "diagnose": PhaseExecutionPolicy("diagnose"),
                 "optimize": PhaseExecutionPolicy("optimize"),
                 "validate": PhaseExecutionPolicy("validate"),
-                "patch_generate": PhaseExecutionPolicy("patch_generate"),
+                "apply": PhaseExecutionPolicy("apply"),
                 "report": PhaseExecutionPolicy("report", allow_regenerate=True),
             },
         )
@@ -28,16 +27,21 @@ class StatusResolverModuleTest(unittest.TestCase):
                 state={
                     "current_phase": "validate",
                     "phase_status": {
-                        "preflight": "DONE",
-                        "scan": "DONE",
+                        "diagnose": "DONE",
                         "optimize": "DONE",
                         "validate": "PENDING",
-                        "patch_generate": "PENDING",
+                        "apply": "PENDING",
                         "report": "PENDING",
                     },
-                    "statements": {"demo#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}},
+                    "statements": {
+                        "demo#v1": {
+                            "optimize": "DONE",
+                            "validate": "PENDING",
+                            "apply": "PENDING",
+                        }
+                    },
                 },
-                plan={"to_stage": "patch_generate"},
+                plan={"to_stage": "apply"},
                 meta={"status": "RUNNING"},
                 config={"report": {"enabled": True}},
             )
@@ -54,17 +58,16 @@ class StatusResolverModuleTest(unittest.TestCase):
                 state={
                     "current_phase": "report",
                     "phase_status": {
-                        "preflight": "DONE",
-                        "scan": "DONE",
+                        "diagnose": "DONE",
                         "optimize": "DONE",
                         "validate": "DONE",
-                        "patch_generate": "DONE",
+                        "apply": "DONE",
                         "report": "DONE",
                     },
                     "report_rebuild_required": True,
                     "statements": {},
                 },
-                plan={"to_stage": "patch_generate"},
+                plan={"to_stage": "apply"},
                 meta={"status": "COMPLETED"},
                 config={"report": {"enabled": True}},
             )

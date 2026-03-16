@@ -122,7 +122,7 @@ def advance_diagnose(
     ctx.state["phase_status"]["diagnose"] = "DONE"
     ctx.state["current_phase"] = str(phase_transitions["diagnose"])
     ctx.state["statements"] = {
-        k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
+        k: {"optimize": "PENDING", "validate": "PENDING", "apply": "PENDING"}
         for k in ctx.plan["sql_keys"]
     }
 

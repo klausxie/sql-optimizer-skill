@@ -202,9 +202,9 @@ def _build_run_index_payload(
             issues.append("MISSING_PROPOSAL_REF")
         if _phase_done("validate") and not refs.get("acceptance"):
             issues.append("MISSING_ACCEPTANCE_REF")
-        if _phase_done("patch_generate") and not refs.get("patches"):
+        if _phase_done("apply") and not refs.get("patches"):
             issues.append("MISSING_PATCH_REF")
-        if _phase_done("patch_generate") and not refs.get("verification"):
+        if _phase_done("apply") and not refs.get("verification"):
             issues.append("MISSING_VERIFICATION_REF")
         if str(
             row.get("evidence_availability") or ""
