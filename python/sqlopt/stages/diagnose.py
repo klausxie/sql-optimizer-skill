@@ -18,6 +18,7 @@ from ..contracts import ContractValidator
 from ..errors import StageError
 from ..io_utils import write_jsonl
 from ..manifest import log_event
+from ..platforms.sql.rules import evaluate_rules
 from ..progress import get_progress_reporter
 from . import scan as scan_stage
 
@@ -57,7 +58,11 @@ def execute(
             reason_code="DIAGNOSE_NO_UNITS",
         )
 
-    # Step 2: Run optional baseline diagnostics
+    # Step 2: Evaluate static rules on each SQL unit
+    reporter.report_info("Diagnose: Evaluating static rules...")
+    units = _evaluate_static_rules(units, config)
+
+    # Step 3: Run optional baseline diagnostics
     branch_cfg = config.get("branch", {})
     baseline_enabled = branch_cfg.get("diagnose", True)
 
@@ -89,6 +94,42 @@ def execute(
         f"Diagnose complete: {total_units} SQL units analyzed, "
         f"{units_with_problems} with potential issues"
     )
+
+    return units
+
+
+def _evaluate_static_rules(
+    units: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Evaluate static rules on SQL units.
+
+    This adds rule evaluation results to each SQL unit, including:
+    - ruleIssues: List of detected issues
+    - ruleSuggestions: List of improvement suggestions
+    - ruleVerdict: Overall verdict (NOOP, CAN_IMPROVE)
+    - triggeredRules: List of triggered rule metadata
+
+    Args:
+        units: List of SQL units from scan stage
+        config: Configuration dict
+
+    Returns:
+        List of SQL units with rule evaluation results
+    """
+    for unit in units:
+        try:
+            rule_result = evaluate_rules(unit, config)
+            unit["ruleIssues"] = rule_result.get("issues", [])
+            unit["ruleSuggestions"] = rule_result.get("suggestions", [])
+            unit["ruleVerdict"] = rule_result.get("verdict", "NOOP")
+            unit["triggeredRules"] = rule_result.get("triggeredRules", [])
+        except Exception:
+            # On error, set default values
+            unit["ruleIssues"] = []
+            unit["ruleSuggestions"] = []
+            unit["ruleVerdict"] = "NOOP"
+            unit["triggeredRules"] = []
 
     return units
 
