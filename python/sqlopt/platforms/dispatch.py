@@ -14,8 +14,13 @@ def platform_key(config: dict[str, Any]) -> str:
 def _registry():
     from .mysql import adapter as mysql
     from .postgresql import adapter as postgresql
+    from .h2 import adapter as h2
 
-    return {"postgresql": postgresql.get_adapter(), "mysql": mysql.get_adapter()}
+    return {
+        "postgresql": postgresql.get_adapter(), 
+        "mysql": mysql.get_adapter(),
+        "h2": h2.get_adapter(),
+    }
 
 
 def _is_adapter_like(entry: Any) -> bool:

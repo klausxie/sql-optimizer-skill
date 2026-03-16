@@ -84,6 +84,14 @@ def apply_selection_to_config(config: dict[str, Any], selection: dict[str, Any] 
         scan_cfg = dict(updated.get("scan") or {})
         scan_cfg["mapper_globs"] = mapper_paths
         updated["scan"] = scan_cfg
+    
+    # 将 sql_keys 传递给 scan 阶段进行过滤
+    sql_keys = list(selection.get("sql_keys") or [])
+    if sql_keys:
+        scan_cfg = dict(updated.get("scan") or {})
+        scan_cfg["target_sql_ids"] = sql_keys
+        updated["scan"] = scan_cfg
+    
     return updated
 
 
