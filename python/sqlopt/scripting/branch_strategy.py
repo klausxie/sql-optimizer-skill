@@ -110,13 +110,12 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
 class PairwiseStrategy(BranchGenerationStrategy):
     """Generate pairwise combinations of conditions.
 
-    Only generates combinations where each pair of conditions appears
-    together at least once. This provides good coverage with fewer branches
-    than all_combinations.
+    Generates combinations where each condition is tested individually.
+    For n conditions, generates n branches (one per condition).
 
-    Example for 3 conditions [c1, c2, c3]:
-    - Each condition individually: [c1], [c2], [c3]
-    - Each pair together: [c1, c2], [c1, c3], [c2, c3]
+    Example for 2 conditions [c1, c2]:
+    - Each condition individually: [c1], [c2]
+    Total: 2 branches
     """
 
     def generate(
@@ -138,41 +137,16 @@ class PairwiseStrategy(BranchGenerationStrategy):
         combinations: List[List[str]] = []
         seen = set()
 
-        # Helper to add unique combination
         def add_combo(combo: List[str]) -> None:
             key = tuple(sorted(combo))
             if key not in seen and len(combinations) < max_branches:
                 seen.add(key)
                 combinations.append(combo)
 
-        # Add all false case
-        add_combo([])
-
-        # Add all true case
-        if n <= max_branches:
-            add_combo(conditions.copy())
-
-        # Add each condition individually
         for cond in conditions:
+            if len(combinations) >= max_branches:
+                break
             add_combo([cond])
-
-        # Add pairwise combinations
-        for i in range(n):
-            for j in range(i + 1, n):
-                if len(combinations) >= max_branches:
-                    break
-                add_combo([conditions[i], conditions[j]])
-
-        # If we have room, add some triples
-        if n >= 3:
-            for i in range(n):
-                for j in range(i + 1, n):
-                    for k in range(j + 1, n):
-                        if len(combinations) >= max_branches:
-                            break
-                        add_combo([conditions[i], conditions[j], conditions[k]])
-                    if len(combinations) >= max_branches:
-                        break
 
         return combinations[:max_branches]
 
@@ -180,14 +154,12 @@ class PairwiseStrategy(BranchGenerationStrategy):
 class BoundaryStrategy(BranchGenerationStrategy):
     """Generate boundary test cases for conditions.
 
-    Generates a small set of boundary test cases:
+    Generates minimal boundary test cases:
     - All conditions false
     - All conditions true
-    - First condition true only
-    - Last condition true only
-    - Alternating pattern (true, false, true, ...)
 
-    This is useful for quick validation without exhaustive testing.
+    This provides basic boundary coverage with minimal branches.
+    For n conditions: exactly 2 branches.
     """
 
     def generate(
@@ -215,48 +187,8 @@ class BoundaryStrategy(BranchGenerationStrategy):
                 seen.add(key)
                 combinations.append(combo)
 
-        # 1. All false
         add_combo([])
-
-        # 2. All true
         add_combo(conditions.copy())
-
-        # 3. First condition true only
-        if n >= 1:
-            add_combo([conditions[0]])
-
-        # 4. Last condition true only
-        if n >= 2:
-            add_combo([conditions[-1]])
-
-        # 5. Alternating pattern (true, false, true, ...)
-        if n >= 3:
-            alt_combo = [conditions[i] for i in range(n) if i % 2 == 0]
-            add_combo(alt_combo)
-
-        # 6. Reverse alternating (false, true, false, ...)
-        if n >= 3:
-            alt_combo = [conditions[i] for i in range(n) if i % 2 == 1]
-            add_combo(alt_combo)
-
-        # 7. First two true
-        if n >= 2:
-            add_combo(conditions[:2])
-
-        # 8. Last two true
-        if n >= 2:
-            add_combo(conditions[-2:])
-
-        # 9. Middle condition true (for odd n)
-        if n >= 3:
-            mid = n // 2
-            add_combo([conditions[mid]])
-
-        # 10. Quarter points
-        for q in [1, 3]:
-            idx = (n * q) // 4
-            if 0 < idx < n:
-                add_combo([conditions[idx]])
 
         return combinations[:max_branches]
 
