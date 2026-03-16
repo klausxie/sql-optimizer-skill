@@ -13,14 +13,18 @@ from ..verification.explain import action_reason, assess_sql_outcome
 
 
 def _append_action_once(actions: list[dict[str, Any]], action: dict[str, Any]) -> None:
-    existing = {str(row.get("action_id") or "") for row in actions if isinstance(row, dict)}
+    existing = {
+        str(row.get("action_id") or "") for row in actions if isinstance(row, dict)
+    }
     action_id = str(action.get("action_id") or "")
     if action_id and action_id in existing:
         return
     actions.append(action)
 
 
-def _acceptance_decision_layers(acceptance_row: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def _acceptance_decision_layers(
+    acceptance_row: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     decision_layers = dict(acceptance_row.get("decisionLayers") or {})
     return (
         dict(decision_layers.get("evidence") or {}),
@@ -31,7 +35,13 @@ def _acceptance_decision_layers(acceptance_row: dict[str, Any]) -> tuple[dict[st
 
 def _normalize_delivery_status(tier: str) -> str:
     normalized = str(tier or "").strip().upper()
-    if normalized in {"READY_TO_APPLY", "PATCHABLE_WITH_REWRITE", "MANUAL_REVIEW", "NEEDS_REVIEW", "BLOCKED"}:
+    if normalized in {
+        "READY_TO_APPLY",
+        "PATCHABLE_WITH_REWRITE",
+        "MANUAL_REVIEW",
+        "NEEDS_REVIEW",
+        "BLOCKED",
+    }:
         return normalized
     if normalized == "READY":
         return "NEEDS_REVIEW"
@@ -68,7 +78,10 @@ def _semantic_feedback_details(
     feedback = dict(acceptance_row.get("feedback") or {})
     details = dict(feedback.get("details") or {})
     if not details:
-        raw_error = str((acceptance_row.get("equivalence") or {}).get("rowCount", {}).get("error") or "").strip()
+        raw_error = str(
+            (acceptance_row.get("equivalence") or {}).get("rowCount", {}).get("error")
+            or ""
+        ).strip()
         details = parse_sql_runtime_error(raw_error)
     if not details:
         return None
@@ -154,25 +167,43 @@ def blocker_family_for_outcome(
 
 
 def _aggregation_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
-    aggregation = dict(((acceptance_row.get("rewriteFacts") or {}).get("aggregationQuery") or {}))
+    aggregation = dict(
+        ((acceptance_row.get("rewriteFacts") or {}).get("aggregationQuery") or {})
+    )
     profile = dict(aggregation.get("capabilityProfile") or {})
     return {
         "shape_family": str(profile.get("shapeFamily") or "NONE").strip().upper(),
         "capability_tier": str(profile.get("capabilityTier") or "NONE").strip().upper(),
-        "constraint_family": str(profile.get("constraintFamily") or "NONE").strip().upper(),
-        "safe_baseline_family": str(profile.get("safeBaselineFamily") or "").strip() or None,
+        "constraint_family": str(profile.get("constraintFamily") or "NONE")
+        .strip()
+        .upper(),
+        "safe_baseline_family": str(profile.get("safeBaselineFamily") or "").strip()
+        or None,
     }
 
 
 def _dynamic_template_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
     dynamic_template = dict((acceptance_row.get("dynamicTemplate") or {}) or {})
     return {
-        "shape_family": str(dynamic_template.get("shapeFamily") or "NONE").strip().upper(),
-        "capability_tier": str(dynamic_template.get("capabilityTier") or "NONE").strip().upper(),
-        "patch_surface": str(dynamic_template.get("patchSurface") or "NONE").strip().upper(),
-        "baseline_family": str(dynamic_template.get("baselineFamily") or "").strip() or None,
-        "blocking_reason": str(dynamic_template.get("blockingReason") or "").strip().upper() or None,
-        "delivery_class": str(dynamic_template.get("deliveryClass") or "").strip().upper() or None,
+        "shape_family": str(dynamic_template.get("shapeFamily") or "NONE")
+        .strip()
+        .upper(),
+        "capability_tier": str(dynamic_template.get("capabilityTier") or "NONE")
+        .strip()
+        .upper(),
+        "patch_surface": str(dynamic_template.get("patchSurface") or "NONE")
+        .strip()
+        .upper(),
+        "baseline_family": str(dynamic_template.get("baselineFamily") or "").strip()
+        or None,
+        "blocking_reason": str(dynamic_template.get("blockingReason") or "")
+        .strip()
+        .upper()
+        or None,
+        "delivery_class": str(dynamic_template.get("deliveryClass") or "")
+        .strip()
+        .upper()
+        or None,
     }
 
 
@@ -188,9 +219,17 @@ def _pick_primary_blocker(
     code: str | None = None
     phase: str | None = None
     if evidence_state == "CRITICAL_GAP":
-        code = str((critical_gaps or [None])[0] or "VERIFICATION_CRITICAL_GAP").strip().upper()
+        code = (
+            str((critical_gaps or [None])[0] or "VERIFICATION_CRITICAL_GAP")
+            .strip()
+            .upper()
+        )
         phase = "verification"
-    elif semantic_blocked_reason in {"VALIDATE_SEMANTIC_CONFIDENCE_LOW", "SEMANTIC_GATE_FAIL", "SEMANTIC_GATE_UNCERTAIN"}:
+    elif semantic_blocked_reason in {
+        "VALIDATE_SEMANTIC_CONFIDENCE_LOW",
+        "SEMANTIC_GATE_FAIL",
+        "SEMANTIC_GATE_UNCERTAIN",
+    }:
         code = str(semantic_blocked_reason).strip().upper()
         phase = "validate"
     elif acceptance_reason_code:
@@ -214,9 +253,17 @@ def _derive_evidence_availability(
 ) -> tuple[str, str | None, str | None]:
     code = str(blocker_primary_code or "").strip().upper()
     if evidence_state == "CRITICAL_GAP":
-        return "MISSING", "CRITICAL_GAP_UNVERIFIED_OUTPUT", "补齐关键验证证据并重跑 report"
+        return (
+            "MISSING",
+            "CRITICAL_GAP_UNVERIFIED_OUTPUT",
+            "补齐关键验证证据并重跑 report",
+        )
     if code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
-        return "MISSING", "SKIPPED_BY_SECURITY_BLOCK", "移除 ${} 动态 SQL（改为参数绑定+白名单）后重跑"
+        return (
+            "MISSING",
+            "SKIPPED_BY_SECURITY_BLOCK",
+            "移除 ${} 动态 SQL（改为参数绑定+白名单）后重跑",
+        )
     equivalence = dict(acceptance_row.get("equivalence") or {})
     checked = equivalence.get("checked")
     refs = [str(x) for x in (equivalence.get("evidenceRefs") or []) if str(x).strip()]
@@ -226,10 +273,22 @@ def _derive_evidence_availability(
     if checked is True and evidence_level in {"DB_FINGERPRINT", "DB_COUNT"}:
         return "READY", None, None
     if checked is True:
-        return "PARTIAL", "STRUCTURE_ONLY_OR_REFERENCE_MISSING", "补充数据库语义证据（DB_COUNT/DB_FINGERPRINT）"
+        return (
+            "PARTIAL",
+            "STRUCTURE_ONLY_OR_REFERENCE_MISSING",
+            "补充数据库语义证据（DB_COUNT/DB_FINGERPRINT）",
+        )
     if checked is False or checked is None:
-        return "MISSING", "SEMANTIC_EVIDENCE_NOT_COLLECTED", "恢复语义校验并重跑 validate"
-    return "PARTIAL", "EVIDENCE_STATE_UNCERTAIN", "人工审查 acceptance 与 verification 证据"
+        return (
+            "MISSING",
+            "SEMANTIC_EVIDENCE_NOT_COLLECTED",
+            "恢复语义校验并重跑 validate",
+        )
+    return (
+        "PARTIAL",
+        "EVIDENCE_STATE_UNCERTAIN",
+        "人工审查 acceptance 与 verification 证据",
+    )
 
 
 def compute_verdict(stats: dict[str, Any]) -> str:
@@ -266,29 +325,42 @@ def default_next_actions(
     verification_stats = verification or {}
     top_row = (top_actionable_sql or [None])[0] if top_actionable_sql else None
 
-    if int(verification_stats.get("unverified_pass_count") or 0) > 0 or int(
-        verification_stats.get("unverified_applicable_patch_count") or 0
-    ) > 0:
+    if (
+        int(verification_stats.get("unverified_pass_count") or 0) > 0
+        or int(verification_stats.get("unverified_applicable_patch_count") or 0) > 0
+    ):
         _append_action_once(
             actions,
-                {
-                    "action_id": "review-evidence",
-                    "title": "QA：审查缺失的验证证据",
-                    "reason": action_reason("review-evidence"),
-                    "applicability": "存在验证门警告",
-                    "expected_outcome": "在应用或重构前恢复置信度",
-                    "commands": [],
-                },
-            )
+            {
+                "action_id": "review-evidence",
+                "title": "QA：审查缺失的验证证据",
+                "reason": action_reason("review-evidence"),
+                "applicability": "存在验证门警告",
+                "expected_outcome": "在应用或重构前恢复置信度",
+                "commands": [],
+            },
+        )
 
     if isinstance(top_row, dict):
-        delivery_tier = str(top_row.get("delivery_status") or top_row.get("delivery_tier") or "").strip().upper()
+        delivery_tier = (
+            str(top_row.get("delivery_status") or top_row.get("delivery_tier") or "")
+            .strip()
+            .upper()
+        )
         evidence_state = str(top_row.get("evidence_state") or "").strip().upper()
-        evidence_degraded = evidence_state == "DEGRADED" or bool(top_row.get("evidence_degraded"))
+        evidence_degraded = evidence_state == "DEGRADED" or bool(
+            top_row.get("evidence_degraded")
+        )
         critical_gap = evidence_state == "CRITICAL_GAP"
-        acceptance_reason_code = str(top_row.get("acceptance_reason_code") or "").strip().upper()
-        blocker_primary_code = str(top_row.get("blocker_primary_code") or "").strip().upper()
-        aggregation_constraint_family = str(top_row.get("aggregation_constraint_family") or "").strip().upper()
+        acceptance_reason_code = (
+            str(top_row.get("acceptance_reason_code") or "").strip().upper()
+        )
+        blocker_primary_code = (
+            str(top_row.get("blocker_primary_code") or "").strip().upper()
+        )
+        aggregation_constraint_family = (
+            str(top_row.get("aggregation_constraint_family") or "").strip().upper()
+        )
         hint_command = str(top_row.get("repair_hint_command") or "").strip() or None
         if blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             _append_action_once(
@@ -367,7 +439,10 @@ def default_next_actions(
                     "commands": [],
                 },
             )
-        elif evidence_degraded and acceptance_reason_code in {"VALIDATE_PARAM_INSUFFICIENT", "VALIDATE_DB_UNREACHABLE"}:
+        elif evidence_degraded and acceptance_reason_code in {
+            "VALIDATE_PARAM_INSUFFICIENT",
+            "VALIDATE_DB_UNREACHABLE",
+        }:
             _append_action_once(
                 actions,
                 {
@@ -424,7 +499,9 @@ def default_next_actions(
                     "reason": action_reason("apply"),
                     "applicability": "健康的运行且有可用补丁",
                     "expected_outcome": "应用安全的 SQL 改进",
-                    "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
+                    "commands": [
+                        f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"
+                    ],
                 },
             )
 
@@ -461,7 +538,9 @@ def default_next_actions(
                 "reason": action_reason("resume"),
                 "applicability": "等待中或降级的流水线",
                 "expected_outcome": "继续或最终确定处理",
-                "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"],
+                "commands": [
+                    f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"
+                ],
             },
         )
     if not actions:
@@ -473,22 +552,41 @@ def default_next_actions(
                 "reason": action_reason("apply"),
                 "applicability": "有可用补丁",
                 "expected_outcome": "应用安全的 SQL 改进",
-                "commands": [f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"],
+                "commands": [
+                    f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"
+                ],
             },
         )
     return actions
 
 
-def build_top_blockers(failures: list[dict[str, Any]], reason_counts: dict[str, int]) -> list[dict[str, Any]]:
+def build_top_blockers(
+    failures: list[dict[str, Any]], reason_counts: dict[str, int]
+) -> list[dict[str, Any]]:
     sql_keys_by_code: dict[str, set[str]] = {}
+    message_snippets_by_code: dict[str, list[str]] = {}
     for row in failures:
         code = str(row.get("reason_code") or "UNKNOWN")
         sql_key = str(row.get("sql_key") or "")
         sql_keys_by_code.setdefault(code, set())
         if sql_key:
             sql_keys_by_code[code].add(sql_key)
+        message = str(row.get("message") or "").strip()
+        rewritten_sql = str(row.get("rewritten_sql") or "").strip()
+        if message or rewritten_sql:
+            snippet = (
+                message[:100]
+                if message
+                else (rewritten_sql[:100] + " (rewritten)" if rewritten_sql else "")
+            )
+            if snippet:
+                message_snippets_by_code.setdefault(code, [])
+                if snippet not in message_snippets_by_code[code]:
+                    message_snippets_by_code[code].append(snippet)
     out: list[dict[str, Any]] = []
-    for code, count in sorted(reason_counts.items(), key=lambda kv: kv[1], reverse=True)[:3]:
+    for code, count in sorted(
+        reason_counts.items(), key=lambda kv: kv[1], reverse=True
+    )[:3]:
         out.append(
             {
                 "code": code,
@@ -496,6 +594,7 @@ def build_top_blockers(failures: list[dict[str, Any]], reason_counts: dict[str, 
                 "ratio": None,
                 "severity": classify_reason_code(code, phase="validate"),
                 "sql_keys": sorted(sql_keys_by_code.get(code, set())),
+                "message_snippets": message_snippets_by_code.get(code, [])[:3],
             }
         )
     return out
@@ -508,7 +607,15 @@ def build_prioritized_sql_keys(failures: list[dict[str, Any]]) -> list[dict[str,
         if not sql_key:
             continue
         rcode = str(row.get("reason_code") or "UNKNOWN")
-        bucket = by_sql.setdefault(sql_key, {"sql_key": sql_key, "count": 0, "blocker_codes": set(), "has_fatal": False})
+        bucket = by_sql.setdefault(
+            sql_key,
+            {
+                "sql_key": sql_key,
+                "count": 0,
+                "blocker_codes": set(),
+                "has_fatal": False,
+            },
+        )
         bucket["count"] += 1
         bucket["blocker_codes"].add(rcode)
         if str(row.get("classification") or "") == "fatal":
@@ -532,14 +639,20 @@ def _infer_semantic_unupgraded_reason(semantic_gate: dict[str, Any]) -> str | No
         return "SEMANTIC_GATE_MISSING"
     if bool(semantic_gate.get("confidenceUpgradeApplied")):
         return None
-    hard_conflicts = [str(code or "").strip() for code in (semantic_gate.get("hardConflicts") or []) if str(code or "").strip()]
+    hard_conflicts = [
+        str(code or "").strip()
+        for code in (semantic_gate.get("hardConflicts") or [])
+        if str(code or "").strip()
+    ]
     if hard_conflicts:
         return f"HARD_CONFLICT:{hard_conflicts[0]}"
     confidence = str(semantic_gate.get("confidence") or "").strip().upper()
     if confidence in {"MEDIUM", "HIGH"}:
         return "ALREADY_CONFIDENT"
     evidence = dict(semantic_gate.get("evidence") or {})
-    fingerprint_strength = str(evidence.get("fingerprintStrength") or "").strip().upper()
+    fingerprint_strength = (
+        str(evidence.get("fingerprintStrength") or "").strip().upper()
+    )
     row_count_status = str(evidence.get("rowCountStatus") or "").strip().upper()
     if fingerprint_strength in {"EXACT", "PARTIAL"}:
         return "UPGRADE_NOT_NEEDED"
@@ -550,7 +663,9 @@ def _infer_semantic_unupgraded_reason(semantic_gate: dict[str, Any]) -> str | No
     return "UPGRADE_CRITERIA_NOT_MET"
 
 
-def _infer_semantic_blocked_reason(acceptance_row: dict[str, Any], semantic_gate: dict[str, Any]) -> str | None:
+def _infer_semantic_blocked_reason(
+    acceptance_row: dict[str, Any], semantic_gate: dict[str, Any]
+) -> str | None:
     status = str(semantic_gate.get("status") or "PASS").strip().upper()
     confidence = str(semantic_gate.get("confidence") or "HIGH").strip().upper()
     if status != "PASS":
@@ -564,7 +679,11 @@ def _infer_semantic_blocked_reason(acceptance_row: dict[str, Any], semantic_gate
     return None
 
 
-def build_sql_rows(units: list[dict[str, Any]], acceptance: list[dict[str, Any]], patches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_sql_rows(
+    units: list[dict[str, Any]],
+    acceptance: list[dict[str, Any]],
+    patches: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     acceptance_by_sql_key = {str(row.get("sqlKey")): row for row in acceptance}
     patch_by_statement = {str(row.get("statementKey")): row for row in patches}
     rows: list[dict[str, Any]] = []
@@ -581,27 +700,48 @@ def build_sql_rows(units: list[dict[str, Any]], acceptance: list[dict[str, Any]]
             {
                 "sql_key": sql_key,
                 "status": acceptance_row.get("status") or "PENDING",
-                "selected_source": acceptance_row.get("selectedCandidateSource") or "n/a",
+                "selected_source": acceptance_row.get("selectedCandidateSource")
+                or "n/a",
                 "semantic_risk": acceptance_row.get("semanticRisk") or "unknown",
                 "perf_improved": perf.get("improved"),
                 "before_cost": (perf.get("beforeSummary") or {}).get("totalCost"),
                 "after_cost": (perf.get("afterSummary") or {}).get("totalCost"),
                 "patch_applicable": patch_row.get("applicable"),
-                "patch_selection_code": (patch_row.get("selectionReason") or {}).get("code"),
-                "rewrite_materialization_mode": (acceptance_row.get("rewriteMaterialization") or {}).get("mode"),
-                "rewrite_materialization_reason": (acceptance_row.get("rewriteMaterialization") or {}).get("reasonCode"),
+                "patch_selection_code": (patch_row.get("selectionReason") or {}).get(
+                    "code"
+                ),
+                "rewrite_materialization_mode": (
+                    acceptance_row.get("rewriteMaterialization") or {}
+                ).get("mode"),
+                "rewrite_materialization_reason": (
+                    acceptance_row.get("rewriteMaterialization") or {}
+                ).get("reasonCode"),
                 "row_status": (eq.get("rowCount") or {}).get("status"),
                 "evidence_refs": eq.get("evidenceRefs") or [],
                 "semantic_gate_status": semantic_gate.get("status") or "UNKNOWN",
-                "semantic_gate_confidence": semantic_gate.get("confidence") or "UNKNOWN",
-                "semantic_gate_evidence_level": semantic_gate.get("evidenceLevel") or "UNKNOWN",
-                "semantic_confidence_before_upgrade": semantic_gate.get("confidenceBeforeUpgrade"),
+                "semantic_gate_confidence": semantic_gate.get("confidence")
+                or "UNKNOWN",
+                "semantic_gate_evidence_level": semantic_gate.get("evidenceLevel")
+                or "UNKNOWN",
+                "semantic_confidence_before_upgrade": semantic_gate.get(
+                    "confidenceBeforeUpgrade"
+                ),
                 "semantic_confidence_upgraded": semantic_upgrade_applied,
-                "semantic_upgrade_reasons": semantic_gate.get("confidenceUpgradeReasons") or [],
-                "semantic_upgrade_sources": semantic_gate.get("confidenceUpgradeEvidenceSources") or [],
+                "semantic_upgrade_reasons": semantic_gate.get(
+                    "confidenceUpgradeReasons"
+                )
+                or [],
+                "semantic_upgrade_sources": semantic_gate.get(
+                    "confidenceUpgradeEvidenceSources"
+                )
+                or [],
                 "semantic_hard_conflicts": semantic_gate.get("hardConflicts") or [],
-                "semantic_unupgraded_reason": _infer_semantic_unupgraded_reason(semantic_gate),
-                "semantic_blocked_reason": _infer_semantic_blocked_reason(acceptance_row, semantic_gate),
+                "semantic_unupgraded_reason": _infer_semantic_unupgraded_reason(
+                    semantic_gate
+                ),
+                "semantic_blocked_reason": _infer_semantic_blocked_reason(
+                    acceptance_row, semantic_gate
+                ),
             }
         )
     return rows
@@ -620,14 +760,18 @@ def materialization_mode_counts(acceptance: list[dict[str, Any]]) -> dict[str, i
 def materialization_reason_counts(acceptance: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in acceptance:
-        reason = str((row.get("rewriteMaterialization") or {}).get("reasonCode") or "").strip()
+        reason = str(
+            (row.get("rewriteMaterialization") or {}).get("reasonCode") or ""
+        ).strip()
         if not reason:
             continue
         counts[reason] = counts.get(reason, 0) + 1
     return counts
 
 
-def materialization_reason_group_counts(reason_counts: dict[str, int]) -> dict[str, int]:
+def materialization_reason_group_counts(
+    reason_counts: dict[str, int],
+) -> dict[str, int]:
     grouped: dict[str, int] = {}
     for reason, count in reason_counts.items():
         group = materialization_reason_group(reason)
@@ -641,7 +785,9 @@ def build_proposal_rows(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]
     rows: list[dict[str, Any]] = []
     for proposal in proposals:
         issues = proposal.get("issues") or []
-        issue_codes = [str(x.get("code")) for x in issues if isinstance(x, dict) and x.get("code")]
+        issue_codes = [
+            str(x.get("code")) for x in issues if isinstance(x, dict) and x.get("code")
+        ]
         diagnostics = dict(proposal.get("candidateGenerationDiagnostics") or {})
         rows.append(
             {
@@ -649,10 +795,20 @@ def build_proposal_rows(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "verdict": str(proposal.get("verdict") or "UNKNOWN"),
                 "issue_codes": issue_codes,
                 "llm_candidate_count": len(proposal.get("llmCandidates") or []),
-                "candidate_degradation_kind": str(diagnostics.get("degradationKind") or "").strip() or None,
-                "candidate_recovery_strategy": str(diagnostics.get("recoveryStrategy") or "").strip() or None,
-                "candidate_recovery_succeeded": bool(diagnostics.get("recoverySucceeded")),
-                "candidate_pruned_low_value_count": int(diagnostics.get("prunedLowValueCount") or 0),
+                "candidate_degradation_kind": str(
+                    diagnostics.get("degradationKind") or ""
+                ).strip()
+                or None,
+                "candidate_recovery_strategy": str(
+                    diagnostics.get("recoveryStrategy") or ""
+                ).strip()
+                or None,
+                "candidate_recovery_succeeded": bool(
+                    diagnostics.get("recoverySucceeded")
+                ),
+                "candidate_pruned_low_value_count": int(
+                    diagnostics.get("prunedLowValueCount") or 0
+                ),
             }
         )
     return rows
@@ -667,15 +823,26 @@ def build_top_actionable_sql(
     *,
     limit: int | None = 10,
 ) -> list[dict[str, Any]]:
-    proposal_by_sql_key = {str(row.get("sqlKey") or ""): row for row in proposals if str(row.get("sqlKey") or "").strip()}
-    acceptance_by_sql_key = {str(row.get("sqlKey") or ""): row for row in acceptance if str(row.get("sqlKey") or "").strip()}
+    proposal_by_sql_key = {
+        str(row.get("sqlKey") or ""): row
+        for row in proposals
+        if str(row.get("sqlKey") or "").strip()
+    }
+    acceptance_by_sql_key = {
+        str(row.get("sqlKey") or ""): row
+        for row in acceptance
+        if str(row.get("sqlKey") or "").strip()
+    }
     patch_by_statement = {
-        str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()
+        str(row.get("statementKey") or ""): row
+        for row in patches
+        if str(row.get("statementKey") or "").strip()
     }
     unverified_sql = {
         str(row.get("sql_key") or "")
         for row in verification_rows
-        if str(row.get("status") or "").upper() == "UNVERIFIED" and str(row.get("sql_key") or "").strip()
+        if str(row.get("status") or "").upper() == "UNVERIFIED"
+        and str(row.get("sql_key") or "").strip()
     }
     ranked_rows: list[dict[str, Any]] = []
     for unit in units:
@@ -686,25 +853,37 @@ def build_top_actionable_sql(
         proposal = proposal_by_sql_key.get(sql_key, {})
         acceptance_row = acceptance_by_sql_key.get(sql_key, {})
         semantic_gate = dict(acceptance_row.get("semanticEquivalence") or {})
-        semantic_blocked_reason = _infer_semantic_blocked_reason(acceptance_row, semantic_gate)
+        semantic_blocked_reason = _infer_semantic_blocked_reason(
+            acceptance_row, semantic_gate
+        )
         semantic_unupgraded_reason = _infer_semantic_unupgraded_reason(semantic_gate)
         patch_row = patch_by_statement.get(statement_key, {})
         aggregation_profile = _aggregation_profile(acceptance_row)
         dynamic_profile = _dynamic_template_profile(acceptance_row)
         actionability = dict(proposal.get("actionability") or {})
-        sql_verification_rows = [row for row in verification_rows if str(row.get("sql_key") or "").strip() == sql_key]
+        sql_verification_rows = [
+            row
+            for row in verification_rows
+            if str(row.get("sql_key") or "").strip() == sql_key
+        ]
         outcome = assess_sql_outcome(
             [acceptance_row] if acceptance_row else [],
             [patch_row] if patch_row else [],
             sql_verification_rows,
         )
-        evidence_layer, delivery_layer, acceptance_layer = _acceptance_decision_layers(acceptance_row)
+        evidence_layer, delivery_layer, acceptance_layer = _acceptance_decision_layers(
+            acceptance_row
+        )
         delivery_readiness = dict(acceptance_row.get("deliveryReadiness") or {})
         delivery_outcome = dict(patch_row.get("deliveryOutcome") or {})
         actionability_score = int(actionability.get("score") or 0)
         priority_score = actionability_score
-        delivery_tier = str(outcome.get("delivery_assessment") or delivery_outcome.get("tier") or "").strip()
-        readiness_tier = str(delivery_layer.get("tier") or delivery_readiness.get("tier") or "").strip()
+        delivery_tier = str(
+            outcome.get("delivery_assessment") or delivery_outcome.get("tier") or ""
+        ).strip()
+        readiness_tier = str(
+            delivery_layer.get("tier") or delivery_readiness.get("tier") or ""
+        ).strip()
         evidence_state = str(outcome.get("evidence_state") or "NONE").strip().upper()
         if delivery_tier == "READY_TO_APPLY":
             priority_score += 100
@@ -719,7 +898,9 @@ def build_top_actionable_sql(
             priority_score += 60
         elif readiness_tier == "NEEDS_TEMPLATE_REWRITE":
             priority_score += 35
-        status = str(acceptance_layer.get("status") or acceptance_row.get("status") or "")
+        status = str(
+            acceptance_layer.get("status") or acceptance_row.get("status") or ""
+        )
         if status == "PASS":
             priority_score += 20
         elif status == "NEED_MORE_PARAMS":
@@ -751,28 +932,47 @@ def build_top_actionable_sql(
         delivery_status = _normalize_delivery_status(delivery_tier)
         delivery_tier = delivery_status
 
-        acceptance_reason_code = str(
-            (outcome.get("feedback_reason_code") or (acceptance_layer.get("feedbackReasonCode") or ""))
-        ).strip() or None
-        patch_selection_code = str(((patch_row.get("selectionReason") or {}).get("code") or "")).strip() or None
-        blocker_primary_code, blocker_primary_phase, blocker_primary_message = _pick_primary_blocker(
-            delivery_status=delivery_status,
-            evidence_state=evidence_state,
-            critical_gaps=list(outcome.get("critical_gaps") or []),
-            semantic_blocked_reason=semantic_blocked_reason,
-            acceptance_reason_code=acceptance_reason_code,
-            patch_selection_code=patch_selection_code,
+        acceptance_reason_code = (
+            str(
+                (
+                    outcome.get("feedback_reason_code")
+                    or (acceptance_layer.get("feedbackReasonCode") or "")
+                )
+            ).strip()
+            or None
         )
-        evidence_availability, evidence_missing_reason, evidence_next_required = _derive_evidence_availability(
-            acceptance_row=acceptance_row,
-            semantic_gate=semantic_gate,
-            evidence_state=evidence_state,
-            blocker_primary_code=blocker_primary_code,
+        patch_selection_code = (
+            str(((patch_row.get("selectionReason") or {}).get("code") or "")).strip()
+            or None
+        )
+        blocker_primary_code, blocker_primary_phase, blocker_primary_message = (
+            _pick_primary_blocker(
+                delivery_status=delivery_status,
+                evidence_state=evidence_state,
+                critical_gaps=list(outcome.get("critical_gaps") or []),
+                semantic_blocked_reason=semantic_blocked_reason,
+                acceptance_reason_code=acceptance_reason_code,
+                patch_selection_code=patch_selection_code,
+            )
+        )
+        evidence_availability, evidence_missing_reason, evidence_next_required = (
+            _derive_evidence_availability(
+                acceptance_row=acceptance_row,
+                semantic_gate=semantic_gate,
+                evidence_state=evidence_state,
+                blocker_primary_code=blocker_primary_code,
+            )
         )
 
-        if aggregation_profile["constraint_family"] not in {"", "NONE", "SAFE_BASELINE"}:
+        if aggregation_profile["constraint_family"] not in {
+            "",
+            "NONE",
+            "SAFE_BASELINE",
+        }:
             summary = "聚合语义仍处于受限能力面，需显式 safe rule 后才能自动交付"
-        elif blocker_primary_code and str(blocker_primary_code).startswith("AGGREGATION_CONSTRAINT:"):
+        elif blocker_primary_code and str(blocker_primary_code).startswith(
+            "AGGREGATION_CONSTRAINT:"
+        ):
             summary = "聚合语义仍处于受限能力面，需显式 safe rule 后才能自动交付"
         elif blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             summary = "检测到 ${} 动态 SQL，自动补丁被安全策略阻断"
@@ -781,10 +981,13 @@ def build_top_actionable_sql(
         elif evidence_state == "CRITICAL_GAP":
             summary = "缺失关键验证证据；发布前请审查证据"
         elif bool(outcome.get("db_recheck_recommended")) or (
-            bool(evidence_layer.get("degraded")) and str((acceptance_layer.get("feedbackReasonCode") or "")).strip() in {
-            "VALIDATE_PARAM_INSUFFICIENT",
-            "VALIDATE_DB_UNREACHABLE",
-        }):
+            bool(evidence_layer.get("degraded"))
+            and str((acceptance_layer.get("feedbackReasonCode") or "")).strip()
+            in {
+                "VALIDATE_PARAM_INSUFFICIENT",
+                "VALIDATE_DB_UNREACHABLE",
+            }
+        ):
             summary = "验证证据已降级，需要数据库重新检查"
         elif patch_row.get("applicable") is True:
             summary = "补丁已就绪可应用"
@@ -801,9 +1004,15 @@ def build_top_actionable_sql(
         else:
             summary = "低置信度或被阻塞的优化候选"
 
-        if aggregation_profile["constraint_family"] not in {"", "NONE", "SAFE_BASELINE"}:
+        if aggregation_profile["constraint_family"] not in {
+            "",
+            "NONE",
+            "SAFE_BASELINE",
+        }:
             why_now = "当前主要差距是聚合语义能力边界，而不是模板编辑本身"
-        elif blocker_primary_code and str(blocker_primary_code).startswith("AGGREGATION_CONSTRAINT:"):
+        elif blocker_primary_code and str(blocker_primary_code).startswith(
+            "AGGREGATION_CONSTRAINT:"
+        ):
             why_now = "当前主要差距是聚合语义能力边界，而不是模板编辑本身"
         elif blocker_primary_code == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION":
             why_now = "先移除 ${} 安全阻断，再恢复候选评估与补丁生成"
@@ -855,8 +1064,12 @@ def build_top_actionable_sql(
                 "blocker_primary_message": blocker_primary_message,
                 "aggregation_shape_family": aggregation_profile["shape_family"],
                 "aggregation_capability_tier": aggregation_profile["capability_tier"],
-                "aggregation_constraint_family": aggregation_profile["constraint_family"],
-                "aggregation_safe_baseline_family": aggregation_profile["safe_baseline_family"],
+                "aggregation_constraint_family": aggregation_profile[
+                    "constraint_family"
+                ],
+                "aggregation_safe_baseline_family": aggregation_profile[
+                    "safe_baseline_family"
+                ],
                 "dynamic_shape_family": dynamic_profile["shape_family"],
                 "dynamic_capability_tier": dynamic_profile["capability_tier"],
                 "dynamic_patch_surface": dynamic_profile["patch_surface"],
@@ -864,15 +1077,47 @@ def build_top_actionable_sql(
                 "dynamic_blocking_reason": dynamic_profile["blocking_reason"],
                 "dynamic_delivery_class": dynamic_profile["delivery_class"],
                 "acceptance_reason_code": acceptance_reason_code,
-                "repair_hint_title": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("title")) or "")).strip() or None,
-                "repair_hint_command": str(((((outcome.get("repair_hints") or [None])[0] or {}).get("command")) or "")).strip() or None,
+                "repair_hint_title": str(
+                    (
+                        (
+                            ((outcome.get("repair_hints") or [None])[0] or {}).get(
+                                "title"
+                            )
+                        )
+                        or ""
+                    )
+                ).strip()
+                or None,
+                "repair_hint_command": str(
+                    (
+                        (
+                            ((outcome.get("repair_hints") or [None])[0] or {}).get(
+                                "command"
+                            )
+                        )
+                        or ""
+                    )
+                ).strip()
+                or None,
                 "semantic_gate_status": semantic_gate.get("status") or "UNKNOWN",
-                "semantic_gate_confidence": semantic_gate.get("confidence") or "UNKNOWN",
-                "semantic_gate_evidence_level": semantic_gate.get("evidenceLevel") or "UNKNOWN",
-                "semantic_confidence_before_upgrade": semantic_gate.get("confidenceBeforeUpgrade"),
-                "semantic_confidence_upgraded": bool(semantic_gate.get("confidenceUpgradeApplied")),
-                "semantic_upgrade_reasons": semantic_gate.get("confidenceUpgradeReasons") or [],
-                "semantic_upgrade_sources": semantic_gate.get("confidenceUpgradeEvidenceSources") or [],
+                "semantic_gate_confidence": semantic_gate.get("confidence")
+                or "UNKNOWN",
+                "semantic_gate_evidence_level": semantic_gate.get("evidenceLevel")
+                or "UNKNOWN",
+                "semantic_confidence_before_upgrade": semantic_gate.get(
+                    "confidenceBeforeUpgrade"
+                ),
+                "semantic_confidence_upgraded": bool(
+                    semantic_gate.get("confidenceUpgradeApplied")
+                ),
+                "semantic_upgrade_reasons": semantic_gate.get(
+                    "confidenceUpgradeReasons"
+                )
+                or [],
+                "semantic_upgrade_sources": semantic_gate.get(
+                    "confidenceUpgradeEvidenceSources"
+                )
+                or [],
                 "semantic_hard_conflicts": semantic_gate.get("hardConflicts") or [],
                 "semantic_unupgraded_reason": semantic_unupgraded_reason,
                 "semantic_blocked_reason": semantic_blocked_reason,
@@ -880,12 +1125,19 @@ def build_top_actionable_sql(
                 "_priority_score": priority_score,
             }
         )
-    ranked_rows.sort(key=lambda row: (-int(row.get("_priority_score") or 0), str(row.get("sql_key") or "")))
+    ranked_rows.sort(
+        key=lambda row: (
+            -int(row.get("_priority_score") or 0),
+            str(row.get("sql_key") or ""),
+        )
+    )
     if limit is None:
         selected = ranked_rows
     else:
         selected = ranked_rows[: max(int(limit), 0)]
-    return [{k: v for k, v in row.items() if k != "_priority_score"} for row in selected]
+    return [
+        {k: v for k, v in row.items() if k != "_priority_score"} for row in selected
+    ]
 
 
 def summarize_actionability(
@@ -893,9 +1145,14 @@ def summarize_actionability(
     acceptance: list[dict[str, Any]],
     patches: list[dict[str, Any]],
 ) -> dict[str, int]:
-    proposal_tiers = [str((row.get("actionability") or {}).get("tier") or "").strip() for row in proposals]
+    proposal_tiers = [
+        str((row.get("actionability") or {}).get("tier") or "").strip()
+        for row in proposals
+    ]
     patch_by_statement = {
-        str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()
+        str(row.get("statementKey") or ""): row
+        for row in patches
+        if str(row.get("statementKey") or "").strip()
     }
     needs_manual_review_count = 0
     for row in acceptance:
@@ -907,12 +1164,18 @@ def summarize_actionability(
         if patch_row.get("applicable") is not True:
             needs_manual_review_count += 1
     return {
-        "high_value_sql_count": sum(1 for tier in proposal_tiers if tier in {"HIGH", "MEDIUM"}),
-        "ready_to_apply_count": sum(1 for row in patches if row.get("applicable") is True),
+        "high_value_sql_count": sum(
+            1 for tier in proposal_tiers if tier in {"HIGH", "MEDIUM"}
+        ),
+        "ready_to_apply_count": sum(
+            1 for row in patches if row.get("applicable") is True
+        ),
         "needs_manual_review_count": needs_manual_review_count,
         "blocked_value_count": sum(1 for tier in proposal_tiers if tier == "BLOCKED"),
     }
 
 
 def report_acceptance_llm_count(acceptance_rows: list[dict[str, Any]]) -> int:
-    return sum(1 for row in acceptance_rows if row.get("selectedCandidateSource") == "llm")
+    return sum(
+        1 for row in acceptance_rows if row.get("selectedCandidateSource") == "llm"
+    )

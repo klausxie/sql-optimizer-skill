@@ -44,6 +44,8 @@ class FailureRecord:
     status: str
     classification: str
     phase: str | None
+    message: str | None = None
+    rewritten_sql: str | None = None
 
     def to_contract(self) -> dict[str, Any]:
         return {
@@ -52,6 +54,8 @@ class FailureRecord:
             "status": self.status,
             "classification": self.classification,
             "phase": self.phase,
+            "message": self.message,
+            "rewritten_sql": self.rewritten_sql,
         }
 
 

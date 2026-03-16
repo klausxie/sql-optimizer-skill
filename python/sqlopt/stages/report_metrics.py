@@ -36,24 +36,64 @@ def build_failures(
                 gate_confidence = str(gate.get("confidence") or "").strip().upper()
                 if gate_status in {"FAIL", "UNCERTAIN"}:
                     reason_code = "VALIDATE_SEMANTIC_GATE_NOT_PASS"
+                    message = (
+                        str(
+                            gate.get("humanMessage")
+                            or gate.get("message")
+                            or f"Semantic gate status: {gate_status}"
+                        ).strip()
+                        or None
+                    )
+                    rewritten_sql = (
+                        str(
+                            row.get("selectedCandidate", {}).get("rewritten_sql")
+                            or row.get("selectedCandidate", {}).get("sql")
+                            or ""
+                        ).strip()
+                        or None
+                    )
                     failures.append(
                         FailureRecord(
                             sql_key=row.get("sqlKey"),
                             reason_code=reason_code,
                             status=gate_status,
-                            classification=classify_reason_code(reason_code, phase="validate"),
+                            classification=classify_reason_code(
+                                reason_code, phase="validate"
+                            ),
                             phase="validate",
+                            message=message,
+                            rewritten_sql=rewritten_sql,
                         )
                     )
                 elif gate_confidence == "LOW":
                     reason_code = "VALIDATE_SEMANTIC_CONFIDENCE_LOW"
+                    message = (
+                        str(
+                            gate.get("humanMessage")
+                            or gate.get("message")
+                            or f"Semantic confidence: {gate_confidence}"
+                        ).strip()
+                        or None
+                    )
+                    rewritten_sql = (
+                        str(
+                            row.get("selectedCandidate", {}).get("rewritten_sql")
+                            or row.get("selectedCandidate", {}).get("sql")
+                            or ""
+                        ).strip()
+                        or None
+                    )
                     failures.append(
                         FailureRecord(
                             sql_key=row.get("sqlKey"),
                             reason_code=reason_code,
                             status=gate_status or "PASS",
-                            classification=classify_reason_code(reason_code, phase="validate"),
+                            classification=classify_reason_code(
+                                reason_code, phase="validate"
+                            ),
                             phase="validate",
+                            message=message,
+                            rewritten_sql=rewritten_sql,
                         )
                     )
             continue
@@ -61,7 +101,23 @@ def build_failures(
         feedback = row.get("feedback")
         if isinstance(feedback, dict):
             code = feedback.get("reason_code")
+            message = (
+                str(
+                    feedback.get("human_message") or feedback.get("message") or ""
+                ).strip()
+                or None
+            )
+        else:
+            message = None
         reason_code = str(code or "VALIDATE_PARAM_INSUFFICIENT")
+        rewritten_sql = (
+            str(
+                row.get("selectedCandidate", {}).get("rewritten_sql")
+                or row.get("selectedCandidate", {}).get("sql")
+                or ""
+            ).strip()
+            or None
+        )
         failures.append(
             FailureRecord(
                 sql_key=row.get("sqlKey"),
@@ -69,6 +125,8 @@ def build_failures(
                 status=str(row.get("status") or "UNKNOWN"),
                 classification=classify_reason_code(reason_code, phase="validate"),
                 phase="validate",
+                message=message,
+                rewritten_sql=rewritten_sql,
             )
         )
     for row in manifest_rows:
@@ -89,7 +147,9 @@ def build_failures(
     return failures
 
 
-def summarize_failures(failures: list[FailureRecord]) -> tuple[dict[str, int], dict[str, dict[str, int]], dict[str, int]]:
+def summarize_failures(
+    failures: list[FailureRecord],
+) -> tuple[dict[str, int], dict[str, dict[str, int]], dict[str, int]]:
     reason_counts: dict[str, int] = {}
     phase_reason_counts: dict[str, dict[str, int]] = {}
     class_counts = {"fatal": 0, "retryable": 0, "degradable": 0}
@@ -104,7 +164,9 @@ def summarize_failures(failures: list[FailureRecord]) -> tuple[dict[str, int], d
     return reason_counts, phase_reason_counts, class_counts
 
 
-def summarize_semantic_gates(acceptance_rows: list[dict[str, Any]]) -> tuple[dict[str, int], dict[str, int]]:
+def summarize_semantic_gates(
+    acceptance_rows: list[dict[str, Any]],
+) -> tuple[dict[str, int], dict[str, int]]:
     counts = {
         "pass": 0,
         "fail": 0,
@@ -135,7 +197,9 @@ def summarize_semantic_gates(acceptance_rows: list[dict[str, Any]]) -> tuple[dic
     return counts, reason_counts
 
 
-def summarize_semantic_gate_quality(acceptance_rows: list[dict[str, Any]]) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+def summarize_semantic_gate_quality(
+    acceptance_rows: list[dict[str, Any]],
+) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
     confidence_distribution: dict[str, int] = {}
     evidence_level_distribution: dict[str, int] = {}
     hard_conflict_counts: dict[str, int] = {}
@@ -143,25 +207,37 @@ def summarize_semantic_gate_quality(acceptance_rows: list[dict[str, Any]]) -> tu
     for row in acceptance_rows:
         gate = row.get("semanticEquivalence")
         if not isinstance(gate, dict):
-            confidence_distribution["UNKNOWN"] = confidence_distribution.get("UNKNOWN", 0) + 1
-            evidence_level_distribution["UNKNOWN"] = evidence_level_distribution.get("UNKNOWN", 0) + 1
+            confidence_distribution["UNKNOWN"] = (
+                confidence_distribution.get("UNKNOWN", 0) + 1
+            )
+            evidence_level_distribution["UNKNOWN"] = (
+                evidence_level_distribution.get("UNKNOWN", 0) + 1
+            )
             continue
 
         confidence = str(gate.get("confidence") or "UNKNOWN").strip().upper()
         evidence_level = str(gate.get("evidenceLevel") or "UNKNOWN").strip().upper()
-        confidence_distribution[confidence] = confidence_distribution.get(confidence, 0) + 1
-        evidence_level_distribution[evidence_level] = evidence_level_distribution.get(evidence_level, 0) + 1
+        confidence_distribution[confidence] = (
+            confidence_distribution.get(confidence, 0) + 1
+        )
+        evidence_level_distribution[evidence_level] = (
+            evidence_level_distribution.get(evidence_level, 0) + 1
+        )
 
         for code in gate.get("hardConflicts") or []:
             reason_code = str(code or "").strip()
             if not reason_code:
                 continue
-            hard_conflict_counts[reason_code] = hard_conflict_counts.get(reason_code, 0) + 1
+            hard_conflict_counts[reason_code] = (
+                hard_conflict_counts.get(reason_code, 0) + 1
+            )
 
     return confidence_distribution, evidence_level_distribution, hard_conflict_counts
 
 
-def summarize_semantic_confidence_upgrades(acceptance_rows: list[dict[str, Any]]) -> tuple[int, dict[str, int]]:
+def summarize_semantic_confidence_upgrades(
+    acceptance_rows: list[dict[str, Any]],
+) -> tuple[int, dict[str, int]]:
     upgraded_count = 0
     source_counts: dict[str, int] = {}
     for row in acceptance_rows:
@@ -203,22 +279,32 @@ def build_verification_gate(
     unverified_validate_sql = {
         str(row.get("sql_key") or "")
         for row in verification_rows
-        if str(row.get("phase") or "") == "validate" and str(row.get("status") or "").upper() == "UNVERIFIED"
+        if str(row.get("phase") or "") == "validate"
+        and str(row.get("status") or "").upper() == "UNVERIFIED"
     }
     unverified_patch_sql = {
         str(row.get("sql_key") or "")
         for row in verification_rows
-        if str(row.get("phase") or "") == "patch_generate" and str(row.get("status") or "").upper() == "UNVERIFIED"
+        if str(row.get("phase") or "") == "patch_generate"
+        and str(row.get("status") or "").upper() == "UNVERIFIED"
     }
-    pass_sql = {str(row.get("sqlKey") or "") for row in acceptance_rows if str(row.get("status") or "") == "PASS"}
+    pass_sql = {
+        str(row.get("sqlKey") or "")
+        for row in acceptance_rows
+        if str(row.get("status") or "") == "PASS"
+    }
     applicable_patch_sql = {
         str(row.get("sqlKey") or "")
         for row in patch_rows
         if row.get("applicable") is True and str(row.get("sqlKey") or "").strip()
     }
 
-    unverified_pass_sql = sorted(sql_key for sql_key in (pass_sql & unverified_validate_sql) if sql_key)
-    unverified_applicable_patch_sql = sorted(sql_key for sql_key in (applicable_patch_sql & unverified_patch_sql) if sql_key)
+    unverified_pass_sql = sorted(
+        sql_key for sql_key in (pass_sql & unverified_validate_sql) if sql_key
+    )
+    unverified_applicable_patch_sql = sorted(
+        sql_key for sql_key in (applicable_patch_sql & unverified_patch_sql) if sql_key
+    )
     optimize_explain_syntax_sql = {
         str(row.get("sql_key") or "")
         for row in verification_rows
@@ -227,7 +313,8 @@ def build_verification_gate(
             or any(
                 isinstance(check, dict)
                 and not bool(check.get("ok"))
-                and str(check.get("reason_code") or "") == "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
+                and str(check.get("reason_code") or "")
+                == "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
                 for check in (row.get("checks") or [])
             )
         )
@@ -251,7 +338,9 @@ def build_verification_gate(
 
     if warnings:
         confidence = "LOW"
-    elif any(str(row.get("status") or "").upper() == "PARTIAL" for row in verification_rows):
+    elif any(
+        str(row.get("status") or "").upper() == "PARTIAL" for row in verification_rows
+    ):
         confidence = "MEDIUM"
     else:
         confidence = "HIGH"
@@ -262,6 +351,8 @@ def build_verification_gate(
         {
             "unverified_pass_count": len(unverified_pass_sql),
             "unverified_applicable_patch_count": len(unverified_applicable_patch_sql),
-            "critical_unverified_sql_keys": sorted(set(unverified_pass_sql + unverified_applicable_patch_sql)),
+            "critical_unverified_sql_keys": sorted(
+                set(unverified_pass_sql + unverified_applicable_patch_sql)
+            ),
         },
     )

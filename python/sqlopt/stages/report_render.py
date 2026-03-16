@@ -146,6 +146,9 @@ def render_report_md(
             lines.append(
                 f"- `{blocker.get('code')}` (`{blocker.get('severity')}`): 数量 `{blocker.get('count')}`, 影响 SQL `{len(blocker.get('sql_keys') or [])}`"
             )
+            snippets = blocker.get("message_snippets") or []
+            for snippet in snippets:
+                lines.append(f"  - {snippet}")
     else:
         lines.append("- 无")
 
