@@ -214,6 +214,19 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
 
     commands_dir.mkdir(parents=True, exist_ok=True)
 
+    # Clean up old format command files before generating new ones
+    if commands_dir.exists():
+        # Delete old format files (sql-optimizer-*.md)
+        for old_file in commands_dir.glob("sql-optimizer-*.md"):
+            print(f"Deleting old format file: {old_file.name}")
+            old_file.unlink()
+        # Delete same-name new format files to ensure clean overwrite
+        for cmd in commands:
+            new_file = commands_dir / f"{cmd['name']}.md"
+            if new_file.exists():
+                print(f"Deleting existing file: {new_file.name}")
+                new_file.unlink()
+
     for cmd in commands:
         content = f"""---
 description: {cmd["description"]}
@@ -275,9 +288,15 @@ argument-hint: {cmd["argument_hint"]}
 
         # 添加下一步建议
         next_steps = {
-            "sql-scan": ("sql-validate-config", "如果下一步要进入 validate/report，先确认数据库配置"),
+            "sql-scan": (
+                "sql-validate-config",
+                "如果下一步要进入 validate/report，先确认数据库配置",
+            ),
             "sql-validate-config": ("sql-execute", "配置通过后再推进到 validate"),
-            "sql-execute": ("sql-status", "查看 next_action、report-rebuild 和 validate 结果"),
+            "sql-execute": (
+                "sql-status",
+                "查看 next_action、report-rebuild 和 validate 结果",
+            ),
             "sql-status": ("sql-apply", "仅当 patch 结果里存在 patchFiles"),
             "sql-optimize": ("sql-execute", "需要数据库验证时再继续"),
             "sql-apply": (None, "流程完成"),
