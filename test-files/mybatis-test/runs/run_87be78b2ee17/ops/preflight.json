@@ -1,0 +1,25 @@
+{
+  "run_id": "run_87be78b2ee17",
+  "checked_at": "2026-03-10T09:59:07.200726+00:00",
+  "ok": false,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": false,
+      "error": "Data source name is not supported",
+      "reason_code": "PREFLIGHT_DB_UNREACHABLE"
+    },
+    {
+      "name": "llm",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scan.java_scanner.jar_path not set"
+    }
+  ]
+}

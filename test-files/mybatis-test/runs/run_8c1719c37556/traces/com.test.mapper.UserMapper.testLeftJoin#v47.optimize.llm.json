@@ -1,0 +1,89 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testLeftJoin#v47",
+  "task_id": "com.test.mapper.UserMapper.testLeftJoin#v47:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:15:13.462247+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testLeftJoin#v47",
+    "requiredContext": {
+      "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LEFT JOIN orders o ON u.id = o.user_id LIMIT 10",
+      "templateSql": "SELECT u.id as userId, u.name as userName, u.email as userEmail,\n               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,\n               o.amount, o.created_at as createdAt\n        FROM users u\n        LEFT JOIN orders o ON u.id = o.user_id\n        LIMIT 10",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users",
+        "orders"
+      ],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "query_cost=19.39000024199486",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testLeftJoin#v47:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u LEFT JOIN orders o ON u.id = o.user_id LIMIT 10",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 3,
+  "input_hash": "57dc4754d853303ab86b945e688864271be54cde56d1214bb364ab4cf3685dcb",
+  "output_hash": "1b4d24705997292e6648cb3159f3a087f16ee5c1618cbfd384b0224cf7884358",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testLeftJoin#v47:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orde"
+      }
+    ]
+  }
+}

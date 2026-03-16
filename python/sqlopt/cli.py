@@ -222,7 +222,7 @@ def cmd_validate_config(args: argparse.Namespace) -> None:
         raise SystemExit(2)
 
     try:
-        results = config_service.validate_config(config_path)
+        results = config_service.validate_config(config_path, check_connectivity=True)
         print(results)
         raise SystemExit(0 if results["valid"] else 1)
 
@@ -246,9 +246,9 @@ def cmd_apply(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     top_epilog = (
         "快速工作流:\n"
-        "  1) sqlopt-cli run --config sqlopt.yml\n"
-        "  2) sqlopt-cli status\n"
-        "  3) sqlopt-cli resume\n"
+        "  1) sqlopt-cli validate-config --config sqlopt.yml\n"
+        "  2) sqlopt-cli run --config sqlopt.yml\n"
+        "  3) sqlopt-cli status\n"
         "  4) sqlopt-cli apply\n"
         "\n"
         "默认行为:\n"
@@ -305,7 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--sql-key",
         action="append",
         default=[],
-        help="仅执行指定 SQL key（可重复，完整匹配）",
+        help="仅执行指定 SQL（可重复）。支持 full sqlKey、namespace.statementId、statementId、statementId#vN；若匹配多个会报出候选",
     )
     p_run.add_argument(
         "--run-id",

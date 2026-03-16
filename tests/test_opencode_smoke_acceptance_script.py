@@ -10,7 +10,9 @@ from pathlib import Path
 def _load_module():
     root = Path(__file__).resolve().parents[1]
     module_path = root / "scripts" / "ci" / "opencode_smoke_acceptance.py"
-    spec = importlib.util.spec_from_file_location("opencode_smoke_acceptance", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "opencode_smoke_acceptance", module_path
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     spec.loader.exec_module(module)
@@ -36,16 +38,14 @@ class OpencodeSmokeAcceptanceScriptTest(unittest.TestCase):
         module = _load_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_smoke_cfg_") as td:
             repo_root = Path(td)
-            jar_dir = repo_root / "java" / "scan-agent" / "target"
-            jar_dir.mkdir(parents=True, exist_ok=True)
-            jar_path = jar_dir / "scan-agent-1.0.0.jar"
-            jar_path.write_text("stub", encoding="utf-8")
-
             text = module._local_config_text(repo_root)
 
         self.assertIn("provider: opencode_builtin", text)
         self.assertIn("mapper_globs:", text)
-        self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable", text)
+        self.assertIn(
+            "dsn: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable",
+            text,
+        )
 
     def test_latest_run_id_picks_most_recent_directory(self) -> None:
         module = _load_module()

@@ -1,0 +1,160 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testCountDistinct#v79",
+  "task_id": "com.test.mapper.UserMapper.testCountDistinct#v79:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-11T03:39:33.029778+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testCountDistinct#v79",
+    "requiredContext": {
+      "sql": "SELECT COUNT(DISTINCT user_id) FROM orders AND status = #{status}",
+      "templateSql": "SELECT COUNT(DISTINCT user_id) FROM orders\n        <where>\n            <if test=\"status != null\">AND status = #{status}</if>\n        </where>",
+      "dynamicFeatures": [
+        "WHERE",
+        "IF"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_id",
+          "definition": "INDEX idx_orders_user_id (user_id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_order_no",
+          "definition": "INDEX idx_orders_order_no (order_no)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "WHERE",
+          "IF"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": 8
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=1.2804147465437787",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCountDistinct#v79:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT COUNT(DISTINCT user_id) FROM orders AND status = #{status}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "b96e7d93cbb2fc4d307f9423698b3406e3ce7197abde567c53d4d862f335fe0b",
+  "output_hash": "06d0208a1b59783e4683d1e60144568e142ba4f5af5d2d3e02bf4b42fbece54a",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCountDistinct#v79:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT COUNT(DISTINCT user_id) FROM orders AND status = #{status}"
+      }
+    ]
+  }
+}

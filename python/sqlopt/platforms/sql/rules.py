@@ -11,6 +11,9 @@ from ...run_paths import canonical_paths
 RuleMatcher = Callable[[dict[str, Any]], bool]
 SuggestionBuilder = Callable[[dict[str, Any]], list[dict[str, Any]]]
 
+_TABLE_STATS_LOW_ROWS = 1000
+_TABLE_STATS_MEDIUM_ROWS = 10000
+
 
 def _has_dollar_substitution(sql_unit: dict[str, Any]) -> bool:
     return "${" in str(sql_unit.get("sql") or "")
@@ -91,6 +94,53 @@ def _has_sensitive_columns(sql_unit: dict[str, Any]) -> bool:
 def _select_star_suggestions(sql_unit: dict[str, Any]) -> list[dict[str, Any]]:
     sql = str(sql_unit.get("sql") or "")
     return [{"action": "PROJECT_COLUMNS", "sql": sql.replace("*", "id", 1)}]
+
+
+def _max_estimated_rows(sql_unit: dict[str, Any]) -> int | None:
+    values: list[int] = []
+    for row in sql_unit.get("tableStats") or []:
+        if not isinstance(row, dict):
+            continue
+        raw_value = row.get("estimatedRows")
+        if isinstance(raw_value, bool):
+            continue
+        try:
+            values.append(int(raw_value))
+        except (TypeError, ValueError):
+            continue
+    if not values:
+        return None
+    return max(values)
+
+
+def _row_sensitive_rule_adjustment(
+    rule_id: str,
+    sql_unit: dict[str, Any],
+    *,
+    severity_overridden: bool,
+) -> tuple[bool, str | None, str | None]:
+    estimated_rows = _max_estimated_rows(sql_unit)
+    if estimated_rows is None:
+        return True, None, None
+
+    suffix = f"(estimated rows: {estimated_rows})"
+    if severity_overridden:
+        return True, None, suffix
+
+    if estimated_rows < _TABLE_STATS_LOW_ROWS:
+        if rule_id in {"FULL_SCAN_RISK", "NO_LIMIT"}:
+            return False, None, None
+        if rule_id == "SELECT_STAR":
+            return True, "info", f"low-priority on a small table {suffix}"
+    elif estimated_rows < _TABLE_STATS_MEDIUM_ROWS and rule_id in {
+        "SELECT_STAR",
+        "FULL_SCAN_RISK",
+        "NO_LIMIT",
+    }:
+        return True, "info", suffix
+    elif rule_id in {"SELECT_STAR", "FULL_SCAN_RISK", "NO_LIMIT"}:
+        return True, None, suffix
+    return True, None, None
 
 
 # Extended built-in rules registry
@@ -407,14 +457,25 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
         matcher = rule["matcher"]
         if not matcher(sql_unit):
             continue
-        severity = severity_overrides.get(rule_id, rule["default_severity"])
-        issue = {"code": rule_id, "message": rule["message"], "severity": severity}
+        keep_issue, severity_override, message_suffix = _row_sensitive_rule_adjustment(
+            rule_id,
+            sql_unit,
+            severity_overridden=rule_id in severity_overrides,
+        )
+        if not keep_issue:
+            continue
+        severity = severity_override or severity_overrides.get(rule_id, rule["default_severity"])
+        message = str(rule["message"])
+        if message_suffix:
+            message = f"{message} {message_suffix}"
+        issue = {"code": rule_id, "message": message, "severity": severity}
         issues.append(issue)
         triggered_rules.append(
             {
                 "ruleId": rule_id,
                 "builtin": rule["builtin"],
                 "severity": severity,
+                "estimatedRows": _max_estimated_rows(sql_unit),
             }
         )
         suggestion_builder = rule["suggestions"]

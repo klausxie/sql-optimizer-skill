@@ -1,0 +1,24 @@
+{
+  "run_id": "run_5ffc8a9e6b20",
+  "checked_at": "2026-03-10T10:26:38.508742+00:00",
+  "ok": true,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "llm",
+      "enabled": false,
+      "ok": true,
+      "reason": "provider=heuristic"
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scan.java_scanner.jar_path not set"
+    }
+  ]
+}

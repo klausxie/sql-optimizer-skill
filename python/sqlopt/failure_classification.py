@@ -7,18 +7,14 @@ GLOBAL_CLASSIFICATION = {
 }
 
 PHASE_CLASSIFICATION = {
-    "preflight": {
-        "PREFLIGHT_CHECK_FAILED": "fatal",
-        "PREFLIGHT_DB_UNREACHABLE": "fatal",
-        "PREFLIGHT_LLM_UNREACHABLE": "fatal",
-        "PREFLIGHT_SCANNER_MISSING": "fatal",
-    },
     "scan": {
         "SCAN_CLASS_RESOLUTION_DEGRADED": "degradable",
         "SCAN_CLASS_NOT_FOUND": "degradable",
         "SCAN_TYPE_ATTR_SANITIZED": "degradable",
         "SCAN_STATEMENT_PARSE_DEGRADED": "degradable",
         "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD": "fatal",
+        "SCAN_SELECTION_SQL_KEY_NOT_FOUND": "fatal",
+        "SCAN_SELECTION_SQL_KEY_AMBIGUOUS": "fatal",
         "SCAN_MAPPER_NOT_FOUND": "fatal",
         "SCAN_XML_PARSE_FATAL": "fatal",
         "SCAN_UNKNOWN_EXIT": "fatal",

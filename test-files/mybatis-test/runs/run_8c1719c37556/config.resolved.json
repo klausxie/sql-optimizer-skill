@@ -1,0 +1,118 @@
+{
+  "config_version": "v1",
+  "project": {
+    "root_path": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test"
+  },
+  "scan": {
+    "mapper_globs": [
+      "src/main/resources/mapper/UserMapper.xml"
+    ]
+  },
+  "db": {
+    "platform": "mysql",
+    "dsn": "mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset=utf8mb4",
+    "schema": null,
+    "statement_timeout_ms": 3000,
+    "allow_explain_analyze": false
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_base": null,
+    "api_key": null,
+    "api_model": null,
+    "api_timeout_ms": null,
+    "api_headers": null
+  },
+  "report": {
+    "enabled": true
+  },
+  "rules": {
+    "enabled": true,
+    "custom_rules_path": null,
+    "custom_rules": [],
+    "builtin_rules": {
+      "DOLLAR_SUBSTITUTION": true,
+      "SELECT_STAR": true,
+      "FULL_SCAN_RISK": true
+    }
+  },
+  "prompt_injections": {
+    "system": [],
+    "by_rule": []
+  },
+  "apply": {
+    "mode": "PATCH_ONLY"
+  },
+  "policy": {
+    "require_perf_improvement": false,
+    "cost_threshold_pct": 0,
+    "allow_seq_scan_if_rows_below": 0,
+    "semantic_strict_mode": true
+  },
+  "validate": {
+    "db_reachable": true,
+    "plan_compare_enabled": false,
+    "allow_db_unreachable_fallback": true,
+    "validation_profile": "balanced",
+    "selection_mode": "patchability_first",
+    "require_semantic_match": true,
+    "require_perf_evidence_for_pass": false,
+    "require_verified_evidence_for_pass": false,
+    "delivery_bias": "conservative",
+    "llm_semantic_check": {
+      "enabled": false,
+      "only_on_db_mismatch": true
+    }
+  },
+  "patch": {
+    "llm_assist": {
+      "enabled": false,
+      "only_for_dynamic_sql": true,
+      "generate_template_suggestions": true
+    }
+  },
+  "diagnostics": {
+    "rulepacks": [
+      {
+        "builtin": "core"
+      },
+      {
+        "builtin": "performance"
+      }
+    ],
+    "loaded_rulepacks": [],
+    "severity_overrides": {},
+    "disabled_rules": [],
+    "llm_feedback": {
+      "enabled": false,
+      "log_detected_issues": true,
+      "auto_learn_patterns": false
+    }
+  },
+  "runtime": {
+    "stage_timeout_ms": {
+      "preflight": 12000,
+      "scan": 60000,
+      "optimize": 60000,
+      "validate": 60000,
+      "apply": 15000,
+      "report": 15000
+    },
+    "stage_retry_max": {
+      "preflight": 1,
+      "scan": 1,
+      "optimize": 1,
+      "validate": 1,
+      "apply": 1,
+      "report": 1
+    },
+    "stage_retry_backoff_ms": 1000
+  },
+  "verification": {
+    "enforce_verified_outputs": false,
+    "critical_output_policy": "warn"
+  }
+}

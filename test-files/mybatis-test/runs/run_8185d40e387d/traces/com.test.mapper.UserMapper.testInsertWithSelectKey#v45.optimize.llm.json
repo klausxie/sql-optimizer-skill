@@ -1,0 +1,89 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testInsertWithSelectKey#v45",
+  "task_id": "com.test.mapper.UserMapper.testInsertWithSelectKey#v45:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-11T03:34:25.799310+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testInsertWithSelectKey#v45",
+    "requiredContext": {
+      "sql": "INSERT INTO users (name, email, status, type) VALUES (#{u.name}, #{u.email}, #{u.status}'1', #{u.type}'NORMAL')",
+      "templateSql": "INSERT INTO users (name, email, status, type) VALUES\n        <foreach collection=\"users\" item=\"u\" separator=\",\">\n            (#{u.name}, #{u.email}, \n            <choose><when test=\"u.status != null\">#{u.status}</when><otherwise>'1'</otherwise></choose>,\n            <choose><when test=\"u.type != null\">#{u.type}</when><otherwise>'NORMAL'</otherwise></choose>)\n        </foreach>",
+      "dynamicFeatures": [
+        "FOREACH",
+        "CHOOSE"
+      ],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "FOREACH",
+          "CHOOSE"
+        ],
+        "includeFragments": []
+      },
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(1064, \"You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ''1', NULL'NORMAL')' at line 1\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testInsertWithSelectKey#v45:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "INSERT INTO users (name, email, status, type) VALUES (#{u.name}, #{u.email}, #{u.status}'1', #{u.type}'NORMAL')",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "9490019370866db8d54abb4c26f3de2f1568235cad34254a5b84877ded9436e5",
+  "output_hash": "52d5947da8763bf2fb6cffd0ad2a004861f671f5b9f246ff0514bdb741d5ae8d",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testInsertWithSelectKey#v45:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "INSERT INTO users (name, email, status, type) VALUES (#{u.name}, #{u.email}, #{u.status}'1', #{u.typ"
+      }
+    ]
+  }
+}

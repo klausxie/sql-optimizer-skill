@@ -1,0 +1,6 @@
+{"ts": "2026-03-11T03:40:21.057340+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_28da52333857"}}
+{"ts": "2026-03-11T03:41:26.481191+00:00", "stage": "branch_export", "event": "done", "payload": {"path": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/runs/run_28da52333857/branches.jsonl", "count": 11}}
+{"ts": "2026-03-11T03:41:26.481449+00:00", "stage": "scan", "event": "done", "payload": {"sql_keys": ["com.test.mapper.TestFourIfMapper.testFourIf#v1"]}}
+{"ts": "2026-03-11T03:41:34.052229+00:00", "stage": "optimize", "event": "done", "payload": {"statement_key": "com.test.mapper.TestFourIfMapper.testFourIf#v1"}}
+{"ts": "2026-03-11T03:41:37.332865+00:00", "stage": "validate", "event": "done", "payload": {"statement_key": "com.test.mapper.TestFourIfMapper.testFourIf#v1", "status": "PASS"}}
+{"ts": "2026-03-11T03:41:37.390786+00:00", "stage": "patch_generate", "event": "done", "payload": {"statement_key": "com.test.mapper.TestFourIfMapper.testFourIf#v1"}}

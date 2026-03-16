@@ -1,0 +1,14 @@
+{
+  "phases": [
+    "preflight",
+    "scan",
+    "optimize",
+    "validate",
+    "patch_generate",
+    "report"
+  ],
+  "to_stage": "patch_generate",
+  "sql_keys": [
+    "com.test.mapper.TestFourIfMapper.testFourIf#v1"
+  ]
+}

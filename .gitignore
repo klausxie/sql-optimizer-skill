@@ -11,7 +11,7 @@ __pycache__/
 venv/
 
 # Build artifacts
-java/**/target/
+dist/
 
 # Local runtime data
 .opencode-data/
@@ -23,3 +23,4 @@ tests/fixtures/project/runs/
 *.tmp
 tmp/
 backup/
+.sisyphus/

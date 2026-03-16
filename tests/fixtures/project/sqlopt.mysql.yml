@@ -7,7 +7,7 @@ scan:
 
 db:
   platform: mysql
-  dsn: mysql://root:Aa28012801.@127.0.0.1:3306/sqloptimizer
+  dsn: mysql://root:root@127.0.0.1:3306/sqlopt_test
 
 llm:
   enabled: true

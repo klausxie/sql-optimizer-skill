@@ -1,0 +1,146 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testMultiGroupBy#v62",
+  "task_id": "com.test.mapper.UserMapper.testMultiGroupBy#v62:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:21.030913+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testMultiGroupBy#v62",
+    "requiredContext": {
+      "sql": "SELECT user_id as userId, status, COUNT(*) as count FROM orders WHERE user_id = #{userId} GROUP BY user_id, status",
+      "templateSql": "SELECT user_id as userId, status, COUNT(*) as count \n        FROM orders \n        WHERE user_id = #{userId}\n        GROUP BY user_id, status",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_id",
+          "definition": "INDEX idx_orders_user_id (user_id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_order_no",
+          "definition": "INDEX idx_orders_order_no (order_no)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": 8
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=0.0",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiGroupBy#v62:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT user_id as userId, status, COUNT(*) as count FROM orders WHERE user_id = #{userId} GROUP BY user_id, status",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "e5697d0be140ba6816af7deef57d15b115fbed41c042f1f3b4f097cfcf362cdc",
+  "output_hash": "8ea6ac412066fd030db85a428f68ab76862cdf86f27f3696e96123005bba6dfa",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiGroupBy#v62:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT user_id as userId, status, COUNT(*) as count FROM orders WHERE user_id = #{userId} GROUP BY u"
+      }
+    ]
+  }
+}

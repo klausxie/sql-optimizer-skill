@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from .status_resolver import PhaseExecutionPolicy
 
-STAGE_ORDER = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
+STAGE_ORDER = ["scan", "optimize", "validate", "patch_generate", "report"]
 
 PHASE_POLICIES = {
-    "preflight": PhaseExecutionPolicy("preflight"),
     "scan": PhaseExecutionPolicy("scan"),
     "optimize": PhaseExecutionPolicy("optimize"),
     "validate": PhaseExecutionPolicy("validate"),
@@ -14,7 +13,6 @@ PHASE_POLICIES = {
 }
 
 PHASE_TRANSITIONS = {
-    "preflight": "scan",
     "scan": "optimize",
     "optimize": "validate",
     "validate": "patch_generate",

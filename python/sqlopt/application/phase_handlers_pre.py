@@ -8,39 +8,9 @@ from ..run_paths import canonical_paths
 from .run_selection import filter_units_by_sql_keys, finalize_selection_summary
 
 
-def advance_preflight(
-    ctx: Any,
-    *,
-    phase_transitions: dict[str, str | None],
-    mark_updated: Callable[[dict[str, Any]], None],
-    complete_phase_result: Callable[[Any, str], dict[str, Any]],
-    finalize_completed_run: Callable[[Any], None],
-    handle_phase_failure: Callable[[Any, str, StageError], None],
-    preflight_execute: Callable[[dict[str, Any], Any], object],
-) -> dict[str, Any] | None:
-    paths = canonical_paths(ctx.run_dir)
-    if ctx.state["phase_status"]["preflight"] == "DONE":
-        return None
-    ctx.progress.report_phase_start("preflight", "Checking configuration and environment")
-    try:
-        _, attempts = ctx.phase_action(ctx.config, "preflight", lambda: preflight_execute(ctx.config, ctx.run_dir))
-        ctx.state["attempts_by_phase"]["preflight"] += attempts
-    except StageError as exc:
-        handle_phase_failure(ctx, "preflight", exc)
-        raise
-    ctx.state["phase_status"]["preflight"] = "DONE"
-    ctx.state["current_phase"] = str(phase_transitions["preflight"])
-    mark_updated(ctx.state)
-    ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
-        "preflight",
-        "DONE",
-        artifact_refs=[str(paths.preflight_path)],
-    )
-    ctx.progress.report_phase_complete("preflight")
-    if ctx.to_stage == "preflight":
-        finalize_completed_run(ctx)
-    return complete_phase_result(ctx, "preflight")
+def _selection_examples(units: list[dict[str, Any]], *, limit: int = 5) -> str:
+    examples = [str(row.get("sqlKey") or "").strip() for row in units if str(row.get("sqlKey") or "").strip()]
+    return ", ".join(examples[:limit])
 
 
 def advance_scan(
@@ -58,24 +28,51 @@ def advance_scan(
         return None
     ctx.progress.report_phase_start("scan", "Scanning MyBatis mapper files")
     try:
-        units, attempts = ctx.phase_action(ctx.config, "scan", lambda: scan_execute(ctx.config, ctx.run_dir, ctx.validator))
+        units, attempts = ctx.phase_action(
+            ctx.config,
+            "scan",
+            lambda: scan_execute(ctx.config, ctx.run_dir, ctx.validator),
+        )
         ctx.state["attempts_by_phase"]["scan"] += attempts
     except StageError as exc:
         handle_phase_failure(ctx, "scan", exc)
         raise
     scanned_units = list(units)
-    selection = dict(ctx.plan.get("selection") or {}) if isinstance(ctx.plan.get("selection"), dict) else None
-    selected_units, missing_sql_keys = filter_units_by_sql_keys(scanned_units, (selection or {}).get("sql_keys"))
-    if missing_sql_keys:
+    selection = (
+        dict(ctx.plan.get("selection") or {})
+        if isinstance(ctx.plan.get("selection"), dict)
+        else None
+    )
+    selected_units, missing_sql_keys, ambiguous_sql_keys = filter_units_by_sql_keys(
+        scanned_units, (selection or {}).get("sql_keys")
+    )
+    if ambiguous_sql_keys:
+        details = []
+        for requested, matches in ambiguous_sql_keys.items():
+            details.append(f"{requested} -> {', '.join(matches[:5])}")
         exc = StageError(
-            f"scan selection did not match sql keys: {', '.join(missing_sql_keys)}",
+            "scan selection matched multiple sql keys; use a more specific key. "
+            + "; ".join(details),
+            reason_code="SCAN_SELECTION_SQL_KEY_AMBIGUOUS",
+        )
+        handle_phase_failure(ctx, "scan", exc)
+        raise exc
+    if missing_sql_keys:
+        examples = _selection_examples(scanned_units)
+        exc = StageError(
+            "scan selection did not match sql keys: "
+            + ", ".join(missing_sql_keys)
+            + ". Accepted forms: full sqlKey, namespace.statementId, statementId, or statementId#vN."
+            + (f" Available sqlKeys: {examples}" if examples else ""),
             reason_code="SCAN_SELECTION_SQL_KEY_NOT_FOUND",
         )
         handle_phase_failure(ctx, "scan", exc)
         raise exc
     artifact_refs = [str(paths.scan_units_path)]
     if selection:
-        selection = finalize_selection_summary(selection, scanned_units=scanned_units, selected_units=selected_units)
+        selection = finalize_selection_summary(
+            selection, scanned_units=scanned_units, selected_units=selected_units
+        )
         ctx.plan["selection"] = selection
         selection_path = paths.scan_dir / "selection.json"
         write_json(selection_path, selection)
@@ -87,7 +84,8 @@ def advance_scan(
     ctx.state["phase_status"]["scan"] = "DONE"
     ctx.state["current_phase"] = str(phase_transitions["scan"])
     ctx.state["statements"] = {
-        k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"} for k in ctx.plan["sql_keys"]
+        k: {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
+        for k in ctx.plan["sql_keys"]
     }
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
@@ -95,7 +93,10 @@ def advance_scan(
         "scan",
         "DONE",
         artifact_refs=artifact_refs,
-        detail={"sql_keys": ctx.plan["sql_keys"], "selection": ctx.plan.get("selection")},
+        detail={
+            "sql_keys": ctx.plan["sql_keys"],
+            "selection": ctx.plan.get("selection"),
+        },
     )
     ctx.progress.report_phase_complete("scan")
     if selection:

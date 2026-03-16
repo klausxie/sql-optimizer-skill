@@ -16,6 +16,7 @@ class ApplyModeTest(unittest.TestCase):
             state = apply_stage.apply_from_config(run_dir)
         self.assertEqual(state.get("mode"), "PATCH_ONLY")
         self.assertFalse(state.get("applied"))
+        self.assertIn("patch_results", state)
 
     def test_apply_in_place_runs_git_apply(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_inplace_") as td:
@@ -54,6 +55,38 @@ class ApplyModeTest(unittest.TestCase):
         args, kwargs = run_mock.call_args
         self.assertEqual(args[0][:2], ["git", "apply"])
         self.assertEqual(Path(kwargs["cwd"]).resolve(), project_root.resolve())
+
+    def test_apply_in_place_reports_skipped_patch_results_when_no_patch_files_exist(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_apply_skip_") as td:
+            run_dir = Path(td)
+            patch_dir = run_dir / "pipeline" / "patch_generate"
+            overview_dir = run_dir / "overview"
+            project_root = run_dir / "project"
+            patch_dir.mkdir(parents=True, exist_ok=True)
+            overview_dir.mkdir(parents=True, exist_ok=True)
+            project_root.mkdir(parents=True, exist_ok=True)
+            (overview_dir / "config.resolved.json").write_text(
+                json.dumps(
+                    {
+                        "project": {"root_path": str(project_root)},
+                        "apply": {"mode": "APPLY_IN_PLACE"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (patch_dir / "patch.results.jsonl").write_text(
+                json.dumps({"patchFiles": [], "selectionReason": {"code": "PATCH_NOT_APPLICABLE"}}) + "\n",
+                encoding="utf-8",
+            )
+
+            state = apply_stage.apply_from_config(run_dir)
+
+        self.assertFalse(state["applied"])
+        self.assertEqual(state["patch_results"]["result_count"], 1)
+        self.assertEqual(state["patch_results"]["selected_count"], 0)
+        self.assertEqual(state["patch_results"]["skipped_count"], 1)
+        self.assertEqual(state["patch_results"]["skipped_reason_codes"], ["PATCH_NOT_APPLICABLE"])
+        self.assertIn("skipped reasons", state["message"])
 
 
 if __name__ == "__main__":

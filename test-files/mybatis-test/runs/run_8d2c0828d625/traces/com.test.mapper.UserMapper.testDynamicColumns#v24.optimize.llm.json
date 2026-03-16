@@ -1,0 +1,156 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testDynamicColumns#v24",
+  "task_id": "com.test.mapper.UserMapper.testDynamicColumns#v24:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:07.712026+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testDynamicColumns#v24",
+    "requiredContext": {
+      "sql": "SELECT name, email, status, type id FROM users AND name = #{name}",
+      "templateSql": "SELECT\n        <if test=\"includeName\">name,</if>\n        <if test=\"includeEmail\">email,</if>\n        <if test=\"includeStatus\">status,</if>\n        <if test=\"includeType\">type</if>\n        id\n        FROM users\n        <where><if test=\"name != null\">AND name = #{name}</if></where>",
+      "dynamicFeatures": [
+        "IF",
+        "WHERE"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "IF",
+          "WHERE"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=3.1500000000000004",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testDynamicColumns#v24:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT name, email, status, type id FROM users AND name = #{name}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "0486253ce6e4d7a163f36d48026666bbac9180cb970edc3671b42ffa27b53cbb",
+  "output_hash": "8477d5aa6c125a00a2caf361302d800d3657d75940a95fe47f133f29adb7a144",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testDynamicColumns#v24:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT name, email, status, type id FROM users AND name = #{name}"
+      }
+    ]
+  }
+}

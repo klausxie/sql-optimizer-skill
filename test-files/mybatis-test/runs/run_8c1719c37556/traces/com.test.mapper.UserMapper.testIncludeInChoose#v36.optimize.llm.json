@@ -1,0 +1,186 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testIncludeInChoose#v36",
+  "task_id": "com.test.mapper.UserMapper.testIncludeInChoose#v36:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:08:10.268777+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testIncludeInChoose#v36",
+    "requiredContext": {
+      "sql": "SELECT * FROM users AND status = #{status} AND type = #{type} AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%')",
+      "templateSql": "SELECT * FROM users\n        <where>\n            <choose>\n                <when test=\"filterMode == 'status'\"><include refid=\"statusCondition\" /></when>\n                <when test=\"filterMode == 'type'\"><include refid=\"typeCondition\" /></when>\n                <otherwise><include refid=\"commonWhere\" /></otherwise>\n            </choose>\n        </where>",
+      "dynamicFeatures": [
+        "WHERE",
+        "CHOOSE",
+        "INCLUDE"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *, specify columns explicitly",
+          "severity": "warn"
+        },
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [
+        "com.test.mapper.UserMapper.statusCondition",
+        "com.test.mapper.UserMapper.typeCondition",
+        "com.test.mapper.UserMapper.commonWhere"
+      ],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "WHERE",
+          "CHOOSE",
+          "INCLUDE"
+        ],
+        "includeFragments": [
+          {
+            "ref": "com.test.mapper.UserMapper.statusCondition",
+            "dynamicFeatures": [
+              "IF"
+            ]
+          },
+          {
+            "ref": "com.test.mapper.UserMapper.typeCondition",
+            "dynamicFeatures": [
+              "IF"
+            ]
+          },
+          {
+            "ref": "com.test.mapper.UserMapper.commonWhere",
+            "dynamicFeatures": [
+              "IF"
+            ]
+          }
+        ]
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "Packet sequence number wrong - got 1 expected 2"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testIncludeInChoose#v36:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id FROM users AND status = #{status} AND type = #{type} AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%')",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "d2ca3f59e90fc2f8d38faace93d50f3fa5ffeae96a026a7b6966aa908ba68e33",
+  "output_hash": "377c5a5352b88ebbfce67bc4d0b0b932cef7ca9c14d14a3b479220a92589486b",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testIncludeInChoose#v36:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id FROM users AND status = #{status} AND type = #{type} AND name LIKE CONCAT('%', #{name}, '%"
+      }
+    ]
+  }
+}

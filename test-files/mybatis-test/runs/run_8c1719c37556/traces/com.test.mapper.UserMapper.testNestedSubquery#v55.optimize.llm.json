@@ -1,0 +1,83 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testNestedSubquery#v55",
+  "task_id": "com.test.mapper.UserMapper.testNestedSubquery#v55:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:22:31.926145+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testNestedSubquery#v55",
+    "requiredContext": {
+      "sql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.amount >= #{minAmount} AND o.user_id IN ( SELECT user_id FROM orders WHERE amount > (SELECT AVG(amount) FROM orders) ) LIMIT 10",
+      "templateSql": "SELECT u.id as userId, u.name as userName, u.email as userEmail,\n               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,\n               o.amount, o.created_at as createdAt\n        FROM users u\n        INNER JOIN orders o ON u.id = o.user_id\n        WHERE o.amount >= #{minAmount}\n        AND o.user_id IN (\n            SELECT user_id FROM orders \n            WHERE amount > (SELECT AVG(amount) FROM orders)\n        )\n        LIMIT 10",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "users",
+        "orders"
+      ],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "query_cost=3.0408622155673544",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testNestedSubquery#v55:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orderNo, o.status as orderStatus, o.amount, o.created_at as createdAt FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.amount >= #{minAmount} AND o.user_id IN ( SELECT user_id FROM orders WHERE amount > (SELECT AVG(amount) FROM orders) ) LIMIT 10",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "64bfe700f68f5fdc85a8a52335ea9d9421cef236f41e60fa3a996b1e2402449b",
+  "output_hash": "1f29e5285ad4abb0d6842529e51c918a68c0a53ffcba0ae4f48a4326f2e1b133",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testNestedSubquery#v55:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT u.id as userId, u.name as userName, u.email as userEmail, o.id as orderId, o.order_no as orde"
+      }
+    ]
+  }
+}

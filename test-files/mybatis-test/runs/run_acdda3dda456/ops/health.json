@@ -1,0 +1,11 @@
+{
+  "run_id": "run_acdda3dda456",
+  "mode": "analyze",
+  "generated_at": "2026-03-10T10:25:49.456853+00:00",
+  "status": "ok",
+  "failure_count": 0,
+  "fatal_failure_count": 1,
+  "retryable_failure_count": 0,
+  "degradable_count": 0,
+  "report_json": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/runs/run_acdda3dda456/report.json"
+}

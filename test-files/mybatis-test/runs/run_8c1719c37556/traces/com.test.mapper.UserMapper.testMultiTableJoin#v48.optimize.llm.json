@@ -1,0 +1,91 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testMultiTableJoin#v48",
+  "task_id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:16:42.553035+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testMultiTableJoin#v48",
+    "requiredContext": {
+      "sql": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, oi.product_id as productId, p.name as productName, oi.quantity, oi.price FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN order_items oi ON o.id = oi.order_id INNER JOIN products p ON oi.product_id = p.id WHERE u.id = #{userId}",
+      "templateSql": "SELECT u.id as userId, u.name as userName,\n               o.id as orderId, o.order_no as orderNo,\n               oi.id as itemId, oi.product_id as productId,\n               p.name as productName, oi.quantity, oi.price\n        FROM users u\n        INNER JOIN orders o ON u.id = o.user_id\n        INNER JOIN order_items oi ON o.id = oi.order_id\n        INNER JOIN products p ON oi.product_id = p.id\n        WHERE u.id = #{userId}",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users",
+        "orders",
+        "order_items",
+        "products"
+      ],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "query_cost=0.0",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, oi.product_id as productId, p.name as productName, oi.quantity, oi.price FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN order_items oi ON o.id = oi.order_id INNER JOIN products p ON oi.product_id = p.id WHERE u.id = #{userId}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 8,
+  "input_hash": "9f0e55dc238f0cf29528bae53b38deea9ca2724d205d7c7b7217b2b162abdb2b",
+  "output_hash": "4bcde38bb68ffd96acd1f2ada71a2eb1af29cd03e4a5483b8d66e95819a0550b",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, "
+      }
+    ]
+  }
+}

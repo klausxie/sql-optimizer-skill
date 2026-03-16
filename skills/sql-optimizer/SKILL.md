@@ -1,74 +1,98 @@
 ---
 name: sql-optimizer
-description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 run/status/resume/apply 命令、契约校验、扫描桥接检查、回放基线与 patch-only 输出。支持 LLM 增强功能（Phase 1-6）。
+description: 面向 MyBatis 项目的 SQL 优化 skill。用于在本地仓库里运行 `sqlopt-cli` 的 `validate-config / run / status / apply` 工作流，排查 SQL key 选择、数据库连通性、报告与补丁产物问题；适合需要按 mapper、statementId 或 sqlKey 做可恢复分析时使用。
 ---
 
-# sql-optimizer
+# SQL Optimizer Skill
 
-## 工作流
-1. 先校验配置与 contracts。
-2. `sql-optimizer-run` 是单次时间片命令（约 95 秒，不保证一次完成）。
-3. skill 必须自动循环执行多个时间片，直到 `complete=true` 或失败。
-4. 当 `report.enabled=true`（默认）时，即使 `to_stage` 更早，运行收尾也会完成 report。
-5. 生成报告并检查 ops 产物。
-6. 若用户当前只在改 scanner/scan verification，优先先做一次 scan-only smoke，再决定是否继续全流程。
-7. 数据库平台当前支持 `postgresql` 与 `mysql`；MySQL 支持 5.6+（含 5.7、8.0+），不支持 MariaDB。
-8. MySQL 不做 PostgreSQL 方言兼容；若 SQL 含 `ILIKE` 等不支持语法，应按语法错误处理，并检查 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`。
+## Start Here
 
-## LLM 增强功能（Phase 1-6）
+- 先执行 `sqlopt-cli validate-config --config sqlopt.yml`。
+- 再执行 `sqlopt-cli run --config sqlopt.yml`。
+- 需要查看中间状态时执行 `sqlopt-cli status`。
+- 只有在 `patch_results` 里确实存在 patch 文件时，才执行 `sqlopt-cli apply`。
 
-所有 LLM 增强功能已集成到主流程，默认启用：
+## Use The Real Workflow
 
-| Phase | 功能 | 产物位置 |
-|-------|------|----------|
-| Phase 1 | LLM 输出质量控制（语法/启发式检查） | `proposals/*.llmValidationResults` |
-| Phase 2 | LLM 重试 + 反馈机制 | `proposals/*.llmRetryStats` |
-| Phase 3 | validate 阶段 LLM 语义判断 | `acceptance/*.llmSemanticCheck` |
-| Phase 4 | 规则引擎 ↔ LLM 双向反馈 | `ops/llm_feedback.jsonl` |
-| Phase 5 | patch_generate 阶段 LLM 辅助 | `ops/template_suggestions/*.json` |
-| Phase 6 | LLM Trace 完整性增强 | `traces/*.optimize.llm.json` |
+当前 CLI 的真实阶段顺序是：
 
-配置控制见主文档 `LLM 增强功能配置` 章节。
+`scan -> optimize -> validate -> patch_generate -> report`
 
-## 自动续跑策略
-1. 先执行 `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`。
-2. 解析最新结构化输出 payload。
-3. 若 `complete=true`，停止并汇报最终状态。
-4. 若 payload 包含 `error` 或 `run_status=FAILED`，停止并汇报 `reason_code` 与恢复命令。
-5. 若 `complete=false` 且无错误，立即继续：
-   - 优先执行 payload 中的 `next_action`。
-   - 若无 `next_action`，使用同一 `run_id` 重新执行 `run_until_budget.py`。
-6. 每轮输出精简进度：`run_id`、`current_phase`、`remaining_statements`、`reason`。
+按下面的方式引导，而不是虚构额外阶段：
 
-默认目标阶段为 `patch_generate`，除非用户明确指定其他阶段。
+1. `validate-config`
+2. `run`
+3. `status` 或 `scripts/run_until_budget.py`
+4. 查看 `runs/<run-id>/overview/report.summary.md` 和 `runs/<run-id>/pipeline/patch_generate/patch.results.jsonl`
+5. 只有存在可应用 patch 时再 `apply`
 
-## Scan-only 验证
-当用户当前在改 scanner、动态标签覆盖或 scan verification：
+## Do Not Over-Promise
 
-1. 优先执行：
-   `python3 scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-seconds 30 --max-steps 10`
-2. 检查：
-   - `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
-   - `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
-   - `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
-3. 关键判断：
-   - `searchUsersAdvanced` 应识别 `FOREACH / INCLUDE / IF / CHOOSE / WHERE / BIND`
-   - `patchUserStatusAdvanced` 不应再出现重复 `SET SET`
-   - `includeTrace` 已解析时，不应误报 `SCAN_INCLUDE_TRACE_PARTIAL`
+- 不要声称 scan 之后一定会出现“是否继续执行 SQL”的交互确认。当前 CLI 没有独立的手动确认闸门；如果你调用了目标阶段为 `validate` 或更后的命令，就表示继续推进。
+- 不要把 `sqlopt-cli apply` 描述成“必然改动源码”。默认 `PATCH_ONLY` 模式只汇总 patch 结果，不修改项目文件。
+- 不要把没有数据库证据的结果描述成“已完成真实性能分析”。数据库不可达时，validate 会明确降级。
+- 不要把 skipped patch、空 patch 目录或 `NEED_MORE_PARAMS` 结果包装成成功交付。
 
-## 命令入口
-- `python scripts/run_until_budget.py --config ./sqlopt.yml --to-stage patch_generate --max-seconds 95`
-- `python scripts/run_until_budget.py --config tests/fixtures/project/sqlopt.scan.local.yml --to-stage scan --max-seconds 30 --max-steps 10`
-- `python scripts/run_with_resolved_id.py status --project . [--run-id <run_id>]`
-- `python scripts/run_with_resolved_id.py resume --project . [--run-id <run_id>]`
-- `python scripts/run_with_resolved_id.py apply --project . [--run-id <run_id>]`
-- 推荐先做首轮检查：`python scripts/sqlopt_cli.py run --config <path> --to-stage preflight`
-- MySQL 项目建议先设置 `llm.enabled=false` + `llm.provider=heuristic` 做一轮离线 smoke，再切换真实 `mysql://` DSN 打开 compare。
-- MySQL 本地测试库可用：`mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql`
-- apply 行为为内置 `PATCH_ONLY`（不通过 `sqlopt.yml` 暴露 `apply.mode` 配置）。
+## SQL Key Selection
 
-## 参考资料
-- `references/contracts.md`
-- `references/postgresql.md`
-- `references/failure-codes.md`
-- `references/runtime-budget.md`
+`--sql-key` 现在支持 4 种输入：
+
+- 完整 `sqlKey`
+- `namespace.statementId`
+- `statementId`
+- `statementId#vN`
+
+如果一个 `statementId` 命中了多个 SQL，CLI 会返回候选 full key 列表。遇到这种情况时：
+
+- 向用户展示冲突项
+- 改用更具体的 `namespace.statementId` 或完整 `sqlKey`
+- 不要假设工具会替用户自动选一个
+
+当用户已经给了明确文件范围时，优先配合 `--mapper-path` 一起缩小扫描面。
+
+## Database Guidance
+
+在任何 DB-backed run 之前：
+
+- 先跑 `sqlopt-cli validate-config --config sqlopt.yml`
+- 如果 `db.dsn` 还包含占位符，先修配置，不要继续推进
+- 如果数据库不可达，明确告诉用户当前结果会降级，或者先修复连通性再继续
+
+优先解释这些失败：
+
+- `DB_CONNECTION_FAILED`
+- `SCAN_SELECTION_SQL_KEY_NOT_FOUND`
+- `SCAN_SELECTION_SQL_KEY_AMBIGUOUS`
+- `VALIDATE_DB_UNREACHABLE`
+
+更多细节见 [failure-codes.md](references/failure-codes.md)。
+
+## Time Budgets
+
+- 单条命令可能被外部环境限制在约 120 秒内。
+- 需要分时间片推进时，优先使用 [runtime-budget.md](references/runtime-budget.md) 里的 `run_until_budget.py` 方案。
+- 如果 `status.next_action=report-rebuild`，继续用 `run --to-stage report --run-id <run-id>`，不要误判为“已经完全结束”。
+
+## Windows
+
+- 在 Windows 上优先使用 `sqlopt-cli`、`python scripts/sqlopt_cli.py`，或 skill 自带的 `scripts/run_one_step.cmd`。
+- `*.sh` 辅助脚本默认面向 POSIX shell；不要假设它们在 PowerShell / CMD / Git Bash 中都能直接工作。
+- 如果命令包装器异常，直接调用 Python 入口比继续调 shell wrapper 更可靠。
+
+## Output Expectations
+
+优先给用户这些高信号产物和结论：
+
+- 当前 `run_id`
+- `current_phase`、`next_action`、剩余语句数
+- 是否已验证数据库配置
+- 是否存在真实 patch 文件
+- 如果没有 patch，给出 skipped reason code，而不是只说“可应用”
+
+## References
+
+- [runtime-budget.md](references/runtime-budget.md)
+- [failure-codes.md](references/failure-codes.md)
+- [contracts.md](references/contracts.md)
+- [README.md](../../README.md)
+- [docs/QUICKSTART.md](../../docs/QUICKSTART.md)

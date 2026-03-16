@@ -4,3 +4,4 @@
 - `sql-optimizer-run` 命令每次调用只跑一个时间片。
 - “跑到 complete”需要通过 skill 层自动循环执行实现。
 - 在 Windows 上，runtime 使用软超时回退（无 `SIGALRM` 硬超时）。
+- Windows 优先使用 `sqlopt-cli`、`python scripts/run_until_budget.py` 或 `scripts/run_one_step.cmd`，不要默认依赖 `*.sh` 辅助脚本。

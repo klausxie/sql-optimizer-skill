@@ -1,0 +1,91 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testSetMultipleIf#v26",
+  "task_id": "com.test.mapper.UserMapper.testSetMultipleIf#v26:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:03:50.303781+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testSetMultipleIf#v26",
+    "requiredContext": {
+      "sql": "UPDATE users name = #{name}, email = #{email}, status = #{status}, type = #{type}, AND id = #{id}",
+      "templateSql": "UPDATE users\n        <set>\n            <if test=\"name != null\">name = #{name},</if>\n            <if test=\"email != null\">email = #{email},</if>\n            <if test=\"status != null\">status = #{status},</if>\n            <if test=\"type != null\">type = #{type},</if>\n        </set>\n        <where>\n            <if test=\"id != null\">AND id = #{id}</if>\n        </where>",
+      "dynamicFeatures": [
+        "SET",
+        "IF",
+        "WHERE"
+      ],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "SET",
+          "IF",
+          "WHERE"
+        ],
+        "includeFragments": []
+      },
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(1064, \"You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '= NULL, email = NULL, status = NULL, type = NULL, AND id = NULL' at line 1\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testSetMultipleIf#v26:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "UPDATE users name = #{name}, email = #{email}, status = #{status}, type = #{type}, AND id = #{id}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "b703aaf7462952c087eeb2301193172d859c66cc334130a8593ca69a7aeedc59",
+  "output_hash": "27a8903c3752b655c5f29f1ad036037b794fa9bb9a5fffbf2667e9601d38726c",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testSetMultipleIf#v26:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "UPDATE users name = #{name}, email = #{email}, status = #{status}, type = #{type}, AND id = #{id}"
+      }
+    ]
+  }
+}

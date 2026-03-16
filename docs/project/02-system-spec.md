@@ -3,7 +3,7 @@
 ## 1. 逻辑架构
 当前实现按三层组织：
 1. `orchestrator`：命令入口、阶段编排、状态推进、超时与重试。
-2. `stage core`：`scan / optimize / validate / patch_generate / report` 领域逻辑。
+2. `stage core`：`scan / execute / analyze / optimize / validate / patch_generate / report` 领域逻辑。
 3. `contracts & artifacts`：schema 校验、运行产物落盘、报告与 ops 诊断。
 
 稳定约束：
@@ -14,19 +14,48 @@
 ## 2. 阶段行为
 
 ### 2.1 `scan`
+**职责**：只推断动态分支，不做问题分析
+
 Current:
-1. 输出 `pipeline/scan/sqlunits.jsonl`。
-2. 默认额外输出 `pipeline/scan/fragments.jsonl`（内部默认开启）。
-3. 对动态 MyBatis mapper statement 同时保留两种视图：
-   - `templateSql`：模板视图，保留 `<foreach> / <include>` 等标签
-   - `sql`：逻辑分析视图，可用于 optimize / validate
-4. 输出 statement / fragment 的源码 range locator，以及 `<include><property>` 绑定信息。
+1. 解析用户指定范围（不扩散到其他文件）
+2. 输出 `scan.sqlunits.jsonl`
+3. 默认额外输出 `branches.jsonl`（分支执行模板）
+4. 推断动态分支 (if/foreach/choose)
+5. 输出 statement / fragment 的源码 range locator
 
-Default:
-1. fragment catalog 内部默认开启
-2. schema 校验失败会终止本次运行
+**Scan 阶段不做**：
+- ❌ 不调用 diagnose_branches（问题分析）
+- ❌ 不计算 problemBranchCount
+- ❌ 不做深度优化建议
 
-### 2.2 `optimize`
+### 2.2 `execute`
+**职责**：执行SQL收集性能数据
+
+**⚠️ 必须交互提示**：扫描完成后，Agent 必须提示用户确认是否执行。
+
+Current:
+1. 输入 `scan.sqlunits.jsonl` + `branches.jsonl`
+2. 收集 EXPLAIN 执行计划
+3. 收集实际耗时和返回行数
+4. 输出 `execute_results.jsonl`
+
+### 2.3 `analyze`
+**职责**：诊断分支问题，确认瓶颈
+
+Current:
+1. 输入 `scan.sqlunits.jsonl` + `execute_results.jsonl`
+2. 调用 `diagnose_branches` 进行分支诊断
+3. 计算 `problemBranchCount`（问题分支数量）
+4. 判断复杂度 (simple/complex)
+5. 选择优化方式 (rules/llm)
+6. 输出 `analyzed.sqlunits.jsonl`
+
+**Analyze 阶段做**：
+- ✅ 调用 diagnose_branches（EXPLAIN分析）
+- ✅ 计算 problemBranchCount
+- ✅ 确认慢SQL及其瓶颈
+
+### 2.4 `optimize`
 Current:
 1. 输入 `SqlUnit[]`
 2. 输出 `pipeline/optimize/optimization.proposals.jsonl`
@@ -40,7 +69,7 @@ Current:
    - `candidateGenerationDiagnostics`
    - `sql/<sql-key>/candidate_generation_diagnostics.json`
 
-### 2.3 `validate`
+### 2.5 `validate`
 Current:
 1. 输入 `SqlUnit[] + OptimizationProposal[]`
 2. 输出 `pipeline/validate/acceptance.results.jsonl`
@@ -67,7 +96,7 @@ Current:
 Default:
 1. fragment 级模板物化由内部策略保持默认关闭
 
-### 2.4 `patch_generate`
+### 2.6 `patch_generate`
 Current:
 1. 优先消费 validate 已规划的 `selectedPatchStrategy`
 2. 当前策略选择由内部 planner 统一产出：
@@ -97,7 +126,7 @@ Current template paths:
    - 已实现
    - 仅在 feature flag 打开且 materializer 判定安全时才可用
 
-### 2.5 `report`
+### 2.7 `report`
 Current:
 1. 输出 `overview/report.md`、`overview/report.summary.md`、`overview/report.json`
 2. 报告会聚合：
@@ -149,43 +178,17 @@ Current:
 3. 只有在修改 report 聚合、capability 主链、candidate governance registry 后才优先补 full run
 
 当前阶段验收基线：
-1. `run_fixture_project_full_aggregation_ready_v3`
+1. `run_fixture_project_full_stability_gate_v10`
 2. 当前 full-run 基线要求：
    - `semantic_gate_uncertain_count = 0`
-   - `semantic_gate_fail_count = 0`
    - `dynamic_ready_patch_count >= 6`
    - `patch_strategy_counts.DYNAMIC_STATEMENT_TEMPLATE_EDIT >= 6`
-   - `aggregation_ready_patch_count >= 6`
-3. dynamic/filter/DML/aggregation plain-review 脏回归已在该基线收敛为 clean blocker 或 ready patch
-4. DML clean blocker 当前统一收正为：
-   - `AcceptanceResult.status = PASS`
-   - `patchability.blockingReason = PATCH_NO_EFFECTIVE_CHANGE`
-   - patch 仍保持 review-only blocker
-5. report 当前会持续跟踪：
-   - `dml_review_only_count`
-   - `aggregation_wrapper_review_only_count`
-   - `aggregation_review_only_family_counts`
-   - `no_safe_baseline_shape_match_count`
-6. 当前 residual shape 已进一步收口：
-   - `no_safe_baseline_shape_match_count = 0`
-   - 剩余 empty blocked reason 已细分到：
-   - `NO_SAFE_BASELINE_WINDOW`
-   - `NO_SAFE_BASELINE_DML_FOREACH`
-   - `NO_SAFE_BASELINE_GROUP_BY`
-   - `NO_SAFE_BASELINE_DISTINCT`
-7. 当前 aggregation plain/review-only 已固定为：
-   - `PASS + PATCH_NO_EFFECTIVE_CHANGE`
-   - 并细分为 `GROUP_BY/HAVING/WINDOW/UNION/DISTINCT_REVIEW_ONLY`
-8. 当前 aggregation ready family 已固定为：
-   - `REDUNDANT_GROUP_BY_WRAPPER`
-   - `REDUNDANT_HAVING_WRAPPER`
-   - `REDUNDANT_DISTINCT_WRAPPER`
-   - `GROUP_BY_FROM_ALIAS_CLEANUP`
-   - `GROUP_BY_HAVING_FROM_ALIAS_CLEANUP`
-   - `DISTINCT_FROM_ALIAS_CLEANUP`
-9. 下一阶段重点不再是扩 dynamic patch family，而是处理：
-   - `${}` 安全阻断之外的剩余候选稳定性尾项
-   - 后续是否继续扩新的 aggregation safe baseline family
+3. dynamic/filter/DML 脏回归已在该基线收敛为 clean blocker 或 ready patch
+4. 下一阶段重点不再是扩 dynamic patch family，而是处理：
+   - `aggregation wrapper / plain aggregation`
+   - 剩余 review-only plain shapes
+   - `${}` 安全阻断之外的候选稳定性尾项
+
 ## 6. 外部稳定面
 1. CLI：`run / status / resume / apply`
 2. 运行目录：`runs/<run-id>/...`
@@ -196,7 +199,19 @@ Current:
    - `PatchResult`
    - `RunReport`
 
-## 7. 技术难点（当前约束）
+## 7. 阶段职责边界
+
+| 阶段 | 职责 | 不应该做 |
+|------|------|----------|
+| **Scan** | 解析范围、推断动态分支 | 问题分析、优化建议 |
+| **Execute** | 执行SQL收集性能数据 | - |
+| **Analyze** | 诊断分支问题、确认瓶颈 | - |
+| **Optimize** | 生成优化建议 | - |
+| **Validate** | 验证优化效果 | - |
+| **PatchGenerate** | 生成XML补丁 | - |
+| **Report** | 生成报告 | - |
+
+## 8. 技术难点（当前约束）
 1. scan 依赖 Java MyBatis 渲染，但只读取 mapper 文件；类解析失败时必须降级而不是中断整轮扫描。
 2. `<include>` 指向的 `<sql id>` 片段可能继续包含其他动态标签，且调用点可能带 `<property>` 绑定；因此系统必须同时维护模板视图、逻辑视图、递归依赖链和源码定位信息，不能只保留扁平 SQL。
 3. 模板级 patch 不能依赖扁平 SQL 直接覆盖 XML；必须先通过 deterministic materializer 生成模板替换计划，并通过 replay 校验后才允许落地。

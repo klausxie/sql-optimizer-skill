@@ -1,0 +1,27 @@
+# SQL Optimizer 配置 - 分支推断测试（限制分支数）
+config_version: v1
+
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/mapper/UserMapper.xml
+
+db:
+  platform: mysql
+  dsn: mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset=utf8mb4
+
+llm:
+  enabled: false
+  provider: heuristic
+  timeout_ms: 80000
+
+report:
+  enabled: false
+
+branch:
+  enabled: true
+  diagnose: false
+  strategy: boundary
+  max_branches: 10

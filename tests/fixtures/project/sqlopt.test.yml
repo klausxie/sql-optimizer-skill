@@ -1,0 +1,19 @@
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+
+db:
+  platform: postgresql
+  dsn: postgresql://postgres:Aa28012801@127.0.0.1:5432/postgres?sslmode=disable
+  schema: public
+
+llm:
+  enabled: true
+  provider: heuristic
+  timeout_ms: 80000
+
+report:
+  enabled: true

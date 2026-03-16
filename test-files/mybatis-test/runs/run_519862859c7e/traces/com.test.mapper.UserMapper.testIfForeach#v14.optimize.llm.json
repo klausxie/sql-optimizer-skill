@@ -1,0 +1,161 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testIfForeach#v14",
+  "task_id": "com.test.mapper.UserMapper.testIfForeach#v14:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-03-10T10:08:47.283372+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testIfForeach#v14",
+    "requiredContext": {
+      "sql": "SELECT * FROM users AND status = #{status} AND id IN #{id}",
+      "templateSql": "SELECT * FROM users\n        <where>\n            <if test=\"status != null\">AND status = #{status}</if>\n            <if test=\"ids != null and ids.size() &gt; 0\">AND id IN <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach></if>\n        </where>",
+      "dynamicFeatures": [
+        "WHERE",
+        "IF",
+        "FOREACH"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *"
+        },
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no where filter"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "indexType": "BTREE",
+          "column": "id",
+          "nonUnique": 0
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "WHERE",
+          "IF",
+          "FOREACH"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false,
+          "columnKey": "PRI"
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NULL' at line 1"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "cand_001",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, status, username, email, created_at FROM users WHERE status = #{status} AND id IN #{id}",
+        "rewriteStrategy": "COLUMN_PRUNING_WITH_VALID_WHERE",
+        "semanticRisk": "low",
+        "confidence": "0.95"
+      },
+      {
+        "id": "cand_002",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, status FROM users WHERE status = #{status} AND id IN <foreach item='item' collection='idList' open='(' separator=',' close=')'>#{item}</foreach>",
+        "rewriteStrategy": "COLUMN_PRUNING_DYNAMIC_COLLECTION",
+        "semanticRisk": "medium",
+        "confidence": "0.8"
+      },
+      {
+        "id": "cand_003",
+        "source": "llm",
+        "rewrittenSql": "SELECT * FROM users WHERE status = #{status} AND id IN (#{id})",
+        "rewriteStrategy": "WHERE_CLAUSE_FIX",
+        "semanticRisk": "low",
+        "confidence": "0.9"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "input_hash": "11c859ace4684edd90a8cd1dc50cbd88c90077f2eb53d4d6f4dbbb38374ef8c2",
+  "output_hash": "63075ebbec2c85e93b30d0bf47b1f0a67fc92beec7627ca978c428f17ba94cbe"
+}

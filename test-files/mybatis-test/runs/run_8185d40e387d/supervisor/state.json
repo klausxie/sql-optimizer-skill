@@ -1,0 +1,485 @@
+{
+  "current_phase": "validate",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "PENDING",
+    "patch_generate": "PENDING",
+    "report": "PENDING"
+  },
+  "statements": {
+    "com.test.mapper.UserMapper.testSingleIf#v1": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testTwoIf#v2": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testThreeIf#v3": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testFourIf#v4": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseWhen#v5": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseOtherwise#v6": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testWhereIf#v7": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testSetIf#v8": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testForeachIn#v9": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testTrim#v10": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIfChoose#v11": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testWhereMultipleIf#v12": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseMultipleIf#v13": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIfForeach#v14": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testWhereChooseWhen#v15": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseWithMultipleIf#v16": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testFiveIf#v17": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseNestedChoose#v18": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testComplexConditions#v19": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDynamicOrderBy#v20": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testBindIf#v21": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testTrimPrefixSuffix#v22": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testForeachInsert#v23": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDynamicColumns#v24": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChooseTripleNested#v25": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testSetMultipleIf#v26": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIfMultiCondition#v27": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testForeachChoose#v28": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testTrimUpdate#v29": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIfForeachComplex#v30": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeBaseColumns#v31": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeCondition#v32": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultipleInclude#v33": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeComplex#v34": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeInIf#v35": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeInChoose#v36": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultipleBind#v37": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testBindWithInclude#v38": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testEmptyIf#v39": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testOnlyOtherwise#v40": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testNestedTrim#v41": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testNestedForeach#v42": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testIncludeWithProperty#v43": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testLongConditions#v44": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testInsertWithSelectKey#v45": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testInnerJoin#v46": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testLeftJoin#v47": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultiTableJoin#v48": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDynamicJoin#v49": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testSubqueryIn#v50": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testSubqueryExists#v51": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testScalarSubquery#v52": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDynamicMultiTableJoin#v53": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testUnion#v54": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testNestedSubquery#v55": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCountAll#v56": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCountByStatus#v57": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testSumAmount#v58": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testAvgAmount#v59": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMaxMinAmount#v60": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testGroupBy#v61": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultiGroupBy#v62": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testGroupByHaving#v63": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCaseWhen#v64": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDateFunction#v65": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testStringConcat#v66": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testStringSubstring#v67": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testConditionalSum#v68": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultiAggFunction#v69": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testOrderRank#v70": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testLimit#v71": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testLimitOffset#v72": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDynamicPagination#v73": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDistinctStatus#v74": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDistinctMultipleFields#v75": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testInsertOnDuplicateKeyUpdate#v76": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testReturningSyntax#v77": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testDistinctWithCondition#v78": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCountDistinct#v79": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testOrderByMultipleWithPagination#v80": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testComplexAggregation#v81": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testUnionWithLimit#v82": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileInclude#v83": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileIncludeWithIf#v84": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testLocalFragmentWithCrossFile#v85": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileInChoose#v86": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileWithForeach#v87": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testMultipleCrossFileInclude#v88": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileNestedChoose#v89": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileInTrim#v90": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testCrossFileInSet#v91": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "com.test.mapper.UserMapper.testChainedCrossFileInclude#v92": {
+      "optimize": "DONE",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 92,
+    "validate": 69,
+    "patch_generate": 0,
+    "report": 0
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-03-11T03:45:16.883163+00:00"
+}

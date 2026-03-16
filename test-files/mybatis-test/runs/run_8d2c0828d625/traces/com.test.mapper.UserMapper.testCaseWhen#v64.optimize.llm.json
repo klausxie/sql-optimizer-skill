@@ -1,0 +1,146 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testCaseWhen#v64",
+  "task_id": "com.test.mapper.UserMapper.testCaseWhen#v64:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:23.767041+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testCaseWhen#v64",
+    "requiredContext": {
+      "sql": "SELECT id as orderId, order_no as orderNo, status, amount, CASE status WHEN 'completed' THEN '已完成' WHEN 'pending' THEN '待处理' WHEN 'processing' THEN '处理中' WHEN 'cancelled' THEN '已取消' ELSE '未知' END as statusLabel FROM orders LIMIT 10",
+      "templateSql": "SELECT id as orderId, order_no as orderNo, status, amount,\n               CASE status\n                   WHEN 'completed' THEN '已完成'\n                   WHEN 'pending' THEN '待处理'\n                   WHEN 'processing' THEN '处理中'\n                   WHEN 'cancelled' THEN '已取消'\n                   ELSE '未知'\n               END as statusLabel\n        FROM orders\n        LIMIT 10",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_id",
+          "definition": "INDEX idx_orders_user_id (user_id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_order_no",
+          "definition": "INDEX idx_orders_order_no (order_no)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": 8
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=1.05",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCaseWhen#v64:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id as orderId, order_no as orderNo, status, amount, CASE status WHEN 'completed' THEN '已完成' WHEN 'pending' THEN '待处理' WHEN 'processing' THEN '处理中' WHEN 'cancelled' THEN '已取消' ELSE '未知' END as statusLabel FROM orders LIMIT 10",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "f1848a1a3797198aad28a9235c213eee19e0554c391cb57e761b70db57780de3",
+  "output_hash": "9decf1903b9fbf447fc6cb247c002465ea8a06858893ddaed19005f787cb19dd",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCaseWhen#v64:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id as orderId, order_no as orderNo, status, amount, CASE status WHEN 'completed' THEN '已完成' W"
+      }
+    ]
+  }
+}

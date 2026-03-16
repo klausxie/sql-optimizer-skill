@@ -69,7 +69,7 @@ class StatusResolverModuleTest(unittest.TestCase):
                 config={"report": {"enabled": True}},
             )
         )
-        self.assertTrue(result.complete)
+        self.assertFalse(result.complete)
         self.assertEqual(result.next_action, "report-rebuild")
 
 

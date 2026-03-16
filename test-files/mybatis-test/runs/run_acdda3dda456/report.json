@@ -1,0 +1,90 @@
+{
+  "run_id": "run_acdda3dda456",
+  "mode": "analyze",
+  "llm_gate": {
+    "enabled": true
+  },
+  "policy": {
+    "require_perf_improvement": false,
+    "cost_threshold_pct": 0,
+    "allow_seq_scan_if_rows_below": 0,
+    "semantic_strict_mode": true
+  },
+  "stats": {
+    "sql_units": 0,
+    "proposals": 0,
+    "acceptance_pass": 0,
+    "pass_with_warn_count": 0,
+    "acceptance_fail": 0,
+    "acceptance_need_more_params": 0,
+    "semantic_error_count": 0,
+    "dollar_substitution_count": 0,
+    "patch_files": 0,
+    "patch_applicable_count": 0,
+    "materialization_mode_counts": {},
+    "materialization_reason_counts": {},
+    "materialization_reason_group_counts": {},
+    "perf_improved_count": 0,
+    "perf_compared_but_not_improved_count": 0,
+    "blocked_sql_count": 0,
+    "db_unreachable_count": 0,
+    "llm_candidates_generated": 0,
+    "llm_candidates_accepted": 0,
+    "llm_candidates_rejected": 0,
+    "llm_timeout_count": 0,
+    "preflight_failure_count": 1,
+    "phase_reason_code_counts": {
+      "preflight": {
+        "PREFLIGHT_DB_UNREACHABLE": 1
+      }
+    },
+    "ineffective_reason_counts": {
+      "PREFLIGHT_DB_UNREACHABLE": 1
+    },
+    "fatal_count": 1,
+    "retryable_count": 0,
+    "degradable_count": 0,
+    "pipeline_coverage": {
+      "preflight": "FAILED",
+      "scan": "PENDING",
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING",
+      "report": "PENDING"
+    }
+  },
+  "items": {
+    "units": [],
+    "proposals": [],
+    "acceptance": [],
+    "patches": []
+  },
+  "summary": {
+    "generated_at": "2026-03-10T10:25:49.437306+00:00",
+    "verdict": "BLOCKED",
+    "release_readiness": "NO_GO",
+    "top_blockers": [
+      {
+        "code": "PREFLIGHT_DB_UNREACHABLE",
+        "count": 1,
+        "ratio": null,
+        "severity": "fatal",
+        "sql_keys": []
+      }
+    ],
+    "next_actions": [
+      {
+        "action_id": "resume",
+        "title": "Platform: resume run",
+        "reason": "pipeline not fully healthy",
+        "applicability": "pending or degraded pipeline",
+        "expected_outcome": "continue or finalize processing",
+        "commands": [
+          "PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id run_acdda3dda456"
+        ]
+      }
+    ],
+    "prioritized_sql_keys": []
+  },
+  "contract_version": "v1.0.0"
+}

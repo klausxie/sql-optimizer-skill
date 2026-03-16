@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from ..failure_classification import classify_reason_code
+from ..platforms.sql.error_intel import (
+    humanize_sql_runtime_error,
+    maybe_infer_table_for_column,
+    parse_sql_runtime_error,
+)
 from ..platforms.sql.materialization_constants import materialization_reason_group
 from ..verification.explain import action_reason, assess_sql_outcome
 
@@ -54,6 +59,73 @@ def _primary_blocker_message(code: str | None) -> str | None:
     if normalized.startswith("PATCH_"):
         return "patch decision logic blocked automatic delivery for this SQL"
     return normalized
+
+
+def _semantic_feedback_details(
+    acceptance_row: dict[str, Any],
+    raw_tables: Any = None,
+) -> dict[str, Any] | None:
+    feedback = dict(acceptance_row.get("feedback") or {})
+    details = dict(feedback.get("details") or {})
+    if not details:
+        raw_error = str((acceptance_row.get("equivalence") or {}).get("rowCount", {}).get("error") or "").strip()
+        details = parse_sql_runtime_error(raw_error)
+    if not details:
+        return None
+    return maybe_infer_table_for_column(details, raw_tables)
+
+
+def _semantic_feedback_message(
+    acceptance_row: dict[str, Any],
+    raw_tables: Any = None,
+) -> str | None:
+    feedback = dict(acceptance_row.get("feedback") or {})
+    human_message = str(feedback.get("human_message") or "").strip()
+    if human_message:
+        details = _semantic_feedback_details(acceptance_row, raw_tables)
+        if details:
+            return humanize_sql_runtime_error(details) or human_message
+        return human_message
+    details = _semantic_feedback_details(acceptance_row, raw_tables)
+    return humanize_sql_runtime_error(details)
+
+
+def _perf_baseline_summary(perf_comparison: dict[str, Any]) -> str | None:
+    perf = dict(perf_comparison or {})
+    before_cost = (perf.get("beforeSummary") or {}).get("totalCost")
+    after_cost = (perf.get("afterSummary") or {}).get("totalCost")
+    if before_cost is None and after_cost is None:
+        return None
+    if before_cost is None or after_cost is None:
+        return "EXPLAIN evidence is partial"
+    if perf.get("improved") is True:
+        return f"EXPLAIN total cost improved: {before_cost} -> {after_cost}"
+    if perf.get("improved") is False:
+        return f"EXPLAIN total cost did not improve: {before_cost} -> {after_cost}"
+    return f"EXPLAIN total cost: {before_cost} -> {after_cost}"
+
+
+def _action_payload(
+    action_id: str,
+    run_id: str,
+    *,
+    description: str,
+    agent_instruction: str,
+    stage: str | None = None,
+    cli_hints: list[str] | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "type": action_id,
+        "run_id": run_id,
+        "description": description,
+        "agent_instruction": agent_instruction,
+        "commands": [],
+    }
+    if stage:
+        payload["stage"] = stage
+    if cli_hints:
+        payload["cli_hints"] = list(cli_hints)
+    return payload
 
 
 def blocker_family_for_outcome(

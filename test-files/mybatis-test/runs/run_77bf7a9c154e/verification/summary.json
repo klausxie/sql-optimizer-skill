@@ -1,0 +1,12 @@
+{
+  "run_id": "run_77bf7a9c154e",
+  "total_sql": 0,
+  "records_by_phase": {},
+  "verified_count": 0,
+  "partial_count": 0,
+  "unverified_count": 0,
+  "coverage_by_phase": {},
+  "top_reason_codes": [],
+  "blocking_sql_keys": [],
+  "generated_at": "2026-03-11T03:15:37.730110+00:00"
+}

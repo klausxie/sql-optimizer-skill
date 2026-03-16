@@ -4,7 +4,6 @@ from typing import Any, Literal, TypedDict
 
 
 class PhaseStatusMap(TypedDict):
-    preflight: str
     scan: str
     optimize: str
     validate: str

@@ -1,0 +1,163 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testIfChoose#v11",
+  "task_id": "com.test.mapper.UserMapper.testIfChoose#v11:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:03.309828+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testIfChoose#v11",
+    "requiredContext": {
+      "sql": "SELECT * FROM users AND status = '1' AND status = '2' AND type = #{type}",
+      "templateSql": "SELECT * FROM users\n        <where>\n            <if test=\"status != null\">\n                <choose>\n                    <when test=\"status == '1'\">AND status = '1'</when>\n                    <when test=\"status == '2'\">AND status = '2'</when>\n                </choose>\n            </if>\n            <if test=\"type != null\">AND type = #{type}</if>\n        </where>",
+      "dynamicFeatures": [
+        "WHERE",
+        "IF",
+        "CHOOSE"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *, specify columns explicitly",
+          "severity": "warn"
+        },
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "WHERE",
+          "IF",
+          "CHOOSE"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=0.0",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testIfChoose#v11:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id FROM users AND status = '1' AND status = '2' AND type = #{type}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "07b6092e69103df81e16f1a910ed010235b4c4814e4073e87d964dd60e9b126e",
+  "output_hash": "dfe5e4636c0cd5b980c065d7aec3eb45309d5f33faa02ddd8bfcff48d50a12c3",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testIfChoose#v11:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id FROM users AND status = '1' AND status = '2' AND type = #{type}"
+      }
+    ]
+  }
+}

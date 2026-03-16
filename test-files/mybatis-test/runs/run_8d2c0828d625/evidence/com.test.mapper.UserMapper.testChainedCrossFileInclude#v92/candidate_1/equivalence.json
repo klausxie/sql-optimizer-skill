@@ -1,0 +1,10 @@
+{
+  "checked": true,
+  "method": "sql_semantic_compare_v1",
+  "driver": "pymysql",
+  "rowCount": {
+    "status": "MATCH",
+    "before": 29,
+    "after": 29
+  }
+}

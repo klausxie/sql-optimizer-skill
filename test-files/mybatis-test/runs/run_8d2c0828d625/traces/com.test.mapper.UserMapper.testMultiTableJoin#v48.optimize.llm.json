@@ -1,0 +1,299 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testMultiTableJoin#v48",
+  "task_id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:15.797280+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testMultiTableJoin#v48",
+    "requiredContext": {
+      "sql": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, oi.product_id as productId, p.name as productName, oi.quantity, oi.price FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN order_items oi ON o.id = oi.order_id INNER JOIN products p ON oi.product_id = p.id WHERE u.id = #{userId}",
+      "templateSql": "SELECT u.id as userId, u.name as userName,\n               o.id as orderId, o.order_no as orderNo,\n               oi.id as itemId, oi.product_id as productId,\n               p.name as productName, oi.quantity, oi.price\n        FROM users u\n        INNER JOIN orders o ON u.id = o.user_id\n        INNER JOIN order_items oi ON o.id = oi.order_id\n        INNER JOIN products p ON oi.product_id = p.id\n        WHERE u.id = #{userId}",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users",
+        "orders",
+        "order_items",
+        "products"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_id",
+          "definition": "INDEX idx_orders_user_id (user_id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_order_no",
+          "definition": "INDEX idx_orders_order_no (order_no)"
+        },
+        {
+          "table": "order_items",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "order_items",
+          "index": "idx_order_items_order_id",
+          "definition": "INDEX idx_order_items_order_id (order_id)"
+        },
+        {
+          "table": "order_items",
+          "index": "idx_order_items_product_id",
+          "definition": "INDEX idx_order_items_product_id (product_id)"
+        },
+        {
+          "table": "products",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "products",
+          "index": "idx_products_category",
+          "definition": "INDEX idx_products_category (category)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "order_items",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "order_items",
+          "column": "order_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "order_items",
+          "column": "product_id",
+          "dataType": "bigint",
+          "isNullable": true
+        },
+        {
+          "table": "order_items",
+          "column": "quantity",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "order_items",
+          "column": "price",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "products",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "products",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "products",
+          "column": "category",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "products",
+          "column": "price",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "products",
+          "column": "stock",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "products",
+          "column": "status",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "order_items",
+          "estimatedRows": 10
+        },
+        {
+          "table": "orders",
+          "estimatedRows": 8
+        },
+        {
+          "table": "products",
+          "estimatedRows": 10
+        },
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=0.0",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, oi.product_id as productId, p.name as productName, oi.quantity, oi.price FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN order_items oi ON o.id = oi.order_id INNER JOIN products p ON oi.product_id = p.id WHERE u.id = #{userId}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "39516f51c9ced0f99c5f0332858a4b733433f477e3ec8964e3ba5f0184aafd23",
+  "output_hash": "4bcde38bb68ffd96acd1f2ada71a2eb1af29cd03e4a5483b8d66e95819a0550b",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultiTableJoin#v48:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT u.id as userId, u.name as userName, o.id as orderId, o.order_no as orderNo, oi.id as itemId, "
+      }
+    ]
+  }
+}

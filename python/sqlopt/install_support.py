@@ -19,7 +19,17 @@ def home_dir() -> Path:
 
 
 def opencode_home() -> Path:
-    return home_dir() / ".opencode"
+    """Returns the config directory for OpenCode skills."""
+    # Global: ~/.config/opencode/
+    # Project-local: <project>/.opencode/
+    config_home = os.environ.get("XDG_CONFIG_HOME") or (home_dir() / ".config")
+    return config_home / "opencode"
+
+
+def opencode_project_local() -> Path:
+    """Returns the project-local OpenCode directory."""
+    # For project-local installation, use <project>/.opencode/
+    return Path.cwd() / ".opencode"
 
 
 def is_windows() -> bool:
@@ -30,12 +40,20 @@ def skill_dir() -> Path:
     return opencode_home() / "skills" / SKILL_NAME
 
 
+def project_skill_dir(project_dir: Path) -> Path:
+    return project_dir / ".opencode" / "skills" / SKILL_NAME
+
+
 def commands_dir() -> Path:
     return opencode_home() / "commands"
 
 
 def runtime_python(root_dir: Path) -> Path:
-    runtime_base = (root_dir / "runtime") if (root_dir / "runtime" / "python").exists() else root_dir
+    runtime_base = (
+        (root_dir / "runtime")
+        if (root_dir / "runtime" / "python").exists()
+        else root_dir
+    )
     return runtime_base / "python"
 
 
@@ -68,7 +86,9 @@ def ensure_pythonpath_for_install_script(script_dir: Path) -> None:
         if path.exists():
             sys.path.insert(0, str(path))
             return
-    raise SystemExit("cannot locate python runtime (expected ./python or ./runtime/python)")
+    raise SystemExit(
+        "cannot locate python runtime (expected ./python or ./runtime/python)"
+    )
 
 
 def run_cmd(cmd: list[str], *, quiet: bool = False) -> None:
@@ -97,9 +117,9 @@ def write_cli_wrapper(skill_root: Path) -> Path:
                 [
                     "@echo off",
                     "setlocal",
-                    "set \"ROOT_DIR=%~dp0..\\runtime\"",
-                    "set \"PYTHONPATH=%ROOT_DIR%\\python\"",
-                    "\"%ROOT_DIR%\\.venv\\Scripts\\python.exe\" \"%ROOT_DIR%\\scripts\\sqlopt_cli.py\" %*",
+                    'set "ROOT_DIR=%~dp0..\\runtime"',
+                    'set "PYTHONPATH=%ROOT_DIR%\\python"',
+                    '"%ROOT_DIR%\\.venv\\Scripts\\python.exe" "%ROOT_DIR%\\scripts\\sqlopt_cli.py" %*',
                     "",
                 ]
             ),
@@ -112,9 +132,9 @@ def write_cli_wrapper(skill_root: Path) -> Path:
             [
                 "#!/usr/bin/env bash",
                 "set -euo pipefail",
-                f"ROOT_DIR=\"{str((skill_root / 'runtime').resolve())}\"",
-                "export PYTHONPATH=\"$ROOT_DIR/python\"",
-                "exec \"$ROOT_DIR/.venv/bin/python\" \"$ROOT_DIR/scripts/sqlopt_cli.py\" \"$@\"",
+                f'ROOT_DIR="{str((skill_root / "runtime").resolve())}"',
+                'export PYTHONPATH="$ROOT_DIR/python"',
+                'exec "$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/sqlopt_cli.py" "$@"',
                 "",
             ]
         ),

@@ -21,11 +21,13 @@ python3 install/install_skill.py --verify
 ### 2) 最短运行链路
 
 ```bash
+sqlopt-cli validate-config --config sqlopt.yml
 sqlopt-cli run --config sqlopt.yml
 sqlopt-cli status
-sqlopt-cli resume
 sqlopt-cli apply
 ```
+
+建议先让 `validate-config` 检查 `db.dsn`、mapper 匹配结果和数据库连通性；如果这里已经失败，不要直接继续 full run。
 
 如果 `status.next_action=report-rebuild`：
 
@@ -38,10 +40,10 @@ sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```bash
 sqlopt-cli --help
 sqlopt-cli run --help
+sqlopt-cli validate-config --help
 sqlopt-cli resume --help
 sqlopt-cli status --help
 sqlopt-cli apply --help
-sqlopt-cli validate-config --config sqlopt.yml
 ```
 
 局部调试优先：
@@ -49,8 +51,10 @@ sqlopt-cli validate-config --config sqlopt.yml
 ```bash
 sqlopt-cli run --config sqlopt.yml \
   --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml \
-  --sql-key demo.user.advanced.listUsersFilteredAliased#v17
+  --sql-key listUsersFilteredAliased
 ```
+
+`--sql-key` 支持完整 `sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`。如果只给 `statementId` 且命中多个 SQL，CLI 会列出候选 full key。
 
 当前推荐：日常开发优先局部 run，full run 只用于阶段验收。
 
@@ -77,3 +81,9 @@ sqlopt-cli run --config sqlopt.yml \
 python3 -m pytest -q
 python3 scripts/ci/release_acceptance.py
 ```
+
+## 架构设计
+
+- **功能全景图**：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 完整功能架构和执行流程
+
+> 推荐先阅读功能全景图，了解整体设计后再深入其他文档。

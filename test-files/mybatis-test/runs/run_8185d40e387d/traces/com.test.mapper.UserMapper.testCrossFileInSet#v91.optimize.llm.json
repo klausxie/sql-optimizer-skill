@@ -1,0 +1,100 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testCrossFileInSet#v91",
+  "task_id": "com.test.mapper.UserMapper.testCrossFileInSet#v91:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-11T03:41:13.571939+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testCrossFileInSet#v91",
+    "requiredContext": {
+      "sql": "UPDATE users status = #{status}, updated_at = NOW()",
+      "templateSql": "UPDATE users\n        <set>\n            <if test=\"status != null\">status = #{status},</if>\n            updated_at = NOW()\n        </set>\n        <where>\n            <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />\n        </where>",
+      "dynamicFeatures": [
+        "SET",
+        "IF",
+        "WHERE",
+        "INCLUDE"
+      ],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [
+        "com.test.mapper.CommonMapper.activeStatusCondition"
+      ],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "SET",
+          "IF",
+          "WHERE",
+          "INCLUDE"
+        ],
+        "includeFragments": [
+          {
+            "ref": "com.test.mapper.CommonMapper.activeStatusCondition",
+            "dynamicFeatures": []
+          }
+        ]
+      },
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(1064, \"You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '= NULL, updated_at = NOW()' at line 1\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileInSet#v91:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "UPDATE users status = #{status}, updated_at = NOW()",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "566914484afdf8d58a59db7917db6dc5fc9ef39375ae41837e72a009a481f893",
+  "output_hash": "047d7ce8734f6202cec7ff5421e476f35d169ff449dceec2e9da49157d418ef2",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileInSet#v91:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "UPDATE users status = #{status}, updated_at = NOW()"
+      }
+    ]
+  }
+}

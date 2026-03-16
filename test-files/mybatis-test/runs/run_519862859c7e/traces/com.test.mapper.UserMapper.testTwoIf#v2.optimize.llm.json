@@ -1,0 +1,142 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testTwoIf#v2",
+  "task_id": "com.test.mapper.UserMapper.testTwoIf#v2:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-03-10T10:04:04.096053+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testTwoIf#v2",
+    "requiredContext": {
+      "sql": "SELECT * FROM users AND name = #{name} AND email = #{email}",
+      "templateSql": "SELECT * FROM users\n        <where>\n            <if test=\"name != null\">AND name = #{name}</if>\n            <if test=\"email != null\">AND email = #{email}</if>\n        </where>",
+      "dynamicFeatures": [
+        "WHERE",
+        "IF"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *"
+        },
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no where filter"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "indexType": "BTREE",
+          "column": "id",
+          "nonUnique": 0
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "WHERE",
+          "IF"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false,
+          "columnKey": "PRI"
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "unknown"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testTwoIf#v2-1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email FROM users WHERE name = #{name} AND email = #{email}",
+        "rewriteStrategy": "COLUMN_SELECTION_AND_WHERE_CLAUSE_FIX",
+        "semanticRisk": "low",
+        "confidence": "0.95"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "input_hash": "decee26390c8ab1eca83927ac097a5e90f1eb72a3d4e96f46d4b75e586bafaff",
+  "output_hash": "63075ebbec2c85e93b30d0bf47b1f0a67fc92beec7627ca978c428f17ba94cbe"
+}

@@ -54,42 +54,6 @@ REASON_CODES = {
         description="Stage retry attempts exhausted",
         user_message="The stage failed after multiple retry attempts.",
     ),
-    # Preflight errors
-    "PREFLIGHT_CHECK_FAILED": ReasonCode(
-        code="PREFLIGHT_CHECK_FAILED",
-        category="preflight",
-        severity="fatal",
-        description="Preflight validation check failed",
-        user_message="Pre-execution validation failed. Check your configuration and environment.",
-    ),
-    "PREFLIGHT_DB_UNREACHABLE": ReasonCode(
-        code="PREFLIGHT_DB_UNREACHABLE",
-        category="preflight",
-        severity="degradable",
-        description="Database connection failed during preflight",
-        user_message="Cannot connect to the database. Verify your database connection settings.",
-    ),
-    "PREFLIGHT_LLM_UNREACHABLE": ReasonCode(
-        code="PREFLIGHT_LLM_UNREACHABLE",
-        category="preflight",
-        severity="degradable",
-        description="LLM provider unreachable during preflight",
-        user_message="Cannot connect to the LLM provider. Check your LLM configuration.",
-    ),
-    "PREFLIGHT_SCANNER_MISSING": ReasonCode(
-        code="PREFLIGHT_SCANNER_MISSING",
-        category="preflight",
-        severity="fatal",
-        description="Legacy Java scanner JAR file not found",
-        user_message="Legacy scanner JAR file is missing. Current versions use Python fallback scanner by default.",
-    ),
-    "PREFLIGHT_MISSING_SCANNER_JAR": ReasonCode(
-        code="PREFLIGHT_MISSING_SCANNER_JAR",
-        category="preflight",
-        severity="fatal",
-        description="Java scanner JAR file not found",
-        user_message="Scanner JAR file is missing. Run the installation script to set up the scanner.",
-    ),
     # Scan errors
     "SCAN_MAPPER_NOT_FOUND": ReasonCode(
         code="SCAN_MAPPER_NOT_FOUND",
@@ -118,6 +82,20 @@ REASON_CODES = {
         severity="degradable",
         description="Scanner coverage below acceptable threshold",
         user_message="Scanner could not fully analyze all SQL statements. Some statements may be skipped.",
+    ),
+    "SCAN_SELECTION_SQL_KEY_NOT_FOUND": ReasonCode(
+        code="SCAN_SELECTION_SQL_KEY_NOT_FOUND",
+        category="scan",
+        severity="fatal",
+        description="Requested SQL key does not match any scanned SQL",
+        user_message="The requested SQL key did not match the scanned SQL statements. Use a more specific key or rescan the correct mapper.",
+    ),
+    "SCAN_SELECTION_SQL_KEY_AMBIGUOUS": ReasonCode(
+        code="SCAN_SELECTION_SQL_KEY_AMBIGUOUS",
+        category="scan",
+        severity="fatal",
+        description="Requested SQL key matched multiple scanned SQL statements",
+        user_message="The requested SQL key matched multiple SQL statements. Use a namespace-qualified key or the full sqlKey.",
     ),
     "SCAN_CLASS_RESOLUTION_DEGRADED": ReasonCode(
         code="SCAN_CLASS_RESOLUTION_DEGRADED",
@@ -153,13 +131,6 @@ REASON_CODES = {
         severity="degradable",
         description="Scan evidence verified successfully",
         user_message="Scanner completed successfully with verified evidence.",
-    ),
-    "SCAN_JAVA_SCANNER_FAILED": ReasonCode(
-        code="SCAN_JAVA_SCANNER_FAILED",
-        category="scan",
-        severity="fatal",
-        description="Java scanner execution failed",
-        user_message="Java scanner execution failed. Check scanner logs for details.",
     ),
     # Optimize errors
     "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR": ReasonCode(

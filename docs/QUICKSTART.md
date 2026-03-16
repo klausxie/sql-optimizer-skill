@@ -51,12 +51,13 @@ llm:
 ## 4. 跑通主流程
 
 ```bash
+sqlopt-cli validate-config --config sqlopt.yml
 sqlopt-cli run --config sqlopt.yml
 sqlopt-cli status
-sqlopt-cli resume
 ```
 
 说明：
+- `validate-config` 会同时检查 `db.dsn`、mapper 命中情况，以及数据库是否可连。
 - `run` 默认持续推进到完成（除非失败/中断）。
 - `status/resume/apply` 省略 `--run-id` 时会自动选择最新 run。
 
@@ -89,6 +90,14 @@ sqlopt-cli apply --run-id <run-id>
 ```bash
 sqlopt-cli run --config sqlopt.yml --to-stage scan
 ```
+
+- 只知道方法名，不知道完整 key：
+
+```bash
+sqlopt-cli run --config sqlopt.yml --sql-key findUsers
+```
+
+`--sql-key` 支持完整 `sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`；如果一个方法名匹配多个 SQL，CLI 会返回候选 full key。
 
 - MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。
 

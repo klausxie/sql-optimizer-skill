@@ -1,0 +1,24 @@
+{
+  "run_id": "run_28da52333857",
+  "checked_at": "2026-03-11T03:40:23.991004+00:00",
+  "ok": true,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "llm",
+      "enabled": false,
+      "ok": true,
+      "reason": "provider=heuristic"
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

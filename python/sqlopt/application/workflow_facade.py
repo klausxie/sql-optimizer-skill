@@ -136,11 +136,19 @@ def finalize_without_report(
 def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:
     status = resolve_status(request)
     pending = [k for k, v in request.state.get("statements", {}).items() if any(x == "PENDING" for x in v.values())]
+    phase_status = dict(request.state.get("phase_status") or {})
+    current_phase = str(request.state.get("current_phase") or "").strip()
+    if (
+        str(request.meta.get("status") or "").upper() == "RUNNING"
+        and current_phase
+        and phase_status.get(current_phase) == "PENDING"
+    ):
+        phase_status[current_phase] = "RUNNING"
     return {
         "run_id": request.run_id,
         "current_phase": request.state.get("current_phase"),
         "current_sql_key": status.current_sql_key,
-        "phase_status": request.state.get("phase_status"),
+        "phase_status": phase_status,
         "run_status": request.meta.get("status"),
         "remaining_statements": len(pending),
         "pending_by_phase": pending_by_phase(request.state),

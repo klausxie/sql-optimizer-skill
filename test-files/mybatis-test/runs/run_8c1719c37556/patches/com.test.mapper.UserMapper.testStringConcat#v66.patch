@@ -1,0 +1,14 @@
+--- a/src/main/resources/mapper/UserMapper.xml
++++ b/src/main/resources/mapper/UserMapper.xml
+@@ -688,9 +688,8 @@
+     
+     <!-- 场景66: 字符串函数 - CONCAT -->
+     <select id="testStringConcat" resultType="com.test.entity.User">
+-        SELECT * FROM users
+-        WHERE CONCAT(name, '-', email) LIKE CONCAT(#{prefix}, '%')
+-    </select>
++    SELECT id FROM users WHERE CONCAT(name, '-', email) LIKE CONCAT(#{prefix}, '%')
++  </select>
+     
+     <!-- 场景67: 字符串函数 - SUBSTRING -->
+     <select id="testStringSubstring" resultType="com.test.entity.User">

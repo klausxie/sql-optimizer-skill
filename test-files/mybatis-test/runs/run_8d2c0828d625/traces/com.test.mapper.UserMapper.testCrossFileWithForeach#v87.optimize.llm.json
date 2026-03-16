@@ -1,0 +1,177 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testCrossFileWithForeach#v87",
+  "task_id": "com.test.mapper.UserMapper.testCrossFileWithForeach#v87:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T15:22:29.118899+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testCrossFileWithForeach#v87",
+    "requiredContext": {
+      "sql": "SELECT FROM users AND id IN #{id}",
+      "templateSql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" />\n        FROM users\n        <where>\n            <if test=\"ids != null and ids.size() &gt; 0\">\n                AND id IN\n                <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>\n            </if>\n            <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />\n        </where>\n        <include refid=\"com.test.mapper.CommonMapper.paginationCondition\" />",
+      "dynamicFeatures": [
+        "INCLUDE",
+        "WHERE",
+        "IF",
+        "FOREACH"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [
+        "com.test.mapper.CommonMapper.userBaseColumns",
+        "com.test.mapper.CommonMapper.activeStatusCondition",
+        "com.test.mapper.CommonMapper.paginationCondition"
+      ],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "INCLUDE",
+          "WHERE",
+          "IF",
+          "FOREACH"
+        ],
+        "includeFragments": [
+          {
+            "ref": "com.test.mapper.CommonMapper.userBaseColumns",
+            "dynamicFeatures": []
+          },
+          {
+            "ref": "com.test.mapper.CommonMapper.activeStatusCondition",
+            "dynamicFeatures": []
+          },
+          {
+            "ref": "com.test.mapper.CommonMapper.paginationCondition",
+            "dynamicFeatures": []
+          }
+        ]
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(1064, \"You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NULL' at line 1\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileWithForeach#v87:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT FROM users AND id IN #{id}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "503211087e3444ccc9e85a5273e458e99df0309c8968c31f372bdc8a75ceea4b",
+  "output_hash": "67d21b80edf23d5c5de2a1613300dfad41c9a3f705775290f9d37941a03f8a86",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileWithForeach#v87:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT FROM users AND id IN #{id}"
+      }
+    ]
+  }
+}

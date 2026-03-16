@@ -1,0 +1,25 @@
+{
+  "run_id": "run_9995863fa889",
+  "checked_at": "2026-03-10T10:00:46.618335+00:00",
+  "ok": false,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": false,
+      "error": "1049 (42000): Unknown database 'sql_optimizer_test?charset=utf8mb4'",
+      "reason_code": "PREFLIGHT_DB_UNREACHABLE"
+    },
+    {
+      "name": "llm",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scan.java_scanner.jar_path not set"
+    }
+  ]
+}

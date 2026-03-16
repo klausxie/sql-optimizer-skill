@@ -1,0 +1,17 @@
+--- a/src/main/resources/mapper/UserMapper.xml
++++ b/src/main/resources/mapper/UserMapper.xml
+@@ -556,12 +556,8 @@
+     
+     <!-- 场景51: 子查询 - EXISTS 检查用户是否有订单 -->
+     <select id="testSubqueryExists" resultType="com.test.entity.User">
+-        SELECT * FROM users u
+-        WHERE EXISTS (
+-            SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status}
+-        )
+-        LIMIT 10
+-    </select>
++    SELECT id FROM users u WHERE EXISTS ( SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status} ) LIMIT 10
++  </select>
+     
+     <!-- 场景52: 标量子查询 - 获取用户订单总数 -->
+     <select id="testScalarSubquery" resultType="com.test.dto.UserOrderCountDTO">

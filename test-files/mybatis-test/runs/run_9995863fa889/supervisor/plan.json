@@ -1,0 +1,12 @@
+{
+  "phases": [
+    "preflight",
+    "scan",
+    "optimize",
+    "validate",
+    "patch_generate",
+    "report"
+  ],
+  "to_stage": "report",
+  "sql_keys": []
+}

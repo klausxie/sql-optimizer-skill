@@ -1,0 +1,26 @@
+{
+  "run_id": "run_77bf7a9c154e",
+  "checked_at": "2026-03-11T03:15:37.728568+00:00",
+  "ok": false,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": false,
+      "error": "(2003, \"Can't connect to MySQL server on '100.101.41.123' (timed out)\")",
+      "reason_code": "PREFLIGHT_DB_UNREACHABLE"
+    },
+    {
+      "name": "llm",
+      "enabled": false,
+      "ok": true,
+      "reason": "provider=heuristic"
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

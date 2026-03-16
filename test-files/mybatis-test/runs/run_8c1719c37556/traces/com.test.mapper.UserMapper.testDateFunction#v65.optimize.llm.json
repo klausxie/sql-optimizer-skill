@@ -1,0 +1,88 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testDateFunction#v65",
+  "task_id": "com.test.mapper.UserMapper.testDateFunction#v65:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:28:47.834248+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testDateFunction#v65",
+    "requiredContext": {
+      "sql": "SELECT id as orderId, order_no as orderNo, created_at as createdAt, YEAR(created_at) as year, MONTH(created_at) as month, DAY(created_at) as day FROM orders WHERE YEAR(created_at) = #{year} LIMIT 10",
+      "templateSql": "SELECT id as orderId, order_no as orderNo, created_at as createdAt,\n               YEAR(created_at) as year,\n               MONTH(created_at) as month,\n               DAY(created_at) as day\n        FROM orders\n        WHERE YEAR(created_at) = #{year}\n        LIMIT 10",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FUNCTION_ON_INDEXED_COL",
+          "message": "function on indexed column prevents index usage",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "orders"
+      ],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "query_cost=1.05",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testDateFunction#v65:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id as orderId, order_no as orderNo, created_at as createdAt, YEAR(created_at) as year, MONTH(created_at) as month, DAY(created_at) as day FROM orders WHERE YEAR(created_at) = #{year} LIMIT 10",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "caeb7568d3f25461ccb6b45386833a6d83ce7dc04ba35de5eaf86df272f2a531",
+  "output_hash": "bff915165fe7cac9eeddbb853c3a88b797e50f5679069d9c2c049afb1c7db86e",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testDateFunction#v65:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id as orderId, order_no as orderNo, created_at as createdAt, YEAR(created_at) as year, MONTH("
+      }
+    ]
+  }
+}

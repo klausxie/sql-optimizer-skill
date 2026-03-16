@@ -1,0 +1,30 @@
+{
+  "run_id": "run_8d2c0828d625",
+  "executor": "python",
+  "subagents": {
+    "optimize": false,
+    "validate": false
+  },
+  "llm_mode": "enabled",
+  "llm_gate": {
+    "enabled": true
+  },
+  "runtime_policy": {
+    "resolved_from": "app_config.runtime",
+    "stage_timeout_ms": {
+      "scan": 60000,
+      "optimize": 60000,
+      "validate": 60000,
+      "apply": 15000,
+      "report": 15000
+    },
+    "stage_retry_max": {
+      "scan": 1,
+      "optimize": 1,
+      "validate": 1,
+      "apply": 1,
+      "report": 1
+    },
+    "stage_retry_backoff_ms": 1000
+  }
+}

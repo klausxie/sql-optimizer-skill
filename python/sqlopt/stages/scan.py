@@ -1,50 +1,217 @@
+"""Scan stage: parse MyBatis XML mappers using pure Python.
+
+This module provides XML parsing and SQL unit extraction for MyBatis mappers.
+No Java dependencies - uses xml.etree.ElementTree for all parsing.
+"""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import glob
+import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from ..adapters.mybatis_xml import is_mybatis_mapper_root as _shared_is_mybatis_mapper_root
-from ..adapters.mybatis_xml import local_name as _shared_local_name
-from ..adapters.scanner_java import run_scan
 from ..contracts import ContractValidator
 from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
-from ..run_paths import canonical_paths
-from ..verification.models import VerificationCheck, VerificationRecord
-from ..verification.writer import append_verification_record
-import glob
-import xml.etree.ElementTree as ET
+from ..progress import get_progress_reporter
+from ..adapters.branch_generator import generate_branches
+from ..adapters.mapper_catalog import enrich_sql_units_with_catalog
+from ..scripting.fragment_registry import build_fragment_registry
 
 
 def _local_name(tag: str) -> str:
-    return _shared_local_name(tag)
+    """Extract local name from XML tag (remove namespace prefix)."""
+    if "}" in tag:
+        return tag.rsplit("}", 1)[-1]
+    return tag
 
 
 def _is_mybatis_mapper_root(root: ET.Element) -> bool:
-    return _shared_is_mybatis_mapper_root(root)
+    """Check if root element is a valid MyBatis mapper."""
+    return _local_name(str(root.tag)).lower() == "mapper" and bool(
+        str(root.attrib.get("namespace") or "").strip()
+    )
 
 
-def _statement_key(sql_key: str) -> str:
-    return sql_key.split("#", 1)[0]
+def _build_unit(
+    xml_path: Path,
+    namespace: str,
+    statement_id: str,
+    statement_type: str,
+    sql: str,
+    idx: int,
+) -> dict[str, Any]:
+    """Build a SqlUnit dictionary."""
+    return {
+        "sqlKey": f"{namespace}.{statement_id}#v{idx}",
+        "xmlPath": str(xml_path),
+        "namespace": namespace,
+        "statementId": statement_id,
+        "statementType": statement_type,
+        "variantId": f"v{idx}",
+        "sql": " ".join(sql.split()),
+        "parameterMappings": [],
+        "paramExample": {},
+        "locators": {"statementId": statement_id},
+        "riskFlags": ["DOLLAR_SUBSTITUTION"] if "${" in sql else [],
+        "scanWarnings": None,
+    }
 
 
-def _fragment_lookup_keys(row: dict[str, Any]) -> list[str]:
-    keys: list[str] = []
-    for value in (row.get("fragmentKey"), row.get("displayRef")):
-        text = str(value or "").strip()
-        if text and text not in keys:
-            keys.append(text)
-    return keys
+def _inner_xml(node: ET.Element) -> str:
+    """Get inner XML of a node (preserving dynamic tags)."""
+    parts: list[str] = []
+    if node.text:
+        parts.append(node.text)
+    for child in list(node):
+        parts.append(ET.tostring(child, encoding="unicode"))
+    return "".join(parts).strip()
 
 
-def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> int:
-    total = 0
+def _dynamic_features(node: ET.Element) -> list[str]:
+    """Extract dynamic features from a node."""
+    feature_by_tag = {
+        "foreach": "FOREACH",
+        "include": "INCLUDE",
+        "if": "IF",
+        "choose": "CHOOSE",
+        "where": "WHERE",
+        "trim": "TRIM",
+        "set": "SET",
+        "bind": "BIND",
+    }
+    seen: list[str] = []
+    for elem in node.iter():
+        feature = feature_by_tag.get(_local_name(str(elem.tag)).lower())
+        if feature and feature not in seen:
+            seen.append(feature)
+    return seen
+
+
+def _qualify_ref(namespace: str, refid: str | None) -> str:
+    """Qualify a fragment reference with namespace."""
+    ref = str(refid or "").strip()
+    if not ref:
+        return ""
+    if "." in ref:
+        return ref
+    return f"{namespace}.{ref}" if namespace else ref
+
+
+def _resolve_mapper_files(project_root: Path, mapper_globs: list[str]) -> list[str]:
     files: list[str] = []
     for pat in mapper_globs:
         files.extend(glob.glob(str(project_root / pat), recursive=True))
-    for fp in sorted(set(files)):
+    return sorted(set(files))
+
+
+def _extract_include_refs(node: ET.Element, namespace: str) -> list[str]:
+    """Extract include references from a node."""
+    refs: list[str] = []
+    for elem in node.iter():
+        if _local_name(str(elem.tag)).lower() != "include":
+            continue
+        qualified = _qualify_ref(namespace, elem.attrib.get("refid"))
+        if qualified and qualified not in refs:
+            refs.append(qualified)
+    return refs
+
+
+def _collect_fragment_meta(
+    root: ET.Element, namespace: str
+) -> dict[str, dict[str, Any]]:
+    """Collect fragment metadata from mapper."""
+    fragments: dict[str, dict[str, Any]] = {}
+    for node in root:
+        if _local_name(str(node.tag)).lower() != "sql":
+            continue
+        fragment_id = node.attrib.get("id")
+        qualified = _qualify_ref(namespace, fragment_id)
+        if not qualified:
+            continue
+        fragments[qualified] = {
+            "ref": qualified,
+            "node": node,
+            "dynamicFeatures": _dynamic_features(node),
+            "includeRefs": _extract_include_refs(node, namespace),
+        }
+    return fragments
+
+
+def _resolve_include_trace(
+    namespace: str, refs: list[str], fragments: dict[str, dict[str, Any]]
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Resolve include trace and fragment summaries."""
+    trace: list[str] = []
+    summaries: list[dict[str, Any]] = []
+    seen_summary: set[str] = set()
+
+    def visit(ref: str, stack: set[str]) -> None:
+        qualified = _qualify_ref(namespace, ref)
+        if not qualified:
+            return
+        if qualified not in trace:
+            trace.append(qualified)
+        fragment = fragments.get(qualified)
+        if qualified not in seen_summary:
+            summaries.append(
+                {
+                    "ref": qualified,
+                    "dynamicFeatures": list(
+                        (fragment or {}).get("dynamicFeatures", [])
+                    ),
+                }
+            )
+            seen_summary.add(qualified)
+        if not fragment or qualified in stack:
+            return
+        next_stack = set(stack)
+        next_stack.add(qualified)
+        for nested in fragment.get("includeRefs", []):
+            visit(str(nested), next_stack)
+
+    for ref in refs:
+        visit(ref, set())
+    return trace, summaries
+
+
+def _render_logical_text(
+    node: ET.Element,
+    namespace: str,
+    fragments: dict[str, dict[str, Any]],
+    stack: set[str] | None = None,
+) -> str:
+    """Render logical SQL text (resolving includes)."""
+    stack = set() if stack is None else set(stack)
+    parts: list[str] = []
+    if node.text:
+        parts.append(node.text)
+    for child in list(node):
+        tag = _local_name(str(child.tag)).lower()
+        if tag == "include":
+            qualified = _qualify_ref(namespace, child.attrib.get("refid"))
+            if qualified and qualified not in stack and qualified in fragments:
+                next_stack = set(stack)
+                next_stack.add(qualified)
+                parts.append(
+                    _render_logical_text(
+                        fragments[qualified]["node"], namespace, fragments, next_stack
+                    )
+                )
+        else:
+            parts.append(_render_logical_text(child, namespace, fragments, stack))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
+def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> int:
+    """Count total statements in mapper files."""
+    total = 0
+    for fp in _resolve_mapper_files(project_root, mapper_globs):
         try:
             root = ET.parse(fp).getroot()
         except Exception:
@@ -58,29 +225,149 @@ def _discover_statement_count(project_root: Path, mapper_globs: list[str]) -> in
     return total
 
 
-def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator) -> list[dict[str, Any]]:
-    paths = canonical_paths(run_dir)
-    manifest_path = paths.manifest_path
-    scan_units_path = paths.scan_units_path
-    fragments_path = paths.scan_fragments_path
-    units, warnings = run_scan(config, run_dir, manifest_path)
+def _write_fragment_catalog(
+    *,
+    units: list[dict[str, Any]],
+    enable_fragment_catalog: bool,
+    project_root: Path,
+    mapper_globs: list[str],
+    fragments_path: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write fragment catalog if enabled."""
+    if not enable_fragment_catalog:
+        return units, []
+    enriched_units, fragments = enrich_sql_units_with_catalog(
+        units, project_root, mapper_globs
+    )
+    write_jsonl(fragments_path, fragments)
+    return enriched_units, fragments
+
+
+def _perform_scan(
+    project_root: Path,
+    mapper_globs: list[str],
+    manifest_path: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Perform pure Python XML scan of MyBatis mappers."""
+    units: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    files = _resolve_mapper_files(project_root, mapper_globs)
+    reporter = get_progress_reporter()
+
+    if not files:
+        warnings.append(
+            {
+                "severity": "fatal",
+                "reason_code": "SCAN_MAPPER_NOT_FOUND",
+                "message": "no mapper files matched",
+            }
+        )
+        return [], warnings
+
+    reporter.report_info(f"Resolved {len(files)} mapper file(s) from scan.mapper_globs")
+    total_files = len(files)
+    for index, fp in enumerate(files, start=1):
+        path = Path(fp)
+        if total_files > 1 and (index == 1 or index == total_files or index % 10 == 0):
+            reporter.report_info(f"Parsing mapper {index}/{total_files}: {path.name}")
+        try:
+            root = ET.parse(path).getroot()
+        except Exception as exc:
+            warnings.append(
+                {
+                    "severity": "degradable",
+                    "reason_code": "SCAN_XML_PARSE_DEGRADED",
+                    "message": f"xml parse degraded: {exc}",
+                    "xml_path": str(path),
+                }
+            )
+            log_event(manifest_path, "scan", "degraded", warnings[-1])
+            continue
+
+        if not _is_mybatis_mapper_root(root):
+            continue
+
+        namespace = root.attrib.get("namespace", "unknown")
+        fragments = _collect_fragment_meta(root, namespace)
+        idx = 0
+
+        for node in root.iter():
+            tag = _local_name(str(node.tag)).lower()
+            if tag not in {"select", "update", "delete", "insert"}:
+                continue
+
+            idx += 1
+            statement_id = node.attrib.get("id", f"unknown_{idx}")
+            sql = _render_logical_text(node, namespace, fragments).strip()
+
+            if not sql:
+                continue
+
+            unit = _build_unit(path, namespace, statement_id, tag.upper(), sql, idx)
+            include_trace, include_fragments = _resolve_include_trace(
+                namespace, _extract_include_refs(node, namespace), fragments
+            )
+
+            unit["templateSql"] = _inner_xml(node)
+            unit["dynamicFeatures"] = _dynamic_features(node)
+            unit["includeTrace"] = include_trace
+            unit["dynamicTrace"] = (
+                {
+                    "statementFeatures": unit["dynamicFeatures"],
+                    "includeFragments": include_fragments,
+                }
+                if unit["dynamicFeatures"] or include_trace
+                else None
+            )
+            units.append(unit)
+
+    return units, warnings
+
+
+def run_scan(
+    config: dict[str, Any],
+    run_dir: Path,
+    manifest_path: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Public API for scanning MyBatis mappers.
+
+    This function provides backward compatibility with the legacy scanner_java.run_scan API.
+
+    Args:
+        config: Configuration dict with project.root_path and scan.mapper_globs
+        run_dir: Run directory path
+        manifest_path: Path to manifest.jsonl
+
+    Returns:
+        Tuple of (units, warnings)
+    """
+    project_root = Path(
+        str((config.get("project", {}) or {}).get("root_path") or ".")
+    ).resolve()
+    mapper_globs = config.get("scan", {}).get("mapper_globs", [])
+    return _perform_scan(project_root, mapper_globs, manifest_path)
+
+
+def execute(
+    config: dict[str, Any], run_dir: Path, validator: ContractValidator
+) -> list[dict[str, Any]]:
+    """Execute scan stage: parse MyBatis XML mappers using pure Python."""
+    project_root = Path(
+        str((config.get("project", {}) or {}).get("root_path") or ".")
+    ).resolve()
+    mapper_globs = config.get("scan", {}).get("mapper_globs", [])
     scan_cfg = config.get("scan", {}) or {}
     class_resolution_cfg = scan_cfg.get("class_resolution", {}) or {}
     min_success_ratio = float(class_resolution_cfg.get("min_success_ratio", 0.9))
-    project_root = Path(str((config.get("project", {}) or {}).get("root_path") or ".")).resolve()
-    discovered_count = _discover_statement_count(project_root, list(scan_cfg.get("mapper_globs", [])))
-    java_discovered = 0
-    java_parsed = 0
-    for warning in warnings:
-        try:
-            d = int(warning.get("discovered_count") or 0)
-            p = int(warning.get("parsed_count") or 0)
-        except Exception:
-            d, p = 0, 0
-        java_discovered = max(java_discovered, d)
-        java_parsed = max(java_parsed, p)
-    if java_discovered > 0:
-        discovered_count = java_discovered
+    enable_fragment_catalog = bool(scan_cfg.get("enable_fragment_catalog", True))
+
+    manifest_path = run_dir / "manifest.jsonl"
+    fragments_path = run_dir / "scan.fragments.jsonl"
+
+    discovered_count = _discover_statement_count(project_root, mapper_globs)
+    units, warnings = run_scan(config, run_dir, manifest_path)
+
     if not units:
         for w in warnings:
             log_event(manifest_path, "scan", "failed", w)
@@ -92,115 +379,133 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
                 break
         raise StageError("scan produced no sql units", reason_code=reason_code)
 
+    # Filter by target_xml_paths
+    target_xml_paths = config.get("target_xml_paths")
+    if target_xml_paths:
+        target_path_set = set(target_xml_paths)
+        original_count = len(units)
+        units = [
+            u
+            for u in units
+            if u.get("xmlPath")
+            and any(
+                p in u.get("xmlPath")
+                or u.get("xmlPath", "").endswith("/" + p)
+                or u.get("xmlPath", "").endswith("\\" + p)
+                for p in target_path_set
+            )
+        ]
+        filtered_count = len(units)
+        print(
+            f"Filtered {original_count} SQL units to {filtered_count} by target_xml_paths: {target_xml_paths}"
+        )
+        if not units:
+            raise StageError(
+                f"No SQL units match target_xml_paths: {target_xml_paths}",
+                reason_code="SCAN_XML_PATH_NOT_FOUND",
+            )
+
+    # Filter by target_sql_ids
+    target_sql_ids = config.get("target_sql_ids")
+    if target_sql_ids:
+        target_set = set(target_sql_ids)
+        original_count = len(units)
+        units = [u for u in units if u.get("statementId") in target_set]
+        filtered_count = len(units)
+        print(
+            f"Filtered {original_count} SQL units to {filtered_count} by target_sql_ids: {target_sql_ids}"
+        )
+        if not units:
+            raise StageError(
+                f"No SQL units match target_sql_ids: {target_sql_ids}",
+                reason_code="SCAN_SQL_ID_NOT_FOUND",
+            )
+        discovered_count = filtered_count
+
+    # Coverage check
     if discovered_count > 0:
-        parsed_count = java_parsed if java_parsed > 0 else len(units)
+        parsed_count = len(units)
         success_ratio = parsed_count / discovered_count
         if success_ratio < min_success_ratio:
             payload = {
                 "severity": "fatal",
                 "reason_code": "SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD",
                 "message": f"scan success ratio {success_ratio:.3f} below threshold {min_success_ratio:.3f}",
-                "detail": {"discovered_count": discovered_count, "parsed_count": parsed_count, "min_success_ratio": min_success_ratio},
+                "detail": {
+                    "discovered_count": discovered_count,
+                    "parsed_count": parsed_count,
+                    "min_success_ratio": min_success_ratio,
+                },
             }
             log_event(manifest_path, "scan", "failed", payload)
-            raise StageError("scan coverage below threshold", reason_code="SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD")
+            raise StageError(
+                "scan coverage below threshold",
+                reason_code="SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD",
+            )
 
+    # Generate branches (enabled by default)
+    # NOTE: Scan stage ONLY generates branches, does NOT diagnose problems
+    # Problem diagnosis is done in the Analyze stage
+    branch_cfg = config.get("branch", {})
+    if branch_cfg.get("enabled", True):
+        branch_config = dict(config)
+        branch_config["_fragment_registry"] = build_fragment_registry(
+            _resolve_mapper_files(project_root, mapper_globs)
+        )
+        for unit in units:
+            branches = generate_branches(unit, branch_config)
+            unit["branches"] = branches
+            unit["branchCount"] = len(branches)
+
+    # Validate and write
     for unit in units:
         validator.validate("sqlunit", unit)
-    write_jsonl(scan_units_path, units)
-    fragment_rows = read_jsonl(fragments_path)
-    for fragment in fragment_rows:
-        validator.validate("fragment_record", fragment)
-    fragment_index: dict[str, dict[str, Any]] = {}
-    for fragment in fragment_rows:
-        for key in _fragment_lookup_keys(fragment):
-            fragment_index[key] = fragment
-    fragment_catalog_enabled = bool(scan_cfg.get("enable_fragment_catalog", True))
-    for unit in units:
-        sql_key = str(unit.get("sqlKey") or "")
-        dynamic_features = [str(x) for x in (unit.get("dynamicFeatures") or []) if str(x).strip()]
-        locators = dict(unit.get("locators") or {})
-        include_refs = [str(x) for x in (unit.get("includeTrace") or []) if str(x).strip()]
-        is_dynamic = bool(dynamic_features)
-        has_locator = bool(str(locators.get("statementId") or unit.get("statementId") or "").strip())
-        has_range = bool(locators.get("range"))
-        has_template_sql = bool(str(unit.get("templateSql") or "").strip())
-        include_refs_resolved = all(ref in fragment_index for ref in include_refs)
-        checks = [
-            VerificationCheck("sql_key_present", bool(sql_key), "error", None if sql_key else "SCAN_SQL_KEY_MISSING"),
-            VerificationCheck(
-                "xml_path_present",
-                bool(str(unit.get("xmlPath") or "").strip()),
-                "error",
-                None if str(unit.get("xmlPath") or "").strip() else "SCAN_XML_PATH_MISSING",
-            ),
-            VerificationCheck("statement_locator_present", has_locator, "error", None if has_locator else "SCAN_STATEMENT_LOCATOR_MISSING"),
-            VerificationCheck(
-                "dynamic_template_sql_present",
-                (not is_dynamic) or has_template_sql,
-                "warn" if is_dynamic else "info",
-                None if (not is_dynamic) or has_template_sql else "SCAN_TEMPLATE_SQL_MISSING",
-            ),
-            VerificationCheck(
-                "dynamic_range_present",
-                (not is_dynamic) or has_range,
-                "warn" if is_dynamic else "info",
-                None if (not is_dynamic) or has_range else "SCAN_DYNAMIC_RANGE_MISSING",
-            ),
-            VerificationCheck(
-                "include_trace_resolved",
-                (not include_refs) or include_refs_resolved or (not fragment_catalog_enabled),
-                "warn" if include_refs else "info",
-                None if (not include_refs) or include_refs_resolved or (not fragment_catalog_enabled) else "SCAN_INCLUDE_TRACE_UNRESOLVED",
-            ),
-        ]
-        if not sql_key or not has_locator or not str(unit.get("xmlPath") or "").strip():
-            status = "UNVERIFIED"
-            reason_code = "SCAN_CRITICAL_EVIDENCE_MISSING"
-            reason_message = "scan output is missing key identity or locator fields"
-        elif is_dynamic and (not has_template_sql or not has_range):
-            status = "PARTIAL"
-            reason_code = "SCAN_DYNAMIC_EVIDENCE_PARTIAL"
-            reason_message = "dynamic statement is missing templateSql or source range evidence"
-        elif include_refs and fragment_catalog_enabled and not include_refs_resolved:
-            status = "PARTIAL"
-            reason_code = "SCAN_INCLUDE_TRACE_PARTIAL"
-            reason_message = "include trace contains fragment references not present in the fragment catalog"
-        else:
-            status = "VERIFIED"
-            reason_code = "SCAN_EVIDENCE_VERIFIED"
-            reason_message = "scan output includes the expected structural evidence"
-        append_verification_record(
-            run_dir,
-            validator,
-            VerificationRecord(
-                run_id=run_dir.name,
-                sql_key=sql_key,
-                statement_key=_statement_key(sql_key),
-                phase="scan",
-                status=status,
-                reason_code=reason_code,
-                reason_message=reason_message,
-                evidence_refs=[
-                    str(scan_units_path),
-                    *([str(fragments_path)] if fragments_path.exists() else []),
-                ],
-                inputs={
-                    "dynamic": is_dynamic,
-                    "dynamic_features": dynamic_features,
-                    "fragment_catalog_enabled": fragment_catalog_enabled,
-                    "include_ref_count": len(include_refs),
-                },
-                checks=checks,
-                verdict={
-                    "has_template_sql": has_template_sql,
-                    "has_source_range": has_range,
-                    "include_refs_resolved": include_refs_resolved or (not include_refs) or (not fragment_catalog_enabled),
-                },
-                created_at=datetime.now(timezone.utc).isoformat(),
-            ),
+    write_jsonl(run_dir / "scan.sqlunits.jsonl", units)
+
+    units, _ = _write_fragment_catalog(
+        units=units,
+        enable_fragment_catalog=enable_fragment_catalog,
+        project_root=project_root,
+        mapper_globs=mapper_globs,
+        fragments_path=fragments_path,
+    )
+
+    # Export branches (streaming write to reduce memory)
+    export_cfg = branch_cfg.get("export", {})
+    if export_cfg.get("enabled", True):
+        export_path = export_cfg.get("path", "branches.jsonl")
+        branches_file = run_dir / export_path
+        branch_count = 0
+        with branches_file.open("w", encoding="utf-8") as f:
+            for unit in units:
+                unit_branches = unit.get("branches", [])
+                template_sql = unit.get("templateSql", unit.get("sql", ""))
+                for branch in unit_branches:
+                    branch_record = {
+                        "sqlKey": unit.get("sqlKey"),
+                        "templateSql": template_sql,
+                        "xmlPath": unit.get("xmlPath"),
+                        "namespace": unit.get("namespace"),
+                        "statementId": unit.get("statementId"),
+                        "branch": branch,
+                    }
+                    f.write(json.dumps(branch_record, ensure_ascii=False) + "\n")
+                    branch_count += 1
+        log_event(
+            manifest_path,
+            "branch_export",
+            "done",
+            {"path": str(branches_file), "count": branch_count},
         )
+
+    for fragment in read_jsonl(fragments_path):
+        validator.validate("fragment_record", fragment)
     for w in warnings:
         log_event(manifest_path, "scan", "warning", w)
-    log_event(manifest_path, "scan", "done", {"sql_keys": [u["sqlKey"] for u in units]})
+    log_event(
+        manifest_path,
+        "scan",
+        "done",
+        {"sql_keys": [u["sqlKey"] for u in units]},
+    )
     return units

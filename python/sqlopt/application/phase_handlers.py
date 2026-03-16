@@ -5,11 +5,11 @@ from .phase_handlers_indexed import (
     advance_patch_generate,
     advance_validate,
 )
-from .phase_handlers_pre import advance_preflight, advance_scan
+from .phase_handlers_pre import advance_scan
 from .phase_handlers_report import advance_report
 
 __all__ = [
-    "advance_preflight",
+    # preflight stage removed
     "advance_scan",
     "advance_optimize",
     "advance_validate",

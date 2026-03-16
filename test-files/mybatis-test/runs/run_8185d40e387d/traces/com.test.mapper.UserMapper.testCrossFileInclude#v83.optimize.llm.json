@@ -1,0 +1,168 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testCrossFileInclude#v83",
+  "task_id": "com.test.mapper.UserMapper.testCrossFileInclude#v83:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-11T03:40:19.716486+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testCrossFileInclude#v83",
+    "requiredContext": {
+      "sql": "SELECT FROM users",
+      "templateSql": "SELECT <include refid=\"com.test.mapper.CommonMapper.userBaseColumns\" />\n        FROM users\n        <where>\n            <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />\n        </where>",
+      "dynamicFeatures": [
+        "INCLUDE",
+        "WHERE"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [
+        "com.test.mapper.CommonMapper.userBaseColumns",
+        "com.test.mapper.CommonMapper.activeStatusCondition"
+      ],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "INCLUDE",
+          "WHERE"
+        ],
+        "includeFragments": [
+          {
+            "ref": "com.test.mapper.CommonMapper.userBaseColumns",
+            "dynamicFeatures": []
+          },
+          {
+            "ref": "com.test.mapper.CommonMapper.activeStatusCondition",
+            "dynamicFeatures": []
+          }
+        ]
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=3.1500000000000004",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileInclude#v83:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT FROM users",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "75152f58f6f26adc8fab602da457ebc93cb70457d42f0d4d92aea26b35dd6db2",
+  "output_hash": "6ad4b2f3629add46ba63aa6070b0bda5d4342a3c36111161952f726e937711a8",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testCrossFileInclude#v83:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT FROM users"
+      }
+    ]
+  }
+}

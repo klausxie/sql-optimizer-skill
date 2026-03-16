@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Enhanced doctor script with comprehensive diagnostics and auto-fix capabilities."""
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,9 @@ def _bootstrap() -> None:
         if path.exists():
             sys.path.insert(0, str(path))
             return
-    raise SystemExit("cannot locate python runtime (expected ./python or ./runtime/python)")
+    raise SystemExit(
+        "cannot locate python runtime (expected ./python or ./runtime/python)"
+    )
 
 
 _bootstrap()
@@ -56,7 +59,14 @@ def _run_check(name: str, cmd: list[str]) -> bool:
 class DiagnosticResult:
     """Result of a diagnostic check."""
 
-    def __init__(self, name: str, passed: bool, message: str = "", suggestion: str = "", fixable: bool = False):
+    def __init__(
+        self,
+        name: str,
+        passed: bool,
+        message: str = "",
+        suggestion: str = "",
+        fixable: bool = False,
+    ):
         self.name = name
         self.passed = passed
         self.message = message
@@ -106,58 +116,62 @@ class Doctor:
         try:
             version = sys.version_info
             if version >= (3, 9):
-                self.add_result(DiagnosticResult(
-                    "Python Version",
-                    True,
-                    f"Python {version.major}.{version.minor}.{version.micro}"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Python Version",
+                        True,
+                        f"Python {version.major}.{version.minor}.{version.micro}",
+                    )
+                )
             else:
-                self.add_result(DiagnosticResult(
-                    "Python Version",
-                    False,
-                    f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.9)",
-                    "Upgrade Python to 3.9 or higher"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Python Version",
+                        False,
+                        f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.9)",
+                        "Upgrade Python to 3.9 or higher",
+                    )
+                )
         except Exception as e:
             self.add_result(DiagnosticResult("Python Version", False, str(e)))
 
     def check_skill_installation(self) -> None:
         """Check if skill is properly installed."""
-        cli = self.skill_root / "bin" / ("sqlopt-cli.cmd" if is_windows() else "sqlopt-cli")
+        cli = (
+            self.skill_root
+            / "bin"
+            / ("sqlopt-cli.cmd" if is_windows() else "sqlopt-cli")
+        )
 
         if cli.exists():
-            self.add_result(DiagnosticResult(
-                "Skill CLI",
-                True,
-                f"Found at {cli}"
-            ))
+            self.add_result(DiagnosticResult("Skill CLI", True, f"Found at {cli}"))
         else:
-            self.add_result(DiagnosticResult(
-                "Skill CLI",
-                False,
-                f"Not found at {cli}",
-                "Run: python3 install/install_skill.py --project <path>",
-                fixable=True
-            ))
+            self.add_result(
+                DiagnosticResult(
+                    "Skill CLI",
+                    False,
+                    f"Not found at {cli}",
+                    "Run: python3 install/install_skill.py --project <path>",
+                    fixable=True,
+                )
+            )
 
     def check_config_file(self) -> None:
         """Check if config file exists."""
         config = self.project_dir / "sqlopt.yml"
 
         if config.exists():
-            self.add_result(DiagnosticResult(
-                "Config File",
-                True,
-                f"Found at {config}"
-            ))
+            self.add_result(DiagnosticResult("Config File", True, f"Found at {config}"))
         else:
-            self.add_result(DiagnosticResult(
-                "Config File",
-                False,
-                f"Not found at {config}",
-                "Copy templates/sqlopt.example.yml to your project as sqlopt.yml",
-                fixable=True
-            ))
+            self.add_result(
+                DiagnosticResult(
+                    "Config File",
+                    False,
+                    f"Not found at {config}",
+                    "Copy templates/sqlopt.example.yml to your project as sqlopt.yml",
+                    fixable=True,
+                )
+            )
 
             if self.fix:
                 self.fix_config_file()
@@ -171,7 +185,8 @@ class Doctor:
 
         try:
             import yaml
-            with open(config, 'r', encoding='utf-8') as f:
+
+            with open(config, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
             # Check required fields
@@ -196,42 +211,39 @@ class Doctor:
                         missing.append(".".join(path + [field]))
 
             if missing:
-                self.add_result(DiagnosticResult(
-                    "Config Validity",
-                    False,
-                    f"Missing required fields: {', '.join(missing)}",
-                    "Add missing fields to sqlopt.yml (see templates/sqlopt.example.yml)"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Config Validity",
+                        False,
+                        f"Missing required fields: {', '.join(missing)}",
+                        "Add missing fields to sqlopt.yml (see templates/sqlopt.example.yml)",
+                    )
+                )
             else:
-                self.add_result(DiagnosticResult(
-                    "Config Validity",
-                    True,
-                    "All required fields present"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Config Validity", True, "All required fields present"
+                    )
+                )
 
         except Exception as e:
-            self.add_result(DiagnosticResult(
-                "Config Validity",
-                False,
-                f"Invalid YAML: {e}",
-                "Fix YAML syntax errors in sqlopt.yml"
-            ))
+            self.add_result(
+                DiagnosticResult(
+                    "Config Validity",
+                    False,
+                    f"Invalid YAML: {e}",
+                    "Fix YAML syntax errors in sqlopt.yml",
+                )
+            )
 
     def check_scanner_runtime(self) -> None:
-        """Check optional scanner runtime artifact shipped with skill."""
-        jar = self.skill_root / "runtime" / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
-        if jar.exists():
-            self.add_result(DiagnosticResult(
-                "Scanner Runtime",
-                True,
-                f"Optional scanner artifact found: {jar}"
-            ))
-            return
-        self.add_result(DiagnosticResult(
-            "Scanner Runtime",
-            True,
-            "Optional scanner artifact not found; Python fallback scanner will be used"
-        ))
+        """Check scanner runtime - Python scanner is the default."""
+        # Python scanner is always available as part of the skill installation
+        self.add_result(
+            DiagnosticResult(
+                "Scanner Runtime", True, "Python scanner available (default)"
+            )
+        )
 
     def check_mapper_files(self) -> None:
         """Check if mapper files exist."""
@@ -242,22 +254,26 @@ class Doctor:
 
         try:
             import yaml
-            with open(config, 'r', encoding='utf-8') as f:
+
+            with open(config, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
             mapper_globs = data.get("scan", {}).get("mapper_globs", [])
 
             if not mapper_globs:
-                self.add_result(DiagnosticResult(
-                    "Mapper Files",
-                    False,
-                    "No mapper_globs configured",
-                    "Add mapper file patterns to scan.mapper_globs in sqlopt.yml"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Mapper Files",
+                        False,
+                        "No mapper_globs configured",
+                        "Add mapper file patterns to scan.mapper_globs in sqlopt.yml",
+                    )
+                )
                 return
 
             # Check if any files match the globs
             import glob as glob_module
+
             found_files = []
             for pattern in mapper_globs:
                 full_pattern = str(self.project_dir / pattern)
@@ -265,25 +281,25 @@ class Doctor:
                 found_files.extend(matches)
 
             if found_files:
-                self.add_result(DiagnosticResult(
-                    "Mapper Files",
-                    True,
-                    f"Found {len(found_files)} mapper file(s)"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Mapper Files", True, f"Found {len(found_files)} mapper file(s)"
+                    )
+                )
             else:
-                self.add_result(DiagnosticResult(
-                    "Mapper Files",
-                    False,
-                    "No mapper files found matching patterns",
-                    "Check scan.mapper_globs patterns in sqlopt.yml"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Mapper Files",
+                        False,
+                        "No mapper files found matching patterns",
+                        "Check scan.mapper_globs patterns in sqlopt.yml",
+                    )
+                )
 
         except Exception as e:
-            self.add_result(DiagnosticResult(
-                "Mapper Files",
-                False,
-                f"Error checking: {e}"
-            ))
+            self.add_result(
+                DiagnosticResult("Mapper Files", False, f"Error checking: {e}")
+            )
 
     def check_database_connection(self) -> None:
         """Check database connection."""
@@ -294,65 +310,76 @@ class Doctor:
 
         try:
             import yaml
-            with open(config, 'r', encoding='utf-8') as f:
+
+            with open(config, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
             dsn = data.get("db", {}).get("dsn", "")
             platform = data.get("db", {}).get("platform", "")
 
             if not dsn or "<" in dsn:
-                self.add_result(DiagnosticResult(
-                    "Database Connection",
-                    False,
-                    "DSN not configured or contains placeholders",
-                    "Set db.dsn in sqlopt.yml with actual connection string"
-                ))
+                self.add_result(
+                    DiagnosticResult(
+                        "Database Connection",
+                        False,
+                        "DSN not configured or contains placeholders",
+                        "Set db.dsn in sqlopt.yml with actual connection string",
+                    )
+                )
                 return
 
             # Try to parse DSN
             if platform == "postgresql":
                 # Basic check - don't actually connect
                 if dsn.startswith("postgresql://"):
-                    self.add_result(DiagnosticResult(
-                        "Database Connection",
-                        True,
-                        f"DSN format valid ({platform})"
-                    ))
+                    self.add_result(
+                        DiagnosticResult(
+                            "Database Connection",
+                            True,
+                            f"DSN format valid ({platform})",
+                        )
+                    )
                 else:
-                    self.add_result(DiagnosticResult(
-                        "Database Connection",
-                        False,
-                        "Invalid PostgreSQL DSN format",
-                        "Use format: postgresql://user:pass@host:port/db"
-                    ))
+                    self.add_result(
+                        DiagnosticResult(
+                            "Database Connection",
+                            False,
+                            "Invalid PostgreSQL DSN format",
+                            "Use format: postgresql://user:pass@host:port/db",
+                        )
+                    )
             elif platform == "mysql":
                 if dsn.startswith("mysql://"):
-                    self.add_result(DiagnosticResult(
-                        "Database Connection",
-                        True,
-                        f"DSN format valid ({platform})"
-                    ))
+                    self.add_result(
+                        DiagnosticResult(
+                            "Database Connection",
+                            True,
+                            f"DSN format valid ({platform})",
+                        )
+                    )
                 else:
-                    self.add_result(DiagnosticResult(
+                    self.add_result(
+                        DiagnosticResult(
+                            "Database Connection",
+                            False,
+                            "Invalid MySQL DSN format",
+                            "Use format: mysql://user:pass@host:port/db",
+                        )
+                    )
+            else:
+                self.add_result(
+                    DiagnosticResult(
                         "Database Connection",
                         False,
-                        "Invalid MySQL DSN format",
-                        "Use format: mysql://user:pass@host:port/db"
-                    ))
-            else:
-                self.add_result(DiagnosticResult(
-                    "Database Connection",
-                    False,
-                    f"Unknown platform: {platform}",
-                    "Set db.platform to 'postgresql' or 'mysql'"
-                ))
+                        f"Unknown platform: {platform}",
+                        "Set db.platform to 'postgresql' or 'mysql'",
+                    )
+                )
 
         except Exception as e:
-            self.add_result(DiagnosticResult(
-                "Database Connection",
-                False,
-                f"Error checking: {e}"
-            ))
+            self.add_result(
+                DiagnosticResult("Database Connection", False, f"Error checking: {e}")
+            )
 
     def check_opencode_available(self) -> None:
         """Check if opencode command is available."""
@@ -360,25 +387,30 @@ class Doctor:
             proc = run_capture_text(["opencode", "--version"])
             if proc.returncode == 0:
                 version = (proc.stdout or "").strip()
-                self.add_result(DiagnosticResult(
-                    "OpenCode CLI",
-                    True,
-                    f"Available: {version}"
-                ))
+                self.add_result(
+                    DiagnosticResult("OpenCode CLI", True, f"Available: {version}")
+                )
             else:
-                self.add_result(DiagnosticResult(
+                self.add_result(
+                    DiagnosticResult(
+                        "OpenCode CLI",
+                        False,
+                        "Command failed",
+                        "Install OpenCode or check PATH",
+                    )
+                )
+        except (FileNotFoundError, OSError):
+            self.add_result(
+                DiagnosticResult(
                     "OpenCode CLI",
                     False,
-                    "Command failed",
-                    "Install OpenCode or check PATH"
-                ))
-        except (FileNotFoundError, OSError):
-            self.add_result(DiagnosticResult(
-                "OpenCode CLI",
-                False,
-                "Command not found",
-                "Install OpenCode or add to PATH" + (" (reopen PowerShell if just installed)" if is_windows() else "")
-            ))
+                    "Command not found",
+                    "Install OpenCode or add to PATH"
+                    + (
+                        " (reopen PowerShell if just installed)" if is_windows() else ""
+                    ),
+                )
+            )
 
     def check_runs_directory(self) -> None:
         """Check if runs directory exists and is writable."""
@@ -391,31 +423,33 @@ class Doctor:
                 try:
                     test_file.touch()
                     test_file.unlink()
-                    self.add_result(DiagnosticResult(
-                        "Runs Directory",
-                        True,
-                        f"Exists and writable: {runs_dir}"
-                    ))
+                    self.add_result(
+                        DiagnosticResult(
+                            "Runs Directory", True, f"Exists and writable: {runs_dir}"
+                        )
+                    )
                 except Exception:
-                    self.add_result(DiagnosticResult(
+                    self.add_result(
+                        DiagnosticResult(
+                            "Runs Directory",
+                            False,
+                            f"Exists but not writable: {runs_dir}",
+                            "Check directory permissions",
+                        )
+                    )
+            else:
+                self.add_result(
+                    DiagnosticResult(
                         "Runs Directory",
                         False,
-                        f"Exists but not writable: {runs_dir}",
-                        "Check directory permissions"
-                    ))
-            else:
-                self.add_result(DiagnosticResult(
-                    "Runs Directory",
-                    False,
-                    f"Exists but is not a directory: {runs_dir}",
-                    "Remove the file and let SQL Optimizer create the directory"
-                ))
+                        f"Exists but is not a directory: {runs_dir}",
+                        "Remove the file and let SQL Optimizer create the directory",
+                    )
+                )
         else:
-            self.add_result(DiagnosticResult(
-                "Runs Directory",
-                True,
-                "Will be created on first run"
-            ))
+            self.add_result(
+                DiagnosticResult("Runs Directory", True, "Will be created on first run")
+            )
 
     def fix_config_file(self) -> None:
         """Auto-fix: Copy example config to project."""
@@ -425,6 +459,7 @@ class Doctor:
 
             if example.exists():
                 import shutil
+
                 shutil.copy(example, target)
                 print(f"  → Fixed: Copied {example} to {target}")
             else:
@@ -478,7 +513,9 @@ class Doctor:
 
             fixable = sum(1 for r in self.results if not r.passed and r.fixable)
             if fixable > 0 and not self.fix:
-                print(f"💡 {fixable} issue(s) can be auto-fixed. Run with --fix to attempt fixes.")
+                print(
+                    f"💡 {fixable} issue(s) can be auto-fixed. Run with --fix to attempt fixes."
+                )
                 print()
 
         if failed == 0:
@@ -496,17 +533,16 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--project",
         default=".",
-        help="Project directory path (default: current directory)"
+        help="Project directory path (default: current directory)",
     )
     p.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Show detailed diagnostic information"
+        help="Show detailed diagnostic information",
     )
     p.add_argument(
-        "--fix",
-        action="store_true",
-        help="Attempt to auto-fix common issues"
+        "--fix", action="store_true", help="Attempt to auto-fix common issues"
     )
     return p.parse_args()
 

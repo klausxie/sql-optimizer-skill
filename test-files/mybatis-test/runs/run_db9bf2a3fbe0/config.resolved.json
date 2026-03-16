@@ -1,0 +1,90 @@
+{
+  "project": {
+    "root_path": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test"
+  },
+  "scan": {
+    "mapper_globs": [
+      "src/main/resources/mapper/**/*.xml"
+    ],
+    "class_resolution": {
+      "mode": "tolerant",
+      "enable_classpath_probe": true,
+      "enable_type_sanitize": true,
+      "statement_level_recovery": true,
+      "min_success_ratio": 0.9
+    }
+  },
+  "db": {
+    "platform": "mysql",
+    "dsn": "mysql://root:root@100.101.41.123:3306/sql_optimizer_test?charset=utf8mb4",
+    "schema": null,
+    "statement_timeout_ms": 3000,
+    "allow_explain_analyze": false
+  },
+  "validate": {
+    "db_reachable": true,
+    "validation_profile": "balanced",
+    "allow_db_unreachable_fallback": false,
+    "plan_compare_enabled": true
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_base": null,
+    "api_key": null,
+    "api_model": null,
+    "api_timeout_ms": null,
+    "api_headers": null
+  },
+  "branch": {
+    "enabled": true,
+    "diagnose": true,
+    "strategy": "auto",
+    "max_branches": 100,
+    "export": {
+      "enabled": true,
+      "path": "branches.jsonl"
+    }
+  },
+  "baseline": {
+    "enabled": true,
+    "sample_rows": 100,
+    "execution_runs": 5,
+    "timeout_ms": 3000
+  },
+  "runtime": {
+    "stage_timeout_ms": {
+      "preflight": 12000,
+      "scan": 60000,
+      "optimize": 60000,
+      "validate": 60000,
+      "apply": 15000,
+      "report": 15000
+    },
+    "stage_retry_max": {
+      "preflight": 1,
+      "scan": 1,
+      "optimize": 1,
+      "validate": 1,
+      "apply": 1,
+      "report": 1
+    },
+    "stage_retry_backoff_ms": 1000,
+    "profile": "balanced"
+  },
+  "report": {
+    "enabled": true
+  },
+  "apply": {
+    "mode": "PATCH_ONLY"
+  },
+  "policy": {
+    "require_perf_improvement": false,
+    "cost_threshold_pct": 0,
+    "allow_seq_scan_if_rows_below": 0,
+    "semantic_strict_mode": true
+  },
+  "config_version": "v1"
+}

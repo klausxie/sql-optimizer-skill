@@ -1,0 +1,91 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testTrimUpdate#v29",
+  "task_id": "com.test.mapper.UserMapper.testTrimUpdate#v29:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:04:32.321242+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testTrimUpdate#v29",
+    "requiredContext": {
+      "sql": "UPDATE users name = #{name}, email = #{email}, status = #{status}, AND id = #{id}",
+      "templateSql": "UPDATE users\n        <trim prefix=\"SET \" suffixOverrides=\",\">\n            <if test=\"name != null\">name = #{name},</if>\n            <if test=\"email != null\">email = #{email},</if>\n            <if test=\"status != null\">status = #{status},</if>\n        </trim>\n        <where>\n            <if test=\"id != null\">AND id = #{id}</if>\n        </where>",
+      "dynamicFeatures": [
+        "TRIM",
+        "IF",
+        "WHERE"
+      ],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "TRIM",
+          "IF",
+          "WHERE"
+        ],
+        "includeFragments": []
+      },
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(1064, \"You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '= NULL, email = NULL, status = NULL, AND id = NULL' at line 1\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testTrimUpdate#v29:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "UPDATE users name = #{name}, email = #{email}, status = #{status}, AND id = #{id}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "a8b673d6b8d1fe038105ebd455cc0a237cb30d17bca71f03eff1ffe1cad6ae56",
+  "output_hash": "c805e4dd551395b571c235e4ff0b0578d7f697d5887d447caf91682359cd9761",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testTrimUpdate#v29:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "UPDATE users name = #{name}, email = #{email}, status = #{status}, AND id = #{id}"
+      }
+    ]
+  }
+}

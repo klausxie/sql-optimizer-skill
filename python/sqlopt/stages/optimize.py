@@ -17,7 +17,6 @@ from ..run_paths import canonical_paths
 from ..utils import statement_key, is_sql_syntax_error
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
-from .llm_feedback import collect_llm_feedback, save_feedback_record
 
 
 @dataclass

@@ -9,7 +9,9 @@ from pathlib import Path
 def _load_module():
     root = Path(__file__).resolve().parents[1]
     module_path = root / "scripts" / "ci" / "degraded_runtime_acceptance.py"
-    spec = importlib.util.spec_from_file_location("degraded_runtime_acceptance", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "degraded_runtime_acceptance", module_path
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
     spec.loader.exec_module(module)
@@ -35,14 +37,12 @@ class DegradedRuntimeAcceptanceScriptTest(unittest.TestCase):
         module = _load_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_degraded_cfg_") as td:
             repo_root = Path(td)
-            jar_dir = repo_root / "java" / "scan-agent" / "target"
-            jar_dir.mkdir(parents=True, exist_ok=True)
-            jar_path = jar_dir / "scan-agent-1.0.0.jar"
-            jar_path.write_text("stub", encoding="utf-8")
-
             text = module._config_text(repo_root)
 
-        self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable", text)
+        self.assertIn(
+            "dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable",
+            text,
+        )
         self.assertIn("provider: opencode_builtin", text)
 
 

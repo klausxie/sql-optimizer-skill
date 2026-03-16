@@ -1,0 +1,15 @@
+--- a/src/main/resources/mapper/UserMapper.xml
++++ b/src/main/resources/mapper/UserMapper.xml
+@@ -593,10 +593,8 @@
+     
+     <!-- 场景54: UNION 查询 -->
+     <select id="testUnion" resultType="com.test.entity.User">
+-        SELECT * FROM users WHERE type = #{type}
+-        UNION
+-        SELECT * FROM users WHERE status = '1'
+-    </select>
++    SELECT id FROM users WHERE type = #{type} UNION SELECT id FROM users WHERE status = '1'
++  </select>
+     
+     <!-- 场景55: 多层嵌套子查询 -->
+     <select id="testNestedSubquery" resultType="com.test.dto.UserOrderDTO">

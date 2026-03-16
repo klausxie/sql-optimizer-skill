@@ -1,0 +1,123 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testMultipleInclude#v33",
+  "task_id": "com.test.mapper.UserMapper.testMultipleInclude#v33:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:06:53.433177+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testMultipleInclude#v33",
+    "requiredContext": {
+      "sql": "SELECT id, name, email, status, type, created_at FROM users AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
+      "templateSql": "SELECT <include refid=\"baseColumns\" /> FROM users\n        <where>\n            <include refid=\"commonWhere\" />\n            <include refid=\"statusCondition\" />\n        </where>",
+      "dynamicFeatures": [
+        "INCLUDE",
+        "WHERE"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no WHERE filter - potential full table scan",
+          "severity": "warn"
+        },
+        {
+          "code": "NO_LIMIT",
+          "message": "SELECT without LIMIT may return large result set",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": []
+    },
+    "optionalContext": {
+      "includeTrace": [
+        "com.test.mapper.UserMapper.baseColumns",
+        "com.test.mapper.UserMapper.commonWhere",
+        "com.test.mapper.UserMapper.statusCondition"
+      ],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "INCLUDE",
+          "WHERE"
+        ],
+        "includeFragments": [
+          {
+            "ref": "com.test.mapper.UserMapper.baseColumns",
+            "dynamicFeatures": []
+          },
+          {
+            "ref": "com.test.mapper.UserMapper.commonWhere",
+            "dynamicFeatures": [
+              "IF"
+            ]
+          },
+          {
+            "ref": "com.test.mapper.UserMapper.statusCondition",
+            "dynamicFeatures": [
+              "IF"
+            ]
+          }
+        ]
+      },
+      "columns": [],
+      "tableStats": [],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "(2003, \"Can't connect to MySQL server on '100.101.41.123' (timed out)\")"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultipleInclude#v33:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email, status, type, created_at FROM users AND name LIKE CONCAT('%', #{name}, '%') AND email LIKE CONCAT('%', #{email}, '%') AND status = #{status}",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "1f9fd5b6877ee3b3a623634a908cc2128f4fe671d2d78c27d045526e4243821c",
+  "output_hash": "dd50ce15ca287d75c5a75f2a0b9e3ec4be617ef7221238629e8351cf760a61a7",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testMultipleInclude#v33:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id, name, email, status, type, created_at FROM users AND name LIKE CONCAT('%', #{name}, '%') "
+      }
+    ]
+  }
+}

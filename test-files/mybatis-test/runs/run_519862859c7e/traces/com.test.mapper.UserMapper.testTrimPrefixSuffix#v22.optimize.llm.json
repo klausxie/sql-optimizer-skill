@@ -1,0 +1,150 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testTrimPrefixSuffix#v22",
+  "task_id": "com.test.mapper.UserMapper.testTrimPrefixSuffix#v22:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-03-10T10:12:34.133655+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testTrimPrefixSuffix#v22",
+    "requiredContext": {
+      "sql": "SELECT * FROM users AND name = #{name} OR email = #{email}",
+      "templateSql": "SELECT * FROM users\n        <trim prefix=\"WHERE \" prefixOverrides=\"AND|OR\" suffix=\" LIMIT 100\" suffixOverrides=\",\">\n            <if test=\"name != null\">AND name = #{name}</if>\n            <if test=\"email != null\">OR email = #{email}</if>\n        </trim>",
+      "dynamicFeatures": [
+        "TRIM",
+        "IF"
+      ],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *"
+        },
+        {
+          "code": "FULL_SCAN_RISK",
+          "message": "no where filter"
+        }
+      ],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "indexType": "BTREE",
+          "column": "id",
+          "nonUnique": 0
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {
+        "statementFeatures": [
+          "TRIM",
+          "IF"
+        ],
+        "includeFragments": []
+      },
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false,
+          "columnKey": "PRI"
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true,
+          "columnKey": ""
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "unknown"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": true,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email FROM users WHERE name = #{name} OR email = #{email}",
+        "rewriteStrategy": "COLUMN_PROJECTION",
+        "semanticRisk": "low",
+        "confidence": "0.95"
+      },
+      {
+        "id": "c2",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email FROM users WHERE name = #{name}",
+        "rewriteStrategy": "CONDITION_SPLIT",
+        "semanticRisk": "medium",
+        "confidence": "0.7"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "input_hash": "3646e562d7bfdcefbbc1bea1c3c040ae73f3c348bd9663c91e6dc3b232a5d7da",
+  "output_hash": "63075ebbec2c85e93b30d0bf47b1f0a67fc92beec7627ca978c428f17ba94cbe"
+}

@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: mybatis-test
+  datasource:
+    url: jdbc:postgresql://100.101.41.123:5432/postgres?currentSchema=public&connectTimeout=10&socketTimeout=30
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  sql:
+    init:
+      mode: never
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.test.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    cache-enabled: false
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.test: DEBUG
+    org.mybatis: DEBUG

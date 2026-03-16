@@ -1,0 +1,198 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "com.test.mapper.UserMapper.testSubqueryExists#v51",
+  "task_id": "com.test.mapper.UserMapper.testSubqueryExists#v51:opt",
+  "executor": "heuristic",
+  "task": "rewrite_sql",
+  "provider": "heuristic",
+  "created_at": "2026-03-10T12:18:59.869566+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "com.test.mapper.UserMapper.testSubqueryExists#v51",
+    "requiredContext": {
+      "sql": "SELECT * FROM users u WHERE EXISTS ( SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status} ) LIMIT 10",
+      "templateSql": "SELECT * FROM users u\n        WHERE EXISTS (\n            SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status}\n        )\n        LIMIT 10",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [
+        {
+          "code": "SELECT_STAR",
+          "message": "avoid select *, specify columns explicitly",
+          "severity": "warn"
+        }
+      ],
+      "tables": [
+        "users",
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "PRIMARY",
+          "definition": "INDEX PRIMARY (id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_id",
+          "definition": "INDEX idx_orders_user_id (user_id)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_order_no",
+          "definition": "INDEX idx_orders_order_no (order_no)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "int",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "decimal",
+          "isNullable": true
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "int",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "type",
+          "dataType": "varchar",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "datetime",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "datetime",
+          "isNullable": true
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": 8
+        },
+        {
+          "table": "users",
+          "estimatedRows": 29
+        }
+      ],
+      "planSummary": {
+        "summary": "query_cost=0.5499999990686775",
+        "lineCount": 1
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "heuristic",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "local_heuristic",
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testSubqueryExists#v51:llm:c1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id FROM users u WHERE EXISTS ( SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status} ) LIMIT 10",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 0,
+  "input_hash": "df2b2bf1ed9b97ebe294279615dfd8b87d0f33952002600dd9f8bbb6856ef63e",
+  "output_hash": "e9f504642b47ea4905af9e81067ab9853a6706e41ad30267409bbb18429db6bf",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "com.test.mapper.UserMapper.testSubqueryExists#v51:llm:c1",
+        "source": "llm",
+        "rewriteStrategy": "projection_minimization",
+        "semanticRisk": "low",
+        "confidence": "medium",
+        "sql_preview": "SELECT id FROM users u WHERE EXISTS ( SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #"
+      }
+    ]
+  }
+}
