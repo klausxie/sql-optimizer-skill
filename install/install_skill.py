@@ -108,79 +108,33 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
 
     commands = [
         {
-            "name": "sql-scan",
-            "description": "扫描并识别潜在慢 SQL",
-            "argument_hint": "范围=SQL ID或文件路径",
-            "full_description": "扫描 MyBatis XML 文件并确认当前选择范围。`--sql-key` 支持完整 sqlKey、namespace.statementId、statementId、statementId#vN；如果命中多个 SQL，会返回候选 full key。",
+            "name": "sql-diagnose",
+            "description": "诊断 SQL 性能问题",
+            "argument_hint": "<SQL关键字或文件>",
+            "full_description": "一键诊断: 找到SQL位置 → 生成分支 → 真实执行(可选) → 生成诊断报告。当用户说'帮我诊断一下xxx'、'看看有什么性能问题'时使用此命令。",
             "parameters": [
                 {
                     "name": "范围",
-                    "required": False,
-                    "default": None,
-                    "description": "SQL ID、完整 sqlKey、文件路径或配置文件，如 findUsers、demo.user.findUsers#v1、UserMapper.xml、@sql-list.txt",
+                    "required": True,
+                    "description": "SQL ID、文件路径或关键字，如 listUsers、UserMapper.xml",
                 },
-            ],
-            "examples": [
-                f"{cli_cmd} run --to-stage scan --sql-key findUsers",
-                f"{cli_cmd} run --to-stage scan --mapper-path UserMapper.xml",
-            ],
-        },
-        {
-            "name": "sql-validate-config",
-            "description": "验证配置与数据库连通性",
-            "argument_hint": "config=./sqlopt.yml",
-            "full_description": "检查 sqlopt.yml、mapper 匹配结果和数据库连通性。遇到占位符 DSN、认证失败或数据库不可达时，先修配置再继续 full run。",
-            "parameters": [
                 {
-                    "name": "config",
+                    "name": "模式",
                     "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径",
+                    "default": "full",
+                    "description": "quick(仅LLM推测) / full(真实执行，需要数据库)",
                 },
             ],
             "examples": [
-                f"{cli_cmd} validate-config --config ./sqlopt.yml",
-            ],
-        },
-        {
-            "name": "sql-execute",
-            "description": "推进到 validate 阶段",
-            "argument_hint": "config=./sqlopt.yml",
-            "full_description": "继续推进当前 run 到 validate 阶段并尝试收集数据库验证证据。当前 CLI 没有 scan 之后的额外交互确认；调用此命令本身就表示继续。",
-            "parameters": [
-                {
-                    "name": "config",
-                    "required": False,
-                    "default": "./sqlopt.yml",
-                    "description": "配置文件路径（需已通过 validate-config）",
-                },
-            ],
-            "examples": [
-                f"{cli_cmd} run --to-stage validate --config ./sqlopt.yml",
-            ],
-        },
-        {
-            "name": "sql-status",
-            "description": "查看运行状态与下一步",
-            "argument_hint": "run-id=<运行ID>",
-            "full_description": "查看当前 run 的 phase、next_action、剩余语句数，以及是否需要 report-rebuild。它是观察入口，不是独立计算阶段。",
-            "parameters": [
-                {
-                    "name": "run-id",
-                    "required": False,
-                    "default": None,
-                    "description": "运行ID，不指定则使用最新",
-                },
-            ],
-            "examples": [
-                f"{cli_cmd} status --run-id latest",
+                f"{cli_cmd} run --to-stage diagnose --sql-key listUsers",
+                f"{cli_cmd} run --to-stage diagnose --mapper-path UserMapper.xml",
             ],
         },
         {
             "name": "sql-optimize",
             "description": "生成优化建议",
-            "argument_hint": "run-id=<运行ID>",
-            "full_description": "启动或继续到 optimize 阶段，用于先生成 rewrite 候选而不继续进入 validate/patch。",
+            "argument_hint": "[run-id]",
+            "full_description": "根据诊断结果，对问题分支生成 LLM 优化建议。当用户说'给个优化建议'、'如何优化这些慢SQL'时使用此命令。",
             "parameters": [
                 {
                     "name": "run-id",
@@ -194,10 +148,27 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
             ],
         },
         {
+            "name": "sql-validate",
+            "description": "验证优化效果",
+            "argument_hint": "[run-id]",
+            "full_description": "真实执行优化后的 SQL，验证性能提升效果。当用户说'验证一下优化效果'、'看看性能提升了多少'时使用此命令。",
+            "parameters": [
+                {
+                    "name": "run-id",
+                    "required": False,
+                    "default": None,
+                    "description": "运行ID，不指定则使用最新",
+                },
+            ],
+            "examples": [
+                f"{cli_cmd} run --to-stage validate",
+            ],
+        },
+        {
             "name": "sql-apply",
-            "description": "应用已生成的补丁",
-            "argument_hint": "run-id=<运行ID>",
-            "full_description": "应用已生成的 `.patch` 文件。默认 PATCH_ONLY 模式不会直接改源码；如果没有 patch 文件，输出会明确给出 skipped reason 汇总。",
+            "description": "应用补丁",
+            "argument_hint": "[run-id]",
+            "full_description": "应用验证通过的优化补丁到源码。当用户说'应用这些补丁'、'把这些修改应用到代码'时使用此命令。",
             "parameters": [
                 {
                     "name": "run-id",
@@ -208,6 +179,23 @@ def _write_slash_commands(target_skill: Path, commands_dir: Path) -> None:
             ],
             "examples": [
                 f"{cli_cmd} apply --run-id latest",
+            ],
+        },
+        {
+            "name": "sql-report",
+            "description": "生成总结报告",
+            "argument_hint": "[run-id]",
+            "full_description": "汇总所有阶段的总结报告。当用户说'生成总结报告'、'给我一个完整的报告'时使用此命令。",
+            "parameters": [
+                {
+                    "name": "run-id",
+                    "required": False,
+                    "default": None,
+                    "description": "运行ID，不指定则使用最新",
+                },
+            ],
+            "examples": [
+                f"{cli_cmd} run --to-stage report",
             ],
         },
     ]
@@ -288,18 +276,17 @@ argument-hint: {cmd["argument_hint"]}
 
         # 添加下一步建议
         next_steps = {
-            "sql-scan": (
-                "sql-validate-config",
-                "如果下一步要进入 validate/report，先确认数据库配置",
+            "sql-diagnose": (
+                "sql-optimize",
+                "诊断完成后进入优化阶段",
             ),
-            "sql-validate-config": ("sql-execute", "配置通过后再推进到 validate"),
-            "sql-execute": (
-                "sql-status",
-                "查看 next_action、report-rebuild 和 validate 结果",
+            "sql-optimize": ("sql-validate", "优化建议生成后进入验证阶段"),
+            "sql-validate": (
+                "sql-apply",
+                "验证通过后可应用补丁",
             ),
-            "sql-status": ("sql-apply", "仅当 patch 结果里存在 patchFiles"),
-            "sql-optimize": ("sql-execute", "需要数据库验证时再继续"),
-            "sql-apply": (None, "流程完成"),
+            "sql-apply": ("sql-report", "补丁应用后可生成总结报告"),
+            "sql-report": (None, "流程已完成"),
         }
 
         content += "## 下一步建议\n\n"

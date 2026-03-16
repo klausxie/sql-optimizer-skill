@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from ..contracts import ContractValidator
 from ..progress import get_progress_reporter
+from ..stages import diagnose as diagnose_stage
 from ..stages import optimize as optimize_stage
 from ..stages import patch_generate as patch_stage
 
@@ -63,6 +64,9 @@ _HANDLERS = _build_handler_registry(
     ),
     resolve_report_resume_decision=resolve_report_resume_decision,
     report_phase_complete_for_result=report_phase_complete_for_result,
+    diagnose_execute=lambda config, run_dir, validator: diagnose_stage.execute(
+        config, run_dir, validator
+    ),
     scan_execute=lambda config, run_dir, validator: scan_stage.execute(
         config, run_dir, validator
     ),
@@ -76,7 +80,7 @@ _HANDLERS = _build_handler_registry(
 )
 
 _complete_phase_result = _HANDLERS.complete_phase_result
-_scan = _HANDLERS.advance_scan
+_diagnose = _HANDLERS.advance_diagnose
 _advance_optimize = _HANDLERS.advance_optimize
 _advance_validate = _HANDLERS.advance_validate
 _advance_patch_generate = _HANDLERS.advance_patch_generate

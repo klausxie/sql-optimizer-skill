@@ -29,11 +29,10 @@ python/sqlopt/
 │   └── config_service.py     # 配置加载验证
 │
 ├── stages/               # 阶段处理 (固定顺序)
-│   ├── preflight.py          # 前置检查
-│   ├── scan.py               # SQL 扫描 (纯 Python)
+│   ├── diagnose.py           # 诊断阶段 (scan + branch + baseline)
 │   ├── optimize.py           # LLM 优化建议
 │   ├── validate.py           # 数据库验证
-│   ├── patch_generate.py     # XML 补丁生成
+│   ├── apply.py              # 补丁应用
 │   └── report.py             # 报告聚合
 │
 ├── scripting/            # 分支推断 (新增)
@@ -131,7 +130,7 @@ sqlopt-cli run --config sqlopt.yml \
 ## 阶段流水线
 
 ```
-preflight → scan → optimize → validate → patch_generate → report
+diagnose → optimize → validate → apply → report
 ```
 
 **阶段特性**:
@@ -238,7 +237,7 @@ MyBatis XML (含动态标签)
 - **产物**: JSONL/JSON
 
 ### 命名约定
-- 阶段名称: `preflight`, `scan`, `optimize`, `validate`, `patch_generate`, `report`
+- 阶段名称: `diagnose`, `optimize`, `validate`, `apply`, `report`
 - 配置版本: `v1`
 - Run ID: `run_<timestamp>_<random>`
 

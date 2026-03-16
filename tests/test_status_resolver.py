@@ -20,18 +20,23 @@ class StatusResolverTest(unittest.TestCase):
                 state={
                     "current_phase": "report",
                     "phase_status": {
-                        "preflight": "DONE",
-                        "scan": "DONE",
+                        "diagnose": "DONE",
                         "optimize": "PENDING",
                         "validate": "PENDING",
-                        "patch_generate": "PENDING",
+                        "apply": "PENDING",
                         "report": "DONE",
                     },
-                    "statements": {"demo.user.a#v1": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}},
+                    "statements": {
+                        "demo.user.a#v1": {
+                            "optimize": "PENDING",
+                            "validate": "PENDING",
+                            "patch_generate": "PENDING",
+                        }
+                    },
                     "attempts_by_phase": {},
                     "report_rebuild_required": False,
                 },
-                plan={"to_stage": "scan", "sql_keys": ["demo.user.a#v1"]},
+                plan={"to_stage": "diagnose", "sql_keys": ["demo.user.a#v1"]},
                 meta={"status": "COMPLETED"},
                 config={"report": {"enabled": True}},
             )
@@ -44,25 +49,25 @@ class StatusResolverTest(unittest.TestCase):
             RunStatusRequest(
                 run_id="run_demo",
                 state={
-                    "current_phase": "scan",
+                    "current_phase": "diagnose",
                     "phase_status": {
-                        "scan": "PENDING",
+                        "diagnose": "PENDING",
                         "optimize": "PENDING",
                         "validate": "PENDING",
-                        "patch_generate": "PENDING",
+                        "apply": "PENDING",
                         "report": "PENDING",
                     },
                     "statements": {},
                     "attempts_by_phase": {},
                     "report_rebuild_required": False,
                 },
-                plan={"to_stage": "scan", "sql_keys": []},
+                plan={"to_stage": "diagnose", "sql_keys": []},
                 meta={"status": "RUNNING"},
                 config={"report": {"enabled": True}},
             )
         )
 
-        self.assertEqual(snapshot["phase_status"]["scan"], "RUNNING")
+        self.assertEqual(snapshot["phase_status"]["diagnose"], "RUNNING")
 
 
 if __name__ == "__main__":

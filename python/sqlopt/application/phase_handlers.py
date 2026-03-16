@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .phase_handlers_diagnose import advance_diagnose
 from .phase_handlers_indexed import (
     advance_optimize,
     advance_patch_generate,
@@ -9,7 +10,7 @@ from .phase_handlers_pre import advance_scan
 from .phase_handlers_report import advance_report
 
 __all__ = [
-    # preflight stage removed
+    "advance_diagnose",
     "advance_scan",
     "advance_optimize",
     "advance_validate",

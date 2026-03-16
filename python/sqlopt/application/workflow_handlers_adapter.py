@@ -11,6 +11,7 @@ from . import phase_handlers
 @dataclass(frozen=True)
 class HandlerRegistry:
     complete_phase_result: Callable[[Any, str], dict[str, Any]]
+    advance_diagnose: Callable[[Any], dict[str, Any] | None]
     advance_scan: Callable[[Any], dict[str, Any] | None]
     advance_optimize: Callable[[Any, Any], dict[str, Any] | None]
     advance_validate: Callable[[Any, Any], dict[str, Any] | None]
@@ -34,6 +35,7 @@ def build_handler_registry(
     report_phase_complete_for_result: Callable[
         [dict[str, Any], str, dict[str, Any]], bool
     ],
+    diagnose_execute: Callable[[dict[str, Any], Any, Any], list[dict[str, Any]]],
     scan_execute: Callable[[dict[str, Any], Any, Any], list[dict[str, Any]]],
     optimize_execute_one: Callable[..., dict[str, Any]],
     validate_execute_one: Callable[..., dict[str, Any]],
@@ -80,6 +82,17 @@ def build_handler_registry(
             )
         else:
             ctx.repo.set_meta_status("FAILED")
+
+    def _advance_diagnose(ctx: Any) -> dict[str, Any] | None:
+        return phase_handlers.advance_diagnose(
+            ctx,
+            phase_transitions=phase_transitions,
+            mark_updated=_mark_updated,
+            complete_phase_result=_complete_phase_result,
+            finalize_completed_run=_finalize_completed_run,
+            handle_phase_failure=_handle_phase_failure,
+            diagnose_execute=diagnose_execute,
+        )
 
     def _advance_scan(ctx: Any) -> dict[str, Any] | None:
         return phase_handlers.advance_scan(
@@ -144,10 +157,11 @@ def build_handler_registry(
             report_phase_complete_for_result=report_phase_complete_for_result,
         )
 
-    pre_index_handlers = (_advance_scan,)
+    pre_index_handlers = (_advance_diagnose,)
     indexed_handlers = (_advance_optimize, _advance_validate, _advance_patch_generate)
     return HandlerRegistry(
         complete_phase_result=_complete_phase_result,
+        advance_diagnose=_advance_diagnose,
         advance_scan=_advance_scan,
         advance_optimize=_advance_optimize,
         advance_validate=_advance_validate,

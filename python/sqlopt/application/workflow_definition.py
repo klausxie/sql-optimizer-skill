@@ -2,26 +2,26 @@ from __future__ import annotations
 
 from .status_resolver import PhaseExecutionPolicy
 
-STAGE_ORDER = ["scan", "optimize", "validate", "patch_generate", "report"]
+STAGE_ORDER = ["diagnose", "optimize", "validate", "apply", "report"]
 
 PHASE_POLICIES = {
-    "scan": PhaseExecutionPolicy("scan"),
+    "diagnose": PhaseExecutionPolicy("diagnose"),
     "optimize": PhaseExecutionPolicy("optimize"),
     "validate": PhaseExecutionPolicy("validate"),
-    "patch_generate": PhaseExecutionPolicy("patch_generate"),
+    "apply": PhaseExecutionPolicy("apply"),
     "report": PhaseExecutionPolicy("report", allow_regenerate=True),
 }
 
 PHASE_TRANSITIONS = {
-    "scan": "optimize",
+    "diagnose": "optimize",
     "optimize": "validate",
-    "validate": "patch_generate",
-    "patch_generate": "report",
+    "validate": "apply",
+    "apply": "report",
     "report": None,
 }
 
 STATEMENT_PHASE_TARGETS = {
-    "optimize": {"optimize", "validate", "patch_generate", "report"},
-    "validate": {"validate", "patch_generate", "report"},
-    "patch_generate": {"patch_generate", "report"},
+    "optimize": {"optimize", "validate", "apply", "report"},
+    "validate": {"validate", "apply", "report"},
+    "apply": {"apply", "report"},
 }
