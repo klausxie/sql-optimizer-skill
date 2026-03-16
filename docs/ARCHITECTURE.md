@@ -34,10 +34,12 @@
 | 命令 | 功能 | 典型用法 |
 |------|------|----------|
 | `validate-config` | 验证配置文件和数据库连通性 | `sqlopt-cli validate-config --config sqlopt.yml` |
-| `run` | 从头开始执行优化流程 | `sqlopt-cli run --config sqlopt.yml` |
+| `run` | 从头开始执行优化流程（自动包含配置验证） | `sqlopt-cli run --config sqlopt.yml` |
 | `resume` | 继续已中断的运行 | `sqlopt-cli resume --run-id <run-id>` |
 | `status` | 查看当前运行状态 | `sqlopt-cli status --run-id <run-id>` |
 | `apply` | 应用生成的补丁 | `sqlopt-cli apply --run-id <run-id>` |
+
+> **注意**: `run` 命令会在开头自动执行配置验证（等效于 `validate-config`），无需单独运行验证命令。
 
 ### 命令选项
 
@@ -65,6 +67,8 @@
  │单元   │   │优化建议│   │+性能  │    │文件       │      │+风险   │
  └──────┘   └──────┘   └────────┘    └───────────┘      └─────────┘
 ```
+
+> **注意**: preflight 阶段已移除，配置验证已合并到 run 命令开头自动执行。
 
 ### 阶段详解
 
