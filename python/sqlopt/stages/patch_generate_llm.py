@@ -163,48 +163,12 @@ def generate_template_patch_suggestion(
     patch_result: dict[str, Any],
     llm_cfg: dict[str, Any],
 ) -> TemplatePatchSuggestion | None:
-    """为动态 SQL 生成模板级 patch 建议
-
-    Args:
-        sql_unit: SQL 单元
-        acceptance: 验证接受结果
-        patch_result: 补丁生成结果
-        llm_cfg: LLM 配置
-
-    Returns:
-        TemplatePatchSuggestion 对象，如果 LLM 不可用则返回 None
-    """
-    # 检查 LLM 是否启用
     if not llm_cfg.get("enabled", False):
         return None
 
-    # 构建 prompt
     prompt = build_template_patch_prompt(sql_unit, acceptance, patch_result)
-
-    # 调用 LLM
-    from ..llm.provider import _run_opencode
-
-    provider = llm_cfg.get("provider", "opencode_builtin")
-
-    try:
-        if provider == "opencode_run":
-            candidates, _ = _run_opencode(
-                sql_key="template_patch_suggestion",
-                prompt=prompt,
-                llm_cfg=llm_cfg,
-            )
-            response_text = candidates[0].get("rewrittenSql", "") if candidates else ""
-        else:
-            # 内置模式返回保守响应
-            response_text = "建议使用模板级改写；内置模式无法执行深度分析"
-
-        # 解析响应
-        suggestion = _parse_llm_template_suggestion(response_text, prompt)
-        return suggestion
-
-    except Exception:
-        # LLM 调用失败，返回 None
-        return None
+    response_text = "建议使用模板级改写；CLI 内置模式无法执行深度分析"
+    return _parse_llm_template_suggestion(response_text, prompt)
 
 
 def save_template_suggestion(

@@ -9,7 +9,11 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, write_json
 from ..llm.output_validator import validate_candidates
 from ..llm.provider import generate_llm_candidates
-from ..llm.retry_context import build_retry_context, should_retry, collect_validation_errors
+from ..llm.retry_context import (
+    build_retry_context,
+    should_retry,
+    collect_validation_errors,
+)
 from ..manifest import log_event
 from ..platforms.sql.candidate_generation_engine import evaluate_candidate_generation
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
@@ -22,6 +26,7 @@ from ..verification.writer import append_verification_record
 @dataclass
 class LlmExecutionResult:
     """LLM 执行结果"""
+
     raw_candidates: list[dict[str, Any]]
     valid_candidates: list[dict[str, Any]]
     trace: dict[str, Any]
@@ -73,7 +78,9 @@ def _execute_llm_with_retry(
             retry_context = build_retry_context(
                 attempt=current_attempt,
                 max_retries=max_retries,
-                validation_errors=last_validation_errors if last_validation_errors else None,
+                validation_errors=last_validation_errors
+                if last_validation_errors
+                else None,
                 execution_error=last_execution_error,
             )
 
@@ -112,7 +119,7 @@ def _execute_llm_with_retry(
                 original_sql=sql_unit["sql"],
                 sql_key=sql_unit["sqlKey"],
                 config=config,
-                sql_unit=sql_unit
+                sql_unit=sql_unit,
             )
             validation_results = [
                 {
@@ -122,11 +129,15 @@ def _execute_llm_with_retry(
                         {"type": c.check_type, "passed": c.passed, "message": c.message}
                         for c in r.checks
                     ],
-                    "rejected_reason": r.rejected_reason
+                    "rejected_reason": r.rejected_reason,
                 }
                 for r in val_results
             ]
-            last_validation_errors = collect_validation_errors(val_results, raw_candidates) if not valid_candidates else []
+            last_validation_errors = (
+                collect_validation_errors(val_results, raw_candidates)
+                if not valid_candidates
+                else []
+            )
         else:
             last_validation_errors = []
 
@@ -172,13 +183,16 @@ def _build_dollar_skip_trace(sql_key: str) -> dict[str, Any]:
     }
 
 
-def _collect_validation_errors_for_feedback(val_results: list[Any]) -> list[dict[str, str]] | None:
+def _collect_validation_errors_for_feedback(
+    val_results: list[Any],
+) -> list[dict[str, str]] | None:
     """收集验证错误用于反馈。"""
     if not val_results:
         return None
     return [
         {"check_type": r.rejected_reason, "rejected_reason": r.rejected_reason}
-        for r in val_results if not r.passed
+        for r in val_results
+        if not r.passed
     ]
 
 
@@ -197,7 +211,12 @@ def _validation_results_payload(val_results: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
-def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
+def execute_one(
+    sql_unit: dict[str, Any],
+    run_dir: Path,
+    validator: ContractValidator,
+    config: dict[str, Any],
+) -> dict[str, Any]:
     paths = canonical_paths(run_dir)
     llm_cfg = dict(config.get("llm", {}) or {})
     project_root = (config.get("project", {}) or {}).get("root_path")
@@ -206,7 +225,9 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 
     proposal = generate_proposal(sql_unit, config=config)
 
-    llm_trace_ref = str(paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)).replace("\\", "/")
+    llm_trace_ref = str(
+        paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)
+    ).replace("\\", "/")
     raw_candidates: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
     candidate_generation_diagnostics: dict[str, Any] = {
@@ -224,16 +245,52 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
         "rawRewriteStrategies": [],
         "finalCandidateCount": 0,
     }
-    candidate_generation_artifact: dict[str, Any] = dict(candidate_generation_diagnostics)
+    candidate_generation_artifact: dict[str, Any] = dict(
+        candidate_generation_diagnostics
+    )
+    trace: dict[str, Any] = {}
+    validation_results: list[dict[str, Any]] = []
+    val_results: list[Any] = []
+    retry_traces: list[dict[str, Any]] = []
+
+    # Check if external LLM mode is enabled (prompt-only mode)
+    external_llm_mode = bool(config.get("external_llm", {}).get("enabled", False))
 
     # 判断是否需要跳过 LLM 生成
     if "${" in str(sql_unit.get("sql", "")):
         trace = _build_dollar_skip_trace(sql_unit["sqlKey"])
-        validation_results = []
-        val_results = []
-        retry_traces = []
         candidate_generation_diagnostics["recoveryReason"] = "SKIPPED_BY_SECURITY_BLOCK"
         candidate_generation_artifact = dict(candidate_generation_diagnostics)
+    elif external_llm_mode:
+        prompt = build_optimize_prompt(sql_unit, proposal, config)
+        prompt_file_name = f"{sql_unit['sqlKey']}.prompt.json"
+        prompt_file_path = paths.optimize_dir / prompt_file_name
+
+        prompt_payload = {
+            "sql_key": sql_unit["sqlKey"],
+            "stage": "optimize",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "prompt": prompt,
+        }
+
+        write_json(prompt_file_path, prompt_payload)
+
+        trace = {
+            "stage": "optimize",
+            "mode": "prompt_only",
+            "sql_key": sql_unit["sqlKey"],
+            "task_id": f"{sql_unit['sqlKey']}:opt",
+            "executor": "external",
+            "prompt_file": str(prompt_file_path.relative_to(run_dir)).replace(
+                "\\", "/"
+            ),
+        }
+        candidate_generation_diagnostics["recoveryReason"] = "WAITING_FOR_EXTERNAL_LLM"
+        candidate_generation_artifact = dict(candidate_generation_diagnostics)
+        proposal["llmPromptStatus"] = "WAITING_FOR_EXTERNAL_LLM"
+        proposal["llmPromptFile"] = str(prompt_file_path.relative_to(run_dir)).replace(
+            "\\", "/"
+        )
     else:
         result = _execute_llm_with_retry(sql_unit, proposal, llm_cfg, config)
         raw_candidates = list(result.raw_candidates)
@@ -251,8 +308,12 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
             trace=trace,
         )
         candidates = list(generation_outcome.accepted_candidates)
-        candidate_generation_diagnostics = generation_outcome.diagnostics.to_summary_dict()
-        candidate_generation_artifact = generation_outcome.diagnostics.to_artifact_dict()
+        candidate_generation_diagnostics = (
+            generation_outcome.diagnostics.to_summary_dict()
+        )
+        candidate_generation_artifact = (
+            generation_outcome.diagnostics.to_artifact_dict()
+        )
         recovery_candidates = list(generation_outcome.recovery_candidates)
         if recovery_candidates:
             recovered_candidates, recovered_val_results = validate_candidates(
@@ -267,16 +328,28 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
                 val_results = recovered_val_results
                 validation_results = _validation_results_payload(recovered_val_results)
                 candidate_generation_diagnostics["recoverySucceeded"] = True
-                candidate_generation_diagnostics["recoveredCandidateCount"] = len(recovered_candidates)
-                candidate_generation_diagnostics["finalCandidateCount"] = len(recovered_candidates)
+                candidate_generation_diagnostics["recoveredCandidateCount"] = len(
+                    recovered_candidates
+                )
+                candidate_generation_diagnostics["finalCandidateCount"] = len(
+                    recovered_candidates
+                )
                 candidate_generation_artifact["recoverySucceeded"] = True
-                candidate_generation_artifact["recoveredCandidateCount"] = len(recovered_candidates)
-                candidate_generation_artifact["finalCandidateCount"] = len(recovered_candidates)
+                candidate_generation_artifact["recoveredCandidateCount"] = len(
+                    recovered_candidates
+                )
+                candidate_generation_artifact["finalCandidateCount"] = len(
+                    recovered_candidates
+                )
             else:
                 candidate_generation_diagnostics["recoverySucceeded"] = False
-                candidate_generation_diagnostics["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
+                candidate_generation_diagnostics["recoveryReason"] = (
+                    "RECOVERY_VALIDATION_REJECTED"
+                )
                 candidate_generation_artifact["recoverySucceeded"] = False
-                candidate_generation_artifact["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
+                candidate_generation_artifact["recoveryReason"] = (
+                    "RECOVERY_VALIDATION_REJECTED"
+                )
 
         proposal["llmCandidates"] = candidates
         proposal["candidateGenerationDiagnostics"] = candidate_generation_diagnostics
@@ -303,7 +376,11 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     diagnostics_cfg = config.get("diagnostics", {}) or {}
     llm_feedback_cfg = diagnostics_cfg.get("llm_feedback", {})
     llm_feedback_enabled = bool(llm_feedback_cfg.get("enabled", False))
-    validation_errors_for_feedback = _collect_validation_errors_for_feedback(val_results) if llm_feedback_enabled else None
+    validation_errors_for_feedback = (
+        _collect_validation_errors_for_feedback(val_results)
+        if llm_feedback_enabled
+        else None
+    )
 
     # 保存 proposal
     validator.validate("optimization_proposal", proposal)
@@ -316,7 +393,10 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
             trace_path,
             {
                 **trace,
-                "response": {**(trace.get("response") or {}), "candidates": proposal.get("llmCandidates", [])},
+                "response": {
+                    **(trace.get("response") or {}),
+                    "candidates": proposal.get("llmCandidates", []),
+                },
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -326,9 +406,19 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
         )
 
     # 构建验证记录
-    _append_verification(run_dir, validator, sql_unit["sqlKey"], proposal, trace, llm_feedback_enabled, validation_errors_for_feedback)
+    _append_verification(
+        run_dir,
+        validator,
+        sql_unit["sqlKey"],
+        proposal,
+        trace,
+        llm_feedback_enabled,
+        validation_errors_for_feedback,
+    )
 
-    log_event(paths.manifest_path, "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
+    log_event(
+        paths.manifest_path, "optimize", "done", {"statement_key": sql_unit["sqlKey"]}
+    )
     return proposal
 
 
@@ -342,18 +432,31 @@ def _append_verification(
     validation_errors_for_feedback: list[dict[str, str]] | None,
 ) -> None:
     """追加验证记录。"""
-    llm_trace_refs = [str(ref) for ref in (proposal.get("llmTraceRefs") or []) if str(ref).strip()]
+    llm_trace_refs = [
+        str(ref) for ref in (proposal.get("llmTraceRefs") or []) if str(ref).strip()
+    ]
     llm_candidate_count = len(proposal.get("llmCandidates") or [])
     degrade_reason = str(trace.get("degrade_reason") or "").strip()
     actionability = dict(proposal.get("actionability") or {})
-    triggered_rules = [str(row.get("ruleId") or "") for row in (proposal.get("triggeredRules") or []) if isinstance(row, dict) and str(row.get("ruleId") or "").strip()]
-    db_explain_error = str(((proposal.get("dbEvidenceSummary") or {}).get("explainError")) or "").strip()
+    triggered_rules = [
+        str(row.get("ruleId") or "")
+        for row in (proposal.get("triggeredRules") or [])
+        if isinstance(row, dict) and str(row.get("ruleId") or "").strip()
+    ]
+    db_explain_error = str(
+        ((proposal.get("dbEvidenceSummary") or {}).get("explainError")) or ""
+    ).strip()
     db_explain_syntax_error = is_sql_syntax_error(db_explain_error)
     has_verdict = bool(str(proposal.get("verdict") or "").strip())
     has_analysis = bool(proposal.get("issues")) or bool(proposal.get("suggestions"))
 
     checks = [
-        VerificationCheck("proposal_verdict_present", has_verdict, "error", None if has_verdict else "OPTIMIZE_VERDICT_MISSING"),
+        VerificationCheck(
+            "proposal_verdict_present",
+            has_verdict,
+            "error",
+            None if has_verdict else "OPTIMIZE_VERDICT_MISSING",
+        ),
         VerificationCheck(
             "analysis_payload_present",
             has_analysis,
@@ -364,7 +467,9 @@ def _append_verification(
             "llm_trace_present",
             (llm_candidate_count == 0) or bool(llm_trace_refs),
             "warn" if llm_candidate_count else "info",
-            None if (llm_candidate_count == 0) or bool(llm_trace_refs) else "OPTIMIZE_LLM_TRACE_MISSING",
+            None
+            if (llm_candidate_count == 0) or bool(llm_trace_refs)
+            else "OPTIMIZE_LLM_TRACE_MISSING",
         ),
         VerificationCheck(
             "db_explain_syntax_ok",
@@ -382,11 +487,15 @@ def _append_verification(
     elif llm_candidate_count > 0 and not llm_trace_refs:
         verification_status = "PARTIAL"
         verification_reason_code = "OPTIMIZE_LLM_TRACE_MISSING"
-        verification_reason_message = "LLM candidates were generated without a corresponding trace reference"
+        verification_reason_message = (
+            "LLM candidates were generated without a corresponding trace reference"
+        )
     elif degrade_reason:
         verification_status = "PARTIAL"
         verification_reason_code = degrade_reason
-        verification_reason_message = "optimization fell back to a degraded or skipped candidate generation path"
+        verification_reason_message = (
+            "optimization fell back to a degraded or skipped candidate generation path"
+        )
     elif db_explain_syntax_error:
         verification_status = "PARTIAL"
         verification_reason_code = "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"
@@ -394,11 +503,15 @@ def _append_verification(
     elif not has_analysis:
         verification_status = "PARTIAL"
         verification_reason_code = "OPTIMIZE_ANALYSIS_PARTIAL"
-        verification_reason_message = "proposal is structurally valid but has limited issue/suggestion evidence"
+        verification_reason_message = (
+            "proposal is structurally valid but has limited issue/suggestion evidence"
+        )
     else:
         verification_status = "VERIFIED"
         verification_reason_code = "OPTIMIZE_EVIDENCE_VERIFIED"
-        verification_reason_message = "proposal includes source and candidate-generation evidence"
+        verification_reason_message = (
+            "proposal includes source and candidate-generation evidence"
+        )
 
     append_verification_record(
         run_dir,
@@ -411,9 +524,15 @@ def _append_verification(
             status=verification_status,
             reason_code=verification_reason_code,
             reason_message=verification_reason_message,
-            evidence_refs=[str(canonical_paths(run_dir).proposals_path), *[str(run_dir / ref) for ref in llm_trace_refs]],
+            evidence_refs=[
+                str(canonical_paths(run_dir).proposals_path),
+                *[str(run_dir / ref) for ref in llm_trace_refs],
+            ],
             inputs={
-                "executor": str(trace.get("executor") or ("llm" if llm_candidate_count else "heuristic")),
+                "executor": str(
+                    trace.get("executor")
+                    or ("llm" if llm_candidate_count else "heuristic")
+                ),
                 "llm_candidate_count": llm_candidate_count,
                 "llm_trace_ref_count": len(llm_trace_refs),
                 "degrade_reason": degrade_reason or None,
@@ -430,7 +549,9 @@ def _append_verification(
                 "proposal_verdict": proposal.get("verdict"),
                 "llm_candidates_present": llm_candidate_count > 0,
                 "llm_trace_linked": bool(llm_trace_refs),
-                "recommended_suggestion_index": proposal.get("recommendedSuggestionIndex"),
+                "recommended_suggestion_index": proposal.get(
+                    "recommendedSuggestionIndex"
+                ),
                 "db_explain_error_present": bool(db_explain_error),
             },
             created_at=datetime.now(timezone.utc).isoformat(),

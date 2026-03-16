@@ -15,6 +15,7 @@ from typing import Any
 @dataclass
 class LlmSemanticResult:
     """LLM 语义判断结果"""
+
     equivalent: bool  # 是否语义等价
     confidence: str  # "low", "medium", "high"
     reasoning: str  # 判断理由
@@ -100,22 +101,41 @@ def parse_llm_semantic_response(
 
     # 判断是否等价
     equivalent = False
-    if any(kw in response_lower for kw in ["语义等价", "semantically equivalent", "语义相同", "equivalent"]):
+    if any(
+        kw in response_lower
+        for kw in ["语义等价", "semantically equivalent", "语义相同", "equivalent"]
+    ):
         if "不等价" not in response_lower and "not equivalent" not in response_lower:
             equivalent = True
 
     # 提取置信度
     confidence = default_confidence
-    if "high" in response_lower or "高置信度" in response_lower or "confidence: high" in response_lower:
+    if (
+        "high" in response_lower
+        or "高置信度" in response_lower
+        or "confidence: high" in response_lower
+    ):
         confidence = "high"
-    elif "medium" in response_lower or "中置信度" in response_lower or "confidence: medium" in response_lower:
+    elif (
+        "medium" in response_lower
+        or "中置信度" in response_lower
+        or "confidence: medium" in response_lower
+    ):
         confidence = "medium"
-    elif "low" in response_lower or "低置信度" in response_lower or "confidence: low" in response_lower:
+    elif (
+        "low" in response_lower
+        or "低置信度" in response_lower
+        or "confidence: low" in response_lower
+    ):
         confidence = "low"
 
     # 提取理由
     reasoning = response_text.strip()
-    reasoning_match = re.search(r"(?:理由 | reasoning|原因|analysis)[:：]?\s*(.+)", response_text, re.IGNORECASE | re.DOTALL)
+    reasoning_match = re.search(
+        r"(?:理由 | reasoning|原因|analysis)[:：]?\s*(.+)",
+        response_text,
+        re.IGNORECASE | re.DOTALL,
+    )
     if reasoning_match:
         reasoning = reasoning_match.group(1).strip()
 
@@ -144,53 +164,11 @@ def check_semantic_equivalence(
     llm_cfg: dict[str, Any],
     context: dict[str, Any] | None = None,
 ) -> LlmSemanticResult:
-    """使用 LLM 判断两个 SQL 是否语义等价
-
-    Args:
-        original_sql: 原始 SQL
-        rewritten_sql: 改写后的 SQL
-        llm_cfg: LLM 配置
-        context: 额外上下文
-
-    Returns:
-        LlmSemanticResult 对象
-    """
-    # 构建 prompt
     prompt = build_semantic_check_prompt(original_sql, rewritten_sql, context)
-
-    # 调用 LLM
-    # 注意：这里复用 provider 的基础设施，但不使用 candidate 生成逻辑
-    from ...llm.provider import _run_opencode, _opencode_builtin_candidate
-    from ...llm.retry_context import build_retry_prompt
-
-    provider = llm_cfg.get("provider", "opencode_builtin")
-
-    try:
-        if provider == "opencode_run":
-            # 使用 opencode_run 执行语义判断
-            candidates, _ = _run_opencode(
-                sql_key="semantic_check",
-                prompt=prompt,
-                llm_cfg=llm_cfg,
-            )
-            response_text = candidates[0].get("rewrittenSql", "") if candidates else ""
-        else:
-            # 使用内置模式（降级）
-            # 对于语义检查，内置模式返回一个保守的响应
-            response_text = "语义等价性需要外部 LLM 验证；内置模式无法执行深度语义分析"
-
-        # 解析响应
-        result = parse_llm_semantic_response(response_text, original_sql=original_sql, rewritten_sql=rewritten_sql)
-        return result
-
-    except Exception as exc:
-        # LLM 调用失败，返回保守结果
-        return LlmSemanticResult(
-            equivalent=False,
-            confidence="low",
-            reasoning=f"LLM 调用失败：{str(exc)}",
-            risk_flags=["LLM_UNAVAILABLE"],
-        )
+    response_text = "语义等价性需要外部 LLM 验证；CLI 内置模式无法执行深度语义分析"
+    return parse_llm_semantic_response(
+        response_text, original_sql=original_sql, rewritten_sql=rewritten_sql
+    )
 
 
 def integrate_llm_semantic_check(

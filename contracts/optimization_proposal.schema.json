@@ -39,6 +39,8 @@
     },
     "llmCandidates": {"type": "array", "items": {"type": "object"}},
     "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
+    "llmPromptStatus": {"type": "string"},
+    "llmPromptFile": {"type": "string"},
     "candidateGenerationDiagnostics": {
       "type": ["object", "null"],
       "properties": {
