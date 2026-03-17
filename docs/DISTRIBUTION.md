@@ -44,7 +44,7 @@ Windows PowerShell:
 
 ```powershell
 python install/install_skill.py
-python install/doctor.py --project C:\path\to\your\project
+python install/doctor.py --project C:/path/to/your/project
 ```
 
 可选：若项目使用直连 LLM，请同时在项目 `sqlopt.yml` 配置：
@@ -69,7 +69,7 @@ $HOME/.opencode/skills/sql-optimizer/bin/sqlopt-cli --help
 Windows PowerShell:
 
 ```powershell
-$env:USERPROFILE\.opencode\skills\sql-optimizer\bin\sqlopt-cli.cmd --help
+$env:USERPROFILE/.opencode/skills/sql-optimizer/bin/sqlopt-cli.cmd --help
 ```
 
 ## 4. 常见问题
