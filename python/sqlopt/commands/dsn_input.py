@@ -21,6 +21,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from ..application.config_service import dsn_contains_placeholders
+
 
 def is_interactive() -> bool:
     """检测是否在交互式环境中"""
@@ -107,8 +109,7 @@ def check_and_prompt_dsn(
         return config
 
     # 检查占位符
-    placeholders = ["<user>", "<password>", "<database>", "<host>", "<dbname>"]
-    has_placeholder = any(p.lower() in dsn.lower() for p in placeholders)
+    has_placeholder = dsn_contains_placeholders(dsn)
 
     if not has_placeholder and not force_prompt:
         return config
