@@ -11,37 +11,56 @@
 
 ## 安装方式
 
-### 方式一：全局安装（推荐）
+### 全局安装（推荐）
 
 安装到 OpenCode 全局技能目录：
 
 ```bash
+# Linux / macOS
 python3 install/install_skill.py
-python3 install/install_skill.py --verify
+
+# Windows (PowerShell)
+python install/install_skill.py
 ```
 
-安装后技能位置：`~/.opencode/skills/sql-optimizer/`
+验证安装：
+
+```bash
+# Linux / macOS
+python3 install/install_skill.py --verify
+
+# Windows
+python install/install_skill.py --verify
+```
+
+安装后技能位置：
+- Linux/macOS: `~/.opencode/skills/sql-optimizer/`
+- Windows: `%USERPROFILE%\.opencode\skills\sql-optimizer\`
 
 > 安装时会自动覆盖旧版本，无需额外操作。
 
-### 方式二：项目内安装
+### 项目内安装
 
 安装到指定项目的 `.sqlopt` 目录：
 
 ```bash
+# Linux / macOS
 python3 install/install_skill.py --project /path/to/your/project
+
+# Windows
+python install/install_skill.py --project C:\path\to\project
 ```
 
-这会在项目根目录创建 `.sqlopt/` 目录存放技能文件。
-
-> 安装时会自动覆盖旧版本，无需额外操作。
-
-### 方式三：自定义目录
+### 自定义目录
 
 安装到任意指定目录：
 
 ```bash
+# Linux / macOS
 python3 install/install_skill.py --project /custom/path/sqlopt-skill
+
+# Windows
+python install/install_skill.py --project C:\custom\path\sqlopt-skill
 ```
 
 ### 覆盖安装说明
@@ -59,11 +78,17 @@ python3 install/install_skill.py
 如需手动删除后安装：
 
 ```bash
-# 全局安装的卸载
+# Linux / macOS - 全局安装的卸载
 rm -rf ~/.opencode/skills/sql-optimizer/
 
-# 项目安装的卸载
+# Linux / macOS - 项目安装的卸载
 rm -rf /path/to/your/project/.sqlopt
+
+# Windows - 全局安装的卸载
+rmdir /s /q "%USERPROFILE%\.opencode\skills\sql-optimizer"
+
+# Windows - 项目安装的卸载
+rmdir /s /q "C:\path\to\project\.sqlopt"
 
 # 然后重新安装
 python3 install/install_skill.py
