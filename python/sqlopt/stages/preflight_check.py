@@ -253,9 +253,7 @@ def check_and_prepare(
         conditions_count=conditions_count,
     )
 
-    # 判断是否需要用户选择
-    # 如果 DB 不可达且配置为 full，需要询问用户
-    needs_user_choice = db_configured and not db_reachable and db_strategy == "full"
+    needs_user_choice = True
 
     return {
         "db_configured": db_configured,
