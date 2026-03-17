@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
-from datetime import datetime
 from pathlib import Path
 
 
@@ -354,12 +353,9 @@ def main() -> None:
         if args.force:
             safe_rmtree(target_skill)
         else:
-            backup = (
-                target_skill.parent
-                / f"{SKILL_NAME}.bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            )
-            target_skill.rename(backup)
-            print(f"existing skill moved to: {backup}")
+            # 默认覆盖：直接删除旧版本
+            safe_rmtree(target_skill)
+            print(f"existing skill removed: {target_skill}")
 
     target_skill.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_skill, target_skill, dirs_exist_ok=True)
