@@ -164,7 +164,7 @@ python install/doctor.py --project .
 - 重新安装：`python install/install_skill.py`
 - 按 `--verify` 输出修复 PATH
 - 新开 PowerShell 后重试
-- 临时可用全路径：`%USERPROFILE%\.opencode\skills\sql-optimizer\bin\sqlopt-cli.cmd`
+- 临时可用全路径：`%USERPROFILE%/.opencode/skills/sql-optimizer/bin/sqlopt-cli.cmd`
 
 ---
 
