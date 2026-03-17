@@ -258,13 +258,30 @@ def _perform_scan(
     project_root: Path,
     mapper_globs: list[str],
     manifest_path: Path,
+    target_files: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Perform pure Python XML scan of MyBatis mappers."""
+    """Perform pure Python XML scan of MyBatis mappers.
+
+    Args:
+        project_root: Project root path
+        mapper_globs: Mapper file globs to match
+        manifest_path: Path to manifest.jsonl
+        target_files: Optional list of specific files to scan. If provided,
+                     only these files will be scanned (index-based optimization).
+    """
     units: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
 
-    files = _resolve_mapper_files(project_root, mapper_globs)
-    reporter = get_progress_reporter()
+    # If target_files is provided, only scan those files (index-based optimization)
+    if target_files:
+        files = sorted(set(target_files))
+        reporter = get_progress_reporter()
+        reporter.report_info(
+            f"Index-optimized: scanning only {len(files)} target file(s)"
+        )
+    else:
+        files = _resolve_mapper_files(project_root, mapper_globs)
+        reporter = get_progress_reporter()
 
     if not files:
         warnings.append(
@@ -340,6 +357,7 @@ def run_scan(
     config: dict[str, Any],
     run_dir: Path,
     manifest_path: Path,
+    target_files: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Public API for scanning MyBatis mappers.
 
@@ -349,6 +367,7 @@ def run_scan(
         config: Configuration dict with project.root_path and scan.mapper_globs
         run_dir: Run directory path
         manifest_path: Path to manifest.jsonl
+        target_files: Optional list of specific files to scan
 
     Returns:
         Tuple of (units, warnings)
@@ -357,11 +376,14 @@ def run_scan(
         str((config.get("project", {}) or {}).get("root_path") or ".")
     ).resolve()
     mapper_globs = config.get("scan", {}).get("mapper_globs", [])
-    return _perform_scan(project_root, mapper_globs, manifest_path)
+    return _perform_scan(project_root, mapper_globs, manifest_path, target_files)
 
 
 def execute(
-    config: dict[str, Any], run_dir: Path, validator: ContractValidator
+    config: dict[str, Any],
+    run_dir: Path,
+    validator: ContractValidator,
+    target_files: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Execute scan stage: parse MyBatis XML mappers using pure Python."""
     project_root = Path(
@@ -377,7 +399,7 @@ def execute(
     fragments_path = run_dir / "scan.fragments.jsonl"
 
     discovered_count = _discover_statement_count(project_root, mapper_globs)
-    units, warnings = run_scan(config, run_dir, manifest_path)
+    units, warnings = run_scan(config, run_dir, manifest_path, target_files)
 
     if not units:
         for w in warnings:

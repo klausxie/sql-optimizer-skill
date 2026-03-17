@@ -70,9 +70,36 @@ def execute(
             "Diagnose: DB unreachable but strategy is 'full', will prompt for choice"
         )
 
+    target_sql_ids = config.get("target_sql_ids")
+    target_files = None
+
+    if target_sql_ids:
+        from ..application.sql_id_indexer import (
+            load_index,
+            lookup_files,
+            is_index_valid,
+        )
+
+        project_root = Path(
+            str((config.get("project", {}) or {}).get("root_path") or ".")
+        ).resolve()
+        index_path = project_root / ".sqlopt" / "index.json"
+        index = load_index(index_path)
+
+        if index and is_index_valid(index, project_root):
+            sql_ids_list = (
+                target_sql_ids if isinstance(target_sql_ids, list) else [target_sql_ids]
+            )
+            found_files, missing = lookup_files(index, sql_ids_list)
+            if found_files:
+                target_files = list(found_files)
+                print(
+                    f"Index lookup: found {len(found_files)} file(s) for {len(sql_ids_list)} SQL ID(s)"
+                )
+
     # Step 1: Execute scan stage to get SQL units
     reporter.report_info("Diagnose: Running scan stage...")
-    units = scan_stage.execute(config, run_dir, validator)
+    units = scan_stage.execute(config, run_dir, validator, target_files)
 
     if not units:
         raise StageError(
