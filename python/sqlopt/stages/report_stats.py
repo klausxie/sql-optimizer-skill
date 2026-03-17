@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from typing import Any
 
 from ..failure_classification import classify_reason_code
@@ -10,6 +11,10 @@ from ..platforms.sql.error_intel import (
 )
 from ..platforms.sql.materialization_constants import materialization_reason_group
 from ..verification.explain import action_reason, assess_sql_outcome
+
+
+def _get_python_cmd() -> str:
+    return "python" if platform.system().lower().startswith("win") else "python3"
 
 
 def _append_action_once(actions: list[dict[str, Any]], action: dict[str, Any]) -> None:
@@ -500,7 +505,7 @@ def default_next_actions(
                     "applicability": "健康的运行且有可用补丁",
                     "expected_outcome": "应用安全的 SQL 改进",
                     "commands": [
-                        f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"
+                        f"PYTHONPATH=python {_get_python_cmd()} scripts/sqlopt_cli.py apply --run-id {run_id}"
                     ],
                 },
             )
@@ -539,7 +544,7 @@ def default_next_actions(
                 "applicability": "等待中或降级的流水线",
                 "expected_outcome": "继续或最终确定处理",
                 "commands": [
-                    f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}"
+                    f"PYTHONPATH=python {_get_python_cmd()} scripts/sqlopt_cli.py resume --run-id {run_id}"
                 ],
             },
         )
@@ -553,7 +558,7 @@ def default_next_actions(
                 "applicability": "有可用补丁",
                 "expected_outcome": "应用安全的 SQL 改进",
                 "commands": [
-                    f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}"
+                    f"PYTHONPATH=python {_get_python_cmd()} scripts/sqlopt_cli.py apply --run-id {run_id}"
                 ],
             },
         )

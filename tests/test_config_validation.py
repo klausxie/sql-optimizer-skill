@@ -20,7 +20,10 @@ from sqlopt.errors import ConfigError
 BASE_CONFIG = {
     "project": {"root_path": "."},
     "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
-    "db": {"platform": "postgresql", "dsn": "postgresql://user:pass@localhost:5432/demo"},
+    "db": {
+        "platform": "postgresql",
+        "dsn": "postgresql://user:pass@localhost:5432/demo",
+    },
     "llm": {"provider": "opencode_builtin"},
     "report": {"enabled": True},
 }
@@ -48,9 +51,9 @@ class ValidationModuleTest(unittest.TestCase):
         """Test that unknown keys in sections are rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["scan"]["unknown_key"] = "value"
-        with self.assertRaises(ConfigError) as ctx:
-            validate_section_keys(cfg)
-        self.assertIn("scan.unknown_key", str(ctx.exception))
+        errors = validate_section_keys(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("scan.unknown_key" in err for err in errors))
 
     def test_validate_types_accepts_valid_config(self) -> None:
         """Test that valid configuration passes type validation."""
@@ -61,25 +64,25 @@ class ValidationModuleTest(unittest.TestCase):
         """Test that empty root_path is rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["project"]["root_path"] = ""
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("root_path", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("root_path" in err for err in errors))
 
     def test_validate_types_rejects_empty_mapper_globs(self) -> None:
         """Test that empty mapper_globs is rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["scan"]["mapper_globs"] = []
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("mapper_globs", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("mapper_globs" in err for err in errors))
 
     def test_validate_types_rejects_invalid_platform(self) -> None:
         """Test that invalid database platform is rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["db"]["platform"] = "oracle"
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("platform", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("platform" in err for err in errors))
 
     def test_validate_types_accepts_postgresql(self) -> None:
         """Test that postgresql platform is accepted."""
@@ -94,24 +97,29 @@ class ValidationModuleTest(unittest.TestCase):
         validate_types(cfg)  # Should not raise
 
     def test_validate_types_rejects_empty_dsn(self) -> None:
-        """Test that empty DSN is rejected."""
+        """Test that empty DSN is still allowed (runs in degraded mode)."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["db"]["dsn"] = ""
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("dsn", str(ctx.exception))
+        # Empty DSN is now allowed - will run in degraded mode
+        errors = validate_types(cfg)
+        self.assertEqual(len(errors), 0)
 
     def test_validate_types_rejects_invalid_provider(self) -> None:
         """Test that invalid LLM provider is rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["llm"]["provider"] = "invalid_provider"
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("provider", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("provider" in err for err in errors))
 
     def test_validate_types_accepts_all_valid_providers(self) -> None:
         """Test that all valid LLM providers are accepted."""
-        for provider in ("opencode_run", "opencode_builtin", "heuristic", "direct_openai_compatible"):
+        for provider in (
+            "opencode_run",
+            "opencode_builtin",
+            "heuristic",
+            "direct_openai_compatible",
+        ):
             cfg = copy.deepcopy(BASE_CONFIG)
             cfg["llm"]["provider"] = provider
             if provider == "direct_openai_compatible":
@@ -124,17 +132,17 @@ class ValidationModuleTest(unittest.TestCase):
         """Test that direct_openai_compatible requires API keys."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["llm"]["provider"] = "direct_openai_compatible"
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("api_", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("api_" in err for err in errors))
 
     def test_validate_types_rejects_negative_timeout(self) -> None:
         """Test that negative timeout is rejected."""
         cfg = copy.deepcopy(BASE_CONFIG)
         cfg["llm"]["timeout_ms"] = -1
-        with self.assertRaises(ConfigError) as ctx:
-            validate_types(cfg)
-        self.assertIn("timeout_ms", str(ctx.exception))
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("timeout_ms" in err for err in errors))
 
     def test_validate_user_config_accepts_valid_config(self) -> None:
         """Test that valid user configuration is accepted."""

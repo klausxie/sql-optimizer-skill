@@ -1,34 +1,142 @@
 # SQL Optimizer 配置模板（v1）
 # 复制为项目根目录 sqlopt.yml 后按需修改
+#
+# ============================================================
+# 快速开始：最小配置（只需填写数据库连接信息）
+# ============================================================
+#
+# 1. 复制本文件为 sqlopt.yml
+# 2. 修改 db.dsn 为你的数据库连接
+# 3. 运行: sqlopt-cli run --config sqlopt.yml
+#
+# ============================================================
 
 config_version: v1
 
+# ---------- 必需配置 ----------
+
 project:
+  # 项目根路径（相对于 sqlopt.yml 所在目录）
   root_path: .
 
 scan:
+  # MyBatis Mapper 文件搜索路径（支持 glob 模式）
+  # 推荐使用 Maven 标准结构
   mapper_globs:
     - src/main/resources/**/*.xml
+    # - src/main/resources/mapper/**/*.xml  # MyBatis mapper 子目录
+    # - **/*Mapper.xml                      # 任意位置
+
+# ---------- 必需配置 ----------
 
 db:
+  # 数据库平台: postgresql | mysql
+  # 注意：GaussDB 可使用 postgresql 模式
   platform: postgresql
-  # PostgreSQL: postgresql://user:pass@host:5432/db?sslmode=disable
-  # MySQL:      mysql://user:pass@host:3306/db
-  dsn: postgresql://<user>:<password>@127.0.0.1:5432/<database>?sslmode=disable
+
+  # 数据库连接 DSN
+  # 格式说明：
+  #   PostgreSQL: postgresql://user:pass@host:5432/dbname?sslmode=disable
+  #   MySQL:      mysql://user:pass@host:3306/dbname?charset=utf8mb4
+  #
+  # 本地开发示例：
+  #   postgresql://postgres:password@localhost:5432/mydb
+  #   mysql://root:root@127.0.0.1:3306/mydb
+  #
+  dsn: postgresql://<user>:<password>@127.0.0.1:5432/<database>
+
+  # 数据库 Schema（可选，仅部分数据库需要）
+  # schema: public
+
+  # SQL 执行超时（毫秒，默认 3000）
+  # statement_timeout_ms: 3000
+
+  # 是否允许 EXPLAIN ANALYZE（生产环境建议关闭）
+  # allow_explain_analyze: false
+
+# ---------- LLM 配置 ----------
 
 llm:
-  provider: opencode_run
+  # 是否启用 LLM（生成优化建议需要）
   enabled: true
-  timeout_ms: 80000
+
+  # LLM 提供商: opencode_run | opencode_builtin | heuristic | direct_openai_compatible
+  #   opencode_run: 使用 OpenCode 内置 LLM（推荐）
+  #   opencode_builtin: 使用 OpenCode 内置模型
+  #   heuristic: 使用启发式规则（无需 LLM）
+  #   direct_openai_compatible: 使用自定义 OpenAI 兼容 API
+  provider: opencode_run
+
+  # LLM 调用超时（毫秒，默认 80000）
+  # timeout_ms: 80000
+
+  # 以下为 direct_openai_compatible 专用配置：
+  # api_base: https://api.openai.com/v1
+  # api_key: sk-xxxx
+  # api_model: gpt-4o-mini
+  # api_timeout_ms: 30000
+  # api_headers:
+  #   X-Env: prod
+
+# ---------- 验证配置（可选）----------
 
 # validate:
-#   allow_db_unreachable_fallback: false  # 默认不允许自动fallback，需显式配置true启用
+#   # 验证策略: balanced | strict | lenient
+#   #   balanced: 平衡模式（推荐）
+#   #   strict: 严格模式
+#   #   lenient: 宽松模式
+#   validation_profile: balanced
+#
+#   # 是否在 DB 不可达时自动降级为纯静态分析
+#   # 设为 true 时，即使数据库不可达也会运行静态分析
+#   # 设为 false 时，数据库不可达会导致失败
+#   allow_db_unreachable_fallback: true
+#
+#   # 是否允许语义比较（需要数据库支持）
+#   allow_semantic_compare: true
+
+# ---------- 报告配置（可选）----------
 
 report:
+  # 是否生成报告
   enabled: true
 
-# === 可选配置 ===
+# ---------- 高级配置（可选）----------
 
-# rules: 自定义规则
-# prompt_injections: LLM Prompt 注入
-# 详细示例见 templates/sqlopt-rules.example.yml
+# ---------- 分支生成配置 ----------
+# branch:
+#   # 生成分支数量限制
+#   max_branches_per_sql: 100
+#
+#   # 是否启用诊断（需要数据库）
+#   diagnose: true
+
+# ---------- 自定义规则 ----------
+# rules:
+#   # 是否启用规则检查
+#   enabled: true
+#
+#   # 内置规则配置
+#   builtin_rules:
+#     # 启用/禁用特定规则
+#     SELECT_STAR: warn      # SELECT * 警告
+#     MISSING_WHERE: error  # 缺失 WHERE 报错
+#     FUNCTION_ON_COLUMN: warn  # 列上使用函数
+#
+#   # 自定义规则文件路径
+#   # custom_rules_path: ./rules/my_rules.json
+
+# ---------- LLM Prompt 注入 ----------
+# prompt_injections:
+#   # 系统级注入（对所有 prompt 生效）
+#   system: |
+#     你是一个 SQL 优化专家，特别熟悉 MyBatis 场景。
+#
+#   # 按规则注入
+#   by_rule:
+#     - rule: FUNCTION_ON_COLUMN
+#       prompt: 优先考虑使用函数索引或表达式索引优化。
+
+# ============================================================
+# 完整配置示例见 sqlopt-full.example.yml
+# ============================================================

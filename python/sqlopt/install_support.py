@@ -91,7 +91,13 @@ def ensure_pythonpath_for_install_script(script_dir: Path) -> None:
     )
 
 
-def run_cmd(cmd: list[str], *, quiet: bool = False) -> None:
+def get_python_command() -> str:
+    if is_windows():
+        return "python"
+    return "python3"
+
+
+def run_cmd(cmd, quiet=False):
     kwargs = {"check": True}
     if quiet:
         kwargs["stdout"] = subprocess.DEVNULL

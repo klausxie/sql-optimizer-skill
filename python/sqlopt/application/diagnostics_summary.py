@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 from typing import Any
 
 from ..verification.explain import action_reason, assess_sql_outcome
+
+
+def _get_python_cmd() -> str:
+    return "python" if platform.system().lower().startswith("win") else "python3"
 
 
 def _verification_status_counts(rows: list[dict]) -> dict[str, int]:
@@ -291,10 +296,11 @@ def _verify_recommended_next_step(
             "command": None,
         }
     if delivery_assessment == "READY_TO_APPLY":
+        py_cmd = _get_python_cmd()
         return {
             "action": "apply",
             "reason": action_reason("apply"),
-            "command": f"PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id {run_id}",
+            "command": f"PYTHONPATH=python {py_cmd} scripts/sqlopt_cli.py apply --run-id {run_id}",
         }
     if delivery_assessment == "PATCHABLE_WITH_REWRITE":
         return {
@@ -314,10 +320,11 @@ def _verify_recommended_next_step(
             "reason": action_reason("review-patchability"),
             "command": hint_command,
         }
+    py_cmd = _get_python_cmd()
     return {
         "action": "resume",
         "reason": action_reason("resume"),
-        "command": f"PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id {run_id}",
+        "command": f"PYTHONPATH=python {py_cmd} scripts/sqlopt_cli.py resume --run-id {run_id}",
     }
 
 
