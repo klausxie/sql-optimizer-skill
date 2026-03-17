@@ -35,16 +35,15 @@ class RiskDetector:
     """Detects performance risks in SQL statements."""
 
     # Pattern definitions
+    # Note: (?i) must be at the start of the ENTIRE pattern, not in each alternative
     PREFIX_WILDCARD_PATTERN = re.compile(
-        r"(?i)(?:LIKE|ILIKE)\s*['\"]%\s*\+?\s*(\w+)|"
-        r"(?i)(\w+)\s+LIKE\s+['\"]%"
+        r"(?i)(?:LIKE|ILIKE)\s*['\"]%\s*\+?\s*(\w+)|(\w+)\s+LIKE\s+['\"]%"
     )
     SUFFIX_WILDCARD_PATTERN = re.compile(
-        r"(?i)(\w+)\s+LIKE\s+['\"]%\s*['\"]|"
-        r"(?i)(?:LIKE|ILIKE)\s*['\"]%\s*['\"]"
+        r"(?i)(\w+)\s+LIKE\s+['\"][^'\"]*%[^'\"]*['\"]"
     )
     FUNCTION_WRAP_PATTERN = re.compile(
-        r"(?i)\b(UPPER|LOWER|LOWER|TRIM|LTRIM|RTRIM|"
+        r"(?i)\b(UPPER|LOWER|TRIM|LTRIM|RTRIM|"
         r"SUBSTRING|SUBSTR|LEFT|RIGHT|CHAR_LENGTH|LENGTH)\s*\(\s*(\w+)\s*\)"
     )
     SELECT_STAR_PATTERN = re.compile(r"(?i)\bSELECT\s+\*\s+FROM\b")
