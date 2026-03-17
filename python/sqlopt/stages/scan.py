@@ -19,7 +19,18 @@ from ..manifest import log_event
 from ..progress import get_progress_reporter
 from ..adapters.branch_generator import generate_branches
 from ..adapters.mapper_catalog import enrich_sql_units_with_catalog
+from ..application.sql_id_indexer import (
+    build_index,
+    load_index,
+    lookup_files,
+    parse_path_sql_id,
+    save_index,
+)
 from ..scripting.fragment_registry import build_fragment_registry
+
+
+def _get_index_path(project_root: Path) -> Path:
+    return project_root / ".sqlopt" / "index.json"
 
 
 def _local_name(tag: str) -> str:
@@ -405,12 +416,64 @@ def execute(
                 reason_code="SCAN_XML_PATH_NOT_FOUND",
             )
 
-    # Filter by target_sql_ids
+    # Filter by target_sql_ids - using enhanced matching
     target_sql_ids = config.get("target_sql_ids")
     if target_sql_ids:
-        target_set = set(target_sql_ids)
+        target_sql_ids = [str(x).strip() for x in target_sql_ids if str(x).strip()]
+
+        # Check for absolute path + SQL ID format (e.g., /path/User.xml:findUsers)
+        path_sql_pairs = []
+        pure_sql_ids = []
+        for sql_id in target_sql_ids:
+            file_path, sql_id_part = parse_path_sql_id(sql_id)
+            if file_path:
+                path_sql_pairs.append((file_path, sql_id_part))
+            else:
+                pure_sql_ids.append(sql_id_part)
+
         original_count = len(units)
-        units = [u for u in units if u.get("statementId") in target_set]
+
+        # If we have absolute path + SQL ID pairs, filter by file path first
+        if path_sql_pairs:
+            file_set = set(p[0] for p in path_sql_pairs)
+            units = [u for u in units if u.get("xmlPath") in file_set]
+            filtered_count = len(units)
+            print(
+                f"Filtered {original_count} SQL units to {filtered_count} by target_xml_paths from sql_ids"
+            )
+
+        # Now filter by SQL ID using enhanced matching
+        if pure_sql_ids:
+            # Build alias map for enhanced matching
+            from ..application.sql_id_indexer import _selection_aliases
+
+            alias_map: dict[str, list[dict[str, Any]]] = {}
+            for unit in units:
+                for alias in _selection_aliases(unit):
+                    alias_map.setdefault(alias, []).append(unit)
+
+            selected = []
+            for sql_id in pure_sql_ids:
+                # Try exact match first
+                matches = alias_map.get(sql_id, [])
+                if not matches:
+                    # Try suffix match
+                    for alias, units_list in alias_map.items():
+                        if alias.endswith(f".{sql_id}"):
+                            matches.extend(units_list)
+                if matches:
+                    selected.extend(matches)
+
+            # Deduplicate
+            seen = set()
+            deduped = []
+            for u in selected:
+                sql_key = str(u.get("sqlKey") or "")
+                if sql_key and sql_key not in seen:
+                    seen.add(sql_key)
+                    deduped.append(u)
+            units = deduped
+
         filtered_count = len(units)
         print(
             f"Filtered {original_count} SQL units to {filtered_count} by target_sql_ids: {target_sql_ids}"
@@ -461,6 +524,15 @@ def execute(
     for unit in units:
         validator.validate("sqlunit", unit)
     write_jsonl(run_dir / "scan.sqlunits.jsonl", units)
+
+    # Build and save index for fast lookup
+    try:
+        index = build_index(units, project_root)
+        index_path = _get_index_path(project_root)
+        save_index(index, index_path)
+        print(f"Built and saved index to {index_path}")
+    except Exception as e:
+        print(f"Warning: Failed to build index: {e}")
 
     units, _ = _write_fragment_catalog(
         units=units,
