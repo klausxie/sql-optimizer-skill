@@ -9,6 +9,111 @@
 - 产物可追溯：`runs/<run-id>/` 下保留状态、报告与中间产物
 - 支持数据库：`postgresql`、`mysql`（5.6+，不含 MariaDB）
 
+## 安装方式
+
+### 方式一：全局安装（推荐）
+
+安装到 OpenCode 全局技能目录：
+
+```bash
+python3 install/install_skill.py
+python3 install/install_skill.py --verify
+```
+
+安装后技能位置：`~/.opencode/skills/sql-optimizer/`
+
+### 方式二：项目内安装
+
+安装到指定项目的 `.sqlopt` 目录：
+
+```bash
+python3 install/install_skill.py --project /path/to/your/project
+```
+
+这会在项目根目录创建 `.sqlopt/` 目录存放技能文件。
+
+### 方式三：自定义目录
+
+安装到任意指定目录：
+
+```bash
+python3 install/install_skill.py --project /custom/path/sqlopt-skill
+```
+
+### 卸载
+
+```bash
+# 全局安装的卸载
+rm -rf ~/.opencode/skills/sql-optimizer/
+
+# 项目安装的卸载
+rm -rf /path/to/your/project/.sqlopt
+```
+
+## 在 OpenCode 中使用
+
+### 1. 启动 OpenCode
+
+在项目根目录启动 OpenCode：
+
+```bash
+opencode
+```
+
+### 2. 使用 Skill
+
+当处理 MyBatis SQL 优化任务时，OpenCode 会自动加载 sql-optimizer skill。
+
+#### 常用工作流
+
+**完整优化流程**：
+
+```bash
+# 1. 验证配置
+sqlopt-cli validate-config --config sqlopt.yml
+
+# 2. 运行优化（Skill 会引导你完成各个阶段）
+sqlopt-cli run --config sqlopt.yml
+
+# 3. 查看状态
+sqlopt-cli status
+
+# 4. 如中断，恢复运行
+sqlopt-cli resume --run-id <run_id>
+
+# 5. 应用补丁
+sqlopt-cli apply --run-id <run_id>
+```
+
+**诊断单个 SQL**：
+
+```bash
+sqlopt-cli run --config sqlopt.yml \
+  --mapper-path src/main/resources/com/example/mapper/user_mapper.xml \
+  --sql-key listUsers
+```
+
+### 3. Skill 与 CLI 的协作
+
+```
+┌─────────────────────┐          ┌─────────────────────┐
+│   sqlopt-cli       │          │   OpenCode Skill   │
+├─────────────────────┤          ├─────────────────────┤
+│                     │          │                     │
+│  • 扫描 MyBatis   │          │  • 调用 LLM        │
+│  • 生成分支       │─────────▶│  • 生成建议         │
+│  • 静态规则检测   │  prompt   │  • 决策判断         │
+│  • 构建 LLM prompt│          │  • 用户交互         │
+│  • 执行 SQL       │          │                     │
+│  • 生成补丁       │          │                     │
+│                     │          │                     │
+└─────────────────────┘          └─────────────────────┘
+```
+
+**职责分离**：
+- **CLI**：工程化能力（扫描、执行、构建 prompt）
+- **Skill**：AI 能力（调用 LLM、生成建议）
+
 ## 快速开始
 
 ### 1) 安装
@@ -18,7 +123,30 @@ python3 install/install_skill.py
 python3 install/install_skill.py --verify
 ```
 
-### 2) 最短运行链路
+### 2) 创建配置文件
+
+在项目根目录创建 `sqlopt.yml`：
+
+```yaml
+config_version: v1
+
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+
+db:
+  platform: postgresql
+  dsn: postgresql://user:password@localhost:5432/dbname
+
+llm:
+  enabled: true
+  provider: opencode_run
+```
+
+### 3) 最短运行链路
 
 ```bash
 sqlopt-cli validate-config --config sqlopt.yml
