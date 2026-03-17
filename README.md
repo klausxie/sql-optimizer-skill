@@ -22,6 +22,8 @@ python3 install/install_skill.py --verify
 
 安装后技能位置：`~/.opencode/skills/sql-optimizer/`
 
+> 安装时会自动覆盖旧版本，无需额外操作。
+
 ### 方式二：项目内安装
 
 安装到指定项目的 `.sqlopt` 目录：
@@ -32,6 +34,8 @@ python3 install/install_skill.py --project /path/to/your/project
 
 这会在项目根目录创建 `.sqlopt/` 目录存放技能文件。
 
+> 安装时会自动覆盖旧版本，无需额外操作。
+
 ### 方式三：自定义目录
 
 安装到任意指定目录：
@@ -40,7 +44,19 @@ python3 install/install_skill.py --project /path/to/your/project
 python3 install/install_skill.py --project /custom/path/sqlopt-skill
 ```
 
-### 卸载
+### 覆盖安装说明
+
+多次安装时会自动覆盖旧版本：
+
+```bash
+# 首次安装
+python3 install/install_skill.py
+
+# 再次安装（自动覆盖，无需额外参数）
+python3 install/install_skill.py
+```
+
+如需手动删除后安装：
 
 ```bash
 # 全局安装的卸载
@@ -48,6 +64,9 @@ rm -rf ~/.opencode/skills/sql-optimizer/
 
 # 项目安装的卸载
 rm -rf /path/to/your/project/.sqlopt
+
+# 然后重新安装
+python3 install/install_skill.py
 ```
 
 ## 在 OpenCode 中使用
