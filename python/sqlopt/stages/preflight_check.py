@@ -91,6 +91,7 @@ def build_strategy_prompt(
     db_configured: bool,
     db_reachable: bool,
     conditions_count: int | None = None,
+    current_db_strategy: str = "full",
 ) -> str:
     """构建策略选择的提示信息。
 
@@ -128,7 +129,10 @@ def build_strategy_prompt(
     # 数据库验证策略选项
     lines.append("【数据库验证策略】")
     for opt in DB_STRATEGY_OPTIONS:
-        lines.append(f"  [{opt['id']}] {opt['name']} - {opt['description']}")
+        default_marker = " (默认)" if opt["id"] == current_db_strategy else ""
+        lines.append(
+            f"  [{opt['id']}]{default_marker} {opt['name']} - {opt['description']}"
+        )
     lines.append("")
 
     # 分支生成策略选项
@@ -251,6 +255,7 @@ def check_and_prepare(
         db_configured=db_configured,
         db_reachable=db_reachable,
         conditions_count=conditions_count,
+        current_db_strategy=db_strategy,
     )
 
     needs_user_choice = True
