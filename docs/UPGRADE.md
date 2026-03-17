@@ -10,7 +10,7 @@ python3 install/install_skill.py
 Windows PowerShell:
 
 ```powershell
-cd C:\path\to\new\sql-optimizer-skill-bundle-v<new_version>
+cd C:/path/to/new/sql-optimizer-skill-bundle-v<new_version>
 python install/install_skill.py
 ```
 
@@ -31,8 +31,8 @@ mv $HOME/.opencode/skills/sql-optimizer.bak.<timestamp> $HOME/.opencode/skills/s
 Windows PowerShell:
 
 ```powershell
-Remove-Item -Recurse -Force "$env:USERPROFILE\.opencode\skills\sql-optimizer"
-Move-Item "$env:USERPROFILE\.opencode\skills\sql-optimizer.bak.<timestamp>" "$env:USERPROFILE\.opencode\skills\sql-optimizer"
+Remove-Item -Recurse -Force "$env:USERPROFILE/.opencode/skills/sql-optimizer"
+Move-Item "$env:USERPROFILE/.opencode/skills/sql-optimizer.bak.<timestamp>" "$env:USERPROFILE/.opencode/skills/sql-optimizer"
 ```
 
 Then re-run:
