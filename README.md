@@ -83,33 +83,68 @@ opencode
 
 当处理 MyBatis SQL 优化任务时，OpenCode 会自动加载 sql-optimizer skill。
 
-#### 常用工作流
+#### OpenCode 命令方式
 
-**完整优化流程**：
+Skill 提供以下命令：
+
+| 命令 | 说明 | 使用方式 |
+|------|------|----------|
+| `/sql-diagnose` | 诊断 SQL 性能问题 | `/sql-diagnose <SQL关键字或文件>` |
+| `/sql-optimize` | 生成优化建议 | `/sql-optimize [run-id]` |
+| `/sql-validate` | 验证优化效果 | `/sql-validate [run-id]` |
+| `/sql-apply` | 应用补丁 | `/sql-apply [run-id]` |
+| `/sql-report` | 生成总结报告 | `/sql-report [run-id]` |
+
+#### 自然语言方式
+
+也可以直接用自然语言描述需求：
+
+```
+帮我诊断一下 listUsers 这个 SQL
+看看这个 Mapper 有什么性能问题
+给个优化建议
+验证一下优化效果
+应用这些补丁
+```
+
+#### 完整优化流程
+
+**方式一：OpenCode 命令**
 
 ```bash
-# 1. 验证配置
-sqlopt-cli validate-config --config sqlopt.yml
+# 1. 验证配置（创建 sqlopt.yml 后）
+/sql-diagnose
 
-# 2. 运行优化（Skill 会引导你完成各个阶段）
-sqlopt-cli run --config sqlopt.yml
+# 2. 查看诊断结果后，生成优化建议
+/sql-optimize
 
-# 3. 查看状态
-sqlopt-cli status
+# 3. 验证优化效果
+/sql-validate
 
-# 4. 如中断，恢复运行
-sqlopt-cli resume --run-id <run_id>
+# 4. 应用补丁
+/sql-apply
 
-# 5. 应用补丁
-sqlopt-cli apply --run-id <run_id>
+# 5. 生成报告
+/sql-report
+```
+
+**方式二：自然语言**
+
+```
+帮我诊断 listUsers 这个 SQL 的性能问题
+生成优化建议
+验证优化效果
+应用补丁
 ```
 
 **诊断单个 SQL**：
 
-```bash
-sqlopt-cli run --config sqlopt.yml \
-  --mapper-path src/main/resources/com/example/mapper/user_mapper.xml \
-  --sql-key listUsers
+```
+/sql-diagnose listUsers
+# 或
+/sql-diagnose UserMapper.xml
+# 或自然语言
+帮我看看 UserMapper.xml 里面 listUsers 这个 SQL 有什么性能问题
 ```
 
 ### 3. Skill 与 CLI 的协作
@@ -165,51 +200,57 @@ llm:
   provider: opencode_run
 ```
 
-### 3) 最短运行链路
+### 3) 开始使用
 
-```bash
-sqlopt-cli validate-config --config sqlopt.yml
-sqlopt-cli run --config sqlopt.yml
-sqlopt-cli status
-sqlopt-cli apply
+安装完成后，在 OpenCode 中直接使用自然语言或命令：
+
+```
+# 诊断 SQL
+帮我诊断一下 listUsers 这个 SQL
+
+# 查看诊断结果后，生成优化建议
+如何优化这个 SQL
+
+# 验证效果
+验证一下优化效果
+
+# 应用补丁
+应用补丁
 ```
 
-建议先让 `validate-config` 检查 `db.dsn`、mapper 匹配结果和数据库连通性；如果这里已经失败，不要直接继续 full run。
+## 常见问题
 
-如果 `status.next_action=report-rebuild`：
+### 恢复中断的运行
 
-```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+如果运行中断，可以使用自然语言恢复：
+
+```
+继续之前的优化
+恢复运行
 ```
 
-## 常用命令
+### 查看运行状态
 
-```bash
-sqlopt-cli --help
-sqlopt-cli run --help
-sqlopt-cli validate-config --help
-sqlopt-cli resume --help
-sqlopt-cli status --help
-sqlopt-cli apply --help
+```
+查看优化状态
+现在的进度怎么样
 ```
 
-局部调试优先：
+### 局部调试
 
-```bash
-sqlopt-cli run --config sqlopt.yml \
-  --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml \
-  --sql-key listUsersFilteredAliased
+如需只诊断特定 SQL：
+
 ```
-
-`--sql-key` 支持完整 `sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`。如果只给 `statementId` 且命中多个 SQL，CLI 会列出候选 full key。
-
-当前推荐：日常开发优先局部 run，full run 只用于阶段验收。
+/sql-diagnose listUsers
+# 或
+帮我诊断 UserMapper.xml 中的 listUsers 方法
+```
 
 ## 关键边界
 
 - PostgreSQL 方言（如 `ILIKE`）在 MySQL 平台不会自动兼容
-- 此类语法问题会在 report 中以 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 暴露
-- `status/resume/apply` 省略 `--run-id` 时自动选择最新 run（可用 `--project` 限定目录）
+- 此类语法问题会在报告中以 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 暴露
+- 省略 run-id 时自动选择最新运行（可用 `--project` 限定目录）
 
 ## 文档入口
 
