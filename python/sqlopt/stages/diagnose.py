@@ -355,6 +355,15 @@ def _write_diagnostic_report(
                 "branchCount": u.get("branchCount", 0),
                 "problemBranchCount": u.get("problemBranchCount", 0),
                 "needsOptimization": u.get("needsOptimization", False),
+                "branches": [
+                    {
+                        "id": b.get("id"),
+                        "type": b.get("type"),
+                        "conditions": b.get("conditions", {}),
+                        "sql": b.get("sql", ""),
+                    }
+                    for b in u.get("branches", [])
+                ],
             }
             for u in units
         ],
