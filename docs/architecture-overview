@@ -1,0 +1,125 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="cli-anything" agent="cli-anything-drawio/1.0.0" version="24.0.0">
+  <diagram id="diagram_1773741207546567" name="Page-1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="v_1773741233251706" value="SQL Optimizer Skill" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="250.0" y="20.0" width="350.0" height="60.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741238925279" value="Core Workflow" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="120.0" width="180.0" height="50.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741238978065" value="diagnose" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="180.0" width="100.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741239030680" value="optimize" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="160.0" y="180.0" width="100.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741239082425" value="validate" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="270.0" y="180.0" width="100.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741239134984" value="apply" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380.0" y="180.0" width="100.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741239185743" value="report" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="490.0" y="180.0" width="100.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741243595079" value="Application Layer" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="260.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741243647989" value="workflow_engine" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="310.0" width="170.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741243697734" value="run_service" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="345.0" width="170.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741243746666" value="run_repository" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="380.0" width="170.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249654158" value="Stages" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="260.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249703441" value="diagnose.py" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="310.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249756442" value="optimize.py" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="340.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249808100" value="validate.py" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="370.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249859355" value="apply.py" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="400.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741249910010" value="report.py" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="430.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741254822480" value="Scripting (Branch)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="260.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741254873664" value="branch_generator" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="310.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741254926680" value="sql_node" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="340.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741254975217" value="ast_utils" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="370.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741258699496" value="Platforms" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="450.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741258749528" value="postgresql" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="500.0" width="80.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741258800237" value="mysql" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="140.0" y="500.0" width="80.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741263544608" value="Commands CLI" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="480.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741263593964" value="sqlopt-cli run" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="530.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741263643237" value="sqlopt-cli status" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="560.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741263690686" value="sqlopt-cli apply" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260.0" y="590.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741279846669" value="Baseline" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="430.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741279896578" value="baseline_service" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="480.0" width="170.0" height="30.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741284680251" value="Contracts &amp; Data" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="570.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741284752424" value="contracts (JSON)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="620.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741284816190" value="runs/ (产物)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="50.0" y="650.0" width="170.0" height="25.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741303206371" value="Key Features" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="550.0" width="180.0" height="40.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741303261221" value="Resume Support" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="600.0" width="170.0" height="22.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741303310702" value="Traceable Artifacts" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="625.0" width="170.0" height="22.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741303361223" value="Branch Inference" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="650.0" width="170.0" height="22.0" as="geometry" />
+        </mxCell>
+        <mxCell id="v_1773741303411655" value="Schema Validation" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470.0" y="675.0" width="170.0" height="22.0" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
