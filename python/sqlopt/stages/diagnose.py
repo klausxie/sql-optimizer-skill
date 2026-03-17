@@ -11,6 +11,7 @@ the SQL units that subsequent stages (optimize, validate, apply) will process.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -60,10 +61,24 @@ def execute(
     with open(preflight_path, "w", encoding="utf-8") as f:
         json.dump(preflight_info, f, ensure_ascii=False, indent=2)
 
-    # Report status
+    # Check if DB is properly configured - block if not
     if not preflight_info["db_configured"]:
         reporter.report_warning(
-            "Diagnose: DB DSN contains placeholders, validation will be degraded"
+            "Diagnose: DB DSN not configured - database connection required for diagnosis"
+        )
+        print("\n" + "=" * 60, file=sys.stderr)
+        print("[ERROR] 数据库连接未配置", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        print("\n要运行诊断，需要配置数据库连接。", file=sys.stderr)
+        print("请在 sqlopt.yml 中配置:", file=sys.stderr)
+        print("  db:", file=sys.stderr)
+        print("    platform: postgresql  # 或 mysql", file=sys.stderr)
+        print("    dsn: postgresql://user:password@host:5432/dbname", file=sys.stderr)
+        print("\n或设置环境变量: SQLOPT_DSN", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        raise StageError(
+            "database connection required for diagnosis but DSN not configured",
+            reason_code="DB_CONFIG_REQUIRED",
         )
     elif not preflight_info["db_reachable"] and preflight_info["db_strategy"] == "full":
         reporter.report_warning(
