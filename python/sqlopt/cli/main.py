@@ -179,6 +179,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             # V8 引擎路径
             config = load_config(config_path)
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
             runs_root = Path(config["project"]["root_path"]).resolve() / "runs"
             run_dir = runs_root / requested_run_id
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -340,7 +341,80 @@ def cmd_status(args: argparse.Namespace) -> None:
         resolved_run_id = _resolve_requested_run_id(
             getattr(args, "run_id", None), getattr(args, "project", ".")
         )
-        print(run_service.get_status(resolved_run_id, repo_root=_repo_root()))
+        output_format = getattr(args, "format", "json")
+        use_v8 = getattr(args, "use_v8", True)
+
+        if use_v8:
+            # V8 引擎路径
+            run_dir = run_index.resolve_run_dir(
+                resolved_run_id, repo_root_fn=_repo_root
+            )
+            paths = canonical_paths(run_dir)
+            config = load_config(paths.config_resolved_path)
+
+            engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+            engine.load_state_from_repo()
+
+            status_result = {
+                "run_id": engine.state.run_id,
+                "status": engine.state.status,
+                "current_stage": engine.state.current_stage,
+                "completed_stages": engine.state.completed_stages,
+                "stage_results": engine.state.stage_results,
+                "started_at": engine.state.started_at,
+                "updated_at": engine.state.updated_at,
+                "completed": engine.state.status == "completed",
+            }
+
+            if output_format == "summary":
+                print(f"=== Run Status Summary (V8) ===")
+                print(f"Run ID:    {engine.state.run_id}")
+                print(
+                    f"Status:    {engine.state.status} {'✓' if engine.state.status == 'completed' else '...'}"
+                )
+                print(f"Current:   {engine.state.current_stage or 'none'}")
+                print(
+                    f"Completed: {', '.join(engine.state.completed_stages) or 'none'}"
+                )
+            else:
+                print(status_result)
+        else:
+            # 旧版引擎路径
+            status_result = run_service.get_status(
+                resolved_run_id, repo_root=_repo_root()
+            )
+
+            if output_format == "summary":
+                run_id = status_result.get("run_id", resolved_run_id or "unknown")
+                phase = status_result.get("phase", "unknown")
+                status = status_result.get("status", "unknown")
+                completed = status_result.get("completed", False)
+                total_sql = status_result.get("total_sql", 0)
+                completed_sql = status_result.get("completed_sql", 0)
+                progress_pct = status_result.get("progress_percentage", 0.0)
+
+                print(f"=== Run Status Summary ===")
+                print(f"Run ID:    {run_id}")
+                print(f"Status:    {status} {'✓' if completed else '...'}")
+                print(f"Phase:     {phase}")
+                print(
+                    f"Progress:  {completed_sql}/{total_sql} SQL ({progress_pct:.1f}%)"
+                )
+
+                # Show next action if available
+                next_action = status_result.get("next_action")
+                if next_action:
+                    print(f"Next:      {next_action}")
+
+                # Show errors if any
+                errors = status_result.get("errors", [])
+                if errors:
+                    print(f"Errors:    {len(errors)}")
+                    for err in errors[:3]:  # Show first 3 errors
+                        print(f"  - {err}")
+            else:
+                # JSON format (default)
+                print(status_result)
     except FileNotFoundError:
         error_info = format_error_message(
             "RUN_NOT_FOUND", "run_id not found in run index"
@@ -637,6 +711,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
+    p_resume.add_argument(
+        "--to-stage",
+        default="patch",
+        choices=STAGE_ORDER,
+        help="目标运行阶段（默认：patch）",
+    )
     p_resume.set_defaults(func=cmd_resume)
 
     p_status = sub.add_parser(
@@ -659,6 +739,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--project",
         default=".",
         help="项目目录，用于在省略 --run-id 时解析最新运行（默认：当前目录）",
+    )
+    p_status.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="json",
+        help="输出格式：json（默认）或 summary（人类可读摘要）",
+    )
+    p_status.add_argument(
+        "--use-v8",
+        type=lambda x: x.lower() not in ("false", "0", "no"),
+        default=True,
+        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
     p_status.set_defaults(func=cmd_status)
 

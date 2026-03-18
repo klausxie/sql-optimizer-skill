@@ -9,7 +9,7 @@ from ..contracts import ContractValidator
 from ..manifest import log_event
 from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
-from ..stages import apply as apply_stage
+from ..stages.patch import apply as apply_stage
 from . import config_service, run_index
 from .run_selection import (
     apply_selection_to_config,
