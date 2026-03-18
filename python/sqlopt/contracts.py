@@ -35,6 +35,10 @@ def _resolve_contract_dir(repo_root: Path) -> Path:
     ]
     for candidate in candidates:
         if candidate.exists():
+            # Check if schemas are in subdirectory
+            schemas_dir = candidate / "schemas"
+            if schemas_dir.exists():
+                return schemas_dir
             return candidate
     return candidates[0]
 
@@ -65,4 +69,6 @@ class ContractValidator:
             if missing:
                 raise ContractError(f"{name} missing required fields: {missing}")
         else:
-            raise ContractError(f"jsonschema dependency missing; cannot validate {name}")
+            raise ContractError(
+                f"jsonschema dependency missing; cannot validate {name}"
+            )
