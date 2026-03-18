@@ -37,6 +37,7 @@ from sqlopt.stages.branching.sql_node import (
     IncludeSqlNode,
 )
 from sqlopt.stages.branching.execute_one import BranchingStage, execute_one
+from sqlopt.stages.branching.xml_script_builder import XMLScriptBuilder
 from sqlopt.stages.base import StageResult
 
 __all__ = [
