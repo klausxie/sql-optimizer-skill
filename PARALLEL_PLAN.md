@@ -1,108 +1,109 @@
 # SQL Optimizer 并行分工计划
 
 > 创建日期：2026-03-18
+> 更新：2026-03-18 晚
 > 分支：ai/refactor-stage-modules
 
 ---
 
-## 任务概览
+## 当前状态
 
-| 电脑 | 任务 | 依赖 |
+### ✅ 已完成
+
+| 任务 | 状态 |
+|------|------|
+| 重命名 *_stage → * | ✅ baseline/, optimize/, validate/, patch/ |
+| .sqlopt/ 缓存 | ✅ run_paths.py 已实现 |
+| 部分旧workflow删除 | ✅ workflow_engine/facade/definition 已删 |
+
+### 🔲 待完成
+
+| 任务 | 状态 | 说明 |
 |------|------|------|
-| 电脑A | patch_stage + 删除旧stages/*.py + 重命名 | 无 |
-| 电脑B | verify命令 + .sqlopt缓存 + 删除旧workflow | 无 |
+| 删除 stages/*.py | 🔲 24个文件待删除 | diagnose.py, scan.py 等 |
+| 实现 verify 命令 | 🔲 | cli/main.py |
+| 删除 status_resolver.py | 🔲 | 待确认V8稳定 |
 
 ---
 
-## 电脑A：代码清理
+## 剩余任务
 
-### A1. 完善 patch_stage
-```
-文件: stages/patch_stage/patch_generator.py
-从以下文件迁移逻辑:
-- stages/patch_generate.py
-- stages/patch_generate_llm.py
-- stages/patch_verification.py
-```
+### 任务A: 删除 stages/*.py 旧代码 (24个文件)
 
-### A2. 删除旧stages/*.py文件
 ```
-需删除 (13个文件):
-- stages/optimize.py
-- stages/validate.py
-- stages/apply.py
-- stages/patch_generate.py
-- stages/patch_generate_llm.py
-- stages/patch_verification.py
-- stages/patch_decision_engine.py
-- stages/patch_decision.py
-- stages/patch_finalize.py
-- stages/patch_formatting.py
-- stages/patch_verification.py
-- stages/patching_render.py
-- stages/patching_results.py
-- stages/patching_templates.py
-```
-
-### A3. 重命名 *_stage → *
-```
-baseline_stage/ → baseline/
-optimize_stage/ → optimize/
-validate_stage/ → validate/
-patch_stage/ → patch/
+需删除:
+stages/diagnose.py
+stages/scan.py
+stages/execute.py
+stages/parse.py
+stages/patch_decision_engine.py
+stages/patch_decision.py
+stages/patch_finalize.py
+stages/patch_formatting.py
+stages/patch_generate.py
+stages/patch_generate_llm.py
+stages/patch_verification.py
+stages/patching_render.py
+stages/patching_results.py
+stages/patching_templates.py
+stages/preflight_check.py
+stages/report_builder.py
+stages/report_loader.py
+stages/report_writer.py
+stages/report_interfaces.py
+stages/report_models.py
+stages/report_metrics.py
+stages/report_render.py
+stages/report_stats.py
 ```
 
----
+### 任务B: 实现 verify 命令
 
-## 电脑B：功能完善
-
-### B1. 实现 verify 命令
 ```
 文件: cli/main.py
 功能: 证据链验证
-参考: stages/patch_verification.py 现有逻辑
 ```
 
-### B2. 实现 .sqlopt/ 缓存目录
-```
-文件: run_paths.py
-目录结构:
-.sqlopt/
-├── cache/
-│   ├── db_schemas/
-│   └── sqlmap_cache/
-└── history/
-```
+### 任务C: 删除 status_resolver.py
 
-### B3. 删除旧 workflow 文件
 ```
-删除 (确认V8稳定后):
-- application/workflow_engine.py
-- application/workflow_facade.py
-- application/workflow_definition.py
-- application/status_resolver.py
-- application/run_repository.py
+确认V8稳定后删除:
+application/status_resolver.py
 ```
 
 ---
 
-## 执行顺序
+## 当前代码结构
 
-### 电脑A (按顺序执行)
 ```
-A1 完善patch_stage → A2 删除旧stages/*.py → A3 重命名
-```
-
-### 电脑B (可并行执行)
-```
-B1 verify命令 → B2 .sqlopt缓存 → B3 删除旧workflow(最后)
+python/sqlopt/
+├── application/
+│   ├── workflow_v8.py      # ✅ V8主工作流
+│   ├── status_resolver.py  # 🔲 待删除
+│   └── ...
+│
+├── stages/
+│   ├── discovery/          # ✅ 新
+│   ├── branching/          # ✅ 新
+│   ├── pruning/            # ✅ 新
+│   ├── baseline/           # ✅
+│   ├── optimize/           # ✅
+│   ├── validate/           # ✅
+│   ├── patch/            # ✅
+│   ├── report.py          # ✅
+│   │
+│   └── *.py              # 🔲 24个旧文件待删除
+│
+├── cli/
+│   └── main.py            # ✅
+│
+└── run_paths.py           # ✅ .sqlopt/已实现
 ```
 
 ---
 
 ## 注意事项
 
-1. **A3和B3建议最后执行** - 确认V8稳定后再删旧文件
-2. **A1需要先完成** - patch_stage是A2的前提
-3. **两台电脑不要同时改同一个文件**
-4. **每天开始前先 git pull 拉最新代码**
+1. **每天开始前先 git pull 拉最新代码**
+2. **两台电脑不要同时改同一个文件**
+3. **删除文件前先确认是否有引用**
