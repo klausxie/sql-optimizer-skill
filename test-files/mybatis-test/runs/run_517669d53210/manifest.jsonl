@@ -1,2 +1,0 @@
-{"ts": "2026-03-10T09:58:19.670486+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_517669d53210"}}
-{"ts": "2026-03-10T09:58:35.452267+00:00", "stage": "preflight", "event": "failed", "payload": {"reason_code": "PREFLIGHT_DB_UNREACHABLE", "message": "preflight failed: db: db driver not installed"}}

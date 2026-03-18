@@ -1,2 +1,0 @@
-{"ts": "2026-03-10T09:58:54.365180+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_87be78b2ee17"}}
-{"ts": "2026-03-10T09:59:07.201576+00:00", "stage": "preflight", "event": "failed", "payload": {"reason_code": "PREFLIGHT_DB_UNREACHABLE", "message": "preflight failed: db: Data source name is not supported"}}

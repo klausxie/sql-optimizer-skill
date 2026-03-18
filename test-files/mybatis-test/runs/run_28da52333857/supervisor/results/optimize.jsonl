@@ -1,2 +1,0 @@
-{"ts": "2026-03-11T03:41:34.052555+00:00", "phase": "optimize", "status": "DONE", "sql_key": "com.test.mapper.TestFourIfMapper.testFourIf#v1", "reason_code": null, "artifact_refs": ["/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/runs/run_28da52333857/proposals/optimization.proposals.jsonl"], "detail": {}}
-{"ts": "2026-03-11T03:41:34.078344+00:00", "phase": "optimize", "status": "DONE", "sql_key": null, "reason_code": null, "artifact_refs": [], "detail": {}}

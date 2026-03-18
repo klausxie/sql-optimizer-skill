@@ -1,2 +1,0 @@
-{"ts": "2026-03-10T10:25:42.383605+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_acdda3dda456"}}
-{"ts": "2026-03-10T10:25:49.436880+00:00", "stage": "preflight", "event": "failed", "payload": {"reason_code": "PREFLIGHT_DB_UNREACHABLE", "message": "preflight failed: db: 2003 (HY000): Can't connect to MySQL server on '100.101.41.123:3306' (60)"}}

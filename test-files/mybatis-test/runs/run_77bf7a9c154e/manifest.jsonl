@@ -1,2 +1,0 @@
-{"ts": "2026-03-11T03:15:16.644459+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_77bf7a9c154e"}}
-{"ts": "2026-03-11T03:15:37.729286+00:00", "stage": "preflight", "event": "failed", "payload": {"reason_code": "PREFLIGHT_DB_UNREACHABLE", "message": "preflight failed: db: (2003, \"Can't connect to MySQL server on '100.101.41.123' (timed out)\")"}}

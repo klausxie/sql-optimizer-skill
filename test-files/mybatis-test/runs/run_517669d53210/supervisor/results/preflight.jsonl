@@ -1,1 +1,0 @@
-{"ts": "2026-03-10T09:58:35.452114+00:00", "phase": "preflight", "status": "FAILED", "sql_key": null, "reason_code": "PREFLIGHT_DB_UNREACHABLE", "artifact_refs": ["/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/runs/run_517669d53210/manifest.jsonl"], "detail": {"message": "preflight failed: db: db driver not installed"}}
