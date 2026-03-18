@@ -10,7 +10,7 @@ from ..manifest import log_event
 from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
 from ..stages import apply as apply_stage
-from . import config_service, run_index, workflow_engine
+from . import config_service, run_index
 from .run_selection import (
     apply_selection_to_config,
     normalize_run_selection,
@@ -19,7 +19,7 @@ from .run_selection import (
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
 from .requests import AdvanceStepRequest, RunStatusRequest
-from .run_repository import RunRepository
+# RunRepository removed
 
 
 def start_run(

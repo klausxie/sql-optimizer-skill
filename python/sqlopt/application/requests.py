@@ -6,7 +6,8 @@ from typing import Any, Callable
 
 from ..contracts import ContractValidator
 from .models import ResolvedConfig, RunMeta, RunPlan, RunState
-from .run_repository import RunRepository
+# RunRepository removed
+RunRepository = Any  # type: ignore
 
 RunPhaseAction = Callable[[dict[str, Any], str, Callable[[], object]], tuple[object, int]]
 RecordFailure = Callable[[Path, dict[str, Any], str, str, str], None]

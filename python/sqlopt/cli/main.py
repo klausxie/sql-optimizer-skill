@@ -14,7 +14,7 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass  # Fallback to default if reconfigure not available
 
-from sqlopt.application import config_service, run_index, run_service, workflow_engine
+from sqlopt.application import config_service, run_index, run_service
 from sqlopt.application.run_resolution import resolve_run_id
 from sqlopt.application import workflow_v8
 from sqlopt.config import load_config
@@ -26,12 +26,11 @@ from sqlopt.verification import read_verification_ledger, summarize_records
 
 # V8 为默认引擎
 STAGE_ORDER = workflow_v8.STAGE_ORDER
-LEGACY_STAGE_ORDER = workflow_engine.STAGE_ORDER
 
 
 def _get_stage_order(use_v8: bool) -> list[str]:
     """根据引擎类型返回阶段顺序。"""
-    return workflow_v8.STAGE_ORDER if use_v8 else workflow_engine.STAGE_ORDER
+    return workflow_v8.STAGE_ORDER
 
 
 def _repo_root() -> Path:
@@ -179,7 +178,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         if use_v8:
             # V8 引擎路径
             config = load_config(config_path)
-            runs_root = workflow_engine.runs_root(config)
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+            runs_root = Path(config["project"]["root_path"]).resolve() / "runs"
             run_dir = runs_root / requested_run_id
             run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -572,12 +572,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="运行 ID（默认自动生成；若指定且已存在，则继续该 run）",
     )
     # 合并 V8 和旧版阶段作为有效选项
-    all_stages = list(set(STAGE_ORDER) | set(LEGACY_STAGE_ORDER))
     p_run.add_argument(
         "--to-stage",
         default="patch",
-        choices=all_stages,
-        help="目标运行阶段（默认：patch）。可用阶段：" + ", ".join(sorted(all_stages)),
+        choices=STAGE_ORDER,
+        help="目标运行阶段（默认：patch）",
     )
     p_run.add_argument(
         "--max-steps",
