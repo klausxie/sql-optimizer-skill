@@ -134,10 +134,10 @@ class V8WorkflowEngine:
             self.repository.save_state(state_dict)
 
     def load_state_from_repo(self) -> None:
-        """从 repository 加载状态"""
+        """从 repository 加载状态，处理 V8 和 legacy 两种格式"""
         if self.repository is not None:
             state_dict = self.repository.load_state()
-            if state_dict:
+            if "completed_stages" in state_dict:
                 self.state.run_id = state_dict.get("run_id", self.state.run_id)
                 self.state.current_stage = state_dict.get("current_stage", "")
                 self.state.completed_stages = state_dict.get("completed_stages", [])
@@ -145,6 +145,8 @@ class V8WorkflowEngine:
                 self.state.started_at = state_dict.get("started_at", "")
                 self.state.updated_at = state_dict.get("updated_at", "")
                 self.state.status = state_dict.get("status", "pending")
+            elif "phase_status" in state_dict:
+                self.state.status = "running"
 
     def run(
         self,
@@ -222,11 +224,10 @@ class V8WorkflowEngine:
             - result: dict - 阶段执行结果
             - state: dict - 当前状态快照
         """
-        # 初始化 repository（如果存在且未初始化）
-        if self.repository is not None and not self.state.completed_stages:
+        # 初始化 repository 并尝试加载之前保存的状态
+        if self.repository is not None:
             self.repository.initialize(self.config, self.run_id)
-            self.state.status = "running"
-            self._persist_state()
+            self.load_state_from_repo()
 
         # 确定下一个要执行的阶段
         next_stage = None

@@ -727,6 +727,20 @@ class BaselineCollector:
                 buffer_read_count=plan.shared_read_blocks,
                 index_used=plan.index_name,
             )
+        except Exception as e:
+            # Return a "failed" result for this SQL but don't crash the batch
+            return BaselineResult(
+                sql_key=sql_key,
+                execution_time_ms=0,
+                rows_examined=0,
+                rows_returned=0,
+                explain_plan={
+                    "scan_type": "ERROR",
+                    "error_message": str(e),
+                },
+                database_platform=db_platform or "unknown",
+                sample_params=params,
+            )
         finally:
             conn.close()
 

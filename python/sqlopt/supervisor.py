@@ -33,8 +33,14 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
         p.supervisor_dir / "plan.json",
         {"phases": PHASES, "to_stage": "apply", "sql_keys": []},
     )
+    # Don't overwrite state.json if it already exists with V8 format (completed_stages)
+    state_path = p.supervisor_dir / "state.json"
+    if state_path.exists():
+        existing = read_json(state_path)
+        if "completed_stages" in existing:
+            return
     write_json(
-        p.supervisor_dir / "state.json",
+        state_path,
         {
             "current_phase": "diagnose",
             "phase_status": {k: "PENDING" for k in PHASES},
