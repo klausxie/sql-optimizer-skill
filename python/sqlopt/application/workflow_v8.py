@@ -73,7 +73,6 @@ DEFAULT_PHASE_POLICIES = {
     "optimize": PhaseExecutionPolicy(phase="optimize", allow_regenerate=False),
     "validate": PhaseExecutionPolicy(phase="validate", allow_regenerate=False),
     "patch": PhaseExecutionPolicy(phase="patch", allow_regenerate=False),
-    "report": PhaseExecutionPolicy(phase="report", allow_regenerate=True),
 }
 
 

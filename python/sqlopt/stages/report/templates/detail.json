@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReportDetail",
+  "description": "Detailed report for a single SQL statement optimization",
+  "type": "object",
+  "required": ["run_id", "sql_key", "summary"],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this run"
+    },
+    "sql_key": {
+      "type": "string",
+      "description": "SQL statement key from the mapper"
+    },
+    "summary": {
+      "type": "object",
+      "description": "Summary statistics for this SQL",
+      "properties": {
+        "total_risks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_risk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium_risk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low_risk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "optimization_candidates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseline_collected": {
+          "type": "boolean"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "patch_applied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "List of detected risks",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk_type": {
+            "type": "string",
+            "enum": ["prefix_wildcard", "suffix_wildcard_only", "concat_wildcard", "function_wrap", "unknown"]
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "sql_fragment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "baseline": {
+      "type": ["object", "null"],
+      "description": "Baseline performance data from EXPLAIN"
+    },
+    "validation": {
+      "type": ["object", "null"],
+      "description": "Validation results"
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "List of optimization recommendations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["index", "rewrite", "wildcard", "structuring", "general"]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "original_sql": {
+            "type": ["string", "null"]
+          },
+          "suggested_sql": {
+            "type": ["string", "null"]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "execution_time_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -24,6 +24,7 @@ SCHEMA_MAP = {
     "sql_artifact_index_row": "sql_artifact_index_row.schema.json",
     "verification_record": "verification_record.schema.json",
     "verification_summary": "verification_summary.schema.json",
+    "baseline_result": "baseline_result.schema.json",
 }
 
 

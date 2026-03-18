@@ -1,6 +1,6 @@
 # SQL Optimizer V8 架构设计
 
-> 版本：V8 | 更新日期：2026-03-19
+> 版本：V8 | 更新日期：2026-03-19 | 深度调研版本
 > 7阶段架构 + 分层数据目录 + 双CLI + Web管理界面
 
 ---
@@ -515,17 +515,18 @@ contracts/
 
 ### 10.1 核心组件状态
 
-| 组件                  | 状态     | 说明                                      |
-|----------------------|---------|------------------------------------------|
+| 组件                  | 状态            | 说明                                      |
+|----------------------|-----------------|------------------------------------------|
 | V8 工作流引擎         | ✅ 已实现 | `application/workflow_v8.py`             |
-| 发现阶段              | ✅ 已实现 | `stages/discovery/`                      |
-| 分支阶段              | ✅ 已实现 | `stages/branching/`                      |
-| 剪枝阶段              | ✅ 已实现 | `stages/pruning/`                        |
-| 基线阶段              | ✅ 已实现 | `stages/baseline/`                       |
-| 优化阶段              | ✅ 已实现 | `stages/optimize/`                       |
-| 验证阶段              | ✅ 已实现 | `stages/validate/`                       |
-| 补丁阶段              | ✅ 已实现 | `stages/patch/`                          |
-| 双 CLI 架构           | ✅ 已实现 | `sqlopt-cli` + `sqlopt-data`             |
+| 发现阶段              | ⚠️ 简化 | `stages/discovery/` - 无 execute_one    |
+| 分支阶段              | ✅ 已实现 | `stages/branching/` - 16 模块           |
+| 剪枝阶段              | ⚠️ 部分实现 | `stages/pruning/` - 有 execute_one.py，静态分析 |
+| 基线阶段              | ⚠️ 简化实现 | `stages/baseline/` - 无 execute_one     |
+| 优化阶段              | ⚠️ 部分实现 | `stages/optimize/` - 有 execute_one.py  |
+| 验证阶段              | ⚠️ 部分实现 | `stages/validate/` - 有 execute_one.py  |
+| 补丁阶段              | ✅ 已实现 | `stages/patch/` - 有 execute_one.py     |
+| 报告阶段              | ❌ 缺失 | 无 `stages/report/`                     |
+| 双 CLI 架构           | ⚠️ 部分 | `run/resume/status/apply` 正常，`diagnose/optimize/validate` 缺失 |
 | 数据目录分层          | ✅ 已实现 | 项目级缓存 + 运行级产物分离               |
 | 可恢复执行            | ✅ 已实现 | `status_resolver.py` + `supervisor`     |
 | 契约 Schema           | ✅ 已实现 | `contracts/*.schema.json`                |
@@ -536,17 +537,26 @@ contracts/
 
 | 项目                     | 状态       | 说明                                              |
 |-------------------------|------------|--------------------------------------------------|
-| `workflow_engine.py`    | 🔲 待废弃  | 旧版工作流引擎，已迁移到 `workflow_v8.py`        |
-| 旧版 `stages/*.py`     | ✅ 已清理   | 已删除孤立模块，重命名为新目录结构                |
+| `workflow_engine.py`    | ✅ 已废弃   | 旧版工作流引擎已删除                             |
+| 旧版 `stages/*.py`     | ✅ 已清理   | 已删除，重命名为新目录结构                        |
+| 旧版 `patch_stage/`     | ✅ 已清理   | 已合并到 `stages/patch/`                        |
 
 ### 10.3 待完成任务
 
-- [ ] 废弃 `workflow_engine.py`（旧架构）
-- [x] 清理 `stages/*.py` 旧版实现 - 2026-03-19 完成
+- [ ] 实现报告阶段 `stages/report/`
+- [ ] 完善剪枝阶段数据库交互能力
+- [ ] 补充 discovery/baseline 阶段的 execute_one 入口
+- [ ] 实现独立阶段 CLI 命令 (diagnose/optimize/validate)
 - [ ] 完成契约版本管理方案
 - [ ] 实现 Web 管理界面
 - [ ] 完善 optimize/validate/patch 阶段的完整逻辑集成
 
+### 10.4 已完成任务
+
+- [x] T-001: 修复损坏的测试（4 个测试）
+- [x] T-002: 为 Pruning 添加 execute_one.py（静态分析）
+- [x] T-008: 解决 workflow_v8.py 的架构冲突
+
 ---
 
-*本文档最后更新：2026-03-19（清理 stages/*.py 旧版模块）*
+*本文档最后更新：2026-03-19（深度调研版本 - 修正实现状态与已完成任务）*

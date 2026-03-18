@@ -5,22 +5,22 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 
-from sqlopt.baseline.performance_collector import (
+from sqlopt.stages.baseline.performance_collector import (
     _get_sql_connect,
     _parse_dsn,
     _substitute_bind_params,
     _calculate_p95,
     collect_performance,
 )
-from sqlopt.baseline.parameter_parser import parse_parameters
-from sqlopt.baseline.parameter_binder import (
+from sqlopt.stages.baseline.parameter_parser import parse_parameters
+from sqlopt.stages.baseline.parameter_binder import (
     bind_parameters,
     _camel_to_snake,
     _snake_to_camel,
     _find_matching_column,
     _generate_fallback_value,
 )
-from sqlopt.baseline.data_generator import generate_test_value, generate_row
+from sqlopt.stages.baseline.data_generator import generate_test_value, generate_row
 
 
 class TestPerformanceCollector(unittest.TestCase):
@@ -196,7 +196,7 @@ class TestParameterBinder(unittest.TestCase):
 
     def test_camel_to_snake(self) -> None:
         """Test camelCase to snake_case conversion."""
-        from sqlopt.baseline.parameter_binder import _camel_to_snake
+        from sqlopt.stages.baseline.parameter_binder import _camel_to_snake
 
         # Test standard camelCase
         self.assertEqual(_camel_to_snake("userName"), "user_name")

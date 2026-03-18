@@ -97,28 +97,39 @@ python3 install/doctor.py --project /path/to/project
 
 ## Architecture
 
-### Three-Layer Design
+### V8 Seven-Stage Pipeline
 
-1. **Orchestrator** (`python/sqlopt/application/`): Command routing, stage orchestration, state management, timeout/retry handling
-   - `cli.py`: CLI adapter and compatibility wrapper (delegates to application layer)
-   - `workflow_engine.py`: Core workflow orchestration and phase transitions
-   - `run_service.py`: Run lifecycle management
-   - `run_repository.py`: Run state persistence
-   - `config_service.py`: Configuration loading and validation
-2. **Stage Core** (`python/sqlopt/stages/`): Domain logic for each phase (scan, optimize, validate, patch_generate, report)
-3. **Contracts & Artifacts** (`contracts/*.schema.json`): Schema validation, run artifacts, reporting
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              V8 Pipeline                                                  │
+│  Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch               │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Stage | Name | Description |
+|-------|------|-------------|
+| 1 | Discovery | Connect DB, parse MyBatis XML, extract SQL |
+| 2 | Branching | Expand dynamic tags to execution branches (if/choose/foreach) |
+| 3 | Pruning | Static analysis, risk marking, low-value branch filtering |
+| 4 | Baseline | EXPLAIN plan collection, performance baseline |
+| 5 | Optimize | Rule engine + LLM generates optimization proposals |
+| 6 | Validate | Semantic verification, performance comparison |
+| 7 | Patch | Generate XML patches, user confirmation, apply changes |
 
 ### Key Architectural Boundaries
 
-- CLI layer (`cli.py`) only contains adapter logic; core orchestration is in `application/workflow_engine.py`
-- Orchestration boundary: `run_service → workflow_engine → run_repository/stages`
-- Platform differences handled via strategy pattern in `preflight` and `validate` stages
-- Document models: `sqlopt.platforms.sql.models` (SQL-side), `sqlopt.stages.report_interfaces` (report-side)
-- External contracts exported via `to_contract()` methods
+- **Orchestrator** (`python/sqlopt/application/`): Command routing, stage orchestration, state management
+  - `workflow_v8.py`: V8 workflow orchestration (replaces old `workflow_engine.py`)
+  - `run_service.py`: Run lifecycle management
+  - `run_repository.py`: Run state persistence
+  - `config_service.py`: Configuration loading and validation
+- **Stages** (`python/sqlopt/stages/`): Domain logic for each phase
+  - `discovery/`, `branching/`, `pruning/`, `baseline/`, `optimize/`, `validate/`, `patch/`, `report/`
+- **Contracts** (`contracts/*.schema.json`): Schema validation, run artifacts, reporting
 
 ### Stage Pipeline
 
-Fixed execution order: `preflight → scan → optimize → validate → patch_generate → report`
+Fixed execution order: `Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch`
 
 Each stage:
 - Reads from previous stage artifacts in `runs/<run_id>/`
@@ -128,15 +139,26 @@ Each stage:
 
 ### Key Stages
 
-**scan**: Extracts SQL from MyBatis XML mappers using Java scanner. Outputs `scan.sqlunits.jsonl` with both `templateSql` (template view with `<foreach>`, `<include>` tags) and `sql` (logical analysis view). Optionally outputs `scan.fragments.jsonl` when `scan.enable_fragment_catalog=true`.
+**Discovery**: Connects to DB, collects table schemas, parses MyBatis XML files, extracts SQL statements. Outputs `scan.sqlunits.jsonl` and `sqlmap_catalog/` index.
 
-**optimize**: Consumes SqlUnits, generates optimization proposals via LLM. Outputs `proposals/optimization.proposals.jsonl`. Does not generate XML patches directly.
+**Branching**: Expands dynamic SQL into concrete execution branches. Supports three strategies: `all_combinations`, `pairwise`, `boundary`. Outputs `branches/<sql_key>.json` with branch data.
 
-**validate**: Validates proposals against database using EXPLAIN plans. Outputs `acceptance.results.jsonl` with semantic/performance/security judgments plus template materialization decisions (`rewriteMaterialization`, `templateRewriteOps`).
+**Pruning**: Static analysis detecting performance issues:
+- `prefix_wildcard`: `LIKE '%value'` - HIGH risk (cannot use index)
+- `suffix_wildcard_only`: `LIKE 'value%'` - LOW risk
+- `concat_wildcard`: `CONCAT('%', name)` - HIGH risk
+- `function_wrap`: `UPPER(col)`, `YEAR(date)` - MEDIUM risk (index失效)
+- `select_star`: `SELECT *` - MEDIUM risk
 
-**patch_generate**: Generates XML patches. Prioritizes template-level plans from validate stage when `rewriteMaterialization.replayVerified=true`. Falls back to static SQL patches. Never overwrites dynamic templates with flat SQL.
+Outputs `risks/<sql_key>.json`.
 
-**report**: Aggregates results into `report.md`, `report.summary.md`, `report.json` with phase status, acceptance/patch statistics, and materialization mode breakdowns.
+**Baseline**: Executes EXPLAIN, collects performance data (execution time, rows scanned, result hash). Outputs `baseline/<sql_key>.json`.
+
+**Optimize**: Rule engine + LLM generates optimization proposals. Outputs `proposals/<sql_key>/prompt.json` and `proposals/<sql_key>/proposal.json`.
+
+**Validate**: Semantic equivalence verification, performance comparison, result set validation. Outputs `acceptance/<sql_key>.json` and `verification/<sql_key>.json`.
+
+**Patch**: Generates MyBatis XML patches. Supports user confirmation before applying. Outputs `patches/<sql_key>/patch.xml`.
 
 ### State Management
 
@@ -154,12 +176,11 @@ The orchestrator advances one statement step per invocation (bounded by `max_ste
 - `sql`: Logical analysis view for optimize/validate. Not guaranteed to be source-writable.
 - `executableSql`: Temporary view derived in validate for EXPLAIN plans. Never persisted or used as patch source.
 
-### Template Rewrite Modes
+### Branching Strategies
 
-- `STATEMENT_TEMPLATE_SAFE`: Statement-level include-safe rewrite (implemented, requires replay verification)
-- `FRAGMENT_TEMPLATE_SAFE`: Fragment-level rewrite (implemented, requires `patch.template_rewrite.enable_fragment_materialization=true`)
-
-Default: Fragment materialization is OFF (`enable_fragment_materialization=false`) but validation still outputs materialization decisions.
+- `all_combinations`: All conditional combinations
+- `pairwise`: Pairwise combinations (two-by-two)
+- `boundary`: Boundary value combinations
 
 ## Configuration
 
@@ -190,16 +211,48 @@ llm:
 
 - `project.root_path`: Project base directory
 - `scan.mapper_globs`: MyBatis XML file patterns
-- `scan.java_scanner.jar_path`: Path to Java scanner JAR
+- `scan.java_scanner.jar_path`: Path to Java scanner JAR (deprecated, V8 uses pure Python)
 - `scan.class_resolution.mode`: Class resolution strategy (tolerant/strict)
 - `db.platform`: Database type (postgresql, mysql)
 - `db.dsn`: Database connection string
 - `llm.provider`: LLM provider (`opencode_run`, `direct_openai_compatible`, `opencode_builtin`, `heuristic`)
 - `llm.timeout_ms`: LLM request timeout (default: 80000ms)
 
+### Stage Configuration
+
+```yaml
+stages:
+  discovery:
+    enabled: true
+    cache_schema: true
+    
+  branching:
+    strategy: all_combinations  # all_combinations | pairwise | boundary
+    max_branches: 100
+    
+  pruning:
+    risk_threshold: medium  # high | medium | low
+    
+  baseline:
+    timeout_ms: 5000
+    sample_size: 100
+    
+  optimize:
+    llm_provider: opencode_run
+    max_candidates: 3
+    
+  validate:
+    verify_semantics: true
+    verify_performance: true
+    
+  patch:
+    auto_backup: true
+    require_confirm: true
+```
+
 ### Removed Configuration Keys
 
-The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated or removed in the current version.
+The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated into the `stages` section or removed in V8.
 
 ### MySQL-Specific Notes
 
@@ -221,29 +274,44 @@ Schema validation failures terminate the run by default.
 
 ```
 runs/<run_id>/
-├── supervisor/
-│   ├── meta.json
-│   ├── plan.json
-│   ├── state.json
-│   └── results/
-│       ├── scan.jsonl
-│       ├── optimize.jsonl
-│       └── ...
-├── manifest.jsonl
-├── scan.sqlunits.jsonl
-├── scan.fragments.jsonl
-├── proposals/
-│   └── optimization.proposals.jsonl
-├── acceptance/
-│   └── acceptance.results.jsonl
-├── patches/
-│   └── patch.results.jsonl
-├── ops/
-│   ├── ops_health.json
-│   └── ops_topology.json
-├── report.json
-├── report.md
-└── report.summary.md
+├── supervisor/                           # Run state (shared by all stages)
+│   ├── meta.json                        # Run metadata
+│   ├── plan.json                        # SQL execution plan
+│   ├── state.json                       # Stage state
+│   └── results/                         # Step results
+│
+├── scan.sqlunits.jsonl                   # [Stage 1] SQL unit list
+├── sqlmap_catalog/                       # [Stage 1] SQL fragment catalog
+│   ├── index.json                       # Index file
+│   └── <sql_key>.json                   # Individual SQL details
+│
+├── branches/                             # [Stage 2] Branch data
+│   └── <sql_key>.json                   # Individual SQL branches
+│
+├── risks/                                # [Stage 3] Risk data
+│   └── <sql_key>.json                   # Individual SQL risks
+│
+├── baseline/                             # [Stage 4] Performance baseline
+│   └── <sql_key>.json                   # Individual SQL baseline
+│
+├── proposals/                            # [Stage 5] Optimization proposals
+│   └── <sql_key>/
+│       ├── prompt.json                  # LLM prompt
+│       └── proposal.json                # LLM optimization proposal
+│
+├── acceptance/                           # [Stage 6] Validation results
+│   └── <sql_key>.json                   # Individual SQL validation result
+│
+├── verification/                         # [Stage 6] Verification evidence
+│   └── <sql_key>.json                   # Verification evidence
+│
+├── patches/                              # [Stage 7] Patch files
+│   └── <sql_key>/
+│       └── patch.xml                    # Generated XML patch
+│
+├── report.json                           # [Stage 7] JSON report
+├── report.md                             # [Stage 7] Markdown report
+└── report.summary.md                    # [Stage 7] Summary report
 ```
 
 ## Failure Handling
@@ -260,12 +328,12 @@ Retry behavior controlled by `runtime.stage_retry_*` config. Completed statement
 1. Stages communicate only through run directory artifacts, never direct function calls
 2. All stage outputs must be structured objects, not natural language
 3. Dynamic template statements cannot be overwritten with flat SQL patches
-4. Template-level patches require `rewriteMaterialization.replayVerified=true`
+4. V8 uses pure Python scanner (no Java dependency)
 5. Each run advances one statement step per invocation to respect 120s timeout
 6. Schema validation is strict by default and will fail the run on violations
-7. Report phase has `allow_regenerate=True`; other phases do not allow regeneration
-8. Completed statements are never re-executed; only failed statements can be retried on resume
-9. When `status.next_action=report-rebuild`, main pipeline is complete and only report needs regeneration
+7. Branching supports three strategies: `all_combinations`, `pairwise`, `boundary`
+8. Pruning detects: prefix_wildcard, suffix_wildcard_only, concat_wildcard, function_wrap, select_star
+9. Completed statements are never re-executed; only failed statements can be retried on resume
 
 ## Verification System
 
@@ -286,9 +354,10 @@ sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format j
 
 ### Verification Artifacts
 
-- `verification/ledger.jsonl`: Per-statement verification records
-- `verification/summary.json`: Aggregated verification summary
-- Each record includes: phase, status, reason_code, evidence_refs, checks, verdict
+- `verification/<sql_key>.json`: Per-statement verification records
+- `acceptance/<sql_key>.json`: Validation results with semantic/performance/security judgments
+
+Each record includes: phase, status, reason_code, evidence_refs, checks, verdict
 
 ### Verification Status Codes
 
@@ -301,6 +370,7 @@ Common reason codes:
 - `VALIDATE_DB_UNREACHABLE`: Database connection failed during validation
 - `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`: SQL syntax error during EXPLAIN
 - `RUNTIME_STAGE_TIMEOUT`: Stage exceeded timeout limit
+- `BRANCHING_MAX_BRANCHES_EXCEEDED`: Branch count exceeded max_branches limit
 
 ## LLM Provider Options
 
@@ -309,30 +379,26 @@ Common reason codes:
 - `opencode_builtin`: Local built-in strategy (recommended for offline smoke testing)
 - `heuristic`: Local simplified heuristic strategy
 
-### LLM Enhancement Features (Phase 1-6)
+### LLM Enhancement Features
 
-All LLM enhancement phases are fully implemented and tested:
+All LLM enhancement phases are implemented in the Optimize stage:
 
-1. **Phase 1: Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
-2. **Phase 2: Retry Mechanism** - Automatic retry with feedback on validation failures
-3. **Phase 3: Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
-4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `ops/llm_feedback.jsonl`)
-5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
-6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
+1. **Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
+2. **Retry Mechanism** - Automatic retry with feedback on validation failures
+3. **Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
+4. **Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `proposals/<sql_key>/feedback.jsonl`)
+5. **Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
+6. **Trace Enhancement** - Complete LLM interaction history recording
 
 Configuration:
-- `llm.output_validation.enabled`: Enable Phase 1 quality control
-- `llm.retry.enabled`: Enable Phase 2 retry mechanism
-- `validate.llm_semantic_check.enabled`: Enable Phase 3 semantic checking
-- `diagnostics.llm_feedback.enabled`: Enable Phase 4 feedback collection
-- `patch.llm_assist.enabled`: Enable Phase 5 patch assistance
-
-Test coverage: 84 new tests covering all LLM enhancement features
+- `stages.optimize.llm_provider`: LLM provider selection
+- `stages.optimize.max_candidates`: Maximum optimization candidates to generate
+- `stages.validate.llm_semantic_check.enabled`: Enable semantic checking when DB validation fails
 
 ## Testing Notes
 
 - Tests use fixtures in `tests/fixtures/project/`
-- 64 test files covering all stages and LLM enhancements
+- 98+ test files covering all stages and LLM enhancements
 - Run from repository root: `python3 -m pytest -q`
 - Unified acceptance: `python3 scripts/ci/release_acceptance.py`
 - Individual acceptance tests:
@@ -340,11 +406,23 @@ Test coverage: 84 new tests covering all LLM enhancement features
   - `python3 scripts/ci/degraded_runtime_acceptance.py`
   - `python3 scripts/ci/report_rebuild_acceptance.py`
 - Schema validation before committing: `python3 scripts/schema_validate_all.py`
-- Some tests may fail on import if dependencies are missing (e.g., test_apply_mode.py)
+
+### V8 Stage Implementation Status
+
+| Stage | Status | Modules |
+|-------|--------|---------|
+| Discovery | ✅ | Pure Python XML parsing |
+| Branching | ✅ | 16 modules |
+| Pruning | ⚠️ Partial | Static analysis only |
+| Baseline | ⚠️ Partial | Simplified |
+| Optimize | ⚠️ Partial | execute_one.py present |
+| Validate | ⚠️ Partial | execute_one.py present |
+| Patch | ✅ | execute_one.py present |
+| Report | ❌ | Not implemented |
 
 ### Scanner Coverage Validation
 
-The scanner supports these MyBatis dynamic tags (validated in fixtures):
+The V8 scanner supports these MyBatis dynamic tags (pure Python implementation):
 - `bind`
 - `choose/when/otherwise`
 - `where`
@@ -356,8 +434,7 @@ The scanner supports these MyBatis dynamic tags (validated in fixtures):
 
 Verify scanner output:
 - `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
-- `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
-- `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
+- `tests/fixtures/project/runs/<run_id>/sqlmap_catalog/`
 
 ### MySQL Local Testing
 
@@ -385,6 +462,8 @@ For detailed information, refer to:
 - `docs/QUICKSTART.md`: 10-minute getting started guide
 - `docs/INDEX.md`: Complete documentation index organized by role and topic
 - `docs/INSTALL.md`: Detailed installation instructions
+- `docs/V8/V8_STAGES_OVERVIEW.md`: V8 seven-stage architecture detailed overview
+- `docs/V8/V8_SUMMARY.md`: V8 architecture design summary
 - `docs/project/01-product-requirements.md`: Product requirements and goals
 - `docs/project/02-system-spec.md`: System specification
 - `docs/project/03-workflow-and-state-machine.md`: Workflow and state management

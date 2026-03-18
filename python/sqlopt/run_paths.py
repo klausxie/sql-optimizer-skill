@@ -183,6 +183,14 @@ class RunPaths:
         return self.scan_dir / "fragments.jsonl"
 
     @property
+    def baseline_dir(self) -> Path:
+        return self.pipeline_dir / "baseline"
+
+    @property
+    def baseline_results_path(self) -> Path:
+        return self.baseline_dir / "baseline.results.jsonl"
+
+    @property
     def optimize_dir(self) -> Path:
         return self.pipeline_dir / "optimize"
 

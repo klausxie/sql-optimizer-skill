@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 import unittest
 
-from sqlopt.scripting.branch_generator import BranchGenerator
-from sqlopt.scripting.fragment_registry import FragmentRegistry
-from sqlopt.scripting.xml_script_builder import XMLScriptBuilder
+from sqlopt.stages.branching.branch_generator import BranchGenerator
+from sqlopt.stages.branching.fragment_registry import FragmentRegistry
+from sqlopt.stages.branching.xml_script_builder import XMLScriptBuilder
 
 
 class ScriptingBranchGeneratorTest(unittest.TestCase):

@@ -539,6 +539,174 @@ def cmd_verify(args: argparse.Namespace) -> None:
         raise SystemExit(2)
 
 
+def cmd_diagnose(args: argparse.Namespace) -> None:
+    """执行诊断模式（discovery + branching + pruning）"""
+    config_path = Path(args.config).resolve()
+    if not config_path.exists():
+        error_info = format_error_message(
+            "CONFIG_NOT_FOUND", f"Config file not found: {config_path}"
+        )
+        print({"error": error_info})
+        raise SystemExit(2)
+
+    validation_result = config_service.validate_config(
+        config_path, check_connectivity=True
+    )
+    if not validation_result.get("valid", False):
+        error_info = format_error_message(
+            "CONFIG_INVALID",
+            f"Configuration validation failed: {validation_result.get('error', 'Unknown error')}",
+        )
+        print({"error": error_info})
+        raise SystemExit(2)
+
+    config = load_config(config_path)
+    requested_run_id = (
+        str(args.run_id).strip()
+        if str(args.run_id or "").strip()
+        else f"run_{uuid4().hex[:12]}"
+    )
+
+    runs_root = Path(config["project"]["root_path"]).resolve() / "runs"
+    run_dir = runs_root / requested_run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    engine = workflow_v8.V8WorkflowEngine(config, run_id=requested_run_id)
+
+    # Run only stages 1-3: discovery, branching, pruning
+    result = engine.run(run_dir, to_stage="pruning")
+
+    print(
+        {
+            "run_id": requested_run_id,
+            "command": "diagnose",
+            "stages": ["discovery", "branching", "pruning"],
+            "result": result,
+            "completed": engine.state.status == "completed",
+        }
+    )
+
+
+def cmd_optimize(args: argparse.Namespace) -> None:
+    """优化指定 SQL（需要 --run-id 和 --sql-key）"""
+    resolved_run_id: str | None = None
+    try:
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
+        sql_key = getattr(args, "sql_key", None)
+
+        if not sql_key:
+            error_info = format_error_message(
+                "MISSING_ARGUMENT",
+                "--sql-key is required for optimize command",
+            )
+            print({"run_id": resolved_run_id, "error": error_info})
+            raise SystemExit(2)
+
+        run_dir = run_index.resolve_run_dir(resolved_run_id, repo_root_fn=_repo_root)
+        paths = canonical_paths(run_dir)
+        config = load_config(paths.config_resolved_path)
+
+        engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+        engine.load_state_from_repo()
+
+        # Run optimize stage
+        result = engine._run_optimize(run_dir)
+
+        # Filter result for the specific sql_key
+        if result.get("success") and result.get("proposals_count", 0) > 0:
+            proposals_path = run_dir / "optimize" / "proposals.json"
+            if proposals_path.exists():
+                import json
+
+                with open(proposals_path) as f:
+                    all_proposals = json.load(f)
+                filtered = [p for p in all_proposals if p.get("sqlKey") == sql_key]
+                result["proposals"] = filtered
+                result["proposals_count"] = len(filtered)
+
+        print(
+            {
+                "run_id": resolved_run_id,
+                "sql_key": sql_key,
+                "command": "optimize",
+                "result": result,
+            }
+        )
+    except FileNotFoundError:
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
+        raise SystemExit(2)
+
+
+def cmd_validate(args: argparse.Namespace) -> None:
+    """验证指定 SQL（需要 --run-id 和 --sql-key）"""
+    resolved_run_id: str | None = None
+    try:
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
+        sql_key = getattr(args, "sql_key", None)
+
+        if not sql_key:
+            error_info = format_error_message(
+                "MISSING_ARGUMENT",
+                "--sql-key is required for validate command",
+            )
+            print({"run_id": resolved_run_id, "error": error_info})
+            raise SystemExit(2)
+
+        run_dir = run_index.resolve_run_dir(resolved_run_id, repo_root_fn=_repo_root)
+        paths = canonical_paths(run_dir)
+        config = load_config(paths.config_resolved_path)
+
+        engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+        engine.load_state_from_repo()
+
+        # Run validate stage
+        result = engine._run_validate(run_dir)
+
+        # Filter result for the specific sql_key
+        if result.get("success") and result.get("validations_count", 0) > 0:
+            validations_path = run_dir / "validate" / "validations.json"
+            if validations_path.exists():
+                import json
+
+                with open(validations_path) as f:
+                    all_validations = json.load(f)
+                filtered = [v for v in all_validations if v.get("sqlKey") == sql_key]
+                result["validations"] = filtered
+                result["validations_count"] = len(filtered)
+
+        print(
+            {
+                "run_id": resolved_run_id,
+                "sql_key": sql_key,
+                "command": "validate",
+                "result": result,
+            }
+        )
+    except FileNotFoundError:
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
+        raise SystemExit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     top_epilog = (
         "快速工作流:\n"
@@ -795,6 +963,89 @@ def build_parser() -> argparse.ArgumentParser:
         help="显示详细验证记录",
     )
     p_verify.set_defaults(func=cmd_verify)
+
+    p_diagnose = sub.add_parser(
+        "diagnose",
+        help="执行诊断模式",
+        description="执行诊断模式（discovery + branching + pruning），生成诊断报告。",
+        epilog=(
+            "示例:\n"
+            "  sqlopt-cli diagnose --config sqlopt.yml\n"
+            "  sqlopt-cli diagnose --config sqlopt.yml --run-id run_001\n"
+            "  sqlopt-cli diagnose --mapper-path src/main/resources/mappers"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_diagnose.add_argument(
+        "--config",
+        default="sqlopt.yml",
+        help="sqlopt.yml 配置文件路径（默认：./sqlopt.yml）",
+    )
+    p_diagnose.add_argument(
+        "--mapper-path",
+        action="append",
+        default=[],
+        help="仅扫描指定 mapper 相对路径（可重复），相对于 project.root_path",
+    )
+    p_diagnose.add_argument(
+        "--run-id",
+        help="运行 ID（默认自动生成；若指定且已存在，则继续该 run）",
+    )
+    p_diagnose.set_defaults(func=cmd_diagnose)
+
+    p_optimize = sub.add_parser(
+        "optimize",
+        help="优化指定 SQL",
+        description="对已完成的 run 中指定 SQL 执行优化阶段（需要 --run-id 和 --sql-key）。",
+        epilog=(
+            "示例:\n"
+            "  sqlopt-cli optimize --run-id <run-id> --sql-key <sql-key>\n"
+            "  sqlopt-cli optimize --project /path/to/project --sql-key <sql-key>"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_optimize.add_argument(
+        "--run-id",
+        help="要优化的运行 ID（默认：自动选择最新运行）",
+    )
+    p_optimize.add_argument(
+        "--project",
+        default=".",
+        help="项目目录，用于在省略 --run-id 时解析最新运行（默认：当前目录）",
+    )
+    p_optimize.add_argument(
+        "--sql-key",
+        required=True,
+        help="要优化的 SQL 键（如 namespace.statementId 或 statementId）",
+    )
+    p_optimize.set_defaults(func=cmd_optimize)
+
+    p_validate_sql = sub.add_parser(
+        "validate",
+        help="验证指定 SQL",
+        description="对已完成的 run 中指定 SQL 执行验证阶段（需要 --run-id 和 --sql-key）。",
+        epilog=(
+            "示例:\n"
+            "  sqlopt-cli validate --run-id <run-id> --sql-key <sql-key>\n"
+            "  sqlopt-cli validate --project /path/to/project --sql-key <sql-key>"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_validate_sql.add_argument(
+        "--run-id",
+        help="要验证的运行 ID（默认：自动选择最新运行）",
+    )
+    p_validate_sql.add_argument(
+        "--project",
+        default=".",
+        help="项目目录，用于在省略 --run-id 时解析最新运行（默认：当前目录）",
+    )
+    p_validate_sql.add_argument(
+        "--sql-key",
+        required=True,
+        help="要验证的 SQL 键（如 namespace.statementId 或 statementId）",
+    )
+    p_validate_sql.set_defaults(func=cmd_validate)
 
     return p
 
