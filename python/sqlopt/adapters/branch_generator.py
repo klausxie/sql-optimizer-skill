@@ -1,24 +1,5 @@
-"""
-分支生成器 - 从 MyBatis XML 提取 SQL 并生成分支
-"""
-
 from typing import Any, Optional, List, Dict
 import re
-
-# 导入 scripting 模块（完整实现）
-XMLScriptBuilder = None  # type: ignore[misc,assignment]
-ScriptingBranchGenerator = None  # type: ignore[misc,assignment]
-SCRIPTING_AVAILABLE = False
-
-try:
-    from sqlopt.scripting.xml_script_builder import XMLScriptBuilder  # type: ignore[misc]
-    from sqlopt.scripting.branch_generator import (
-        BranchGenerator as ScriptingBranchGenerator,  # type: ignore[misc]
-    )
-
-    SCRIPTING_AVAILABLE = True
-except ImportError:
-    pass
 
 
 class BranchGenerator:
@@ -31,25 +12,9 @@ class BranchGenerator:
         self.strategy = branch_cfg.get("strategy", "auto")
 
     def generate(self, sql_unit: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """生成分支列表"""
         sql = sql_unit.get("sql", "")
         template_sql = sql_unit.get("templateSql", "")
-        namespace = sql_unit.get("namespace")
-        fragment_registry = self.config.get("_fragment_registry")
 
-        # 优先使用 scripting 模块（完整实现）
-        if SCRIPTING_AVAILABLE and template_sql:
-            try:
-                return self._generate_with_scripting(
-                    template_sql,
-                    namespace=namespace,
-                    fragment_registry=fragment_registry,
-                )
-            except Exception:
-                # scripting 失败时 fallback 到正则方法
-                pass
-
-        # 优先使用解析出来的条件列表
         conditions = sql_unit.get("_conditions", [])
 
         if not conditions:
@@ -80,61 +45,6 @@ class BranchGenerator:
             branches = self._generate_all_combinations(conditions, sql, template_sql)
 
         return branches
-
-    def _generate_with_scripting(
-        self,
-        template_sql: str,
-        namespace: Optional[str] = None,
-        fragment_registry: Any = None,
-    ) -> List[Dict[str, Any]]:
-        """使用 scripting 模块生成分支
-
-        Args:
-            template_sql: MyBatis XML 模板 SQL
-
-        Returns:
-            转换后的分支列表，格式兼容当前 API
-        """
-        assert SCRIPTING_AVAILABLE
-        assert XMLScriptBuilder is not None
-        assert ScriptingBranchGenerator is not None
-
-        builder = XMLScriptBuilder(
-            fragment_registry=fragment_registry,
-            default_namespace=namespace,
-        )
-        sql_node = builder.parse(template_sql)
-
-        scripting_gen = ScriptingBranchGenerator(
-            strategy=self.strategy if self.strategy != "auto" else "all_combinations",
-            max_branches=self.max_branches,
-        )
-        scripting_branches = scripting_gen.generate(sql_node)
-
-        # 转换格式：scripting -> adapter API
-        result = []
-        for branch in scripting_branches:
-            # 判断分支类型
-            active_conds = branch.get("active_conditions", [])
-            if not active_conds:
-                branch_type = "static"
-            elif len(active_conds) == 1:
-                branch_type = "single"
-            elif len(active_conds) == 2:
-                branch_type = "pair"
-            else:
-                branch_type = "dynamic"
-
-            result.append(
-                {
-                    "id": branch.get("branch_id", 0) + 1,
-                    "conditions": active_conds,
-                    "sql": branch.get("sql", ""),
-                    "type": branch_type,
-                }
-            )
-
-        return result
 
     def _select_strategy(self, condition_count: int) -> str:
         """智能选择策略"""
