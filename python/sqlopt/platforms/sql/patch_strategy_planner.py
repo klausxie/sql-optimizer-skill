@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any
+from typing import Any, Protocol, cast
 
 from .dynamic_candidate_intent_engine import assess_dynamic_candidate_intent_model
 from .patch_safety import assess_patch_safety_model
@@ -10,11 +10,33 @@ from .rewrite_facts import build_rewrite_facts_model
 from .template_materializer import build_rewrite_materialization
 
 
+class PatchStrategy(Protocol):
+    def plan(
+        self,
+        sql_unit: dict[str, Any],
+        rewritten_sql: str,
+        fragment_catalog: dict[str, dict[str, Any]],
+        *,
+        enable_fragment_materialization: bool,
+        fallback_from: str | None,
+        dynamic_candidate_intent: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None: ...
+
+
 def _blocked_strategy_hints(patchability: dict[str, Any]) -> list[dict[str, Any]]:
-    dynamic_shape_family = str(patchability.get("dynamicShapeFamily") or "").strip().upper()
-    dynamic_capability_tier = str(patchability.get("dynamicCapabilityTier") or "").strip().upper()
-    dynamic_blocking_reason = str(patchability.get("dynamicBlockingReason") or "").strip().upper()
-    if dynamic_shape_family not in {"", "NONE"} and dynamic_capability_tier == "REVIEW_REQUIRED":
+    dynamic_shape_family = (
+        str(patchability.get("dynamicShapeFamily") or "").strip().upper()
+    )
+    dynamic_capability_tier = (
+        str(patchability.get("dynamicCapabilityTier") or "").strip().upper()
+    )
+    dynamic_blocking_reason = (
+        str(patchability.get("dynamicBlockingReason") or "").strip().upper()
+    )
+    if (
+        dynamic_shape_family not in {"", "NONE"}
+        and dynamic_capability_tier == "REVIEW_REQUIRED"
+    ):
         return [
             {
                 "strategyType": "DYNAMIC_STATEMENT_TEMPLATE_EDIT",
@@ -28,8 +50,12 @@ def _blocked_strategy_hints(patchability: dict[str, Any]) -> list[dict[str, Any]
             }
         ]
 
-    constraint_family = str(patchability.get("aggregationConstraintFamily") or "").strip().upper()
-    capability_tier = str(patchability.get("aggregationCapabilityTier") or "").strip().upper()
+    constraint_family = (
+        str(patchability.get("aggregationConstraintFamily") or "").strip().upper()
+    )
+    capability_tier = (
+        str(patchability.get("aggregationCapabilityTier") or "").strip().upper()
+    )
     if constraint_family in {"", "NONE", "SAFE_BASELINE"}:
         return []
     if capability_tier != "REVIEW_REQUIRED":
@@ -64,23 +90,37 @@ def plan_patch_strategy(
     dict[str, Any],
     list[dict[str, Any]],
 ]:
-    rewrite_facts_model = build_rewrite_facts_model(sql_unit, rewritten_sql, fragment_catalog, equivalence, semantic_equivalence)
+    rewrite_facts_model = build_rewrite_facts_model(
+        sql_unit, rewritten_sql, fragment_catalog, equivalence, semantic_equivalence
+    )
     dynamic_candidate_intent_model = None
-    if rewrite_facts_model.dynamic_template.present and not rewrite_facts_model.wrapper_query.present:
+    if (
+        rewrite_facts_model.dynamic_template.present
+        and not rewrite_facts_model.wrapper_query.present
+    ):
         dynamic_candidate_intent_model = assess_dynamic_candidate_intent_model(
             sql_unit,
             str(sql_unit.get("sql") or ""),
             rewritten_sql,
             rewrite_facts_model,
         )
-    if dynamic_candidate_intent_model is not None and dynamic_candidate_intent_model.template_effective_change:
+    if (
+        dynamic_candidate_intent_model is not None
+        and dynamic_candidate_intent_model.template_effective_change
+    ):
         rewrite_facts_model = replace(rewrite_facts_model, effective_change=True)
     patchability_model = assess_patch_safety_model(
         rewrite_facts_model,
-        dynamic_candidate_intent_model.to_dict() if dynamic_candidate_intent_model is not None else None,
+        dynamic_candidate_intent_model.to_dict()
+        if dynamic_candidate_intent_model is not None
+        else None,
     )
     rewrite_facts = rewrite_facts_model.to_dict()
-    dynamic_candidate_intent = dynamic_candidate_intent_model.to_dict() if dynamic_candidate_intent_model is not None else None
+    dynamic_candidate_intent = (
+        dynamic_candidate_intent_model.to_dict()
+        if dynamic_candidate_intent_model is not None
+        else None
+    )
     patchability = patchability_model.to_dict()
     fallback_materialization, fallback_ops = build_rewrite_materialization(
         sql_unit,
@@ -91,9 +131,12 @@ def plan_patch_strategy(
     candidates = []
     prior_strategy_type: str | None = None
     for registered_strategy in iter_patch_strategies():
-        if registered_strategy.required_capability not in patchability_model.allowed_capabilities:
+        if (
+            registered_strategy.required_capability
+            not in patchability_model.allowed_capabilities
+        ):
             continue
-        planned = registered_strategy.implementation.plan(
+        planned = cast(PatchStrategy, registered_strategy.implementation).plan(
             sql_unit,
             rewritten_sql,
             fragment_catalog,

@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .aggregation_analysis import analyze_aggregation_query
-from .canonicalization_support import cleanup_redundant_from_alias, cleanup_redundant_select_aliases
+from .canonicalization_support import (
+    cleanup_redundant_from_alias,
+    cleanup_redundant_select_aliases,
+)
 from .cte_analysis import analyze_simple_inline_cte
-from .dynamic_template_support import parse_direct_select_template, parse_select_wrapper_template
+from .dynamic_template_support import (
+    parse_direct_select_template,
+    parse_select_wrapper_template,
+)
 from .rewrite_facts_models import (
     AggregationCapabilityProfile,
     AggregationQueryRewriteFacts,
@@ -36,7 +42,9 @@ _COUNT_SQL_RE = re.compile(
     r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+(?P<from_suffix>from\b.+)$",
     flags=re.IGNORECASE | re.DOTALL,
 )
-_SELECT_FROM_RE = re.compile(r"^\s*select\s+.+?\s+(?P<from_suffix>from\b.+)$", flags=re.IGNORECASE | re.DOTALL)
+_SELECT_FROM_RE = re.compile(
+    r"^\s*select\s+.+?\s+(?P<from_suffix>from\b.+)$", flags=re.IGNORECASE | re.DOTALL
+)
 _PROHIBITED_WRAPPER_PATTERNS = (
     (r"\bdistinct\b", "DISTINCT_PRESENT"),
     (r"\bgroup\s+by\b", "GROUP_BY_PRESENT"),
@@ -49,7 +57,9 @@ _PROHIBITED_WRAPPER_PATTERNS = (
 )
 
 
-def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
+def _fingerprint_strength(
+    equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]
+) -> str:
     evidence = dict(semantic_equivalence.get("evidence") or {})
     strength = str(evidence.get("fingerprintStrength") or "").strip().upper()
     if strength:
@@ -73,10 +83,16 @@ def _dynamic_count_wrapper_template_match(template_sql: str) -> re.Match[str] | 
     return _DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE.match(str(template_sql or "").strip())
 
 
-def _render_primary_fragment(sql_unit: dict[str, Any], fragment_catalog: dict[str, dict[str, Any]]) -> tuple[str | None, dict[str, Any] | None]:
+def _render_primary_fragment(
+    sql_unit: dict[str, Any], fragment_catalog: dict[str, dict[str, Any]]
+) -> tuple[str | None, dict[str, Any] | None]:
     target_ref = str(sql_unit.get("primaryFragmentTarget") or "").strip()
     if not target_ref:
-        bindings = [row for row in (sql_unit.get("includeBindings") or []) if isinstance(row, dict)]
+        bindings = [
+            row
+            for row in (sql_unit.get("includeBindings") or [])
+            if isinstance(row, dict)
+        ]
         if len(bindings) == 1:
             target_ref = str(bindings[0].get("ref") or "").strip()
     if not target_ref:
@@ -125,12 +141,12 @@ def _wrapper_blockers(inner_sql: str) -> list[str]:
 
 def _dynamic_statement_features(sql_unit: dict[str, Any]) -> list[str]:
     out: list[str] = []
-    for raw in (sql_unit.get("dynamicFeatures") or []):
+    for raw in sql_unit.get("dynamicFeatures") or []:
         feature = str(raw or "").strip().upper()
         if feature and feature not in out:
             out.append(feature)
     dynamic_trace = dict(sql_unit.get("dynamicTrace") or {})
-    for raw in (dynamic_trace.get("statementFeatures") or []):
+    for raw in dynamic_trace.get("statementFeatures") or []:
         feature = str(raw or "").strip().upper()
         if feature and feature not in out:
             out.append(feature)
@@ -147,8 +163,14 @@ def _build_dynamic_template_facts(
         return DynamicTemplateRewriteFacts(present=False)
 
     dynamic_trace = dict(sql_unit.get("dynamicTrace") or {})
-    include_fragments = [row for row in (dynamic_trace.get("includeFragments") or []) if isinstance(row, dict)]
-    include_bindings = [row for row in (sql_unit.get("includeBindings") or []) if isinstance(row, dict)]
+    include_fragments = [
+        row
+        for row in (dynamic_trace.get("includeFragments") or [])
+        if isinstance(row, dict)
+    ]
+    include_bindings = [
+        row for row in (sql_unit.get("includeBindings") or []) if isinstance(row, dict)
+    ]
     include_fragment_refs: list[str] = []
     for row in include_fragments:
         ref = str(row.get("ref") or "").strip()
@@ -159,8 +181,12 @@ def _build_dynamic_template_facts(
         if ref and ref not in include_fragment_refs:
             include_fragment_refs.append(ref)
 
-    include_dynamic_subtree = any(bool((row or {}).get("dynamicFeatures")) for row in include_fragments)
-    include_property_bindings = any(bool((row or {}).get("properties")) for row in include_bindings)
+    include_dynamic_subtree = any(
+        bool((row or {}).get("dynamicFeatures")) for row in include_fragments
+    )
+    include_property_bindings = any(
+        bool((row or {}).get("properties")) for row in include_bindings
+    )
     feature_set = set(statement_features)
     template_sql = str(sql_unit.get("templateSql") or "")
     dynamic_count_wrapper_match = _dynamic_count_wrapper_template_match(template_sql)
@@ -198,7 +224,9 @@ def _build_dynamic_template_facts(
         baseline_family = "DYNAMIC_COUNT_WRAPPER_COLLAPSE"
     elif feature_set & {"IF", "WHERE", "CHOOSE", "TRIM", "BIND"}:
         shape_family = "IF_GUARDED_FILTER_STATEMENT"
-        outer_select, inner_select, flattened_from = parse_select_wrapper_template(template_sql)
+        outer_select, inner_select, flattened_from = parse_select_wrapper_template(
+            template_sql
+        )
         direct_select, direct_from = parse_direct_select_template(template_sql)
         if (
             outer_select is not None
@@ -212,9 +240,17 @@ def _build_dynamic_template_facts(
             blockers = []
             template_preserving_candidate = True
             baseline_family = "DYNAMIC_FILTER_WRAPPER_COLLAPSE"
-        elif direct_select is not None and direct_from is not None and not (feature_set & {"CHOOSE", "TRIM", "BIND"}):
-            _cleaned_select, aliases_changed = cleanup_redundant_select_aliases(direct_select)
-            _cleaned_from, from_alias_changed = cleanup_redundant_from_alias(direct_from, select_text=direct_select)
+        elif (
+            direct_select is not None
+            and direct_from is not None
+            and not (feature_set & {"CHOOSE", "TRIM", "BIND"})
+        ):
+            _cleaned_select, aliases_changed = cleanup_redundant_select_aliases(
+                direct_select
+            )
+            _cleaned_from, from_alias_changed = cleanup_redundant_from_alias(
+                direct_from, select_text=direct_select
+            )
             if aliases_changed:
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "SAFE_BASELINE"
@@ -260,7 +296,9 @@ def _build_dynamic_template_facts(
             blocker_family = None
             blockers = []
             template_preserving_candidate = template_anchor_stable
-            if re.search(r"\blimit\b", template_sql, flags=re.IGNORECASE) or re.search(r"\boffset\b|\bfetch\b", template_sql, flags=re.IGNORECASE):
+            if re.search(r"\blimit\b", template_sql, flags=re.IGNORECASE) or re.search(
+                r"\boffset\b|\bfetch\b", template_sql, flags=re.IGNORECASE
+            ):
                 baseline_family = "STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE"
             else:
                 baseline_family = "STATIC_INCLUDE_WRAPPER_COLLAPSE"
@@ -271,16 +309,16 @@ def _build_dynamic_template_facts(
         include_fragment_refs=include_fragment_refs,
         include_dynamic_subtree=include_dynamic_subtree,
         include_property_bindings=include_property_bindings,
-            capability_profile=DynamicTemplateCapabilityProfile(
-                shape_family=shape_family,
-                capability_tier=capability_tier,
-                patch_surface=patch_surface,
-                baseline_family=baseline_family,
-                blocker_family=blocker_family,
-                template_preserving_candidate=template_preserving_candidate,
-                blockers=blockers,
-            ),
-        )
+        capability_profile=DynamicTemplateCapabilityProfile(
+            shape_family=shape_family,
+            capability_tier=capability_tier,
+            patch_surface=patch_surface,
+            baseline_family=baseline_family,
+            blocker_family=blocker_family,
+            template_preserving_candidate=template_preserving_candidate,
+            blockers=blockers,
+        ),
+    )
 
 
 def build_rewrite_facts_model(
@@ -295,17 +333,29 @@ def build_rewrite_facts_model(
     template_sql = str(sql_unit.get("templateSql") or "")
     statement_features = _dynamic_statement_features(sql_unit)
     template_anchor_stable = not bool(
-        [x for x in statement_features if str(x).strip() and str(x).strip() != "INCLUDE"]
+        [
+            x
+            for x in statement_features
+            if str(x).strip() and str(x).strip() != "INCLUDE"
+        ]
     )
     wrapper_match = _wrapper_template_match(template_sql)
     inner_sql, inner_fragment = _render_primary_fragment(sql_unit, fragment_catalog)
     inner_sql_normalized = normalize_sql_text(inner_sql or "")
-    inner_from_suffix = _extract_from_suffix(inner_sql_normalized) if inner_sql_normalized else None
+    inner_from_suffix = (
+        _extract_from_suffix(inner_sql_normalized) if inner_sql_normalized else None
+    )
     rewritten_count_expr, rewritten_from_suffix = _extract_count_from_suffix(rewritten)
     cte_analysis = analyze_simple_inline_cte(original_sql)
     aggregation_analysis = analyze_aggregation_query(original_sql, rewritten)
-    static_include_tree = bool(inner_fragment) and fragment_is_static_include_safe(inner_fragment, fragment_catalog)
-    wrapper_blockers = _wrapper_blockers(inner_sql_normalized) if inner_sql_normalized else ["INNER_SQL_UNAVAILABLE"]
+    static_include_tree = bool(inner_fragment) and fragment_is_static_include_safe(
+        inner_fragment, fragment_catalog
+    )
+    wrapper_blockers = (
+        _wrapper_blockers(inner_sql_normalized)
+        if inner_sql_normalized
+        else ["INNER_SQL_UNAVAILABLE"]
+    )
     wrapper_query_collapsible = bool(
         wrapper_match
         and inner_fragment
@@ -324,11 +374,25 @@ def build_rewrite_facts_model(
         dynamic_features=list(statement_features),
         template_anchor_stable=template_anchor_stable,
         semantic=SemanticRewriteFacts(
-            status=str(semantic_equivalence.get("status") or "UNCERTAIN").strip().upper(),
-            confidence=str(semantic_equivalence.get("confidence") or "LOW").strip().upper(),
-            evidence_level=str(semantic_equivalence.get("evidenceLevel") or "STRUCTURE").strip().upper(),
-            fingerprint_strength=_fingerprint_strength(equivalence, semantic_equivalence),
-            hard_conflicts=[str(code) for code in (semantic_equivalence.get("hardConflicts") or []) if str(code).strip()],
+            status=str(semantic_equivalence.get("status") or "UNCERTAIN")
+            .strip()
+            .upper(),
+            confidence=str(semantic_equivalence.get("confidence") or "LOW")
+            .strip()
+            .upper(),
+            evidence_level=str(semantic_equivalence.get("evidenceLevel") or "STRUCTURE")
+            .strip()
+            .upper(),
+            fingerprint_strength=_fingerprint_strength(
+                equivalence, semantic_equivalence
+            ),
+            hard_conflicts=[
+                str(code)
+                for code in cast(
+                    list[object], semantic_equivalence.get("hardConflicts") or []
+                )
+                if str(code).strip()
+            ],
         ),
         wrapper_query=WrapperQueryRewriteFacts(
             present=bool(wrapper_match),
@@ -380,14 +444,55 @@ def build_rewrite_facts_model(
             union_branches=aggregation_analysis.union_branches,
             blockers=list(aggregation_analysis.blockers),
             capability_profile=AggregationCapabilityProfile(
-                shape_family=str((aggregation_analysis.capability_profile or {}).get("shapeFamily") or "NONE"),
-                capability_tier=str((aggregation_analysis.capability_profile or {}).get("capabilityTier") or "NONE"),
-                constraint_family=str((aggregation_analysis.capability_profile or {}).get("constraintFamily") or "NONE"),
-                safe_baseline_family=str((aggregation_analysis.capability_profile or {}).get("safeBaselineFamily") or "").strip() or None,
-                review_only_family=str((aggregation_analysis.capability_profile or {}).get("reviewOnlyFamily") or "").strip() or None,
-                wrapper_flatten_candidate=bool((aggregation_analysis.capability_profile or {}).get("wrapperFlattenCandidate")),
-                direct_relaxation_candidate=bool((aggregation_analysis.capability_profile or {}).get("directRelaxationCandidate")),
-                blockers=[str(x) for x in ((aggregation_analysis.capability_profile or {}).get("blockers") or []) if str(x).strip()],
+                shape_family=str(
+                    (aggregation_analysis.capability_profile or {}).get("shapeFamily")
+                    or "NONE"
+                ),
+                capability_tier=str(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "capabilityTier"
+                    )
+                    or "NONE"
+                ),
+                constraint_family=str(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "constraintFamily"
+                    )
+                    or "NONE"
+                ),
+                safe_baseline_family=str(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "safeBaselineFamily"
+                    )
+                    or ""
+                ).strip()
+                or None,
+                review_only_family=str(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "reviewOnlyFamily"
+                    )
+                    or ""
+                ).strip()
+                or None,
+                wrapper_flatten_candidate=bool(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "wrapperFlattenCandidate"
+                    )
+                ),
+                direct_relaxation_candidate=bool(
+                    (aggregation_analysis.capability_profile or {}).get(
+                        "directRelaxationCandidate"
+                    )
+                ),
+                blockers=[
+                    str(x)
+                    for x in cast(
+                        list[object],
+                        (aggregation_analysis.capability_profile or {}).get("blockers")
+                        or [],
+                    )
+                    if str(x).strip()
+                ],
             ),
         ),
     )

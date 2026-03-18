@@ -5,6 +5,7 @@ H2 是一个嵌入式 Java 数据库，通常用于 Spring Boot 测试环境。
 - 连接检测返回警告（需要 JDBC）
 - SQL 语法兼容 PostgreSQL 模式
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +16,7 @@ from ..base import FunctionPlatformAdapter, PlatformCapabilities
 
 def check_db_connectivity(config: dict[str, Any]) -> dict[str, Any]:
     """检查 H2 数据库连通性。
-    
+
     H2 是 Java 数据库，Python 无法直接连接。
     返回降级提示，建议用户切换到 PostgreSQL 或 MySQL 进行验证。
     """
@@ -27,9 +28,11 @@ def check_db_connectivity(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def collect_sql_evidence(config: dict[str, Any], sql: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def collect_sql_evidence(
+    config: dict[str, Any], sql: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """收集 SQL 证据（降级模式）。
-    
+
     由于无法连接 H2，返回静态分析结果。
     """
     return {}, {"status": "degraded", "reason": "H2 requires JDBC"}
@@ -55,7 +58,7 @@ def compare_semantics(
     return {"status": "skipped", "reason": "H2 requires JDBC"}
 
 
-def get_adapter() -> PlatformAdapter:
+def get_adapter() -> FunctionPlatformAdapter:
     return FunctionPlatformAdapter(
         name="h2",
         capabilities=PlatformCapabilities(

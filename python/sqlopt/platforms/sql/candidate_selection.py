@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import re
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from .candidate_patchability import assess_candidate_patchability_model
 from .canonicalization_engine import assess_candidate_canonicalization_model
@@ -18,7 +18,9 @@ from .candidate_selection_models import (
     CandidateSelectionTraceEntry,
 )
 
-_SQL_CANDIDATE_PREFIX_RE = re.compile(r"^\s*(select|with|update|delete|insert)\b", flags=re.IGNORECASE)
+_SQL_CANDIDATE_PREFIX_RE = re.compile(
+    r"^\s*(select|with|update|delete|insert)\b", flags=re.IGNORECASE
+)
 
 
 def _normalize_sql_text(value: str) -> str:
@@ -85,7 +87,9 @@ def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[Candida
     return out
 
 
-def filter_valid_candidates(original_sql: str, candidates: list[Candidate]) -> tuple[list[Candidate], int]:
+def filter_valid_candidates(
+    original_sql: str, candidates: list[Candidate]
+) -> tuple[list[Candidate], int]:
     valid_candidates: list[Candidate] = []
     rejected_placeholder_semantics = 0
     for candidate in candidates:
@@ -112,7 +116,11 @@ def evaluate_candidate_selection(
     compare_enabled: bool,
 ) -> CandidateSelectionResult:
     candidate_sql = valid_candidates[0].rewritten_sql if valid_candidates else None
-    rewritten_sql = candidate_sql if isinstance(candidate_sql, str) and candidate_sql.strip() else original_sql
+    rewritten_sql = (
+        candidate_sql
+        if isinstance(candidate_sql, str) and candidate_sql.strip()
+        else original_sql
+    )
     equivalence = EquivalenceCheck(checked=True, method="static", evidence_refs=[])
     perf = PerfComparison(
         checked=True,
@@ -153,13 +161,23 @@ def evaluate_candidate_selection(
             rewritten_candidate = candidate.rewritten_sql.strip()
             if not rewritten_candidate:
                 continue
-            candidate_dir = evidence_dir / f"candidate_{idx}" if evidence_dir is not None else None
-            semantics = compare_semantics_fn(compare_policy, config, original_sql, rewritten_candidate, candidate_dir)
-            plan = compare_plan_fn(compare_policy, config, original_sql, rewritten_candidate, candidate_dir)
-            row_status = ((semantics.get("rowCount") or {}) if isinstance(semantics, dict) else {}).get("status")
+            candidate_dir = (
+                evidence_dir / f"candidate_{idx}" if evidence_dir is not None else None
+            )
+            semantics = compare_semantics_fn(
+                compare_policy, config, original_sql, rewritten_candidate, candidate_dir
+            )
+            plan = compare_plan_fn(
+                compare_policy, config, original_sql, rewritten_candidate, candidate_dir
+            )
+            row_status = (
+                (semantics.get("rowCount") or {}) if isinstance(semantics, dict) else {}
+            ).get("status")
             semantic_match = row_status == "MATCH"
             improved_now = bool(plan.get("improved"))
-            after_cost = _numeric_cost((plan.get("afterSummary") or {}).get("totalCost"))
+            after_cost = _numeric_cost(
+                (plan.get("afterSummary") or {}).get("totalCost")
+            )
             patchability = assess_candidate_patchability_model(original_sql, candidate)
             patchability_score = patchability.score
             patchability_tier = patchability.tier
@@ -172,7 +190,9 @@ def evaluate_candidate_selection(
             canonicalization = canonicalization_model.to_dict()
             canonical_preference = canonicalization_model.preference
             canonical_score = canonical_preference.preference_score
-            effective_change = _normalize_sql_text(original_sql) != _normalize_sql_text(rewritten_candidate)
+            effective_change = _normalize_sql_text(original_sql) != _normalize_sql_text(
+                rewritten_candidate
+            )
             candidate_evaluations.append(
                 CandidateEvaluation(
                     candidate_id=candidate.id,
@@ -197,7 +217,10 @@ def evaluate_candidate_selection(
                     rule_id=canonical_preference.primary_rule,
                     score=canonical_score,
                     reason=canonical_preference.reason,
-                    matched_rules=list(canonicalization.get("matchedRules") or []),
+                    matched_rules=cast(
+                        list[dict[str, object]],
+                        canonicalization.get("matchedRules") or [],
+                    ),
                 ).to_dict()
             )
             payload = {
@@ -262,8 +285,8 @@ def evaluate_candidate_selection(
             perf = PerfComparison(
                 checked=bool(plan.get("checked")),
                 method=plan.get("method", "sql_explain_json_compare"),
-                before_summary=plan.get("beforeSummary"),
-                after_summary=plan.get("afterSummary"),
+                before_summary=plan.get("beforeSummary") or {},
+                after_summary=plan.get("afterSummary") or {},
                 reason_codes=list(plan.get("reasonCodes", [])),
                 improved=plan.get("improved"),
                 evidence_refs=list(plan.get("evidenceRefs", [])),
@@ -272,10 +295,14 @@ def evaluate_candidate_selection(
                 "strategy": "PATCHABILITY_FIRST",
                 "reasonCodes": ["VALIDATE_PATCHABILITY_PRIORITY"],
                 "summary": "selected the most patchable semantically valid candidate before cost tie-break",
-                "runnerUpCandidateId": runner_up["candidate"].id if runner_up is not None else None,
+                "runnerUpCandidateId": runner_up["candidate"].id
+                if runner_up is not None
+                else None,
             }
             delivery_readiness = {
-                "tier": "READY" if selected.get("patchability_tier") in {"HIGH", "MEDIUM"} else "NEEDS_TEMPLATE_REWRITE",
+                "tier": "READY"
+                if selected.get("patchability_tier") in {"HIGH", "MEDIUM"}
+                else "NEEDS_TEMPLATE_REWRITE",
                 "autoPatchLikelihood": selected.get("patchability_tier") or "LOW",
                 "blockingReasons": []
                 if selected.get("patchability_tier") in {"HIGH", "MEDIUM"}
@@ -283,10 +310,18 @@ def evaluate_candidate_selection(
             }
         else:
             selection_rationale = None
-            delivery_readiness = {"tier": "BLOCKED", "autoPatchLikelihood": "LOW", "blockingReasons": ["VALIDATE_NO_CANDIDATE"]}
+            delivery_readiness = {
+                "tier": "BLOCKED",
+                "autoPatchLikelihood": "LOW",
+                "blockingReasons": ["VALIDATE_NO_CANDIDATE"],
+            }
     else:
-        semantics = compare_semantics_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
-        plan = compare_plan_fn(compare_policy, config, original_sql, rewritten_sql, evidence_dir)
+        semantics = compare_semantics_fn(
+            compare_policy, config, original_sql, rewritten_sql, evidence_dir
+        )
+        plan = compare_plan_fn(
+            compare_policy, config, original_sql, rewritten_sql, evidence_dir
+        )
         equivalence = EquivalenceCheck(
             checked=semantics.get("checked"),
             method=semantics.get("method", "sql_semantic_compare_v1"),
@@ -299,14 +334,18 @@ def evaluate_candidate_selection(
         perf = PerfComparison(
             checked=bool(plan.get("checked")),
             method=plan.get("method", "sql_explain_json_compare"),
-            before_summary=plan.get("beforeSummary"),
-            after_summary=plan.get("afterSummary"),
+            before_summary=plan.get("beforeSummary") or {},
+            after_summary=plan.get("afterSummary") or {},
             reason_codes=list(plan.get("reasonCodes", [])),
             improved=plan.get("improved"),
             evidence_refs=list(plan.get("evidenceRefs", [])),
         )
         selection_rationale = None
-        delivery_readiness = {"tier": "BLOCKED", "autoPatchLikelihood": "LOW", "blockingReasons": ["VALIDATE_NO_CANDIDATE"]}
+        delivery_readiness = {
+            "tier": "BLOCKED",
+            "autoPatchLikelihood": "LOW",
+            "blockingReasons": ["VALIDATE_NO_CANDIDATE"],
+        }
 
     return CandidateSelectionResult(
         rewritten_sql=rewritten_sql,

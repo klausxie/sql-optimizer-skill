@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..errors import StageError
 from .base import FunctionPlatformAdapter, PlatformAdapter, PlatformCapabilities
@@ -17,7 +17,7 @@ def _registry():
     from .h2 import adapter as h2
 
     return {
-        "postgresql": postgresql.get_adapter(), 
+        "postgresql": postgresql.get_adapter(),
         "mysql": mysql.get_adapter(),
         "h2": h2.get_adapter(),
     }
@@ -44,12 +44,12 @@ def _is_legacy_module_like(entry: Any) -> bool:
 
 def _coerce_registry_entry(platform: str, entry: Any) -> PlatformAdapter:
     if _is_adapter_like(entry):
-        return entry
+        return cast(PlatformAdapter, entry)
     get_adapter = getattr(entry, "get_adapter", None)
     if callable(get_adapter):
         adapter = get_adapter()
         if _is_adapter_like(adapter):
-            return adapter
+            return cast(PlatformAdapter, adapter)
     if _is_legacy_module_like(entry):
         return FunctionPlatformAdapter(
             name=platform,
@@ -59,7 +59,10 @@ def _coerce_registry_entry(platform: str, entry: Any) -> PlatformAdapter:
             compare_plan_fn=entry.compare_plan,
             compare_semantics_fn=entry.compare_semantics,
         )
-    raise StageError(f"invalid platform adapter registration: {platform}", reason_code="INVALID_PLATFORM_ADAPTER")
+    raise StageError(
+        f"invalid platform adapter registration: {platform}",
+        reason_code="INVALID_PLATFORM_ADAPTER",
+    )
 
 
 def get_platform_adapter(config: dict[str, Any]) -> PlatformAdapter:
@@ -67,7 +70,10 @@ def get_platform_adapter(config: dict[str, Any]) -> PlatformAdapter:
     entry = _registry().get(platform)
     if entry is not None:
         return _coerce_registry_entry(platform, entry)
-    raise StageError(f"unsupported db.platform: {platform or '<empty>'}", reason_code="UNSUPPORTED_PLATFORM")
+    raise StageError(
+        f"unsupported db.platform: {platform or '<empty>'}",
+        reason_code="UNSUPPORTED_PLATFORM",
+    )
 
 
 def get_platform_capabilities(config: dict[str, Any]) -> PlatformCapabilities:
@@ -80,16 +86,22 @@ def check_db_connectivity(config: dict[str, Any]) -> dict[str, Any]:
     return adapter.check_db_connectivity(config)
 
 
-def collect_sql_evidence(config: dict[str, Any], sql: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def collect_sql_evidence(
+    config: dict[str, Any], sql: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
     adapter = get_platform_adapter(config)
     return adapter.collect_sql_evidence(config, sql)
 
 
-def compare_plan(config: dict[str, Any], original_sql: str, rewritten_sql: str, evidence_dir: Path) -> dict[str, Any]:
+def compare_plan(
+    config: dict[str, Any], original_sql: str, rewritten_sql: str, evidence_dir: Path
+) -> dict[str, Any]:
     adapter = get_platform_adapter(config)
     return adapter.compare_plan(config, original_sql, rewritten_sql, evidence_dir)
 
 
-def compare_semantics(config: dict[str, Any], original_sql: str, rewritten_sql: str, evidence_dir: Path) -> dict[str, Any]:
+def compare_semantics(
+    config: dict[str, Any], original_sql: str, rewritten_sql: str, evidence_dir: Path
+) -> dict[str, Any]:
     adapter = get_platform_adapter(config)
     return adapter.compare_semantics(config, original_sql, rewritten_sql, evidence_dir)

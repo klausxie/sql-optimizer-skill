@@ -25,26 +25,29 @@ def _has_select_star(sql_unit: dict[str, Any]) -> bool:
 
 def _has_full_scan_risk(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
-    return " where " not in sql and str(sql_unit.get("statementType") or "").upper() == "SELECT"
+    return (
+        " where " not in sql
+        and str(sql_unit.get("statementType") or "").upper() == "SELECT"
+    )
 
 
 def _has_subquery_in_from(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     # Match patterns like: SELECT ... FROM (SELECT ...), SELECT ... FROM (subquery)
-    return bool(re.search(r'from\s*\([^)]*select', sql, re.IGNORECASE))
+    return bool(re.search(r"from\s*\([^)]*select", sql, re.IGNORECASE))
 
 
 def _has_or_condition(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     # Match WHERE ... OR ... pattern (simple detection)
     # This catches most OR conditions in WHERE clause
-    return bool(re.search(r'\bor\b', sql)) and bool(re.search(r'\bwhere\b', sql))
+    return bool(re.search(r"\bor\b", sql)) and bool(re.search(r"\bwhere\b", sql))
 
 
 def _has_function_on_column(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     # Match functions applied to columns: WHERE UPPER(name) = ?, WHERE LOWER(col) LIKE ?
-    return bool(re.search(r'where\s+\w+\([^)]+\)\s*(=|>|<|like)', sql, re.IGNORECASE))
+    return bool(re.search(r"where\s+\w+\([^)]+\)\s*(=|>|<|like)", sql, re.IGNORECASE))
 
 
 def _has_like_wildcard_start(sql_unit: dict[str, Any]) -> bool:
@@ -63,15 +66,17 @@ def _has_no_limit(sql_unit: dict[str, Any]) -> bool:
 def _has_join_without_on(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     # Match JOIN without ON condition (comma-join or USING without ON)
-    return bool(re.search(r'join\s+\w+\s*$', sql)) or bool(re.search(r'join\s+\w+\s+using', sql))
+    return bool(re.search(r"join\s+\w+\s*$", sql)) or bool(
+        re.search(r"join\s+\w+\s+using", sql)
+    )
 
 
 def _has_distinct_abuse(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     # Check if DISTINCT is used on many columns (likely abuse)
-    match = re.search(r'select\s+distinct\s+(.+?)\s+from', sql, re.IGNORECASE)
+    match = re.search(r"select\s+distinct\s+(.+?)\s+from", sql, re.IGNORECASE)
     if match:
-        columns = match.group(1).split(',')
+        columns = match.group(1).split(",")
         return len(columns) > 5  # More than 5 columns with DISTINCT is suspicious
     return False
 
@@ -84,9 +89,15 @@ def _has_order_by_random(sql_unit: dict[str, Any]) -> bool:
 def _has_sensitive_columns(sql_unit: dict[str, Any]) -> bool:
     sql = str(sql_unit.get("sql") or "").lower()
     sensitive_patterns = [
-        r'\bpassword\b', r'\btoken\b', r'\bsecret\b', r'\bkey\b',
-        r'\bcredit_card\b', r'\bcard_number\b', r'\bid_card\b',
-        r'\bssn\b', r'\bpassport\b',
+        r"\bpassword\b",
+        r"\btoken\b",
+        r"\bsecret\b",
+        r"\bkey\b",
+        r"\bcredit_card\b",
+        r"\bcard_number\b",
+        r"\bid_card\b",
+        r"\bssn\b",
+        r"\bpassport\b",
     ]
     return any(re.search(pattern, sql) for pattern in sensitive_patterns)
 
@@ -102,7 +113,7 @@ def _max_estimated_rows(sql_unit: dict[str, Any]) -> int | None:
         if not isinstance(row, dict):
             continue
         raw_value = row.get("estimatedRows")
-        if isinstance(raw_value, bool):
+        if raw_value is None or isinstance(raw_value, bool):
             continue
         try:
             values.append(int(raw_value))
@@ -260,10 +271,16 @@ _RULES: dict[str, dict[str, Any]] = {
 _BUILTIN_RULEPACKS = {
     "core": ["DOLLAR_SUBSTITUTION", "SENSITIVE_COLUMN_EXPOSED"],
     "performance": [
-        "SELECT_STAR", "FULL_SCAN_RISK", "SUBQUERY_IN_FROM",
-        "OR_CONDITION_NO_INDEX", "FUNCTION_ON_INDEXED_COL",
-        "LIKE_WILDCARD_START", "NO_LIMIT", "JOIN_WITHOUT_ON",
-        "DISTINCT_ABUSE", "ORDER_BY_RANDOM",
+        "SELECT_STAR",
+        "FULL_SCAN_RISK",
+        "SUBQUERY_IN_FROM",
+        "OR_CONDITION_NO_INDEX",
+        "FUNCTION_ON_INDEXED_COL",
+        "LIKE_WILDCARD_START",
+        "NO_LIMIT",
+        "JOIN_WITHOUT_ON",
+        "DISTINCT_ABUSE",
+        "ORDER_BY_RANDOM",
     ],
     "syntax": ["JOIN_WITHOUT_ON"],
 }
@@ -271,7 +288,9 @@ _BUILTIN_RULEPACKS = {
 DEFAULT_RULEPACKS = [{"builtin": "core"}, {"builtin": "performance"}]
 
 
-def load_custom_rules_from_file(config_path: Path, project_root: Path) -> list[dict[str, Any]]:
+def load_custom_rules_from_file(
+    config_path: Path, project_root: Path
+) -> list[dict[str, Any]]:
     """Load custom rules from external YAML/JSON file.
 
     Args:
@@ -299,7 +318,9 @@ def get_custom_rules_from_config(config: dict[str, Any]) -> list[dict[str, Any]]
     return list(rules_cfg.get("custom_rules") or [])
 
 
-def load_external_rules_from_file(project_root: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+def load_external_rules_from_file(
+    project_root: Path, config: dict[str, Any]
+) -> list[dict[str, Any]]:
     """Load custom rules from external YAML file.
 
     Args:
@@ -323,6 +344,7 @@ def load_external_rules_from_file(project_root: Path, config: dict[str, Any]) ->
 
     try:
         import yaml
+
         with open(rules_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
             if data and isinstance(data, dict):
@@ -366,7 +388,11 @@ def _match_declared_rule(sql_unit: dict[str, Any], match: dict[str, Any]) -> boo
     sql = str(sql_unit.get("sql") or "")
     sql_lower = sql.lower()
     statement_type = str(sql_unit.get("statementType") or "").upper()
-    dynamic_features = {str(x).strip().upper() for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()}
+    dynamic_features = {
+        str(x).strip().upper()
+        for x in (sql_unit.get("dynamicFeatures") or [])
+        if str(x).strip()
+    }
 
     sql_contains = str(match.get("sql_contains") or "")
     if sql_contains and sql_contains.lower() not in sql_lower:
@@ -383,7 +409,9 @@ def _match_declared_rule(sql_unit: dict[str, Any], match: dict[str, Any]) -> boo
     return True
 
 
-def _evaluate_external_rule(sql_unit: dict[str, Any], rule: dict[str, Any], severity_overrides: dict[str, str]) -> dict[str, Any] | None:
+def _evaluate_external_rule(
+    sql_unit: dict[str, Any], rule: dict[str, Any], severity_overrides: dict[str, str]
+) -> dict[str, Any] | None:
     match = dict(rule.get("match") or {})
     if not _match_declared_rule(sql_unit, match):
         return None
@@ -392,11 +420,15 @@ def _evaluate_external_rule(sql_unit: dict[str, Any], rule: dict[str, Any], seve
     rule_id = str(rule.get("rule_id") or rule.get("id") or "").strip()
     if not rule_id:
         return None
-    severity = severity_overrides.get(rule_id, str(rule.get("default_severity") or "warn"))
+    severity = severity_overrides.get(
+        rule_id, str(rule.get("default_severity") or "warn")
+    )
     suggestions: list[dict[str, Any]] = []
     suggestion_sql_template = str(action.get("suggestion_sql_template") or "").strip()
     if suggestion_sql_template:
-        suggestions.append({"action": "CUSTOM_SQL_TEMPLATE", "sql": suggestion_sql_template})
+        suggestions.append(
+            {"action": "CUSTOM_SQL_TEMPLATE", "sql": suggestion_sql_template}
+        )
     return {
         "issue": {
             "code": rule_id,
@@ -418,7 +450,11 @@ def _evaluate_external_rule(sql_unit: dict[str, Any], rule: dict[str, Any], seve
 def configured_rule_ids(config: dict[str, Any]) -> list[str]:
     diagnostics_cfg = dict(config.get("diagnostics") or {})
     configured = diagnostics_cfg.get("rulepacks") or DEFAULT_RULEPACKS
-    disabled = {str(x).strip() for x in (diagnostics_cfg.get("disabled_rules") or []) if str(x).strip()}
+    disabled = {
+        str(x).strip()
+        for x in (diagnostics_cfg.get("disabled_rules") or [])
+        if str(x).strip()
+    }
     ordered: list[str] = []
     for entry in configured:
         if not isinstance(entry, dict):
@@ -464,7 +500,9 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
         )
         if not keep_issue:
             continue
-        severity = severity_override or severity_overrides.get(rule_id, rule["default_severity"])
+        severity = severity_override or severity_overrides.get(
+            rule_id, rule["default_severity"]
+        )
         message = str(rule["message"])
         if message_suffix:
             message = f"{message} {message_suffix}"
@@ -514,9 +552,15 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
             verdict = "CAN_IMPROVE"
 
     # Load external rulepacks (existing functionality)
-    loaded_rulepacks = [row for row in (diagnostics_cfg.get("loaded_rulepacks") or []) if isinstance(row, dict)]
+    loaded_rulepacks = [
+        row
+        for row in (diagnostics_cfg.get("loaded_rulepacks") or [])
+        if isinstance(row, dict)
+    ]
     loaded_by_file = {
-        str(row.get("file") or "").strip(): [rule for rule in (row.get("rules") or []) if isinstance(rule, dict)]
+        str(row.get("file") or "").strip(): [
+            rule for rule in (row.get("rules") or []) if isinstance(rule, dict)
+        ]
         for row in loaded_rulepacks
         if str(row.get("file") or "").strip()
     }
@@ -528,7 +572,9 @@ def evaluate_rules(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str
             continue
         for rule in loaded_by_file.get(file_ref, []):
             rule_with_source = {**rule, "source_ref": file_ref}
-            result = _evaluate_external_rule(sql_unit, rule_with_source, severity_overrides)
+            result = _evaluate_external_rule(
+                sql_unit, rule_with_source, severity_overrides
+            )
             if result is None:
                 continue
             issues.append(result["issue"])
@@ -605,12 +651,14 @@ def analyze_llm_feedback_for_rules(
                     rule_missed_counts[issue_type] = 0
                 rule_missed_counts[issue_type] += 1
 
-                llm_only_issues.append({
-                    "sql_key": record.get("sql_key"),
-                    "issue_type": issue_type,
-                    "description": issue.get("description", ""),
-                    "acceptance_status": record.get("acceptance_status"),
-                })
+                llm_only_issues.append(
+                    {
+                        "sql_key": record.get("sql_key"),
+                        "issue_type": issue_type,
+                        "description": issue.get("description", ""),
+                        "acceptance_status": record.get("acceptance_status"),
+                    }
+                )
 
     # 统计各规则的覆盖率
     rule_coverage: dict[str, dict[str, int]] = {}
@@ -630,8 +678,12 @@ def analyze_llm_feedback_for_rules(
         "llm_only_issue_types": rule_missed_counts,
         "rule_coverage": rule_coverage,
         "total_records_analyzed": len(feedback_records),
-        "records_with_llm_issues": sum(1 for r in feedback_records if r.get("llm_detected_issues")),
-        "records_with_triggered_rules": sum(1 for r in feedback_records if r.get("triggered_rules")),
+        "records_with_llm_issues": sum(
+            1 for r in feedback_records if r.get("llm_detected_issues")
+        ),
+        "records_with_triggered_rules": sum(
+            1 for r in feedback_records if r.get("triggered_rules")
+        ),
     }
 
 
@@ -668,12 +720,14 @@ def get_feedback_based_suggestions(
             # 简单的相似性检查：是否包含共同的关键词
             if any(kw in current_sql for kw in ["join", "where", "select"]):
                 if issue.get("type") == "performance" and "index" in issue_desc:
-                    suggestions.append({
-                        "action": "FEEDBACK_BASED_SUGGESTION",
-                        "type": "performance",
-                        "message": f"Similar SQL had performance issue: {issue_desc[:100]}",
-                        "reference_sql_key": record.get("sql_key"),
-                    })
+                    suggestions.append(
+                        {
+                            "action": "FEEDBACK_BASED_SUGGESTION",
+                            "type": "performance",
+                            "message": f"Similar SQL had performance issue: {issue_desc[:100]}",
+                            "reference_sql_key": record.get("sql_key"),
+                        }
+                    )
                     break
 
     return suggestions

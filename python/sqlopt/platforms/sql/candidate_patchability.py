@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import cast
+
 from .candidate_models import Candidate
 from .candidate_patchability_models import (
     CandidatePatchabilityAssessment,
     CandidatePatchabilityContext,
 )
 from .candidate_patchability_rules import iter_candidate_patchability_rules
+from .candidate_patchability_rules.base import CandidatePatchabilityRule
 
 
 def _patchability_tier(score: int) -> str:
@@ -16,7 +19,9 @@ def _patchability_tier(score: int) -> str:
     return "LOW"
 
 
-def assess_candidate_patchability_model(original_sql: str, candidate: Candidate) -> CandidatePatchabilityAssessment:
+def assess_candidate_patchability_model(
+    original_sql: str, candidate: Candidate
+) -> CandidatePatchabilityAssessment:
     context = CandidatePatchabilityContext(
         original_sql=str(original_sql or ""),
         candidate_source=str(candidate.source or "").strip(),
@@ -25,7 +30,9 @@ def assess_candidate_patchability_model(original_sql: str, candidate: Candidate)
     )
     matches = []
     for registered_rule in iter_candidate_patchability_rules():
-        match = registered_rule.implementation.evaluate(context)
+        match = cast(
+            CandidatePatchabilityRule, registered_rule.implementation
+        ).evaluate(context)
         if match is not None:
             matches.append(match)
     score = max(0, min(60 + sum(match.score_delta for match in matches), 100))
@@ -37,6 +44,8 @@ def assess_candidate_patchability_model(original_sql: str, candidate: Candidate)
     )
 
 
-def assess_candidate_patchability(original_sql: str, candidate: Candidate) -> tuple[int, str, list[str]]:
+def assess_candidate_patchability(
+    original_sql: str, candidate: Candidate
+) -> tuple[int, str, list[str]]:
     assessment = assess_candidate_patchability_model(original_sql, candidate)
     return assessment.score, assessment.tier, list(assessment.reasons)

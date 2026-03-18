@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 ERROR_MESSAGES = {
     "RUN_NOT_FOUND": {
         "title": "未找到运行记录",
@@ -193,7 +195,7 @@ ERROR_MESSAGES = {
 }
 
 
-def get_error_details(reason_code: str) -> dict[str, any]:
+def get_error_details(reason_code: str) -> dict[str, Any]:
     """获取错误原因代码的详细信息。
 
     Args:
@@ -218,7 +220,7 @@ def get_error_details(reason_code: str) -> dict[str, any]:
     )
 
 
-def format_error_message(reason_code: str, original_message: str) -> dict[str, any]:
+def format_error_message(reason_code: str, original_message: str) -> dict[str, Any]:
     """格式化带有详细信息的错误消息。
 
     Args:

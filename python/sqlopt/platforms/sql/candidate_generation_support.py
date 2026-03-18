@@ -110,7 +110,9 @@ def _split_top_level_and(predicate: str) -> list[str] | None:
     return parts
 
 
-def simple_where_predicate_signature(sql: str) -> tuple[str, tuple[str, ...], str] | None:
+def simple_where_predicate_signature(
+    sql: str,
+) -> tuple[str, tuple[str, ...], str] | None:
     normalized = normalize_sql(sql)
     match = SIMPLE_WHERE_SQL_RE.match(normalized)
     if match is None:
@@ -126,9 +128,17 @@ def simple_where_predicate_signature(sql: str) -> tuple[str, tuple[str, ...], st
     return prefix.lower(), tuple(sorted(part.lower() for part in parts)), suffix.lower()
 
 
-def render_flattened_wrapper_sql(prefix: str, select_list: str, from_suffix: str, outer_suffix: str | None) -> str:
-    suffix = f" {normalize_sql(outer_suffix)}" if str(outer_suffix or "").strip() else ""
-    return normalize_sql(f"{prefix} {normalize_sql(select_list)} {normalize_sql(from_suffix)}{suffix}")
+def render_flattened_wrapper_sql(
+    prefix: str, select_list: str, from_suffix: str, outer_suffix: str | None
+) -> str:
+    suffix = (
+        f" {normalize_sql(outer_suffix or '')}"
+        if str(outer_suffix or "").strip()
+        else ""
+    )
+    return normalize_sql(
+        f"{prefix} {normalize_sql(select_list)} {normalize_sql(from_suffix)}{suffix}"
+    )
 
 
 def dynamic_filter_select_cleanup_sql(original_sql: str) -> str | None:
@@ -136,7 +146,9 @@ def dynamic_filter_select_cleanup_sql(original_sql: str) -> str | None:
     direct_match = SELECT_DIRECT_RE.match(normalized)
     if direct_match is None or not WHERE_RE.search(normalized):
         return None
-    cleaned_select, aliases_changed = cleanup_redundant_select_aliases(str(direct_match.group("select") or ""))
+    cleaned_select, aliases_changed = cleanup_redundant_select_aliases(
+        str(direct_match.group("select") or "")
+    )
     if not aliases_changed:
         return None
     return normalize_sql(f"SELECT {cleaned_select} {direct_match.group('from')}")
@@ -149,7 +161,9 @@ def dynamic_filter_from_alias_cleanup_sql(original_sql: str) -> str | None:
         return None
     select_text = str(direct_match.group("select") or "")
     from_suffix = str(direct_match.group("from") or "")
-    cleaned_from_suffix, changed = cleanup_redundant_from_alias(from_suffix, select_text=select_text)
+    cleaned_from_suffix, changed = cleanup_redundant_from_alias(
+        from_suffix, select_text=select_text
+    )
     if not changed:
         return None
     return normalize_sql(f"SELECT {select_text} {cleaned_from_suffix}")
@@ -164,7 +178,9 @@ def groupby_from_alias_cleanup_sql(original_sql: str) -> str | None:
     from_suffix = str(direct_match.group("from") or "")
     if not re.search(r"\bgroup\s+by\b", from_suffix, flags=re.IGNORECASE):
         return None
-    cleaned_select, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    cleaned_select, cleaned_from_suffix, changed = (
+        cleanup_single_table_alias_references(select_text, from_suffix)
+    )
     if not changed:
         return None
     cleaned_select, _ = cleanup_redundant_select_aliases(cleaned_select)
@@ -178,9 +194,15 @@ def distinct_from_alias_cleanup_sql(original_sql: str) -> str | None:
         return None
     select_text = str(direct_match.group("select") or "")
     from_suffix = str(direct_match.group("from") or "")
-    if re.search(r"\bgroup\s+by\b|\bhaving\b|\bunion\b|\bover\s*\(", from_suffix, flags=re.IGNORECASE):
+    if re.search(
+        r"\bgroup\s+by\b|\bhaving\b|\bunion\b|\bover\s*\(",
+        from_suffix,
+        flags=re.IGNORECASE,
+    ):
         return None
-    cleaned_select, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    cleaned_select, cleaned_from_suffix, changed = (
+        cleanup_single_table_alias_references(select_text, from_suffix)
+    )
     if not changed:
         return None
     return normalize_sql(f"SELECT {cleaned_select} {cleaned_from_suffix}")
@@ -216,11 +238,19 @@ def parse_simple_select_wrapper(sql: str) -> tuple[str | None, str | None, str |
     inner_select = normalize_sql(inner_match.group("select"))
     inner_from = normalize_sql(inner_match.group("from"))
     suffix_match = OUTER_ALIAS_SUFFIX_RE.match(normalized[close_paren_idx + 1 :])
-    outer_suffix = normalize_sql((suffix_match.group("outer_suffix") if suffix_match else "") or "")
-    return outer_select or None, inner_select or None, normalize_sql(f"{inner_from} {outer_suffix}").strip() or inner_from
+    outer_suffix = normalize_sql(
+        (suffix_match.group("outer_suffix") if suffix_match else "") or ""
+    )
+    return (
+        outer_select or None,
+        inner_select or None,
+        normalize_sql(f"{inner_from} {outer_suffix}").strip() or inner_from,
+    )
 
 
-def parse_simple_select_wrapper_parts(sql: str) -> tuple[str | None, str | None, str | None, str | None]:
+def parse_simple_select_wrapper_parts(
+    sql: str,
+) -> tuple[str | None, str | None, str | None, str | None]:
     normalized = normalize_sql(sql)
     prefix_match = OUTER_WRAPPER_PREFIX_RE.match(normalized)
     if prefix_match is None:
@@ -237,13 +267,22 @@ def parse_simple_select_wrapper_parts(sql: str) -> tuple[str | None, str | None,
     inner_select = normalize_sql(inner_match.group("select"))
     inner_from = normalize_sql(inner_match.group("from"))
     suffix_match = OUTER_ALIAS_SUFFIX_RE.match(normalized[close_paren_idx + 1 :])
-    outer_suffix = normalize_sql((suffix_match.group("outer_suffix") if suffix_match else "") or "")
-    return outer_select or None, inner_select or None, inner_from or None, outer_suffix or None
+    outer_suffix = normalize_sql(
+        (suffix_match.group("outer_suffix") if suffix_match else "") or ""
+    )
+    return (
+        outer_select or None,
+        inner_select or None,
+        inner_from or None,
+        outer_suffix or None,
+    )
 
 
 def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     normalized = normalize_sql(original_sql)
-    dynamic_features = {str(row).upper() for row in (sql_unit.get("dynamicFeatures") or [])}
+    dynamic_features = {
+        str(row).upper() for row in (sql_unit.get("dynamicFeatures") or [])
+    }
     statement_type = str(sql_unit.get("statementType") or "").strip().upper()
     if statement_type in {"UPDATE", "DELETE"} and "SET" in dynamic_features:
         return "NO_SAFE_BASELINE_DML_SET"
@@ -264,7 +303,9 @@ def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     return "NO_SAFE_BASELINE_SHAPE_MATCH"
 
 
-def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[str, Any]]:
+def recover_candidates_from_shape(
+    sql_key: str, original_sql: str
+) -> list[dict[str, Any]]:
     normalized_original = normalize_sql(original_sql)
     recovered: list[dict[str, Any]] = []
 
@@ -301,7 +342,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
         ]
 
     distinct_match = DISTINCT_WRAPPER_RE.match(normalized_original)
-    if distinct_match is not None and normalized_sql_eq(distinct_match.group("outer_select"), distinct_match.group("inner_select")):
+    if distinct_match is not None and normalized_sql_eq(
+        distinct_match.group("outer_select"), distinct_match.group("inner_select")
+    ):
         return [
             {
                 "id": f"{sql_key}:llm:recovered_distinct_wrapper",
@@ -319,7 +362,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
         ]
 
     having_match = HAVING_WRAPPER_RE.match(normalized_original)
-    if having_match is not None and normalized_sql_eq(having_match.group("outer_select"), having_match.group("inner_select")):
+    if having_match is not None and normalized_sql_eq(
+        having_match.group("outer_select"), having_match.group("inner_select")
+    ):
         inner_from = str(having_match.group("inner_from") or "")
         if not redundant_having_wrapper_blockers(inner_from):
             return [
@@ -339,7 +384,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
             ]
 
     group_by_match = GROUP_BY_WRAPPER_RE.match(normalized_original)
-    if group_by_match is not None and normalized_sql_eq(group_by_match.group("outer_select"), group_by_match.group("inner_select")):
+    if group_by_match is not None and normalized_sql_eq(
+        group_by_match.group("outer_select"), group_by_match.group("inner_select")
+    ):
         inner_from = str(group_by_match.group("inner_from") or "")
         if not redundant_groupby_wrapper_blockers(inner_from):
             return [
@@ -371,11 +418,18 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
             }
         ]
 
-    parsed_outer_select, parsed_inner_select, parsed_inner_from, parsed_outer_suffix = parse_simple_select_wrapper_parts(
-        normalized_original
+    parsed_outer_select, parsed_inner_select, parsed_inner_from, parsed_outer_suffix = (
+        parse_simple_select_wrapper_parts(normalized_original)
     )
-    parsed_from_suffix = normalize_sql(f"{parsed_inner_from or ''} {parsed_outer_suffix or ''}").strip() or parsed_inner_from
-    if parsed_outer_select and parsed_inner_select and normalized_sql_eq(parsed_outer_select, parsed_inner_select):
+    parsed_from_suffix = (
+        normalize_sql(f"{parsed_inner_from or ''} {parsed_outer_suffix or ''}").strip()
+        or parsed_inner_from
+    )
+    if (
+        parsed_outer_select
+        and parsed_inner_select
+        and normalized_sql_eq(parsed_outer_select, parsed_inner_select)
+    ):
         inner_from_for_blockers = parsed_inner_from or parsed_from_suffix or ""
         if re.search(r"\bgroup\s+by\b", parsed_from_suffix or "", flags=re.IGNORECASE):
             if re.search(r"\bhaving\b", parsed_from_suffix or "", flags=re.IGNORECASE):
@@ -384,7 +438,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                         {
                             "id": f"{sql_key}:llm:recovered_having_wrapper",
                             "source": "llm",
-                            "rewrittenSql": normalize_sql(f"SELECT {parsed_inner_select} {parsed_from_suffix}"),
+                            "rewrittenSql": normalize_sql(
+                                f"SELECT {parsed_inner_select} {parsed_from_suffix}"
+                            ),
                             "rewriteStrategy": "REMOVE_REDUNDANT_HAVING_WRAPPER_RECOVERED",
                             "semanticRisk": "low",
                             "confidence": "medium",
@@ -395,7 +451,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                     {
                         "id": f"{sql_key}:llm:recovered_groupby_wrapper",
                         "source": "llm",
-                        "rewrittenSql": normalize_sql(f"SELECT {parsed_inner_select} {parsed_from_suffix}"),
+                        "rewrittenSql": normalize_sql(
+                            f"SELECT {parsed_inner_select} {parsed_from_suffix}"
+                        ),
                         "rewriteStrategy": "REMOVE_REDUNDANT_GROUP_BY_WRAPPER_RECOVERED",
                         "semanticRisk": "low",
                         "confidence": "medium",
@@ -406,7 +464,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                 {
                     "id": f"{sql_key}:llm:recovered_select_wrapper",
                     "source": "llm",
-                    "rewrittenSql": normalize_sql(f"SELECT {parsed_inner_select} {parsed_from_suffix}"),
+                    "rewrittenSql": normalize_sql(
+                        f"SELECT {parsed_inner_select} {parsed_from_suffix}"
+                    ),
                     "rewriteStrategy": "REMOVE_REDUNDANT_SUBQUERY_RECOVERED",
                     "semanticRisk": "low",
                     "confidence": "medium",
@@ -456,14 +516,18 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
         ]
 
     select_match = SELECT_WRAPPER_RE.match(normalized_original)
-    if select_match is not None and normalized_sql_eq(select_match.group("outer_select"), select_match.group("inner_select")):
+    if select_match is not None and normalized_sql_eq(
+        select_match.group("outer_select"), select_match.group("inner_select")
+    ):
         inner_from = str(select_match.group("inner_from") or "")
         if not redundant_subquery_blockers(inner_from):
             recovered.append(
                 {
                     "id": f"{sql_key}:llm:recovered_select_wrapper",
                     "source": "llm",
-                    "rewrittenSql": normalize_sql(f"SELECT {select_match.group('inner_select')} {inner_from}"),
+                    "rewrittenSql": normalize_sql(
+                        f"SELECT {select_match.group('inner_select')} {inner_from}"
+                    ),
                     "rewriteStrategy": "REMOVE_REDUNDANT_SUBQUERY_RECOVERED",
                     "semanticRisk": "low",
                     "confidence": "medium",
@@ -472,7 +536,9 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
     return recovered
 
 
-def recover_candidates_from_text(sql_key: str, original_sql: str, text: str) -> list[dict[str, Any]]:
+def recover_candidates_from_text(
+    sql_key: str, original_sql: str, text: str
+) -> list[dict[str, Any]]:
     lowered_text = str(text or "").lower()
     if not any(cue in lowered_text for cue in STRUCTURAL_FALLBACK_CUES):
         return []
