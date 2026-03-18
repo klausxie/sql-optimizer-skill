@@ -4,6 +4,7 @@ from .semantic_checker import (
     SemanticChecker,
     ValidationResult,
 )
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     # Entry point
@@ -14,4 +15,5 @@ __all__ = [
     # Semantic Checker
     "SemanticChecker",
     "ValidationResult",
+    "StageResult",
 ]

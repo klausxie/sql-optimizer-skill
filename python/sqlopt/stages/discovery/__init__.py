@@ -7,6 +7,7 @@ from .scanner import (
 )
 from .parser import XmlParser
 from .execute_one import DiscoveryStage, execute_one, DiscoveryResult
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     "Scanner",
@@ -18,4 +19,5 @@ __all__ = [
     "DiscoveryStage",
     "execute_one",
     "DiscoveryResult",
+    "StageResult",
 ]

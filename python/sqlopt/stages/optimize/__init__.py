@@ -11,6 +11,7 @@ from .rule_engine import (
     RuleResult,
     apply_rules,
 )
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     # Entry point
@@ -25,4 +26,5 @@ __all__ = [
     "RuleEngine",
     "RuleResult",
     "apply_rules",
+    "StageResult",
 ]

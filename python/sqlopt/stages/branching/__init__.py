@@ -36,7 +36,8 @@ from sqlopt.stages.branching.sql_node import (
     VarDeclSqlNode,
     IncludeSqlNode,
 )
-from sqlopt.stages.branching.xml_script_builder import XMLScriptBuilder
+from sqlopt.stages.branching.execute_one import BranchingStage, execute_one
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     "BranchGenerator",
@@ -66,4 +67,7 @@ __all__ = [
     "VarDeclSqlNode",
     "IncludeSqlNode",
     "XMLScriptBuilder",
+    "StageResult",
+    "BranchingStage",
+    "execute_one",
 ]

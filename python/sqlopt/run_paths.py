@@ -183,6 +183,14 @@ class RunPaths:
         return self.scan_dir / "fragments.jsonl"
 
     @property
+    def branching_dir(self) -> Path:
+        return self.pipeline_dir / "branching"
+
+    @property
+    def branches_path(self) -> Path:
+        return self.branching_dir / "branch.results.jsonl"
+
+    @property
     def baseline_dir(self) -> Path:
         return self.pipeline_dir / "baseline"
 
@@ -304,6 +312,8 @@ class RunPaths:
             self.supervisor_dir,
             self.supervisor_results_dir,
             self.scan_dir,
+            self.branching_dir,
+            self.baseline_dir,
             self.optimize_dir,
             self.validate_dir,
             self.apply_dir,

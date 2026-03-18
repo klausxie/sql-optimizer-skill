@@ -10,6 +10,7 @@ from sqlopt.stages.patch.patch_generator import (
     PatchGenerator,
     PatchResult,
 )
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     # Apply functions
@@ -19,4 +20,5 @@ __all__ = [
     "generate_patch",
     "PatchGenerator",
     "PatchResult",
+    "StageResult",
 ]

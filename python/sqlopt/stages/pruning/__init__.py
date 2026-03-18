@@ -1,5 +1,6 @@
 from sqlopt.stages.pruning.analyzer import RiskIssue, RiskDetector, analyze_risks
 from sqlopt.stages.pruning.execute_one import PruningStage, execute_one, PruningResult
+from sqlopt.stages.base import StageResult
 
 __all__ = [
     "RiskIssue",
@@ -8,4 +9,5 @@ __all__ = [
     "PruningStage",
     "execute_one",
     "PruningResult",
+    "StageResult",
 ]

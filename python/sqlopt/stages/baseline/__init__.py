@@ -18,6 +18,12 @@ from .baseline_collector import (
     _parse_mysql_explain_json,
 )
 
+from .execute_one import (
+    BaselineStage,
+    execute_one,
+)
+from sqlopt.stages.base import StageResult
+
 __all__ = [
     "BaselineCollector",
     "BaselineResult",
@@ -26,4 +32,7 @@ __all__ = [
     "collect_baseline",
     "_parse_postgresql_explain_json",
     "_parse_mysql_explain_json",
+    "BaselineStage",
+    "execute_one",
+    "StageResult",
 ]
