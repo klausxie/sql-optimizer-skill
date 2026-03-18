@@ -7,7 +7,7 @@ from ..contracts import ContractValidator
 from ..progress import get_progress_reporter
 from ..stages import diagnose as diagnose_stage
 from ..stages import optimize as optimize_stage
-from ..stages import patch_generate as apply_stage
+from ..stages import patch as apply_stage
 
 from ..stages import scan as scan_stage
 from ..stages import validate as validate_stage

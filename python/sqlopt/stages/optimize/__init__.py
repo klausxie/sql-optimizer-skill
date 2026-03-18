@@ -1,4 +1,4 @@
-from sqlopt.stages.optimize import execute_one
+from .execute_one import execute_one
 from .llm_optimizer import (
     LLMOptimizer,
     OptimizationCandidate,
@@ -13,7 +13,7 @@ from .rule_engine import (
 )
 
 __all__ = [
-    # Legacy entry point
+    # Entry point
     "execute_one",
     # LLM Optimizer
     "LLMOptimizer",

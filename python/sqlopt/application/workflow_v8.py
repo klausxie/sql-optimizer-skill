@@ -617,7 +617,7 @@ class V8WorkflowEngine:
         }
 
     def _run_baseline(self, run_dir: Path) -> dict:
-        from ..stages.baseline_stage import collect_baseline
+        from ..stages.baseline import collect_baseline
 
         branching_path = run_dir / "branching" / "sql_units_with_branches.json"
         if not branching_path.exists():
@@ -641,7 +641,7 @@ class V8WorkflowEngine:
         }
 
     def _run_optimize(self, run_dir: Path) -> dict:
-        from ..stages.optimize_stage.rule_engine import apply_rules
+        from ..stages.optimize.rule_engine import apply_rules
 
         baseline_path = run_dir / "baseline" / "baselines.json"
         if not baseline_path.exists():
@@ -683,7 +683,7 @@ class V8WorkflowEngine:
         }
 
     def _run_validate(self, run_dir: Path) -> dict:
-        from ..stages.validate_stage.semantic_checker import SemanticChecker
+        from ..stages.validate.semantic_checker import SemanticChecker
 
         optimize_path = run_dir / "optimize" / "proposals.json"
         if not optimize_path.exists():
@@ -723,7 +723,7 @@ class V8WorkflowEngine:
         }
 
     def _run_patch(self, run_dir: Path) -> dict:
-        from ..stages.patch_stage.patch_generator import PatchGenerator
+        from ..stages.patch.patch_generator import PatchGenerator
 
         validate_path = run_dir / "validate" / "validations.json"
         if not validate_path.exists():

@@ -1,10 +1,7 @@
-"""apply 阶段 LLM 辅助功能
+"""LLM-assisted patch generation for complex dynamic SQL.
 
-对于复杂动态 SQL，引入 LLM 生成模板级改写建议。
-主要用于：
-1. 当自动 patch 生成失败时，提供 LLM 辅助建议
-2. 为动态 SQL 模板提供改写指导
-3. 生成人工审查所需的上下文信息
+This module provides LLM-assisted template-level rewriting suggestions
+for cases where automatic patch generation fails.
 """
 
 from __future__ import annotations
@@ -15,20 +12,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..io_utils import write_json
-from ..run_paths import canonical_paths
+from ...io_utils import write_json
+from ...run_paths import canonical_paths
 
 
 @dataclass
 class TemplatePatchSuggestion:
-    """模板补丁建议"""
+    """Template patch suggestion from LLM."""
 
     suggestion_type: str  # "TEMPLATE_MODIFY" | "FRAGMENT_EXPAND" | "MANUAL_REVIEW"
-    template_diff: str | None  # 模板差异
-    manual_guidance: str | None  # 人工指导
-    confidence: str = "medium"  # 置信度
-    reasoning: str | None = None  # 推理说明
-    referenced_fragments: list[str] = field(default_factory=list)  # 引用的片段
+    template_diff: str | None  # Template diff
+    manual_guidance: str | None  # Manual guidance
+    confidence: str = "medium"  # Confidence level
+    reasoning: str | None = None  # Reasoning explanation
+    referenced_fragments: list[str] = field(
+        default_factory=list
+    )  # Referenced fragments
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -39,15 +38,15 @@ def build_template_patch_prompt(
     acceptance: dict[str, Any],
     patch_result: dict[str, Any],
 ) -> dict[str, Any]:
-    """构建模板补丁建议的 prompt
+    """Build prompt for template patch suggestion.
 
     Args:
-        sql_unit: SQL 单元
-        acceptance: 验证接受结果
-        patch_result: 补丁生成结果
+        sql_unit: SQL unit
+        acceptance: Validation acceptance result
+        patch_result: Patch generation result
 
     Returns:
-        用于 LLM 调用的 prompt 字典
+        Prompt dictionary for LLM call
     """
     original_template = str(sql_unit.get("templateSql") or "")
     rewritten_sql = str(acceptance.get("rewrittenSql") or "")
@@ -56,7 +55,7 @@ def build_template_patch_prompt(
     dynamic_trace = sql_unit.get("dynamicTrace") or {}
     include_fragments = dynamic_trace.get("includeFragments") or []
 
-    # 收集跳过的原因
+    # Collect skip reason
     selection_reason = patch_result.get("selectionReason") or {}
     reason_code = str(selection_reason.get("code") or "")
     reason_message = str(selection_reason.get("message") or "")
@@ -86,19 +85,19 @@ def build_template_patch_prompt(
 def _parse_llm_template_suggestion(
     response_text: str, prompt: dict[str, Any]
 ) -> TemplatePatchSuggestion:
-    """解析 LLM 返回的模板建议
+    """Parse LLM response into TemplatePatchSuggestion.
 
     Args:
-        response_text: LLM 响应文本
-        prompt: 原始 prompt
+        response_text: LLM response text
+        prompt: Original prompt
 
     Returns:
-        TemplatePatchSuggestion 对象
+        TemplatePatchSuggestion object
     """
     response_lower = response_text.lower()
 
-    # 判断建议类型
-    suggestion_type = "MANUAL_REVIEW"  # 默认
+    # Determine suggestion type
+    suggestion_type = "MANUAL_REVIEW"  # Default
     if "template" in response_lower and "modify" in response_lower:
         suggestion_type = "TEMPLATE_MODIFY"
     elif "fragment" in response_lower and "expand" in response_lower:
@@ -106,17 +105,17 @@ def _parse_llm_template_suggestion(
     elif "manual" in response_lower or "review" in response_lower:
         suggestion_type = "MANUAL_REVIEW"
 
-    # 提取置信度
+    # Extract confidence
     confidence = "medium"
     if "high" in response_lower or "高置信度" in response_lower:
         confidence = "high"
     elif "low" in response_lower or "低置信度" in response_lower:
         confidence = "low"
 
-    # 提取推理说明
-    reasoning = response_text.strip()[:500]  # 限制长度
+    # Extract reasoning
+    reasoning = response_text.strip()[:500]  # Limit length
 
-    # 提取模板差异（如果有）
+    # Extract template diff (if any)
     template_diff = None
     diff_markers = ["```diff", "```patch", "```xml"]
     for marker in diff_markers:
@@ -127,7 +126,7 @@ def _parse_llm_template_suggestion(
                 template_diff = response_text[start:end].strip()
                 break
 
-    # 提取人工指导
+    # Extract manual guidance
     manual_guidance = None
     guidance_markers = ["建议：", "建议:", "guidance:", "recommendation:", "指导："]
     for marker in guidance_markers:
@@ -138,14 +137,13 @@ def _parse_llm_template_suggestion(
                 manual_guidance = response_text[start:end].strip()
                 break
 
-    # 提取引用的片段
+    # Extract referenced fragments
     referenced_fragments: list[str] = []
     if "fragment" in response_lower:
-        # 简单提取 fragment 引用
         import re
 
         fragment_refs = re.findall(r"ref\.(\w+)", response_text, re.IGNORECASE)
-        referenced_fragments = list(set(fragment_refs))[:5]  # 最多 5 个
+        referenced_fragments = list(set(fragment_refs))[:5]  # Max 5
 
     return TemplatePatchSuggestion(
         suggestion_type=suggestion_type,
@@ -163,6 +161,17 @@ def generate_template_patch_suggestion(
     patch_result: dict[str, Any],
     llm_cfg: dict[str, Any],
 ) -> TemplatePatchSuggestion | None:
+    """Generate template patch suggestion using LLM.
+
+    Args:
+        sql_unit: SQL unit
+        acceptance: Validation acceptance result
+        patch_result: Patch generation result
+        llm_cfg: LLM configuration
+
+    Returns:
+        TemplatePatchSuggestion or None if LLM not enabled
+    """
     if not llm_cfg.get("enabled", False):
         return None
 
@@ -176,12 +185,12 @@ def save_template_suggestion(
     sql_key: str,
     suggestion: TemplatePatchSuggestion,
 ) -> None:
-    """保存模板建议到文件
+    """Save template suggestion to file.
 
     Args:
-        run_dir: 运行目录
-        sql_key: SQL 标识符
-        suggestion: 模板建议
+        run_dir: Run directory
+        sql_key: SQL identifier
+        suggestion: Template suggestion
     """
     suggestions_dir = canonical_paths(run_dir).ops_dir / "template_suggestions"
     suggestions_dir.mkdir(parents=True, exist_ok=True)
@@ -201,14 +210,14 @@ def attach_llm_suggestion_to_patch(
     patch_result: dict[str, Any],
     suggestion: TemplatePatchSuggestion | None,
 ) -> dict[str, Any]:
-    """将 LLM 建议附加到补丁结果
+    """Attach LLM suggestion to patch result.
 
     Args:
-        patch_result: 补丁生成结果
-        suggestion: LLM 模板建议
+        patch_result: Patch generation result
+        suggestion: LLM template suggestion
 
     Returns:
-        更新后的补丁结果
+        Updated patch result
     """
     if suggestion is None:
         return patch_result
@@ -224,7 +233,7 @@ def attach_llm_suggestion_to_patch(
     if suggestion.template_diff:
         patch_result["llmTemplateSuggestion"]["templateDiff"] = suggestion.template_diff
 
-    # 更新 repair hints
+    # Update repair hints
     if "repairHints" not in patch_result:
         patch_result["repairHints"] = []
 
@@ -245,13 +254,13 @@ def attach_llm_suggestion_to_patch(
 
 
 def collect_template_suggestions(run_dir: Path) -> list[dict[str, Any]]:
-    """收集所有模板建议
+    """Collect all template suggestions.
 
     Args:
-        run_dir: 运行目录
+        run_dir: Run directory
 
     Returns:
-        模板建议列表
+        List of template suggestions
     """
     suggestions_dir = canonical_paths(run_dir).ops_dir / "template_suggestions"
     if not suggestions_dir.exists():
@@ -272,17 +281,17 @@ def collect_template_suggestions(run_dir: Path) -> list[dict[str, Any]]:
 def generate_template_suggestion_summary(
     suggestions: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """生成模板建议摘要
+    """Generate summary of template suggestions.
 
     Args:
-        suggestions: 模板建议列表
+        suggestions: List of template suggestions
 
     Returns:
-        摘要统计字典
+        Summary statistics dictionary
     """
     total = len(suggestions)
 
-    # 统计建议类型分布
+    # Count by type and confidence
     type_counts: dict[str, int] = {}
     confidence_counts: dict[str, int] = {}
 

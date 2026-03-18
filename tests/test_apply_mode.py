@@ -6,14 +6,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sqlopt.stages import apply as apply_stage
+from sqlopt.stages import patch as patch_module
 
 
 class ApplyModeTest(unittest.TestCase):
     def test_default_mode_is_patch_only(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_default_") as td:
             run_dir = Path(td)
-            state = apply_stage.apply_from_config(run_dir)
+            state = patch_module.apply_from_config(run_dir)
         self.assertEqual(state.get("mode"), "PATCH_ONLY")
         self.assertFalse(state.get("applied"))
         self.assertIn("patch_results", state)
@@ -42,11 +42,11 @@ class ApplyModeTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with patch("sqlopt.stages.apply.subprocess.run") as run_mock:
+            with patch("sqlopt.stages.patch.apply.subprocess.run") as run_mock:
                 run_mock.return_value.returncode = 0
                 run_mock.return_value.stdout = ""
                 run_mock.return_value.stderr = ""
-                state = apply_stage.apply_from_config(run_dir)
+                state = patch_module.apply_from_config(run_dir)
 
         self.assertTrue(state.get("applied"))
         self.assertEqual(state.get("mode"), "APPLY_IN_PLACE")
@@ -87,7 +87,7 @@ class ApplyModeTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            state = apply_stage.apply_from_config(run_dir)
+            state = patch_module.apply_from_config(run_dir)
 
         self.assertFalse(state["applied"])
         self.assertEqual(state["patch_results"]["result_count"], 1)

@@ -1,14 +1,7 @@
-# =============================================================================
-# DEPRECATED MODULE
-# =============================================================================
-# This module is deprecated as of V8 and will be removed in a future release.
-# Migration timeline:
-#   - V8 (current): Kept for backward compatibility
-#   - V9 (planned): May be removed or further deprecated
-#
-# New architecture: Use application/workflow_engine.py for stage orchestration
-# Reference: docs/V8/V8_SUMMARY.md
-# =============================================================================
+"""Apply stage functions.
+
+Handles patch application to project files.
+"""
 
 from __future__ import annotations
 
@@ -16,8 +9,8 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..io_utils import read_json, read_jsonl, write_json
-from ..run_paths import canonical_paths
+from ...io_utils import read_json, read_jsonl, write_json
+from ...run_paths import canonical_paths
 
 
 def _patch_result_summary(run_dir: Path) -> dict:
@@ -91,7 +84,7 @@ def apply_from_config(run_dir: Path) -> dict:
         return apply_patch_only(run_dir)
 
     project_cfg = (cfg.get("project", {}) or {}) if isinstance(cfg, dict) else {}
-    project_root = Path(str(project_cfg.get("root_path") or ".")).resolve()
+    project_root = Path(str(project_cfg.get("root_path" or "."))).resolve()
     patch_summary = _patch_result_summary(run_dir)
     patch_files = _collect_patch_files(run_dir)
     if not patch_files:

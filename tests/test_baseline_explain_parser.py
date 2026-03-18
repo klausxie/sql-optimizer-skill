@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from sqlopt.stages.baseline_stage.baseline_collector import (
+from sqlopt.stages.baseline.baseline_collector import (
     ExplainPlan,
     ExplainParseResult,
     _parse_postgresql_explain_json,

@@ -1,7 +1,7 @@
 """Tests for Phase 5 patch_generate LLM assistance"""
 
 import pytest
-from sqlopt.stages.patch_generate_llm import (
+from sqlopt.stages.patch.llm_assist import (
     TemplatePatchSuggestion,
     build_template_patch_prompt,
     generate_template_patch_suggestion,
@@ -20,9 +20,7 @@ class TestBuildTemplatePatchPrompt:
             "sqlKey": "test.mapper.selectUser",
             "templateSql": "SELECT * FROM users WHERE id = #{id}",
             "dynamicFeatures": ["IF", "WHERE"],
-            "dynamicTrace": {
-                "includeFragments": []
-            },
+            "dynamicTrace": {"includeFragments": []},
         }
         acceptance = {
             "rewrittenSql": "SELECT id, name FROM users WHERE id = ?",
@@ -40,7 +38,10 @@ class TestBuildTemplatePatchPrompt:
         assert prompt["original_template"] == "SELECT * FROM users WHERE id = #{id}"
         assert prompt["rewritten_sql"] == "SELECT id, name FROM users WHERE id = ?"
         assert prompt["dynamic_features"] == ["IF", "WHERE"]
-        assert prompt["patch_skip_reason"]["code"] == "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE"
+        assert (
+            prompt["patch_skip_reason"]["code"]
+            == "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE"
+        )
 
     def test_prompt_with_include_fragments(self):
         sql_unit = {
@@ -115,7 +116,11 @@ class TestParseLlmTemplateSuggestion:
         suggestion = _parse_llm_template_suggestion(response, prompt)
 
         # 默认类型
-        assert suggestion.suggestion_type in ["TEMPLATE_MODIFY", "FRAGMENT_EXPAND", "MANUAL_REVIEW"]
+        assert suggestion.suggestion_type in [
+            "TEMPLATE_MODIFY",
+            "FRAGMENT_EXPAND",
+            "MANUAL_REVIEW",
+        ]
         assert "复杂" in suggestion.reasoning or "人工" in suggestion.reasoning
 
     def test_parse_no_diff(self):
@@ -171,7 +176,9 @@ class TestAttachLlmSuggestionToPatch:
         patch_result = {
             "sqlKey": "test#c1",
             "applicable": False,
-            "selectionReason": {"code": "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE"},
+            "selectionReason": {
+                "code": "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE"
+            },
         }
         suggestion = TemplatePatchSuggestion(
             suggestion_type="TEMPLATE_MODIFY",
@@ -272,7 +279,6 @@ class TestCollectTemplateSuggestions:
         assert suggestions == []
 
 
-
 class TestGenerateTemplatePatchSuggestion:
     """测试模板补丁建议生成（集成测试）"""
 
@@ -282,7 +288,9 @@ class TestGenerateTemplatePatchSuggestion:
         patch_result = {"applicable": False}
         llm_cfg = {"enabled": False}
 
-        result = generate_template_patch_suggestion(sql_unit, acceptance, patch_result, llm_cfg)
+        result = generate_template_patch_suggestion(
+            sql_unit, acceptance, patch_result, llm_cfg
+        )
         assert result is None
 
     def test_builtin_provider(self):
@@ -305,7 +313,9 @@ class TestGenerateTemplatePatchSuggestion:
         }
 
         # 内置模式会返回保守结果
-        result = generate_template_patch_suggestion(sql_unit, acceptance, patch_result, llm_cfg)
+        result = generate_template_patch_suggestion(
+            sql_unit, acceptance, patch_result, llm_cfg
+        )
 
         # 内置模式可能返回 None 或保守建议
         assert result is None or isinstance(result, TemplatePatchSuggestion)
