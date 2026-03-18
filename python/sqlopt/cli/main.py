@@ -72,47 +72,6 @@ def _validate_budget_args(args: argparse.Namespace) -> None:
         raise ValueError("max_seconds must be >= 0")
 
 
-def _run_phase_action(
-    config: dict[str, Any], phase: str, fn: Callable[[], object]
-) -> tuple[object, int]:
-    """Compatibility wrapper used by legacy tests and integrations."""
-    return workflow_engine.run_phase_action(config, phase, fn)
-
-
-def _finalize_report_if_enabled(
-    run_dir: Path,
-    config: dict[str, Any],
-    validator: Any,
-    state: dict[str, Any],
-    *,
-    final_meta_status: str,
-) -> bool:
-    """Compatibility wrapper that delegates report finalization to application layer."""
-    return workflow_engine.finalize_report_if_enabled(
-        run_dir,
-        config,
-        validator,
-        state,
-        final_meta_status=final_meta_status,
-        run_phase_action_fn=_run_phase_action,
-    )
-
-
-def _advance_one_step(
-    run_dir: Path, config: dict[str, Any], to_stage: str, validator: Any
-) -> dict[str, Any]:
-    """Compatibility wrapper around workflow_engine.advance_one_step."""
-    return workflow_engine.advance_one_step(
-        run_dir,
-        config,
-        to_stage,
-        validator,
-        run_phase_action_fn=_run_phase_action,
-        finalize_report_if_enabled_fn=_finalize_report_if_enabled,
-        finalize_without_report_fn=workflow_engine.finalize_without_report,
-    )
-
-
 def _advance_until_complete(
     run_id: str,
     initial_result: dict[str, Any],
@@ -460,7 +419,7 @@ def cmd_apply(args: argparse.Namespace) -> None:
             run_dir = run_index.resolve_run_dir(
                 resolved_run_id, repo_root_fn=_repo_root
             )
-            from sqlopt.stages.apply import _resolved_config
+            from sqlopt.stages.patch.apply import _resolved_config
 
             try:
                 cfg = _resolved_config(run_dir)
@@ -470,7 +429,7 @@ def cmd_apply(args: argparse.Namespace) -> None:
                 mode = str(apply_cfg.get("mode", "PATCH_ONLY")).strip().upper()
 
                 if mode == "APPLY_IN_PLACE":
-                    from sqlopt.stages.apply import _collect_patch_files
+                    from sqlopt.stages.patch.apply import _collect_patch_files
 
                     patch_files = _collect_patch_files(run_dir)
                     if patch_files:
