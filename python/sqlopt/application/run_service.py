@@ -18,6 +18,7 @@ from .run_selection import (
 )
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
+from . import workflow_engine
 from .requests import AdvanceStepRequest, RunStatusRequest
 from .run_repository import RunRepository
 

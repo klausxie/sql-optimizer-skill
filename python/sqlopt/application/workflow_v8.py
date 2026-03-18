@@ -12,6 +12,7 @@ import json
 import time
 
 from .status_resolver import StatusResolver, PhaseExecutionPolicy, StatusResolution
+from .requests import AdvanceStepRequest, RunStatusRequest
 
 
 @dataclass
@@ -761,3 +762,37 @@ class V8WorkflowEngine:
 def run_v8_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:
     engine = V8WorkflowEngine(config)
     return engine.run(run_dir, to_stage)
+
+
+def runs_root(config: dict) -> Path:
+    root_path = config.get("project", {}).get("root_path", ".")
+    return Path(root_path).resolve() / "runs"
+
+
+def advance_one_step_request(request: AdvanceStepRequest) -> dict[str, Any]:
+    engine = V8WorkflowEngine(
+        config=request.config,
+        repository=request.repository,
+        run_id=request.run_dir.name if request.run_dir else None,
+    )
+    return engine.advance_one_step(request.run_dir, request.to_stage)
+
+
+def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:
+    root_path = request.config.get("project", {}).get("root_path", ".")
+    runs_root_path = Path(root_path).resolve() / "runs"
+
+    return {
+        "run_id": request.run_id,
+        "status": request.state.get("status", "unknown"),
+        "current_stage": request.state.get("current_stage", ""),
+        "completed_stages": request.state.get("completed_stages", []),
+        "stage_results": request.state.get("stage_results", {}),
+        "to_stage": request.plan.get("to_stage", "patch") if request.plan else "patch",
+        "runs_root": str(runs_root_path),
+        "meta": {
+            "status": request.meta.get("status", "") if request.meta else "",
+            "started_at": request.state.get("started_at", "") if request.state else "",
+            "updated_at": request.state.get("updated_at", "") if request.state else "",
+        },
+    }
