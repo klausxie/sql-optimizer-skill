@@ -1,13 +1,35 @@
 # SQL Optimizer Skill
 
-面向 MyBatis SQL 的分析与优化工具链，支持从扫描到补丁应用的可恢复工作流。
+面向 MyBatis SQL 的分析与优化工具链，支持从发现到补丁应用的 V8 可恢复工作流。
 
 ## 核心能力
 
-- 端到端流程：`run -> status/resume -> report -> apply`
+- **V8 七阶段流水线**：Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch
 - 可恢复执行：支持中断后继续，支持 `report-rebuild`
 - 产物可追溯：`runs/<run-id>/` 下保留状态、报告与中间产物
 - 支持数据库：`postgresql`、`mysql`（5.6+，不含 MariaDB）
+
+## V8 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         7 阶段处理流程                                      │
+│                                                                           │
+│  [1.发现] → [2.分支] → [3.剪枝] → [4.基线] → [5.优化] → [6.验证] → [7.补丁] │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+| 阶段 | 名称 | 功能 | 耗时节点 |
+|------|------|------|----------|
+| 1 | Discovery | 连接数据库、采集表结构、解析 XML | DB 🐢 |
+| 2 | Branching | 分支展开（3种策略） | - |
+| 3 | Pruning | 静态分析、风险标记、聚合剪枝 | CPU ⚡ |
+| 4 | Baseline | EXPLAIN、执行 SQL、采集性能 | DB 🐢 |
+| 5 | Optimize | 规则引擎 + LLM 优化 | LLM ⏱️ |
+| 6 | Validate | 语义验证、性能对比、结果集验证 | DB 🐢 |
+| 7 | Patch | 生成补丁、用户确认、应用 | FS 💾 |
+
+**图例**: 🐢 耗时操作(IO) | ⚡ 快速操作(CPU) | ⏱️ 大模型调用 | 📋 用户交互 | 💾 文件操作
 
 ## 安装方式
 
@@ -63,37 +85,6 @@ python3 install/install_skill.py --project /custom/path/sqlopt-skill
 python install/install_skill.py --project C:\custom\path\sqlopt-skill
 ```
 
-### 覆盖安装说明
-
-多次安装时会自动覆盖旧版本：
-
-```bash
-# 首次安装
-python3 install/install_skill.py
-
-# 再次安装（自动覆盖，无需额外参数）
-python3 install/install_skill.py
-```
-
-如需手动删除后安装：
-
-```bash
-# Linux / macOS - 全局安装的卸载
-rm -rf ~/.opencode/skills/sql-optimizer/
-
-# Linux / macOS - 项目安装的卸载
-rm -rf /path/to/your/project/.sqlopt
-
-# Windows - 全局安装的卸载
-rmdir /s /q "%USERPROFILE%\.opencode\skills\sql-optimizer"
-
-# Windows - 项目安装的卸载
-rmdir /s /q "C:\path\to\project\.sqlopt"
-
-# 然后重新安装
-python3 install/install_skill.py
-```
-
 ## 在 OpenCode 中使用
 
 ### 1. 启动 OpenCode
@@ -114,62 +105,40 @@ Skill 提供以下命令：
 
 | 命令 | 说明 | 使用方式 |
 |------|------|----------|
-| `/sql-diagnose` | 诊断 SQL 性能问题 | `/sql-diagnose <SQL关键字或文件>` |
-| `/sql-optimize` | 生成优化建议 | `/sql-optimize [run-id]` |
-| `/sql-validate` | 验证优化效果 | `/sql-validate [run-id]` |
-| `/sql-apply` | 应用补丁 | `/sql-apply [run-id]` |
-| `/sql-report` | 生成总结报告 | `/sql-report [run-id]` |
+| `/sql-run` | 执行完整 V8 流程 | `/sql-run --config sqlopt.yml` |
+| `/sql-resume` | 恢复中断的运行 | `/sql-resume --run-id <run-id>` |
+| `/sql-status` | 查看运行状态 | `/sql-status --run-id <run-id>` |
+| `/sql-apply` | 应用补丁 | `/sql-apply --run-id <run-id>` |
+| `/sql-verify` | 验证证据链 | `/sql-verify --run-id <run-id>` |
 
 #### 自然语言方式
 
 也可以直接用自然语言描述需求：
 
 ```
-帮我诊断一下 listUsers 这个 SQL
-看看这个 Mapper 有什么性能问题
-给个优化建议
-验证一下优化效果
-应用这些补丁
+帮我优化 listUsers 这个 SQL
+继续之前的优化
+查看运行状态
+应用补丁
 ```
 
 #### 完整优化流程
 
-**方式一：OpenCode 命令**
-
 ```bash
-# 1. 验证配置（创建 sqlopt.yml 后）
-/sql-diagnose
+# 1. 验证配置
+sqlopt-cli validate-config --config sqlopt.yml
 
-# 2. 查看诊断结果后，生成优化建议
-/sql-optimize
+# 2. 执行完整 V8 流程
+sqlopt-cli run --config sqlopt.yml
 
-# 3. 验证优化效果
-/sql-validate
+# 3. 查看状态
+sqlopt-cli status --run-id <run-id>
 
-# 4. 应用补丁
-/sql-apply
+# 4. 如中断，恢复运行
+sqlopt-cli resume --run-id <run-id>
 
-# 5. 生成报告
-/sql-report
-```
-
-**方式二：自然语言**
-
-```
-帮我诊断 listUsers 这个 SQL 的性能问题
-生成优化建议
-验证优化效果
-应用补丁
-```
-
-**诊断单个 SQL**：
-
-```
-/sql-diagnose listUsers
-# 或
-/sql-diagnose UserMapper.xml
-# 或自然语言
-帮我看看 UserMapper.xml 里面 listUsers 这个 SQL 有什么性能问题
+# 5. 应用补丁
+sqlopt-cli apply --run-id <run-id>
 ```
 
 ### 3. Skill 与 CLI 的协作
@@ -227,66 +196,65 @@ llm:
 
 ### 3) 开始使用
 
-安装完成后，在 OpenCode 中直接使用自然语言或命令：
+```bash
+# 验证配置
+sqlopt-cli validate-config --config sqlopt.yml
 
-```
-# 诊断 SQL
-帮我诊断一下 listUsers 这个 SQL
-
-# 查看诊断结果后，生成优化建议
-如何优化这个 SQL
-
-# 验证效果
-验证一下优化效果
-
-# 应用补丁
-应用补丁
+# 执行优化
+sqlopt-cli run --config sqlopt.yml
 ```
 
 ## 常见问题
 
 ### 恢复中断的运行
 
-如果运行中断，可以使用自然语言恢复：
-
-```
-继续之前的优化
-恢复运行
+```bash
+sqlopt-cli resume --run-id <run-id>
 ```
 
 ### 查看运行状态
 
-```
-查看优化状态
-现在的进度怎么样
+```bash
+sqlopt-cli status --run-id <run-id>
 ```
 
 ### 局部调试
 
-如需只诊断特定 SQL：
+```bash
+# 只诊断特定 SQL
+sqlopt-cli run --config sqlopt.yml --sql-key <sqlKey>
+```
+
+## 数据存储结构
 
 ```
-/sql-diagnose listUsers
-# 或
-帮我诊断 UserMapper.xml 中的 listUsers 方法
+runs/<run_id>/
+├── sqlmap_catalog/           # SQL 目录
+│   ├── index.json          # 索引文件
+│   └── <sql_key>.json     # 单个 SQL 详情
+├── branches/               # 分支数据
+├── risks/                  # 风险数据
+├── baseline/               # 基线数据
+├── proposals/              # 优化建议
+├── acceptance/             # 验证结果
+├── patches/               # 补丁文件
+└── supervisor/            # 运行状态
 ```
 
 ## 关键边界
 
 - PostgreSQL 方言（如 `ILIKE`）在 MySQL 平台不会自动兼容
 - 此类语法问题会在报告中以 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 暴露
-- 省略 run-id 时自动选择最新运行（可用 `--project` 限定目录）
+- 省略 run-id 时自动选择最新运行
 
 ## 文档入口
 
+- [V8 架构总览](docs/V8/V8_SUMMARY.md) — V8 版本架构总览与实现状态
+- [V8 阶段详解](docs/V8/V8_STAGES_OVERVIEW.md) — 7 阶段功能全景图
 - [快速入门](docs/QUICKSTART.md)
 - [安装指南](docs/INSTALL.md)
 - [文档导航](docs/INDEX.md)
 - [故障排查](docs/TROUBLESHOOTING.md)
-- [系统规格](docs/project/02-system-spec.md)
-- [工作流与状态机](docs/project/03-workflow-and-state-machine.md)
-- [数据契约](docs/project/04-data-contracts.md)
-- [SQL 补丁能力架构](docs/project/10-sql-patchability-architecture.md)
 
 ## 开发与验收
 
@@ -294,10 +262,3 @@ llm:
 python3 -m pytest -q
 python3 scripts/ci/release_acceptance.py
 ```
-
-## 架构设计
-
-- **功能全景图**：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 完整功能架构和执行流程
-- **V8 架构**：[`docs/V8/V8_SUMMARY.md`](docs/V8/V8_SUMMARY.md) — V8 版本架构总览与实现状态
-
-> 推荐先阅读功能全景图，了解整体设计后再深入其他文档。
