@@ -19,7 +19,7 @@ from .run_selection import (
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
 from .requests import AdvanceStepRequest, RunStatusRequest
-# RunRepository removed
+from .run_repository import RunRepository
 
 
 def start_run(
