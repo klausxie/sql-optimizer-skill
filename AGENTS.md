@@ -23,30 +23,29 @@ SQL Optimizer 是一个 Python 工具，用于：
 ```
 python/sqlopt/
 ├── application/          # 业务流程编排层
-│   ├── workflow_engine.py    # 核心工作流引擎
+│   ├── workflow_engine.py    # 核心工作流引擎 (旧版，待废弃)
+│   ├── workflow_v8.py        # V8 工作流引擎
 │   ├── run_service.py        # Run 生命周期管理
-│   ├── run_repository.py     # Run 状态持久化
 │   └── config_service.py     # 配置加载验证
 │
-├── stages/               # 阶段处理 (固定顺序)
-│   ├── diagnose.py           # 诊断阶段 (scan + branch + baseline)
-│   ├── optimize.py           # LLM 优化建议
-│   ├── validate.py           # 数据库验证
-│   ├── apply.py              # 补丁应用
-│   └── report.py             # 报告聚合
+├── stages/               # 阶段处理 (V8 架构)
+│   ├── discovery/            # 发现阶段：XML 解析、SQL 提取
+│   ├── branching/            # 分支阶段：动态 SQL 展开
+│   ├── pruning/              # 剪枝阶段：风险检测
+│   ├── baseline/             # 基线阶段：EXPLAIN 采集
+│   ├── optimize/            # 优化阶段：规则引擎 + LLM
+│   ├── validate/            # 验证阶段：语义验证
+│   ├── patch/               # 补丁阶段：生成 + 应用
+│   ├── diagnose.py          # 诊断阶段 (scan + branch + baseline)
+│   ├── scan.py              # 扫描阶段
+│   └── report*.py          # 报告相关
 │
-├── scripting/            # 分支推断 (新增)
+├── scripting/            # 分支推断
 │   ├── branch_generator.py   # 核心分支生成器
 │   ├── sql_node.py           # SQL 节点树
-│   ├── ast_utils.py          # AST 工具
-│   └── ...
-│
-├── baseline/             # 性能基线 (新增)
-│   ├── baseline_service.py   # 基线采集服务
-│   └── ...
+│   └── ast_utils.py          # AST 工具
 │
 ├── commands/             # CLI 命令实现
-│   └── ...
 │
 ├── platforms/            # SQL 方言
 │   ├── postgresql/
@@ -62,7 +61,6 @@ contracts/                # JSON Schema (15 文件)
 docs/                     # 文档
 scripts/                  # CI/工具脚本
 install/                  # 安装脚本
-java/                     # Java 相关 (已移除扫描器)
 ```
 
 ---
@@ -130,7 +128,7 @@ sqlopt-cli run --config sqlopt.yml \
 ## 阶段流水线
 
 ```
-diagnose → optimize → validate → apply → report
+discovery → branching → pruning → baseline → optimize → validate → patch
 ```
 
 **阶段特性**:
