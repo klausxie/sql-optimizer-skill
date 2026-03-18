@@ -6,24 +6,30 @@
 
 - Python 3.9+
 - MyBatis XML mapper 文件
-- 数据库（PostgreSQL 或 MySQL 5.6+）  
-  仅安装链路 smoke 时可先使用离线配置（`llm.provider=opencode_builtin`）
+- 数据库：PostgreSQL 或 MySQL 5.6+（不支持 MariaDB）
 
 ## 2. 安装并自检
 
 ```bash
+# 安装 Skill
 python3 install/install_skill.py
+
+# 验证安装
 python3 install/install_skill.py --verify
+
+# 环境诊断（可选）
 python3 install/doctor.py --project .
 ```
 
-如果 `sqlopt-cli` 不可用，先按 `install_skill.py --verify` 输出修复 PATH。
+安装后 `sqlopt-cli` 命令全局可用。
 
-## 3. 准备最小配置
+## 3. 准备配置文件
 
-在项目根目录创建或确认 `sqlopt.yml`：
+在项目根目录创建 `sqlopt.yml`：
 
 ```yaml
+config_version: v1
+
 project:
   root_path: .
 
@@ -33,96 +39,170 @@ scan:
 
 db:
   platform: postgresql
-  dsn: postgresql://user:pass@127.0.0.1:5432/db?sslmode=disable
+  dsn: postgresql://user:pass@127.0.0.1:5432/dbname?sslmode=disable
 
 llm:
   enabled: true
   provider: opencode_run
 ```
 
-离线 smoke 推荐：
+关键字段说明：
 
-```yaml
-llm:
-  enabled: true
-  provider: opencode_builtin
+| 字段 | 说明 |
+|------|------|
+| `config_version` | 配置版本，当前为 `v1` |
+| `scan.mapper_globs` | MyBatis XML 文件路径模式 |
+| `db.platform` | `postgresql` 或 `mysql` |
+| `db.dsn` | 数据库连接串 |
+| `llm.provider` | LLM 提供者：`opencode_run`（推荐）或 `opencode_builtin`（离线） |
+
+## 4. V8 七阶段流水线
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    V8 优化流程                                    │
+│                                                                  │
+│  [1.Discovery] → [2.Branching] → [3.Pruning] → [4.Baseline]   │
+│       ↓                ↓                ↓               ↓        │
+│   连接数据库        分支展开         风险标记         EXPLAIN    │
+│   采集表结构       if/foreach/      prefix_wildcard   性能基线  │
+│   解析 XML         choose           suffix_wildcard               │
+│                                    function_wrap                  │
+│                                                                  │
+│  → [5.Optimize] → [6.Validate] → [7.Patch]                    │
+│       ↓               ↓              ↓                           │
+│   规则引擎         语义验证        生成补丁                     │
+│   LLM 建议         性能对比        应用确认                     │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## 4. 跑通主流程
+| 阶段 | 名称 | 耗时 | 说明 |
+|------|------|------|------|
+| 1 | Discovery | DB | 连接数据库、采集表结构、解析 XML |
+| 2 | Branching | CPU | 分支展开（if/foreach/choose） |
+| 3 | Pruning | CPU | 风险标记（prefix_wildcard, suffix_wildcard, function_wrap） |
+| 4 | Baseline | DB | EXPLAIN 分析、性能采集 |
+| 5 | Optimize | LLM | 规则引擎 + LLM 优化建议 |
+| 6 | Validate | DB | 语义验证、性能对比 |
+| 7 | Patch | FS | 生成补丁、用户确认、应用 |
+
+## 5. 完整使用流程
+
+### 5.1 验证配置
 
 ```bash
 sqlopt-cli validate-config --config sqlopt.yml
-sqlopt-cli run --config sqlopt.yml
-sqlopt-cli status
 ```
 
-说明：
-- `validate-config` 会同时检查 `db.dsn`、mapper 命中情况，以及数据库是否可连。
-- `run` 默认持续推进到完成（除非失败/中断）。
-- `status/resume/apply` 省略 `--run-id` 时会自动选择最新 run。
+同时检查：数据库连接、mapper 文件、配置格式。
 
-如果 `status.next_action=report-rebuild`：
+### 5.2 执行优化
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+sqlopt-cli run --config sqlopt.yml
 ```
 
-## 4.1 架构说明：CLI 与 Skill 分工
+默认持续推进到完成，中断后可恢复。
 
-SQL Optimizer 采用 CLI + Skill 双层架构，V8 七阶段流水线：
-
-- **CLI (sqlopt-cli)**：负责工程化能力
-  - Discovery：连接数据库、采集表结构、解析 XML
-  - Branching：分支展开（3种策略）
-  - Pruning：静态分析、风险标记、聚合剪枝
-  - Baseline：EXPLAIN、采集性能基线
-  - Validate：语义验证、性能对比、结果集验证
-  - Patch：生成补丁、用户确认、应用补丁
-
-- **Skill**：负责 AI/LLM 能力
-  - Optimize：调用 LLM 生成优化建议
-  - 读取 CLI 输出的 prompt
-  - 做出优化决策
-
-完整流程：CLI Discovery → CLI Branching → CLI Pruning → CLI Baseline → Skill Optimize → CLI Validate → CLI Patch
-
-## 5. 查看产物并应用补丁
+### 5.3 查看状态
 
 ```bash
 sqlopt-cli status --run-id <run-id>
-cat runs/<run-id>/overview/report.summary.md
-cat runs/<run-id>/overview/report.md
+```
+
+省略 `--run-id` 时自动选择最新运行。
+
+### 5.4 恢复运行（如中断）
+
+```bash
+sqlopt-cli resume --run-id <run-id>
+```
+
+### 5.5 应用补丁
+
+```bash
 sqlopt-cli apply --run-id <run-id>
 ```
 
-重点产物：
-- `runs/<run-id>/supervisor/state.json`
-- `runs/<run-id>/report.json`
-- `runs/<run-id>/report.summary.md`（摘要）
-- `runs/<run-id>/report.md`（详细版）
-- `runs/<run-id>/patches/`
+## 6. CLI 与 Skill 职责分工
 
-## 6. 常见分支
-
-- 只想先验证扫描（Discovery 阶段）：
-
-```bash
-sqlopt-cli run --config sqlopt.yml --to-stage discovery
+```
+┌────────────────────────────────┐     ┌─────────────────────────┐
+│           sqlopt-cli           │     │    OpenCode Skill       │
+├────────────────────────────────┤     ├─────────────────────────┤
+│                                │     │                         │
+│  • Discovery: 连接DB/解析XML   │────▶│  Optimize: LLM 优化    │
+│  • Branching: 分支展开         │     │  • 生成优化建议         │
+│  • Pruning: 风险标记           │     │  • 决策判断             │
+│  • Baseline: EXPLAIN/性能采集   │     │                         │
+│  • Validate: 语义/性能验证     │◀────│                         │
+│  • Patch: 生成补丁/应用        │     │                         │
+│                                │     │                         │
+└────────────────────────────────┘     └─────────────────────────┘
 ```
 
-- 只知道方法名，不知道完整 key：
+**职责分离**：
+- **CLI**：工程化能力（扫描、执行、SQL 验证）
+- **Skill**：AI 能力（调用 LLM、生成优化建议）
+
+## 7. 常用命令参考
+
+### 执行控制
+
+| 命令 | 说明 |
+|------|------|
+| `sqlopt-cli validate-config --config sqlopt.yml` | 验证配置 |
+| `sqlopt-cli run --config sqlopt.yml` | 执行完整流程 |
+| `sqlopt-cli run --config sqlopt.yml --to-stage <stage>` | 执行到指定阶段 |
+| `sqlopt-cli resume --run-id <run-id>` | 恢复中断的运行 |
+| `sqlopt-cli apply --run-id <run-id>` | 应用补丁 |
+
+### 状态查询
+
+| 命令 | 说明 |
+|------|------|
+| `sqlopt-cli status --run-id <run-id>` | 查看运行状态 |
+| `sqlopt-cli verify --run-id <run-id>` | 验证证据链 |
+
+### 局部调试
+
+| 命令 | 说明 |
+|------|------|
+| `sqlopt-cli run --config sqlopt.yml --sql-key <key>` | 只诊断特定 SQL |
+| `sqlopt-cli run --config sqlopt.yml --to-stage discovery` | 只跑 Discovery 阶段 |
+
+### 阶段推进选项
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --sql-key findUsers
+# 执行到 report 阶段（重建报告）
+sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
-`--sql-key` 支持完整 `sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`；如果一个方法名匹配多个 SQL，CLI 会返回候选 full key。
+`--sql-key` 支持多种格式：`sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`。
 
-- MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。
+## 8. 产物结构
 
-## 7. 下一步文档
+```
+runs/<run-id>/
+├── supervisor/
+│   ├── meta.json          # 运行元信息
+│   ├── state.json         # 阶段状态
+│   └── results/           # 步骤结果
+├── scan.sqlunits.jsonl    # 扫描产物
+├── proposals/             # 优化建议
+├── acceptance/            # 验证结果
+├── patches/               # 补丁产物
+└── report.summary.md      # 摘要报告
+```
 
-- 安装细节：[`INSTALL.md`](INSTALL.md)
-- 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
-- 配置约定：[`project/05-config-and-conventions.md`](project/05-config-and-conventions.md)
-- 命令与状态机：[`project/03-workflow-and-state-machine.md`](project/03-workflow-and-state-machine.md)
+## 9. 已知限制
+
+- MySQL 5.6 不支持 `MAX_EXECUTION_TIME`
+- PostgreSQL 方言（如 `ILIKE`）不会自动转换为 MySQL
+- 语法问题会以 `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR` 暴露在报告中
+
+## 10. 下一步
+
+- [安装指南](INSTALL.md) — 详细安装说明
+- [故障排查](TROUBLESHOOTING.md) — 常见问题解决
+- [文档导航](INDEX.md) — 完整文档索引

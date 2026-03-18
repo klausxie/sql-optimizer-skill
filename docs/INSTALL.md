@@ -1,150 +1,173 @@
-# SQL Optimizer Skill Installation
+# SQL Optimizer 安装指南
 
-## 1. Prerequisites
+SQL Optimizer 支持三种安装模式，适用于不同场景。
 
-1. Python (>= 3.9)
-2. If using `llm.provider=opencode_run`, ensure `opencode` command is available
-3. Network access to your configured LLM endpoint and DB
+**前置要求**: Python 3.9+
 
-## 2. Build bundle (publisher machine)
+---
 
-Linux/macOS:
+## 1. 全局安装（推荐）
 
-```bash
-python3 install/build_bundle.py
-```
+安装到 OpenCode 全局技能目录，所有项目均可使用。
 
-Windows PowerShell:
-
-```powershell
-python install/build_bundle.py
-```
-
-Artifact:
-
-```text
-dist/sql-optimizer-skill-bundle-v<version>.tar.gz
-```
-
-## 3. Install on teammate machine
-
-Linux/macOS:
+### Linux / macOS
 
 ```bash
-cd /path/to/sql-optimizer-skill-bundle-v<version>
 python3 install/install_skill.py
-python3 install/install_skill.py --verify
 ```
 
-Windows PowerShell:
+### Windows (PowerShell)
 
 ```powershell
-cd C:\path\to\sql-optimizer-skill-bundle-v<version>
 python install/install_skill.py
-python install/install_skill.py --verify
 ```
 
-By default installer auto-updates PATH. Use `--no-auto-path` to disable it.
+安装位置:
+- Linux/macOS: `~/.config/opencode/skills/sql-optimizer/`
+- Windows: `%USERPROFILE%\.config\opencode\skills\sql-optimizer\`
 
-What this does:
+---
 
-1. Installs skill to `<home>/.opencode/skills/sql-optimizer`
-2. Creates runtime `.venv` and installs dependencies
-3. Installs opencode command docs under `<home>/.opencode/commands/`
-4. Creates `<project>/sqlopt.yml` if missing
+## 2. 项目内安装
 
-## 4. Run doctor
+安装到指定项目的 `.opencode/skills/sql-optimizer/` 目录，技能仅对该项目可用。
 
-Linux/macOS:
+### Linux / macOS
 
 ```bash
-python3 install/doctor.py --project /path/to/your/project
+python3 install/install_skill.py --project /path/to/your/project
 ```
 
-Windows PowerShell:
+### Windows (PowerShell)
 
 ```powershell
-python install/doctor.py --project C:\path\to\your\project
+python install/install_skill.py --project C:\path\to\project
 ```
 
-Note for Windows:
+安装后会在项目根目录生成 `sqlopt.yml` 配置文件。
 
-1. Runtime uses soft-timeout fallback (no `SIGALRM` dependency).
-2. If a step appears slow, check `opencode`/DB connectivity first.
+---
 
-## 5. Verify command path
+## 3. 自定义目录安装
 
-Linux/macOS:
+安装到任意指定目录。
+
+### Linux / macOS
 
 ```bash
-sqlopt-cli --help
+python3 install/install_skill.py --project /custom/path/sqlopt-skill
 ```
 
-Windows PowerShell:
+### Windows (PowerShell)
 
 ```powershell
-sqlopt-cli --help
+python install/install_skill.py --project C:\custom\path\sqlopt-skill
 ```
 
-If PATH is still missing (auto-update failed or was disabled), installer prints exact PATH parameter and fix commands. Typical Windows fix:
+---
+
+## 4. 验证安装
+
+安装完成后，运行验证脚本检查环境配置：
+
+### Linux / macOS
+
+```bash
+bash install/doctor.sh
+```
+
+### Windows (PowerShell)
 
 ```powershell
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-[Environment]::SetEnvironmentVariable('Path', "$env:USERPROFILE\.opencode\skills\sql-optimizer\bin;$userPath", 'User')
+python install/doctor.py
 ```
 
-Then reopen PowerShell.
+验证脚本会检查:
+- Python 版本 (需 3.9+)
+- 依赖包是否完整
+- 数据库连接配置
 
-## 6. Optional: Direct LLM API mode
-
-If you want to bypass `opencode run`, set in `sqlopt.yml`:
-
-```yaml
-llm:
-  enabled: true
-  provider: direct_openai_compatible
-  timeout_ms: 15000
-  api_base: https://api.openai.com/v1
-  api_key: <your_api_key>
-  api_model: gpt-4o-mini
-  api_timeout_ms: 30000
-  # optional:
-  # api_headers:
-  #   x-env: prod
-```
-
-## 7. Verify local tests
-
-From the repository root, run:
+### 验证 CLI 可用性
 
 ```bash
-python3 -m pytest -q
+# 全局安装后，直接使用
+sqlopt-cli --version
+
+# 项目内安装，使用相对路径
+./bin/sqlopt-cli --version
 ```
 
-## 8. Recommended Post-Install Smoke Run
+---
 
-在切换到真实 DB / 外部 LLM 前，先跑一轮离线 smoke：
+## 5. 卸载
 
-```yaml
-llm:
-  enabled: true
-  provider: opencode_builtin
-```
+### Linux / macOS
 
 ```bash
-sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch
-sqlopt-cli status
-sqlopt-cli resume
+python3 install/uninstall_skill.py
 ```
 
-若 `status.next_action=report-rebuild`，说明报告阶段可独立重建，通常无需手动触发。
+### Windows (PowerShell)
 
-发布前推荐统一验收入口：
+```powershell
+python install/uninstall_skill.py
+```
+
+卸载说明:
+- 全局安装会移除 `~/.config/opencode/skills/sql-optimizer/`
+- 项目内安装会移除 `<project>/.opencode/skills/sql-optimizer/`
+- 项目的 `sqlopt.yml` 和 `runs/` 数据会被保留
+
+---
+
+## 6. PATH 配置（Windows）
+
+Windows 系统若希望全局使用 `sqlopt-cli` 命令，需手动添加路径到 PATH。
+
+### 添加用户 PATH
+
+1. 按 `Win + R`，输入 `sysdm.cpl`，回车
+2. 高级 → 环境变量
+3. 用户变量中选择 `Path`，点击编辑
+4. 添加以下路径（替换为实际安装路径）:
+   ```
+   %USERPROFILE%\.config\opencode\skills\sql-optimizer\bin
+   ```
+5. 保存并重启终端
+
+### 验证 PATH
+
+```powershell
+# 检查路径是否生效
+sqlopt-cli --version
+
+# 如提示找不到命令，检查 PATH 配置
+echo $env:PATH
+```
+
+---
+
+## 7. 重新安装 / 更新
+
+覆盖安装会自动移除旧版本：
 
 ```bash
-python3 scripts/ci/release_acceptance.py
+# 全局安装
+python3 install/install_skill.py --force
+
+# 项目内安装
+python3 install/install_skill.py --project /path/to/project --force
 ```
 
-更详细的运行流程与故障排查请看：
-- `docs/QUICKSTART.md`
-- `docs/TROUBLESHOOTING.md`
+---
+
+## 故障排查
+
+| 问题 | 解决方案 |
+|------|----------|
+| `python: command not found` | 使用 `python3` 或确认 Python 已安装 |
+| `sqlopt-cli: command not found` | 检查 PATH 配置或使用完整路径 |
+| 依赖安装失败 | 手动执行 `pip install -r install/requirements.txt` |
+| 验证脚本报错 | 查看错误信息，确保数据库配置正确 |
+
+如需更多帮助，参见 [故障排查文档](TROUBLESHOOTING.md)。

@@ -1,60 +1,44 @@
 # SQL Optimizer 文档导航
 
-## 首次使用
+## 文档概览
 
-1. [快速入门](QUICKSTART.md)
-2. [安装指南](INSTALL.md)
-3. [故障排查](TROUBLESHOOTING.md)
+| 文件 | 说明 |
+|------|------|
+| [README.md](../README.md) | 项目介绍与快速开始 |
+| [QUICKSTART.md](./QUICKSTART.md) | 15分钟快速入门 |
+| [INSTALL.md](./INSTALL.md) | 安装指南 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构总览 |
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | 故障排查 |
 
-## 常见任务
+---
 
-- 配置说明：[`project/05-config-and-conventions.md`](project/05-config-and-conventions.md)
-- 命令与状态机：[`project/03-workflow-and-state-machine.md`](project/03-workflow-and-state-machine.md)
-- 失败码解释：[`failure-codes.md`](failure-codes.md)
-- 升级：[`UPGRADE.md`](UPGRADE.md)
-- 分发：[`DISTRIBUTION.md`](DISTRIBUTION.md)
+## V8 文档
 
-## 架构与契约
+V8 是 SQL Optimizer 的核心架构，采用 7 阶段流水线设计。
 
-- 产品需求：[`project/01-product-requirements.md`](project/01-product-requirements.md)
-- 系统规格：[`project/02-system-spec.md`](project/02-system-spec.md)
-- 数据契约：[`project/04-data-contracts.md`](project/04-data-contracts.md)
-- 产物治理：[`project/08-artifact-governance.md`](project/08-artifact-governance.md)
-- SQL 补丁能力架构：[`project/10-sql-patchability-architecture.md`](project/10-sql-patchability-architecture.md)
+| 文件 | 说明 |
+|------|------|
+| [V8/V8_SUMMARY.md](./V8/V8_SUMMARY.md) | V8 架构设计总览 |
+| [V8/V8_STAGES_OVERVIEW.md](./V8/V8_STAGES_OVERVIEW.md) | 7 阶段详解 |
 
-## 测试与验收
+### V8 核心流程
 
-- 手工 fixture：[`project/07-manual-test-fixture.md`](project/07-manual-test-fixture.md)
-- 交付清单：[`project/06-delivery-checklist.md`](project/06-delivery-checklist.md)
-
-动态模板与局部调试建议：
-
-1. 优先阅读 [`project/07-manual-test-fixture.md`](project/07-manual-test-fixture.md) 中的局部 run 说明
-2. 当前动态模板能力版图与 baseline family 已同步到：
-   - [`project/02-system-spec.md`](project/02-system-spec.md)
-   - [`project/04-data-contracts.md`](project/04-data-contracts.md)
-   - [`project/10-sql-patchability-architecture.md`](project/10-sql-patchability-architecture.md)
-
-推荐执行：
-
-```bash
-python3 -m pytest -q
-python3 scripts/ci/release_acceptance.py
+```
+Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch
 ```
 
-## 命令帮助
+1. **Discovery** - 连接数据库、采集表结构、解析 MyBatis XML
+2. **Branching** - 展开动态标签生成分支路径
+3. **Pruning** - 静态分析、风险标记、低价值分支过滤
+4. **Baseline** - EXPLAIN 采集执行计划、记录性能基线
+5. **Optimize** - 规则引擎 + LLM 生成优化建议
+6. **Validate** - 语义验证、性能对比、结果集校验
+7. **Patch** - 生成 XML 补丁、用户确认、应用变更
 
-```bash
-sqlopt-cli --help
-sqlopt-cli run --help
-sqlopt-cli resume --help
-sqlopt-cli status --help
-sqlopt-cli apply --help
-sqlopt-cli validate-config --help
-```
+---
 
-## 架构设计
+## 推荐阅读顺序
 
-- **功能全景图**：[`ARCHITECTURE.md`](ARCHITECTURE.md) — 完整功能架构和执行流程
-
-> 推荐先阅读功能全景图，了解整体设计后再深入其他文档。
+1. **初次使用**: README.md → QUICKSTART.md → INSTALL.md
+2. **了解架构**: ARCHITECTURE.md → V8/V8_SUMMARY.md → V8/V8_STAGES_OVERVIEW.md
+3. **问题排查**: TROUBLESHOOTING.md
