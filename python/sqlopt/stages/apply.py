@@ -1,3 +1,15 @@
+# =============================================================================
+# DEPRECATED MODULE
+# =============================================================================
+# This module is deprecated as of V8 and will be removed in a future release.
+# Migration timeline:
+#   - V8 (current): Kept for backward compatibility
+#   - V9 (planned): May be removed or further deprecated
+#
+# New architecture: Use application/workflow_engine.py for stage orchestration
+# Reference: docs/V8/V8_SUMMARY.md
+# =============================================================================
+
 from __future__ import annotations
 
 import subprocess
@@ -9,7 +21,11 @@ from ..run_paths import canonical_paths
 
 
 def _patch_result_summary(run_dir: Path) -> dict:
-    rows = [row for row in read_jsonl(canonical_paths(run_dir).patches_path) if isinstance(row, dict)]
+    rows = [
+        row
+        for row in read_jsonl(canonical_paths(run_dir).patches_path)
+        if isinstance(row, dict)
+    ]
     selected_rows = [row for row in rows if row.get("patchFiles")]
     skipped_rows = [row for row in rows if not row.get("patchFiles")]
     reason_codes: list[str] = []
@@ -56,7 +72,7 @@ def _collect_patch_files(run_dir: Path) -> list[Path]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        for item in (row.get("patchFiles") or []):
+        for item in row.get("patchFiles") or []:
             p = Path(str(item)).resolve()
             key = str(p)
             if key in seen:
@@ -120,7 +136,9 @@ def apply_from_config(run_dir: Path) -> dict:
         "mode": mode,
         "applied": bool(applied_files) and not failed_files,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "message": "patches applied to project files" if applied_files and not failed_files else "apply finished with failures",
+        "message": "patches applied to project files"
+        if applied_files and not failed_files
+        else "apply finished with failures",
         "project_root": str(project_root),
         "applied_files": applied_files,
         "failed_files": failed_files,

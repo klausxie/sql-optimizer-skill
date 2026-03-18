@@ -2,12 +2,16 @@
 V8 Workflow Engine - 7 Stage Pipeline
 
 Independent implementation with zero coupling to legacy workflow.
+Supports resume from interruption point.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 import json
+import time
+
+from .status_resolver import StatusResolver, PhaseExecutionPolicy, StatusResolution
 
 
 @dataclass
@@ -28,6 +32,28 @@ class StageResult:
     warnings: list[str]
 
 
+@dataclass
+class V8WorkflowState:
+    """状态快照，用于持久化"""
+
+    run_id: str = ""
+    current_stage: str = ""
+    completed_stages: list[str] = field(default_factory=list)
+    stage_results: dict[str, dict] = field(default_factory=dict)
+    started_at: str = ""
+    updated_at: str = ""
+    status: str = "pending"
+
+
+@dataclass
+class NextAction:
+    """下一步动作"""
+
+    action: str
+    stage: Optional[str] = None
+    reason: str = ""
+
+
 STAGE_ORDER = [
     "discovery",
     "branching",
@@ -38,12 +64,42 @@ STAGE_ORDER = [
     "patch",
 ]
 
+DEFAULT_PHASE_POLICIES = {
+    "discovery": PhaseExecutionPolicy(phase="discovery", allow_regenerate=False),
+    "branching": PhaseExecutionPolicy(phase="branching", allow_regenerate=False),
+    "pruning": PhaseExecutionPolicy(phase="pruning", allow_regenerate=False),
+    "baseline": PhaseExecutionPolicy(phase="baseline", allow_regenerate=False),
+    "optimize": PhaseExecutionPolicy(phase="optimize", allow_regenerate=False),
+    "validate": PhaseExecutionPolicy(phase="validate", allow_regenerate=False),
+    "patch": PhaseExecutionPolicy(phase="patch", allow_regenerate=False),
+    "report": PhaseExecutionPolicy(phase="report", allow_regenerate=True),
+}
+
 
 class V8WorkflowEngine:
-    def __init__(self, config: dict):
+    def __init__(
+        self,
+        config: dict,
+        repository: Optional[Any] = None,
+        run_id: Optional[str] = None,
+        status_resolver: Optional[StatusResolver] = None,
+    ):
         self.config = config
+        self.repository = repository
+        self.run_id = run_id or f"run_{int(time.time())}"
+        self.state = V8WorkflowState(
+            run_id=self.run_id,
+            started_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        )
         self.stages = {}
+        self._status_resolver = status_resolver or self._create_default_resolver()
         self._register_stages()
+
+    def _create_default_resolver(self) -> StatusResolver:
+        return StatusResolver(
+            stage_order=STAGE_ORDER,
+            phase_policies=DEFAULT_PHASE_POLICIES,
+        )
 
     def _register_stages(self):
         from ..stages.discovery import Scanner
@@ -58,6 +114,38 @@ class V8WorkflowEngine:
         self.stages["validate"] = self._run_validate
         self.stages["patch"] = self._run_patch
 
+    def _update_timestamp(self) -> None:
+        """更新时间戳"""
+        self.state.updated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    def _persist_state(self) -> None:
+        """持久化状态到 repository（如果存在）"""
+        self._update_timestamp()
+        if self.repository is not None:
+            state_dict = {
+                "run_id": self.state.run_id,
+                "current_stage": self.state.current_stage,
+                "completed_stages": self.state.completed_stages,
+                "stage_results": self.state.stage_results,
+                "started_at": self.state.started_at,
+                "updated_at": self.state.updated_at,
+                "status": self.state.status,
+            }
+            self.repository.save_state(state_dict)
+
+    def load_state_from_repo(self) -> None:
+        """从 repository 加载状态"""
+        if self.repository is not None:
+            state_dict = self.repository.load_state()
+            if state_dict:
+                self.state.run_id = state_dict.get("run_id", self.state.run_id)
+                self.state.current_stage = state_dict.get("current_stage", "")
+                self.state.completed_stages = state_dict.get("completed_stages", [])
+                self.state.stage_results = state_dict.get("stage_results", {})
+                self.state.started_at = state_dict.get("started_at", "")
+                self.state.updated_at = state_dict.get("updated_at", "")
+                self.state.status = state_dict.get("status", "pending")
+
     def run(
         self,
         run_dir: Path,
@@ -65,8 +153,217 @@ class V8WorkflowEngine:
     ) -> dict[str, Any]:
         results = {}
 
+        # 初始化 repository（如果存在）
+        if self.repository is not None:
+            self.repository.initialize(self.config, self.run_id)
+            self.state.status = "running"
+            self._persist_state()
+
         for stage_name in STAGE_ORDER:
             if stage_name not in self.stages:
+                continue
+
+            self.state.current_stage = stage_name
+            self._persist_state()
+
+            stage_fn = self.stages[stage_name]
+            try:
+                result = stage_fn(run_dir)
+                results[stage_name] = result
+                self.state.stage_results[stage_name] = result
+
+                if not result.get("success", False):
+                    self.state.status = "failed"
+                    self._persist_state()
+                    break
+
+                # 阶段成功完成，持久化状态
+                self.state.completed_stages.append(stage_name)
+                self._persist_state()
+
+            except Exception as e:
+                results[stage_name] = {
+                    "success": False,
+                    "error": str(e),
+                }
+                self.state.stage_results[stage_name] = results[stage_name]
+                self.state.status = "failed"
+                self._persist_state()
+                break
+
+            if stage_name == to_stage:
+                break
+
+        # 所有阶段完成
+        if self.state.status == "running":
+            self.state.status = "completed"
+        self._persist_state()
+
+        return results
+
+    def advance_one_step(
+        self,
+        run_dir: Path,
+        to_stage: str = "patch",
+    ) -> dict[str, Any]:
+        """
+        单步执行 - 只执行下一个阶段。
+
+        支持可恢复执行，每次调用只推进一个阶段。
+
+        Args:
+            run_dir: 运行目录
+            to_stage: 目标阶段
+
+        Returns:
+            dict with keys:
+            - completed: bool - 是否已完成所有阶段（或到达目标）
+            - stage: str - 当前执行/已完成的阶段
+            - result: dict - 阶段执行结果
+            - state: dict - 当前状态快照
+        """
+        # 初始化 repository（如果存在且未初始化）
+        if self.repository is not None and not self.state.completed_stages:
+            self.repository.initialize(self.config, self.run_id)
+            self.state.status = "running"
+            self._persist_state()
+
+        # 确定下一个要执行的阶段
+        next_stage = None
+        for stage_name in STAGE_ORDER:
+            if stage_name not in self.state.completed_stages:
+                next_stage = stage_name
+                break
+
+        # 检查是否已完成所有阶段
+        if next_stage is None:
+            self.state.status = "completed"
+            self._persist_state()
+            return {
+                "completed": True,
+                "stage": None,
+                "result": None,
+                "state": {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "status": self.state.status,
+                },
+            }
+
+        # 检查是否已到达目标阶段
+        if self.state.completed_stages:
+            last_completed_idx = STAGE_ORDER.index(self.state.completed_stages[-1])
+            to_stage_idx = (
+                STAGE_ORDER.index(to_stage)
+                if to_stage in STAGE_ORDER
+                else len(STAGE_ORDER) - 1
+            )
+            if last_completed_idx >= to_stage_idx:
+                return {
+                    "completed": True,
+                    "stage": self.state.completed_stages[-1],
+                    "result": self.state.stage_results.get(
+                        self.state.completed_stages[-1]
+                    ),
+                    "state": {
+                        "run_id": self.state.run_id,
+                        "current_stage": self.state.current_stage,
+                        "completed_stages": self.state.completed_stages,
+                        "status": self.state.status,
+                    },
+                }
+
+        # 执行下一个阶段
+        self.state.current_stage = next_stage
+        self._persist_state()
+
+        if next_stage not in self.stages:
+            return {
+                "completed": False,
+                "stage": next_stage,
+                "result": {"success": False, "error": f"Unknown stage: {next_stage}"},
+                "state": {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "status": self.state.status,
+                },
+            }
+
+        stage_fn = self.stages[next_stage]
+        try:
+            result = stage_fn(run_dir)
+            self.state.stage_results[next_stage] = result
+
+            if result.get("success", False):
+                self.state.completed_stages.append(next_stage)
+                self._persist_state()
+            else:
+                self.state.status = "failed"
+                self._persist_state()
+
+            return {
+                "completed": False,
+                "stage": next_stage,
+                "result": result,
+                "state": {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "status": self.state.status,
+                },
+            }
+
+        except Exception as e:
+            result = {"success": False, "error": str(e)}
+            self.state.stage_results[next_stage] = result
+            self.state.status = "failed"
+            self._persist_state()
+            return {
+                "completed": False,
+                "stage": next_stage,
+                "result": result,
+                "state": {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "status": self.state.status,
+                },
+            }
+
+    def resume(
+        self,
+        run_dir: Path,
+        to_stage: str = "patch",
+    ) -> dict[str, Any]:
+        """从断点恢复执行。
+
+        检查已完成阶段，只执行未完成的阶段。
+
+        Args:
+            run_dir: 运行目录
+            to_stage: 目标阶段
+
+        Returns:
+            各阶段执行结果
+        """
+        state = self._load_state(run_dir)
+        if state:
+            self.state = state
+
+        results = {}
+
+        for stage_name in STAGE_ORDER:
+            if stage_name not in self.stages:
+                continue
+
+            # 检查阶段是否已完成
+            if stage_name in self.state.completed_stages:
+                stage_result = self.state.stage_results.get(
+                    stage_name, {"success": True, "skipped": True}
+                )
+                results[stage_name] = stage_result
                 continue
 
             stage_fn = self.stages[stage_name]
@@ -74,7 +371,11 @@ class V8WorkflowEngine:
                 result = stage_fn(run_dir)
                 results[stage_name] = result
 
-                if not result.get("success", False):
+                if result.get("success", False):
+                    self.state.completed_stages.append(stage_name)
+                    self.state.stage_results[stage_name] = result
+                else:
+                    self.state.status = "failed"
                     break
 
             except Exception as e:
@@ -82,12 +383,147 @@ class V8WorkflowEngine:
                     "success": False,
                     "error": str(e),
                 }
+                self.state.status = "failed"
                 break
+
+            self.state.current_stage = stage_name
 
             if stage_name == to_stage:
                 break
 
+        # 更新状态
+        self.state.updated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if self.state.status != "failed":
+            if self._is_complete_to_stage(to_stage):
+                self.state.status = "completed"
+
+        self._save_state(run_dir)
+
         return results
+
+    def get_next_action(self, run_dir: Path, to_stage: str = "patch") -> NextAction:
+        """获取下一步应该执行的动作。
+
+        Args:
+            run_dir: 运行目录
+            to_stage: 目标阶段
+
+        Returns:
+            NextAction 对象，包含动作、阶段和原因
+        """
+        state = self._load_state(run_dir)
+        if not state:
+            return NextAction(
+                action="run",
+                stage=STAGE_ORDER[0],
+                reason="No previous state found, start fresh run",
+            )
+
+        self.state = state
+
+        # 检查是否已完成到目标阶段
+        if self._is_complete_to_stage(to_stage):
+            return NextAction(
+                action="none",
+                stage=None,
+                reason=f"Already completed to stage '{to_stage}'",
+            )
+
+        # 找到下一个未完成的阶段
+        for stage_name in STAGE_ORDER:
+            if stage_name not in self.state.completed_stages:
+                return NextAction(
+                    action="resume",
+                    stage=stage_name,
+                    reason=f"Resume from incomplete stage '{stage_name}'",
+                )
+
+        return NextAction(
+            action="none",
+            stage=None,
+            reason="All stages completed",
+        )
+
+    def _is_complete_to_stage(self, to_stage: str) -> bool:
+        """检查是否已完成到指定阶段。
+
+        Args:
+            to_stage: 目标阶段
+
+        Returns:
+            如果已完成返回 True
+        """
+        # 将状态转换为 StatusResolver 期望的格式
+        resolver_state = self._to_resolver_state()
+
+        return self._status_resolver.is_complete_to_stage(
+            resolver_state, to_stage, include_report=False
+        )
+
+    def _to_resolver_state(self) -> dict[str, Any]:
+        """将 V8WorkflowState 转换为 StatusResolver 期望的格式。
+
+        Returns:
+            转换后的状态字典
+        """
+        phase_status = {}
+        for stage in STAGE_ORDER:
+            if stage in self.state.completed_stages:
+                phase_status[stage] = "DONE"
+            elif stage == self.state.current_stage:
+                phase_status[stage] = "IN_PROGRESS"
+            else:
+                phase_status[stage] = "PENDING"
+
+        return {
+            "phase_status": phase_status,
+            "current_phase": self.state.current_stage,
+            "statements": {},  # V8 没有语句级别的跟踪
+        }
+
+    def _load_state(self, run_dir: Path) -> Optional[V8WorkflowState]:
+        """从运行目录加载状态。
+
+        Args:
+            run_dir: 运行目录
+
+        Returns:
+            加载的状态，如果不存在返回 None
+        """
+        state_path = run_dir / "supervisor" / "v8_state.json"
+        if not state_path.exists():
+            return None
+
+        try:
+            with open(state_path) as f:
+                data = json.load(f)
+            return V8WorkflowState(**data)
+        except Exception:
+            return None
+
+    def _save_state(self, run_dir: Path) -> None:
+        """保存状态到运行目录。
+
+        Args:
+            run_dir: 运行目录
+        """
+        state_path = run_dir / "supervisor" / "v8_state.json"
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(state_path, "w") as f:
+            json.dump(
+                {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "stage_results": self.state.stage_results,
+                    "started_at": self.state.started_at,
+                    "updated_at": self.state.updated_at,
+                    "status": self.state.status,
+                },
+                f,
+                indent=2,
+            )
 
     def _run_discovery(self, run_dir: Path) -> dict:
         from ..stages.discovery import Scanner

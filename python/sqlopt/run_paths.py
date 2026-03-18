@@ -6,7 +6,7 @@ from pathlib import Path
 from .io_utils import ensure_dir
 from .utils import sql_key_path_component
 
-RUN_META_GLOB_SUFFIX = "pipeline/supervisor/meta.json"
+RUN_META_GLOB_SUFFIX = "supervisor/meta.json"
 REL_RUN_INDEX_JSON = "run.index.json"
 
 REL_OVERVIEW_REPORT_JSON = "overview/report.json"
@@ -14,19 +14,30 @@ REL_OVERVIEW_REPORT_MD = "overview/report.md"
 REL_OVERVIEW_REPORT_SUMMARY_MD = "overview/report.summary.md"
 REL_OVERVIEW_CONFIG_RESOLVED = "overview/config.resolved.json"
 
+# Deprecated: legacy path constants (for backward compatibility)
+REL_PIPELINE_SUPERVISOR_STATE = (
+    "pipeline/supervisor/state.json"  # deprecated: use supervisor_dir
+)
+REL_PIPELINE_SUPERVISOR_PLAN = (
+    "pipeline/supervisor/plan.json"  # deprecated: use supervisor_dir
+)
+REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = (
+    "pipeline/supervisor/results/scan.jsonl"  # deprecated: use supervisor_results_dir
+)
+REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"  # deprecated: use supervisor_results_dir
+REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"  # deprecated: use supervisor_results_dir
+REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = (
+    "pipeline/supervisor/results/apply.jsonl"  # deprecated: use supervisor_results_dir
+)
+REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = (
+    "pipeline/supervisor/results/report.jsonl"  # deprecated: use supervisor_results_dir
+)
 REL_PIPELINE_MANIFEST = "pipeline/manifest.jsonl"
 REL_PIPELINE_SCAN_UNITS = "pipeline/scan/sqlunits.jsonl"
 REL_PIPELINE_SCAN_FRAGMENTS = "pipeline/scan/fragments.jsonl"
 REL_PIPELINE_OPTIMIZE_PROPOSALS = "pipeline/optimize/optimization.proposals.jsonl"
 REL_PIPELINE_VALIDATE_ACCEPTANCE = "pipeline/validate/acceptance.results.jsonl"
 REL_PIPELINE_PATCH_RESULTS = "pipeline/apply/patch.results.jsonl"
-REL_PIPELINE_SUPERVISOR_STATE = "pipeline/supervisor/state.json"
-REL_PIPELINE_SUPERVISOR_PLAN = "pipeline/supervisor/plan.json"
-REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = "pipeline/supervisor/results/scan.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = "pipeline/supervisor/results/apply.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = "pipeline/supervisor/results/report.jsonl"
 REL_PIPELINE_OPS_TOPOLOGY = "pipeline/ops/topology.json"
 REL_PIPELINE_OPS_HEALTH = "pipeline/ops/health.json"
 REL_PIPELINE_OPS_FAILURES = "pipeline/ops/failures.jsonl"
@@ -74,6 +85,48 @@ def to_posix_relative(run_dir: Path, path: Path) -> str:
 @dataclass(frozen=True)
 class RunPaths:
     run_dir: Path
+    project_root: Path | None = None
+
+    # --- Cache directory properties ---
+
+    @property
+    def cache_dir(self) -> Path:
+        """Project-level cache directory: .sqlopt/cache"""
+        root = self._resolve_project_root()
+        return root / ".sqlopt" / "cache"
+
+    @property
+    def sqlmap_cache_dir(self) -> Path:
+        """SQLMap cache directory: .sqlopt/cache/sqlmap_cache"""
+        return self.cache_dir / "sqlmap_cache"
+
+    @property
+    def history_dir(self) -> Path:
+        """History directory: .sqlopt/history"""
+        root = self._resolve_project_root()
+        return root / ".sqlopt" / "history"
+
+    def db_schemas_dir(self, db_hash: str) -> Path:
+        """Database schemas directory: .sqlopt/cache/db_schemas/{db_hash}"""
+        return self.cache_dir / "db_schemas" / db_hash
+
+    def _resolve_project_root(self) -> Path:
+        """Resolve project root from run_dir or explicit project_root."""
+        if self.project_root is not None:
+            return self.project_root
+        # Infer from run_dir: runs/<run_id>/ -> project_root
+        return self.run_dir.parent.parent
+
+    def ensure_cache_layout(self) -> None:
+        """Create the cache directory structure."""
+        for path in (
+            self.cache_dir,
+            self.sqlmap_cache_dir,
+            self.history_dir,
+        ):
+            ensure_dir(path)
+
+    # --- Existing run directory properties ---
 
     @property
     def pipeline_dir(self) -> Path:
@@ -85,7 +138,7 @@ class RunPaths:
 
     @property
     def supervisor_dir(self) -> Path:
-        return self.pipeline_dir / "supervisor"
+        return self.run_dir / "supervisor"
 
     @property
     def supervisor_results_dir(self) -> Path:
@@ -214,6 +267,14 @@ class RunPaths:
     def diagnostics_dir(self) -> Path:
         return self.run_dir / "diagnostics"
 
+    @property
+    def project_context_dir(self) -> Path:
+        return self.run_dir / "project_context"
+
+    @property
+    def sqlmap_catalog_dir(self) -> Path:
+        return self.run_dir / "sqlmap_catalog"
+
     def supervisor_result_path(self, phase: str) -> Path:
         return self.supervisor_results_dir / f"{phase}.jsonl"
 
@@ -243,9 +304,11 @@ class RunPaths:
             self.overview_dir,
             self.sql_dir,
             self.diagnostics_dir,
+            self.project_context_dir,
+            self.sqlmap_catalog_dir,
         ):
             ensure_dir(path)
 
 
-def canonical_paths(run_dir: Path) -> RunPaths:
-    return RunPaths(run_dir=run_dir)
+def canonical_paths(run_dir: Path, project_root: Path | None = None) -> RunPaths:
+    return RunPaths(run_dir=run_dir, project_root=project_root)

@@ -16,11 +16,22 @@ if sys.platform == "win32":
 
 from .application import config_service, run_index, run_service, workflow_engine
 from .application.run_resolution import resolve_run_id
+from .application import workflow_v8
+from .config import load_config
 from .error_messages import format_error_message
 from .errors import ConfigError, StageError
 from .progress import get_progress_reporter, init_progress_reporter
+from .run_paths import canonical_paths
+from .verification import read_verification_ledger, summarize_records
 
-STAGE_ORDER = workflow_engine.STAGE_ORDER
+# V8 为默认引擎
+STAGE_ORDER = workflow_v8.STAGE_ORDER
+LEGACY_STAGE_ORDER = workflow_engine.STAGE_ORDER
+
+
+def _get_stage_order(use_v8: bool) -> list[str]:
+    """根据引擎类型返回阶段顺序。"""
+    return workflow_v8.STAGE_ORDER if use_v8 else workflow_engine.STAGE_ORDER
 
 
 def _repo_root() -> Path:
@@ -153,6 +164,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         )
         raise SystemExit(2)
 
+    use_v8 = getattr(args, "use_v8", True)
     repo_root = _repo_root()
     run_id: str | None = None
     requested_run_id = (
@@ -163,25 +175,47 @@ def cmd_run(args: argparse.Namespace) -> None:
     try:
         _validate_budget_args(args)
         get_progress_reporter().report_info(f"run_id={requested_run_id}")
-        selection = {
-            "mapper_paths": list(getattr(args, "mapper_path", None) or []),
-            "sql_keys": list(getattr(args, "sql_key", None) or []),
-        }
-        run_id, initial_result = run_service.start_run(
-            config_path,
-            args.to_stage,
-            requested_run_id,
-            repo_root=repo_root,
-            selection=selection,
-        )
-        outcome = run_service.advance_run_until_complete(
-            run_id,
-            initial_result,
-            step_fn=lambda: run_service.resume_run(run_id, repo_root=repo_root),
-            max_steps=int(args.max_steps),
-            max_seconds=int(args.max_seconds),
-        )
-        print(run_service.build_progress_payload(run_id, outcome))
+
+        if use_v8:
+            # V8 引擎路径
+            config = load_config(config_path)
+            runs_root = workflow_engine.runs_root(config)
+            run_dir = runs_root / requested_run_id
+            run_dir.mkdir(parents=True, exist_ok=True)
+
+            engine = workflow_v8.V8WorkflowEngine(config, run_id=requested_run_id)
+            to_stage = getattr(args, "to_stage", "patch")
+            result = engine.run(run_dir, to_stage=to_stage)
+
+            print(
+                {
+                    "run_id": requested_run_id,
+                    "engine": "v8",
+                    "result": result,
+                    "completed": engine.state.status == "completed",
+                }
+            )
+        else:
+            # 旧版引擎路径
+            selection = {
+                "mapper_paths": list(getattr(args, "mapper_path", None) or []),
+                "sql_keys": list(getattr(args, "sql_key", None) or []),
+            }
+            run_id, initial_result = run_service.start_run(
+                config_path,
+                args.to_stage,
+                requested_run_id,
+                repo_root=repo_root,
+                selection=selection,
+            )
+            outcome = run_service.advance_run_until_complete(
+                run_id,
+                initial_result,
+                step_fn=lambda: run_service.resume_run(run_id, repo_root=repo_root),
+                max_steps=int(args.max_steps),
+                max_seconds=int(args.max_seconds),
+            )
+            print(run_service.build_progress_payload(run_id, outcome))
     except ValueError as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
         fallback_run_id = run_id or requested_run_id or "<pending>"
@@ -227,17 +261,44 @@ def cmd_resume(args: argparse.Namespace) -> None:
             getattr(args, "run_id", None), getattr(args, "project", ".")
         )
         get_progress_reporter().report_info(f"run_id={resolved_run_id}")
-        initial_result = run_service.resume_run(resolved_run_id, repo_root=_repo_root())
-        outcome = run_service.advance_run_until_complete(
-            resolved_run_id,
-            initial_result,
-            step_fn=lambda: run_service.resume_run(
-                resolved_run_id or "", repo_root=_repo_root()
-            ),
-            max_steps=int(args.max_steps),
-            max_seconds=int(args.max_seconds),
-        )
-        print(run_service.build_progress_payload(resolved_run_id, outcome))
+
+        use_v8 = getattr(args, "use_v8", True)
+        if use_v8:
+            # V8 引擎路径
+            run_dir = run_index.resolve_run_dir(
+                resolved_run_id, repo_root_fn=_repo_root
+            )
+            paths = canonical_paths(run_dir)
+            config = load_config(paths.config_resolved_path)
+
+            engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+            engine.load_state_from_repo()
+            to_stage = getattr(args, "to_stage", "patch")
+            result = engine.resume(run_dir, to_stage=to_stage)
+
+            print(
+                {
+                    "run_id": resolved_run_id,
+                    "engine": "v8",
+                    "result": result,
+                    "completed": engine.state.status == "completed",
+                }
+            )
+        else:
+            # 旧版引擎路径
+            initial_result = run_service.resume_run(
+                resolved_run_id, repo_root=_repo_root()
+            )
+            outcome = run_service.advance_run_until_complete(
+                resolved_run_id,
+                initial_result,
+                step_fn=lambda: run_service.resume_run(
+                    resolved_run_id or "", repo_root=_repo_root()
+                ),
+                max_steps=int(args.max_steps),
+                max_seconds=int(args.max_seconds),
+            )
+            print(run_service.build_progress_payload(resolved_run_id, outcome))
     except ValueError as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
         print(
@@ -362,6 +423,89 @@ def cmd_apply(args: argparse.Namespace) -> None:
         raise SystemExit(2)
 
 
+def cmd_verify(args: argparse.Namespace) -> None:
+    """验证证据链，显示验证结果摘要。"""
+    resolved_run_id: str | None = None
+    try:
+        resolved_run_id = _resolve_requested_run_id(
+            getattr(args, "run_id", None), getattr(args, "project", ".")
+        )
+        run_dir = run_index.resolve_run_dir(resolved_run_id, repo_root_fn=_repo_root)
+        paths = canonical_paths(run_dir)
+
+        ledger_path = paths.verification_ledger_path
+        if not ledger_path.exists():
+            error_info = format_error_message(
+                "VERIFICATION_NOT_FOUND",
+                f"验证账本不存在: {ledger_path}",
+            )
+            print(
+                {
+                    "run_id": resolved_run_id,
+                    "error": error_info,
+                    "hint": "请先运行 sqlopt-cli run 完成优化流程",
+                }
+            )
+            raise SystemExit(2)
+
+        records = read_verification_ledger(run_dir)
+
+        # Filter by sql_key if specified
+        sql_key_filter = getattr(args, "sql_key", None)
+        if sql_key_filter:
+            records = [r for r in records if r.get("sql_key") == sql_key_filter]
+            if not records:
+                print(
+                    {
+                        "run_id": resolved_run_id,
+                        "sql_key": sql_key_filter,
+                        "error": f"未找到 sql_key={sql_key_filter} 的验证记录",
+                    }
+                )
+                raise SystemExit(1)
+
+        verbose = getattr(args, "verbose", False)
+
+        if verbose:
+            # 详细模式：输出完整记录
+            result = {
+                "run_id": resolved_run_id,
+                "record_count": len(records),
+                "records": records,
+            }
+        else:
+            # 摘要模式
+            # 获取 total_sql from plan.json
+            total_sql = 0
+            plan_path = paths.plan_path
+            if plan_path.exists():
+                import json
+
+                try:
+                    with open(plan_path, "r", encoding="utf-8") as f:
+                        plan_data = json.load(f)
+                        total_sql = len(plan_data.get("statements", []))
+                except Exception:
+                    pass
+
+            summary = summarize_records(resolved_run_id, records, total_sql=total_sql)
+            result = summary.to_contract()
+
+        print(result)
+
+    except FileNotFoundError:
+        error_info = format_error_message(
+            "RUN_NOT_FOUND", "run_id not found in run index"
+        )
+        print(
+            {
+                "run_id": _run_label(resolved_run_id or getattr(args, "run_id", None)),
+                "error": error_info,
+            }
+        )
+        raise SystemExit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     top_epilog = (
         "快速工作流:\n"
@@ -427,11 +571,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--run-id",
         help="运行 ID（默认自动生成；若指定且已存在，则继续该 run）",
     )
+    # 合并 V8 和旧版阶段作为有效选项
+    all_stages = list(set(STAGE_ORDER) | set(LEGACY_STAGE_ORDER))
     p_run.add_argument(
         "--to-stage",
-        default="apply",
-        choices=STAGE_ORDER,
-        help="目标运行阶段（默认：apply）。可用阶段：" + ", ".join(STAGE_ORDER),
+        default="patch",
+        choices=all_stages,
+        help="目标运行阶段（默认：patch）。可用阶段：" + ", ".join(sorted(all_stages)),
     )
     p_run.add_argument(
         "--max-steps",
@@ -444,6 +590,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="最多运行秒数（默认：0，不限制，直到完成）",
+    )
+    p_run.add_argument(
+        "--use-v8",
+        type=lambda x: x.lower() not in ("false", "0", "no"),
+        default=True,
+        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
     p_run.set_defaults(func=cmd_run)
 
@@ -479,6 +631,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="最多运行秒数（默认：0，不限制，直到完成）",
+    )
+    p_resume.add_argument(
+        "--use-v8",
+        type=lambda x: x.lower() not in ("false", "0", "no"),
+        default=True,
+        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
     p_resume.set_defaults(func=cmd_resume)
 
@@ -553,6 +711,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="要验证的 sqlopt.yml 配置文件路径",
     )
     p_validate.set_defaults(func=cmd_validate_config)
+
+    p_verify = sub.add_parser(
+        "verify",
+        help="验证证据链",
+        description="验证优化流程的证据链完整性，显示验证结果摘要。",
+        epilog=(
+            "示例:\n"
+            "  sqlopt-cli verify\n"
+            "  sqlopt-cli verify --run-id <run-id>\n"
+            "  sqlopt-cli verify --run-id <run-id> --sql-key <sql-key>\n"
+            "  sqlopt-cli verify --run-id <run-id> --verbose"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_verify.add_argument(
+        "--run-id",
+        help="要验证的运行 ID（默认：自动选择最新运行）",
+    )
+    p_verify.add_argument(
+        "--project",
+        default=".",
+        help="项目目录，用于在省略 --run-id 时解析最新运行（默认：当前目录）",
+    )
+    p_verify.add_argument(
+        "--sql-key",
+        help="仅验证指定 SQL 的证据链",
+    )
+    p_verify.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="显示详细验证记录",
+    )
+    p_verify.set_defaults(func=cmd_verify)
 
     return p
 

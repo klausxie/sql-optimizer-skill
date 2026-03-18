@@ -344,4 +344,41 @@ contracts/
 
 ---
 
+---
+
+## 十二、实现状态
+
+### 12.1 核心组件状态
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| V8 工作流引擎 | ✅ 已实现 | `workflow_v8.py`，支持7阶段流水线 |
+| 发现阶段 | ✅ 已实现 | `stages/discovery/` |
+| 分支阶段 | ✅ 已实现 | `stages/branching/` |
+| 剪枝阶段 | ✅ 已实现 | `stages/pruning/` |
+| 基线阶段 | ✅ 已实现 | `stages/baseline_stage/` |
+| 优化阶段 | ✅ 已实现 | `stages/optimize_stage/` |
+| 验证阶段 | ✅ 已实现 | `stages/validate_stage/` |
+| 补丁阶段 | ✅ 已实现 | `stages/patch_stage/` |
+| 报告阶段 | ✅ 已实现 | `stages/report_*.py` |
+| 双CLI架构 | ✅ 已实现 | `sqlopt-cli` + `sqlopt-data` |
+| 数据目录分层 | ✅ 已实现 | 项目级缓存 + 运行级产物分离 |
+| 可恢复执行 | ✅ 已实现 | `status_resolver.py` + `supervisor` |
+| 版本管理方案 | 🔲 待实施 | 契约版本快照方案 |
+
+### 12.2 废弃计划
+
+| 项目 | 状态 | 说明 |
+|------|------|------|
+| `workflow_engine.py` | 🔲 待废弃 | 旧版工作流引擎 |
+| 旧版 `stages/*.py` | 🔲 待清理 | 需确认无依赖后清理 |
+
+### 12.3 待完成任务
+
+- [ ] 废弃 `workflow_engine.py`
+- [ ] 清理 `stages/*.py` 旧版实现
+- [ ] 完成契约版本管理方案
+
+---
+
 *本文档最后更新：2024-03-18*

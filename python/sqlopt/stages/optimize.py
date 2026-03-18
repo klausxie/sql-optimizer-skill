@@ -1,3 +1,15 @@
+# =============================================================================
+# DEPRECATED MODULE
+# =============================================================================
+# This module is deprecated as of V8 and will be removed in a future release.
+# Migration timeline:
+#   - V8 (current): Kept for backward compatibility
+#   - V9 (planned): May be removed or further deprecated
+#
+# New architecture: Use application/workflow_engine.py for stage orchestration
+# Reference: docs/V8/V8_SUMMARY.md
+# =============================================================================
+
 from __future__ import annotations
 
 from dataclasses import dataclass

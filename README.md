@@ -298,5 +298,6 @@ python3 scripts/ci/release_acceptance.py
 ## 架构设计
 
 - **功能全景图**：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 完整功能架构和执行流程
+- **V8 架构**：[`docs/V8/V8_SUMMARY.md`](docs/V8/V8_SUMMARY.md) — V8 版本架构总览与实现状态
 
 > 推荐先阅读功能全景图，了解整体设计后再深入其他文档。
