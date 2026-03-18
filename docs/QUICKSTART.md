@@ -69,22 +69,22 @@ sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 
 ## 4.1 架构说明：CLI 与 Skill 分工
 
-SQL Optimizer 采用 CLI + Skill 双层架构：
+SQL Optimizer 采用 CLI + Skill 双层架构，V8 七阶段流水线：
 
 - **CLI (sqlopt-cli)**：负责工程化能力
-  - 扫描 MyBatis XML
-  - 生成分支
-  - 收集数据库上下文
-  - 构建 LLM prompt
-  - 执行 SQL 验证
-  - 应用补丁
+  - Discovery：连接数据库、采集表结构、解析 XML
+  - Branching：分支展开（3种策略）
+  - Pruning：静态分析、风险标记、聚合剪枝
+  - Baseline：EXPLAIN、采集性能基线
+  - Validate：语义验证、性能对比、结果集验证
+  - Patch：生成补丁、用户确认、应用补丁
 
 - **Skill**：负责 AI/LLM 能力
-  - 调用 LLM 生成优化建议
+  - Optimize：调用 LLM 生成优化建议
   - 读取 CLI 输出的 prompt
   - 做出优化决策
 
-完整流程：CLI diagnose → Skill optimize → CLI validate → CLI apply → CLI report
+完整流程：CLI Discovery → CLI Branching → CLI Pruning → CLI Baseline → Skill Optimize → CLI Validate → CLI Patch
 
 ## 5. 查看产物并应用补丁
 
@@ -104,10 +104,10 @@ sqlopt-cli apply --run-id <run-id>
 
 ## 6. 常见分支
 
-- 只想先验证扫描：
+- 只想先验证扫描（Discovery 阶段）：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage diagnose
+sqlopt-cli run --config sqlopt.yml --to-stage discovery
 ```
 
 - 只知道方法名，不知道完整 key：

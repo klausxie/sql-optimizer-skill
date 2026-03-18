@@ -10,15 +10,15 @@
 4. `apply`：执行补丁应用动作（默认 patch-only 语义)。
 
 默认阶段目标：
-- 不指定 `--to-stage` 时，目标为 `report`。
+- 不指定 `--to-stage` 时，目标为 `Patch`。
 
 ## 2. 执行语义
-1. 阶段顺序固定：`diagnose -> optimize -> validate -> apply -> report`
+1. 阶段顺序固定：Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch
 2. `run/resume` 每次调用最多推进一个 statement step（受 `max_step_ms` 预算约束）。
 3. `status.complete=true` 是"已达到目标阶段"的判断依据。
 4. 为什么一个个 statement step循环推进？因为 opencode 执行命令时最大超时 120s。若所有sql集中优化
 正常项目多sql情况下很容易超过 120s。
-5. `report` 是唯一允许重生（regenerate）的阶段；其余已完成阶段默认跳过，不重复执行。
+5. `Patch` 是唯一允许重生（regenerate）的阶段；其余已完成阶段默认跳过，不重复执行。
 
 ## 2.1 架构说明：CLI 与 Skill 分工
 
@@ -32,7 +32,7 @@ SQL Optimizer 采用 CLI + Skill 双层架构：
   - 调用 LLM 生成优化建议
   - 读取 CLI 输出的 prompt，做出优化决策
 
-完整流程：CLI diagnose → Skill optimize → CLI validate → CLI apply → CLI report
+完整流程：CLI Discovery → CLI Branching → CLI Pruning → CLI Baseline → Skill Optimize → CLI Validate → CLI Patch
 
 ## 3. 监督状态文件（Supervisor）
 运行时必须维护：
@@ -44,8 +44,8 @@ SQL Optimizer 采用 CLI + Skill 双层架构：
 要求：
 1. `plan` 固化 statement 列表与顺序。
 2. `state` 记录每个 statement 在每个 phase 的状态、重试、错误摘要。
-3. `results` 记录每一步的结构化结果（`diagnose/optimize/validate/apply/report`），供 `status/diagnose/report` 消费，且与 `pipeline/manifest.jsonl` 事件可交叉追踪。
-4. `state.report_rebuild_required=true` 表示主流程已完成，但 `report` 派生产物需要重建。
+3. `results` 记录每一步的结构化结果（`Discovery/Branching/Pruning/Baseline/Optimize/Validate/Patch`），供 `status/diagnose/report` 消费，且与 `pipeline/manifest.jsonl` 事件可交叉追踪。
+4. `state.patch_rebuild_required=true` 表示主流程已完成，但 `report` 派生产物需要重建。
 
 ## 4. Phase 状态约定
 每个 phase 至少支持：
@@ -68,8 +68,8 @@ SQL Optimizer 采用 CLI + Skill 双层架构：
 
 ## 6. 完成判定
 1. 当 `to_stage` 无 pending statement，`complete=true`。
-2. 若 report 开启（默认)，运行结束时会触发 report finalization（即使 `to_stage` 早于 `report`）。
-3. `apply` 不改变 analyze/validate/apply 的完成定义
+2. 若 report 开启（默认)，运行结束时会触发 report finalization（即使 `to_stage` 早于 `Patch`）。
+3. `Patch` 不改变 Discovery/Branching/Pruning/Baseline/Optimize/Validate 的完成定义
 只增加应用态产物。
 4. `status.next_action` 语义固定为：
    - `resume`：继续推进主流程
@@ -80,8 +80,10 @@ SQL Optimizer 采用 CLI + Skill 双层架构：
 
 | 阶段 | 输入 | 输出 |
 |------|------|------|
-| **diagnose** | Mapper XML | diagnose.sqlunits.jsonl, branches.jsonl |
-| **optimize** | sqlunits | proposals/ |
-| **validate** | proposals | acceptance.results.jsonl |
-| **apply** | acceptance | patches/ |
-| **report** | all artifacts | report.md, report.json |
+| **Discovery** | Mapper XML | sqlmap_catalog/ (索引 + 详情) |
+| **Branching** | sqlmap_catalog | branches/ (分支展开) |
+| **Pruning** | branches | risks/ (风险标记) |
+| **Baseline** | branches, risks | baseline/ (EXPLAIN + 性能) |
+| **Optimize** | baseline | proposals/ (LLM 优化建议) |
+| **Validate** | proposals | acceptance/ (验证结果) |
+| **Patch** | acceptance | patches/ (补丁文件) |
