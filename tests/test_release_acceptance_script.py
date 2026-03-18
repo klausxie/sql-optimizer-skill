@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 def _load_module():
     root = Path(__file__).resolve().parents[1]
-    module_path = root / "scripts" / "ci" / "release_acceptance.py"
+    module_path = root / "tests" / "acceptance" / "release_acceptance.py"
     spec = importlib.util.spec_from_file_location("release_acceptance", module_path)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None

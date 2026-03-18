@@ -9,7 +9,7 @@ from pathlib import Path
 
 def _load_module():
     root = Path(__file__).resolve().parents[1]
-    module_path = root / "scripts" / "ci" / "opencode_smoke_acceptance.py"
+    module_path = root / "tests" / "acceptance" / "opencode_smoke_acceptance.py"
     spec = importlib.util.spec_from_file_location(
         "opencode_smoke_acceptance", module_path
     )

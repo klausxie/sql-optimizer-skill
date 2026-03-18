@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _load_module():
     root = Path(__file__).resolve().parents[1]
-    module_path = root / "scripts" / "ci" / "degraded_runtime_acceptance.py"
+    module_path = root / "tests" / "acceptance" / "degraded_runtime_acceptance.py"
     spec = importlib.util.spec_from_file_location(
         "degraded_runtime_acceptance", module_path
     )
