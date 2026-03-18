@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FragmentRecord",
+  "type": "object",
+  "required": [
+    "fragmentKey",
+    "displayRef",
+    "xmlPath",
+    "namespace",
+    "fragmentId",
+    "templateSql",
+    "dynamicFeatures",
+    "includeTrace",
+    "dynamicTrace",
+    "includeBindings",
+    "locators"
+  ],
+  "properties": {
+    "fragmentKey": {"type": "string"},
+    "displayRef": {"type": "string"},
+    "xmlPath": {"type": "string"},
+    "namespace": {"type": "string"},
+    "fragmentId": {"type": "string"},
+    "templateSql": {"type": "string"},
+    "dynamicFeatures": {"type": "array", "items": {"type": "string"}},
+    "includeTrace": {"type": "array", "items": {"type": "string"}},
+    "dynamicTrace": {"type": ["object", "null"]},
+    "includeBindings": {"type": "array", "items": {"type": "object"}},
+    "locators": {"type": "object"}
+  }
+}

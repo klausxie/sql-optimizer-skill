@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpsTopology",
+  "type": "object",
+  "required": [
+    "run_id",
+    "executor",
+    "subagents",
+    "llm_mode",
+    "llm_gate",
+    "runtime_policy"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "executor": {
+      "type": "string"
+    },
+    "subagents": {
+      "type": "object",
+      "required": [
+        "optimize",
+        "validate"
+      ],
+      "properties": {
+        "optimize": {
+          "type": "boolean"
+        },
+        "validate": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "llm_mode": {
+      "type": "string"
+    },
+    "llm_gate": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "runtime_policy": {
+      "type": "object",
+      "required": [
+        "resolved_from",
+        "stage_timeout_ms",
+        "stage_retry_max",
+        "stage_retry_backoff_ms"
+      ],
+      "properties": {
+        "stage_timeout_ms": {
+          "type": "object",
+          "required": [
+            "scan",
+            "optimize",
+            "validate",
+            "apply",
+            "report"
+          ],
+          "properties": {
+            "scan": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "optimize": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "validate": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "apply": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "report": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "stage_retry_max": {
+          "type": "object",
+          "required": [
+            "scan",
+            "optimize",
+            "validate",
+            "apply",
+            "report"
+          ],
+          "properties": {
+            "scan": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "optimize": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "validate": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "apply": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "report": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "stage_retry_backoff_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved_from": {
+          "type": "string",
+          "enum": [
+            "app_config.runtime"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+{
+  "version": "1.1.0",
+  "schema_version": "1.1.0",
+  "created_at": "2026-03-18T00:00:00Z",
+  "schemas": [
+    "sqlunit.schema.json",
+    "fragment_record.schema.json",
+    "optimization_proposal.schema.json",
+    "acceptance_result.schema.json",
+    "patch_result.schema.json",
+    "run_report.schema.json",
+    "run_index.schema.json",
+    "verification_record.schema.json",
+    "verification_summary.schema.json",
+    "ops_health.schema.json",
+    "ops_topology.schema.json",
+    "sql_artifact_index_row.schema.json",
+    "llm_candidate.schema.json",
+    "llm_trace.schema.json",
+    "policy.schema.json"
+  ],
+  "changelog": "CHANGELOG.md",
+  "description": "Initial version of SQL Optimizer data contracts"
+}

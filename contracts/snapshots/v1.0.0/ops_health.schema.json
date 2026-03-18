@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpsHealth",
+  "type": "object",
+  "required": ["run_id", "mode", "generated_at", "status", "failure_count", "report_json"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "mode": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "status": {"type": "string"},
+    "failure_count": {"type": "integer", "minimum": 0},
+    "fatal_failure_count": {"type": ["integer", "null"], "minimum": 0},
+    "retryable_failure_count": {"type": ["integer", "null"], "minimum": 0},
+    "degradable_count": {"type": ["integer", "null"], "minimum": 0},
+    "health_grade": {"type": ["string", "null"]},
+    "warn_signal_count": {"type": ["integer", "null"], "minimum": 0},
+    "timeout_breakdown_by_source": {"type": ["object", "null"]},
+    "llm_gate": {"type": ["object", "null"]},
+    "report_json": {"type": ["string", "null"]}
+  }
+}

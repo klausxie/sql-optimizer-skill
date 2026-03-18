@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlUnit",
+  "type": "object",
+  "required": [
+    "sqlKey",
+    "xmlPath",
+    "namespace",
+    "statementId",
+    "statementType",
+    "variantId",
+    "sql",
+    "parameterMappings",
+    "paramExample",
+    "locators",
+    "riskFlags"
+  ],
+  "properties": {
+    "sqlKey": {"type": "string"},
+    "xmlPath": {"type": "string"},
+    "namespace": {"type": "string"},
+    "statementId": {"type": "string"},
+    "statementType": {"type": "string"},
+    "variantId": {"type": "string"},
+    "sql": {"type": "string"},
+    "parameterMappings": {"type": "array"},
+    "paramExample": {"type": "object"},
+    "locators": {"type": "object"},
+    "riskFlags": {"type": "array", "items": {"type": "string"}},
+    "templateSql": {"type": "string"},
+    "dynamicFeatures": {"type": "array", "items": {"type": "string"}},
+    "templateTarget": {"type": "string"},
+    "primaryFragmentTarget": {"type": ["string", "null"]},
+    "includeBindings": {"type": "array", "items": {"type": "object"}},
+    "fingerprint": {"type": "string"},
+    "sampleSource": {"type": "string"},
+    "scanConfidence": {"type": "string"},
+    "scanWarnings": {"type": ["array", "null"], "items": {"type": "object"}},
+    "dynamicTrace": {"type": ["object", "null"]},
+    "includeTrace": {"type": ["array", "null"], "items": {"type": "string"}},
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "executionTime": {"type": ["string", "null"]},
+        "rowsExamined": {"type": ["integer", "null"]},
+        "rowsReturned": {"type": ["integer", "null"]},
+        "usingIndex": {"type": ["boolean", "null"]},
+        "type": {"type": ["string", "null"]},
+        "planLines": {"type": "array", "items": {"type": "string"}},
+        "problematic": {"type": "boolean"},
+        "baselineTest": {"type": ["object", "null"]},
+        "actualMetrics": {"type": ["object", "null"]},
+        "error": {"type": ["string", "null"]}
+      }
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "conditions": {"type": "array", "items": {"type": "string"}},
+          "sql": {"type": "string"},
+          "type": {"type": "string"},
+          "baseline": {
+            "type": "object",
+            "properties": {
+              "executionTime": {"type": ["string", "null"]},
+              "rowsExamined": {"type": ["integer", "null"]},
+              "rowsReturned": {"type": ["integer", "null"]},
+              "usingIndex": {"type": ["boolean", "null"]},
+              "type": {"type": ["string", "null"]},
+              "planLines": {"type": "array", "items": {"type": "string"}},
+              "problematic": {"type": "boolean"},
+              "baselineTest": {"type": ["object", "null"]},
+              "actualMetrics": {"type": ["object", "null"]},
+              "error": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "required": ["id", "conditions", "sql"]
+      }
+    },
+    "branchCount": {"type": "integer"},
+    "problemBranchCount": {"type": "integer"}
+  }
+}
