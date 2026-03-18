@@ -118,7 +118,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run-id>
 `next_action` 判定：
 
 - `resume`：继续推进未完成阶段
-- `report-rebuild`：主流程已完成，只需执行 `run --to-stage report --run-id <run-id>`
+- `patch-rebuild`：主流程已完成，只需执行 `run --to-stage patch --run-id <run-id>`
 - `none`：当前目标阶段已完成，无需继续
 
 ## 3.3 持续推进到完成
@@ -129,10 +129,10 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run-id>
 
 如未完成，重复执行 `resume` + `status`，直到 `complete: True`。
 
-若 `status` 返回 `next_action: 'report-rebuild'`，改为执行：
+若 `status` 返回 `next_action: 'patch-rebuild'`，改为执行：
 
 ```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config tests/fixtures/project/sqlopt.yml --to-stage report --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config tests/fixtures/project/sqlopt.yml --to-stage patch --run-id <run-id>
 ```
 
 可用轮询命令：
@@ -152,7 +152,7 @@ done
 ```bash
 python3 scripts/run_until_budget.py \
   --config tests/fixtures/project/sqlopt.scan.local.yml \
-  --to-stage diagnose \
+  --to-stage discovery \
   --max-steps 10 \
   --max-seconds 30
 ```

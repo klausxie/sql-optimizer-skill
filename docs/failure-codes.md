@@ -46,20 +46,20 @@
    - default operator action: 保留原模板，要求人工确认
 
 ### Patch 阶段发出
-1. `PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE`
-   - where emitted: `apply`
+   1. `PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE`
+    - where emitted: `patch`
    - classification: `degradable`
    - default operator action: 动态 statement 不直接用扁平 SQL 回写
-2. `PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE`
-   - where emitted: `apply`
+   2. `PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE`
+    - where emitted: `patch`
    - classification: `degradable`
    - default operator action: 涉及 include 片段，保守跳过
-3. `PATCH_TEMPLATE_MATERIALIZATION_MISSING`
-   - where emitted: `apply`
+   3. `PATCH_TEMPLATE_MATERIALIZATION_MISSING`
+    - where emitted: `patch`
    - classification: `degradable`
    - default operator action: validate 未给出可执行模板计划，不自动 patch
-4. `PATCH_FRAGMENT_LOCATOR_AMBIGUOUS`
-   - where emitted: `apply`
+   4. `PATCH_FRAGMENT_LOCATOR_AMBIGUOUS`
+    - where emitted: `patch`
    - classification: `degradable`
    - default operator action: 缺少稳定片段定位信息，不自动 patch
 

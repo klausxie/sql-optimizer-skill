@@ -3,7 +3,7 @@
 本文件描述当前代码已经落地的字段语义。若与 `contracts/*.schema.json` 有冲突，以 schema 为准。
 
 ## 1. `SqlUnit`
-文件：`pipeline/diagnose/sqlunits.jsonl`
+文件：`pipeline/scan/sqlunits.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -41,7 +41,7 @@
 3. `locators.range` 用于模板级局部替换 patch，优先使用 offset。
 
 ## 1.1 `FragmentRecord`
-文件：`pipeline/diagnose/fragments.jsonl`
+文件：`pipeline/scan/fragments.jsonl`
 
 当前默认：
 1. 在 fragment catalog 内置开关开启时生成
@@ -191,7 +191,7 @@
 ### 3.2 `templateRewriteOps`
 当前行为：
 1. 仅在系统能安全生成模板替换计划时出现
-2. `apply` 会优先消费它
+2. `patch` 会优先消费它
 3. 仅当 `rewriteMaterialization.replayVerified=true` 时允许真正落地模板级 patch
 
 当前常见 op：

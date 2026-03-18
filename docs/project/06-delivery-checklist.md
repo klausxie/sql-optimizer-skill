@@ -6,7 +6,7 @@
 3. 默认运行目录仍是：`runs/<run-id>/`
 
 ## 2. 必测回归
-1. 正常全流程到 `apply`
+1. 正常全流程到 `patch`
 2. `resume` 能从阶段失败后继续
 3. schema 校验失败时快速失败
 4. DB 不可达时 report 仍可生成
@@ -44,7 +44,7 @@
 2. 在临时项目中覆盖一份离线安全配置：
    - `llm.enabled=false`
    - `llm.provider=heuristic`
-3. 执行 `run --to-stage apply`，随后循环执行 `status/resume` 直到 `complete=true`
+3. 执行 `run --to-stage patch`，随后循环执行 `status/resume` 直到 `complete=true`
 4. 验证以下文件存在且内容一致：
    - `pipeline/supervisor/state.json`
    - `pipeline/supervisor/meta.json`

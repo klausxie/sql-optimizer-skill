@@ -132,16 +132,12 @@ llm:
 ```
 
 ```bash
-sqlopt-cli --quiet run --config sqlopt.yml --to-stage apply
+sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch
 sqlopt-cli status
 sqlopt-cli resume
 ```
 
-若 `status.next_action=report-rebuild`，执行：
-
-```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
-```
+若 `status.next_action=report-rebuild`，说明报告阶段可独立重建，通常无需手动触发。
 
 发布前推荐统一验收入口：
 

@@ -47,7 +47,7 @@
 ```bash
 python3 scripts/run_until_budget.py \
   --config tests/fixtures/project/sqlopt.scan.local.yml \
-  --to-stage diagnose \
+  --to-stage discovery \
   --max-steps 10 \
   --max-seconds 30
 ```

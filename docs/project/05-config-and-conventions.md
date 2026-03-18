@@ -89,8 +89,8 @@
 4. `overview/report.summary.md`
 5. `overview/config.resolved.json`
 6. `pipeline/manifest.jsonl`
-7. `pipeline/diagnose/sqlunits.jsonl`
-8. `pipeline/diagnose/fragments.jsonl`
+7. `pipeline/scan/sqlunits.jsonl`
+8. `pipeline/scan/fragments.jsonl`
 9. `pipeline/optimize/optimization.proposals.jsonl`
 10. `pipeline/validate/acceptance.results.jsonl`
 11. `pipeline/apply/patch.results.jsonl`
@@ -108,7 +108,7 @@
 2. 运行目录读取默认仅认 canonical 路径。
 
 ## 7. 补丁与回滚约定
-1. 默认 `PATCH_ONLY`，`apply` 不会隐式修改源码
+1. 默认 `PATCH_ONLY`，`patch` 不会隐式修改源码
 2. 每个 `PatchResult` 必须提供 `rollback`
 3. 生成 patch 文件应可通过 `git apply --check`
 

@@ -99,7 +99,7 @@ cat runs/index.json
 诊断命令：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage diagnose --sql-key findUsers
+sqlopt-cli run --config sqlopt.yml --to-stage discovery --sql-key findUsers
 ```
 
 修复动作：
