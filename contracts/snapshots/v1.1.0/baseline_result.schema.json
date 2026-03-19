@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "baseline_result",
+  "description": "Baseline performance result for a single SQL unit",
+  "type": "object",
+  "required": ["sql_key", "execution_time_ms", "rows_scanned", "execution_plan", "result_hash"],
+  "properties": {
+    "sql_key": {
+      "type": "string",
+      "description": "Unique SQL statement key"
+    },
+    "execution_time_ms": {
+      "type": "number",
+      "description": "Execution time in milliseconds"
+    },
+    "rows_scanned": {
+      "type": "integer",
+      "description": "Number of rows scanned"
+    },
+    "execution_plan": {
+      "type": "object",
+      "description": "Simplified execution plan",
+      "properties": {
+        "node_type": {
+          "type": "string",
+          "description": "Node type (e.g., Index Scan, Seq Scan)"
+        },
+        "index_used": {
+          "type": ["string", "null"],
+          "description": "Index name if used"
+        },
+        "cost": {
+          "type": ["number", "null"],
+          "description": "Estimated cost"
+        }
+      },
+      "required": ["node_type"]
+    },
+    "result_hash": {
+      "type": "string",
+      "description": "Hash for result deduplication"
+    },
+    "rows_returned": {
+      "type": "integer"
+    },
+    "database_platform": {
+      "type": "string",
+      "enum": ["postgresql", "mysql"]
+    },
+    "sample_params": {
+      "type": "object"
+    },
+    "actual_execution_time_ms": {
+      "type": ["number", "null"]
+    },
+    "buffer_hit_count": {
+      "type": ["integer", "null"]
+    },
+    "buffer_read_count": {
+      "type": ["integer", "null"]
+    },
+    "explain_plan": {
+      "type": "object"
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "stage": {"type": "string"},
+        "sql_key": {"type": "string"},
+        "executor": {"type": "string"},
+        "timestamp": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}
