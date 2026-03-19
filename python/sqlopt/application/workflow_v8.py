@@ -237,9 +237,14 @@ class V8WorkflowEngine:
         return {}
 
     def _register_stages(self):
-        from ..stages.discovery import Scanner
-        from ..stages.branching import BranchGenerator
-        from ..stages.pruning import RiskDetector
+        from ..stages.discovery import DiscoveryStage
+        from ..stages.branching import BranchingStage
+        from ..stages.pruning import PruningStage
+        from ..stages.baseline import BaselineStage
+        from ..stages.optimize import OptimizeStage
+        from ..stages.validate import ValidateStage
+        from ..stages.patch import PatchStage
+        from .stage_registry import stage_registry
 
         self.stages["discovery"] = self._run_discovery
         self.stages["branching"] = self._run_branching

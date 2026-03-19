@@ -30,9 +30,9 @@ class DiscoveryStage(Stage):
     version: str = "1.0.0"
     dependencies: list[str] = []
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None, scanner: Any = None):
         self.config = config or {}
-        self.scanner = Scanner(config)
+        self.scanner = scanner or Scanner(config)
 
     def execute(self, context: StageContext) -> StageResult:
         """Execute the discovery stage.
