@@ -27,6 +27,19 @@ SCHEMA_MAP = {
     "baseline_result": "baseline_result.schema.json",
 }
 
+# Stage boundary definitions: stage_name -> (input_schema_name | None, output_schema_name | None)
+STAGE_BOUNDARIES: dict[str, tuple[str | None, str | None]] = {
+    "discovery": (None, "sqlunit"),
+    "branching": ("sqlunit", "sqlunit"),
+    "pruning": ("sqlunit", None),  # Output is custom risks.json, not a known schema
+    "baseline": ("sqlunit", "baseline_result"),
+    "optimize": ("baseline_result", "optimization_proposal"),
+    "validate": ("optimization_proposal", "acceptance_result"),
+    "patch": ("acceptance_result", "patch_result"),
+}
+
+STAGE_NAMES = frozenset(STAGE_BOUNDARIES.keys())
+
 
 def _resolve_contract_dir(repo_root: Path) -> Path:
     """Resolve contracts directory for both repo-local and installed runtime layouts."""
@@ -73,3 +86,74 @@ class ContractValidator:
             raise ContractError(
                 f"jsonschema dependency missing; cannot validate {name}"
             )
+
+    def get_stage_schema(self, stage_name: str, io_type: str) -> dict[str, Any] | None:
+        if stage_name not in STAGE_BOUNDARIES:
+            raise ContractError(
+                f"unknown stage: {stage_name}; valid stages: {sorted(STAGE_NAMES)}"
+            )
+        if io_type not in ("input", "output"):
+            raise ContractError(f"io_type must be 'input' or 'output', got: {io_type}")
+        input_schema, output_schema = STAGE_BOUNDARIES[stage_name]
+        schema_name = input_schema if io_type == "input" else output_schema
+        if schema_name is None:
+            return None
+        return self._schema(schema_name)
+
+    def validate_stage_input(self, stage_name: str, data: Any) -> None:
+        schema = self.get_stage_schema(stage_name, "input")
+        if schema is None:
+            return
+        if jsonschema is not None:
+            try:
+                jsonschema.validate(instance=data, schema=schema)
+            except Exception as exc:
+                path = _extract_error_path(exc)
+                raise ContractError(
+                    f"stage '{stage_name}' input validation failed{path}: {exc}"
+                ) from exc
+            return
+        if schema.get("type") == "object" and isinstance(data, dict):
+            missing = [k for k in schema.get("required", []) if k not in data]
+            if missing:
+                raise ContractError(
+                    f"stage '{stage_name}' input missing required fields: {missing}"
+                )
+        else:
+            raise ContractError(
+                f"jsonschema dependency missing; cannot validate stage '{stage_name}' input"
+            )
+
+    def validate_stage_output(self, stage_name: str, data: Any) -> None:
+        schema = self.get_stage_schema(stage_name, "output")
+        if schema is None:
+            return
+        if jsonschema is not None:
+            try:
+                jsonschema.validate(instance=data, schema=schema)
+            except Exception as exc:
+                path = _extract_error_path(exc)
+                raise ContractError(
+                    f"stage '{stage_name}' output validation failed{path}: {exc}"
+                ) from exc
+            return
+        if schema.get("type") == "object" and isinstance(data, dict):
+            missing = [k for k in schema.get("required", []) if k not in data]
+            if missing:
+                raise ContractError(
+                    f"stage '{stage_name}' output missing required fields: {missing}"
+                )
+        else:
+            raise ContractError(
+                f"jsonschema dependency missing; cannot validate stage '{stage_name}' output"
+            )
+
+
+def _extract_error_path(exc: Exception) -> str:
+    if jsonschema is None:
+        return ""
+    if isinstance(exc, jsonschema.ValidationError):
+        path = ".".join(str(p) for p in exc.path)
+        if path:
+            return f" at path '{path}'"
+    return ""

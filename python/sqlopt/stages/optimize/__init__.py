@@ -1,4 +1,4 @@
-from .execute_one import execute_one
+from .execute_one import OptimizeStage, execute_one
 from .llm_optimizer import (
     LLMOptimizer,
     OptimizationCandidate,
@@ -16,6 +16,8 @@ from sqlopt.stages.base import StageResult
 __all__ = [
     # Entry point
     "execute_one",
+    # Stage class
+    "OptimizeStage",
     # LLM Optimizer
     "LLMOptimizer",
     "OptimizationCandidate",

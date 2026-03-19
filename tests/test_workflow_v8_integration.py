@@ -1,0 +1,1283 @@
+#!/usr/bin/env python3
+"""
+V8 Workflow Engine Integration Tests
+
+Tests the complete V8 workflow execution flow including:
+1. Normal execution (run method)
+2. Single step execution (advance_one_step method)
+3. Resume execution (resume method)
+4. Exception handling and state updates
+5. Stage execution with mocked dependencies
+
+This test captures current behavior as regression test baseline.
+Do NOT modify existing behavior - only test what exists.
+"""
+
+from __future__ import annotations
+
+import json
+import tempfile
+import time
+from pathlib import Path
+from typing import Any
+from unittest.mock import Mock, patch, MagicMock, call
+from uuid import uuid4
+
+import pytest
+
+
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_config():
+    """Minimal config for testing."""
+    return {
+        "config_version": "v1",
+        "project": {"root_path": "."},
+        "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
+        "db": {
+            "platform": "postgresql",
+            "dsn": "postgresql://user:pass@localhost:5432/testdb",
+        },
+        "llm": {"enabled": False},
+    }
+
+
+@pytest.fixture
+def mock_repository():
+    """Mock repository for state persistence."""
+    repo = Mock()
+    repo.save_state = Mock()
+    repo.load_state = Mock(
+        return_value={
+            "run_id": "",
+            "current_stage": "",
+            "completed_stages": [],
+            "stage_results": {},
+            "started_at": "",
+            "updated_at": "",
+            "status": "pending",
+        }
+    )
+    repo.initialize = Mock()
+    return repo
+
+
+@pytest.fixture
+def temp_run_dir(tmp_path):
+    """Create a temporary run directory."""
+    run_dir = tmp_path / "runs" / f"test_run_{uuid4().hex[:8]}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return run_dir
+
+
+@pytest.fixture
+def workflow_engine(mock_config, mock_repository):
+    """Create a V8WorkflowEngine with mocked dependencies."""
+    with patch("sqlopt.application.workflow_v8.StatusResolver") as mock_resolver:
+        mock_resolver_instance = Mock()
+        mock_resolver_instance.is_complete_to_stage = Mock(return_value=False)
+        mock_resolver.return_value = mock_resolver_instance
+
+        from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+        engine = V8WorkflowEngine(
+            config=mock_config,
+            repository=mock_repository,
+            run_id="test_run_001",
+        )
+        return engine
+
+
+# =============================================================================
+# V8WorkflowEngine Initialization Tests
+# =============================================================================
+
+
+class TestWorkflowEngineInitialization:
+    """Tests for V8WorkflowEngine initialization."""
+
+    def test_engine_initializes_with_config(self, mock_config, mock_repository):
+        """Test engine initializes with provided config."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config,
+                repository=mock_repository,
+                run_id="test_init_001",
+            )
+
+            assert engine.config == mock_config
+            assert engine.repository == mock_repository
+            assert engine.run_id == "test_init_001"
+
+    def test_engine_generates_run_id_if_not_provided(self, mock_config):
+        """Test engine generates run_id when not provided."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config)
+
+            assert engine.run_id.startswith("run_")
+            assert len(engine.run_id) > 10
+
+    def test_engine_initializes_with_default_state(self, mock_config):
+        """Test engine initializes with default state."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config)
+
+            assert engine.state.run_id == engine.run_id
+            assert engine.state.status == "pending"
+            assert engine.state.current_stage == ""
+            assert engine.state.completed_stages == []
+            assert engine.state.stage_results == {}
+            assert engine.state.started_at != ""
+
+    def test_engine_registers_all_stages(self, mock_config):
+        """Test engine registers all 7 stages."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config)
+
+            expected_stages = [
+                "discovery",
+                "branching",
+                "pruning",
+                "baseline",
+                "optimize",
+                "validate",
+                "patch",
+            ]
+            for stage in expected_stages:
+                assert stage in engine.stages
+                assert callable(engine.stages[stage])
+
+
+# =============================================================================
+# V8WorkflowEngine.run() Tests
+# =============================================================================
+
+
+class TestWorkflowEngineRun:
+    """Tests for V8WorkflowEngine.run() method."""
+
+    def test_run_sets_status_after_run(self, mock_config, temp_run_dir):
+        """Test that run() completes successfully with repository=None."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine.stages = {
+                "discovery": lambda r: {"success": True},
+                "branching": lambda r: {"success": True},
+                "pruning": lambda r: {"success": True},
+                "baseline": lambda r: {"success": True},
+                "optimize": lambda r: {"success": True},
+                "validate": lambda r: {"success": True},
+                "patch": lambda r: {"success": True},
+            }
+
+            # Run to discovery stage
+            engine.run(temp_run_dir, to_stage="discovery")
+
+            # Discovery completes successfully - stages are tracked
+            assert "discovery" in engine.state.completed_stages
+
+    def test_run_executes_stages_in_order(self, workflow_engine, temp_run_dir):
+        """Test that run() executes stages in correct order."""
+        call_order = []
+
+        def mock_stage(run_dir):
+            call_order.append("stage")
+            return {"success": True}
+
+        workflow_engine.stages = {
+            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
+                1
+            ],
+            "branching": lambda r: (call_order.append("branching"), {"success": True})[
+                1
+            ],
+            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
+            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
+            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
+            "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+        }
+
+        workflow_engine.run(temp_run_dir, to_stage="patch")
+
+        assert call_order == [
+            "discovery",
+            "branching",
+            "pruning",
+            "baseline",
+            "optimize",
+            "validate",
+            "patch",
+        ]
+
+    def test_run_stops_on_first_failure(self, workflow_engine, temp_run_dir):
+        """Test that run() stops execution when a stage fails."""
+        call_order = []
+
+        workflow_engine.stages = {
+            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
+                1
+            ],
+            "branching": lambda r: (
+                call_order.append("branching"),
+                {"success": False, "error": "Test error"},
+            )[1],
+            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
+            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
+            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
+            "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+        }
+
+        results = workflow_engine.run(temp_run_dir, to_stage="patch")
+
+        assert "discovery" in call_order
+        assert "branching" in call_order
+        assert "pruning" not in call_order  # Should not execute
+        assert results["branching"]["success"] is False
+        assert workflow_engine.state.status == "failed"
+
+    def test_run_respects_to_stage_limit(self, workflow_engine, temp_run_dir):
+        """Test that run() stops at to_stage."""
+        call_order = []
+
+        workflow_engine.stages = {
+            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
+                1
+            ],
+            "branching": lambda r: (call_order.append("branching"), {"success": True})[
+                1
+            ],
+            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
+            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
+            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
+            "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+        }
+
+        workflow_engine.run(temp_run_dir, to_stage="baseline")
+
+        assert call_order == [
+            "discovery",
+            "branching",
+            "pruning",
+            "baseline",
+        ]
+        assert "optimize" not in call_order
+        assert "validate" not in call_order
+        assert "patch" not in call_order
+
+    def test_run_updates_completed_stages(self, workflow_engine, temp_run_dir):
+        """Test that run() updates completed_stages after each stage."""
+        workflow_engine.stages = {
+            "discovery": lambda r: {"success": True},
+            "branching": lambda r: {"success": True},
+            "pruning": lambda r: {"success": True},
+            "baseline": lambda r: {"success": True},
+            "optimize": lambda r: {"success": True},
+            "validate": lambda r: {"success": True},
+            "patch": lambda r: {"success": True},
+        }
+
+        workflow_engine.run(temp_run_dir, to_stage="patch")
+
+        assert "discovery" in workflow_engine.state.completed_stages
+        assert "branching" in workflow_engine.state.completed_stages
+        assert "pruning" in workflow_engine.state.completed_stages
+        assert "baseline" in workflow_engine.state.completed_stages
+        assert "optimize" in workflow_engine.state.completed_stages
+        assert "validate" in workflow_engine.state.completed_stages
+        assert "patch" in workflow_engine.state.completed_stages
+
+    def test_run_handles_stage_exception(self, workflow_engine, temp_run_dir):
+        """Test that run() handles exceptions from stages."""
+        workflow_engine.stages = {
+            "discovery": lambda r: (_ for _ in ()).throw(Exception("Stage error")),
+            "branching": lambda r: {"success": True},
+            "pruning": lambda r: {"success": True},
+            "baseline": lambda r: {"success": True},
+            "optimize": lambda r: {"success": True},
+            "validate": lambda r: {"success": True},
+            "patch": lambda r: {"success": True},
+        }
+
+        results = workflow_engine.run(temp_run_dir, to_stage="patch")
+
+        assert results["discovery"]["success"] is False
+        assert "Stage error" in results["discovery"]["error"]
+        assert workflow_engine.state.status == "failed"
+
+    def test_run_sets_completed_when_all_stages_done(
+        self, workflow_engine, temp_run_dir
+    ):
+        """Test that run() sets status to 'completed' when all stages finish."""
+        workflow_engine.stages = {
+            "discovery": lambda r: {"success": True},
+            "branching": lambda r: {"success": True},
+            "pruning": lambda r: {"success": True},
+            "baseline": lambda r: {"success": True},
+            "optimize": lambda r: {"success": True},
+            "validate": lambda r: {"success": True},
+            "patch": lambda r: {"success": True},
+        }
+
+        workflow_engine.run(temp_run_dir, to_stage="patch")
+
+        assert workflow_engine.state.status == "completed"
+
+
+# =============================================================================
+# V8WorkflowEngine.advance_one_step() Tests
+# =============================================================================
+
+
+class TestAdvanceOneStep:
+    """Tests for V8WorkflowEngine.advance_one_step() method."""
+
+    def test_advance_one_step_returns_completed_when_all_done(
+        self, mock_config, temp_run_dir
+    ):
+        """Test advance_one_step returns completed=True when all stages done."""
+        # Create a mock repo that returns state with all stages completed
+        mock_repo = Mock()
+        mock_repo.load_state = Mock(
+            return_value={
+                "run_id": "test_run",
+                "current_stage": "patch",
+                "completed_stages": [
+                    "discovery",
+                    "branching",
+                    "pruning",
+                    "baseline",
+                    "optimize",
+                    "validate",
+                    "patch",
+                ],
+                "stage_results": {},
+                "started_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:01:00Z",
+                "status": "completed",
+            }
+        )
+        mock_repo.save_state = Mock()
+        mock_repo.initialize = Mock()
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config, repository=mock_repo, run_id="test_run"
+            )
+
+            result = engine.advance_one_step(temp_run_dir, to_stage="patch")
+
+            assert result["completed"] is True
+            assert result["stage"] is None
+
+    def test_advance_one_step_executes_next_stage(self, mock_config, temp_run_dir):
+        """Test advance_one_step executes the next uncompleted stage."""
+        call_order = []
+
+        # Use repository that returns empty state (fresh start)
+        mock_repo = Mock()
+        mock_repo.load_state = Mock(return_value={})
+        mock_repo.save_state = Mock()
+        mock_repo.initialize = Mock()
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config, repository=mock_repo, run_id="test_run"
+            )
+            engine.stages = {
+                "discovery": lambda r: (
+                    call_order.append("discovery"),
+                    {"success": True},
+                )[1],
+                "branching": lambda r: (
+                    call_order.append("branching"),
+                    {"success": True},
+                )[1],
+                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
+                    1
+                ],
+                "baseline": lambda r: (
+                    call_order.append("baseline"),
+                    {"success": True},
+                )[1],
+                "optimize": lambda r: (
+                    call_order.append("optimize"),
+                    {"success": True},
+                )[1],
+                "validate": lambda r: (
+                    call_order.append("validate"),
+                    {"success": True},
+                )[1],
+                "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+            }
+
+            # First call should do discovery
+            result1 = engine.advance_one_step(temp_run_dir, to_stage="patch")
+            assert result1["completed"] is False
+            assert result1["stage"] == "discovery"
+            assert "discovery" in call_order
+
+            # Second call should do branching
+            result2 = engine.advance_one_step(temp_run_dir, to_stage="patch")
+            assert result2["completed"] is False
+            assert result2["stage"] == "branching"
+            assert "branching" in call_order
+
+    def test_advance_one_step_handles_stage_failure(self, mock_config, temp_run_dir):
+        """Test advance_one_step handles stage failure."""
+        mock_repo = Mock()
+        mock_repo.load_state = Mock(return_value={})
+        mock_repo.save_state = Mock()
+        mock_repo.initialize = Mock()
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config, repository=mock_repo, run_id="test_run"
+            )
+            engine.stages = {
+                "discovery": lambda r: {"success": False, "error": "Discovery failed"},
+                "branching": lambda r: {"success": True},
+                "pruning": lambda r: {"success": True},
+                "baseline": lambda r: {"success": True},
+                "optimize": lambda r: {"success": True},
+                "validate": lambda r: {"success": True},
+                "patch": lambda r: {"success": True},
+            }
+
+            result = engine.advance_one_step(temp_run_dir, to_stage="patch")
+
+            assert result["completed"] is False
+            assert result["stage"] == "discovery"
+            assert result["result"]["success"] is False
+            assert engine.state.status == "failed"
+
+    def test_advance_one_step_handles_exception(self, mock_config, temp_run_dir):
+        """Test advance_one_step handles exceptions."""
+        mock_repo = Mock()
+        mock_repo.load_state = Mock(return_value={})
+        mock_repo.save_state = Mock()
+        mock_repo.initialize = Mock()
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config, repository=mock_repo, run_id="test_run"
+            )
+            engine.stages = {
+                "discovery": lambda r: (_ for _ in ()).throw(
+                    Exception("Test exception")
+                ),
+                "branching": lambda r: {"success": True},
+                "pruning": lambda r: {"success": True},
+                "baseline": lambda r: {"success": True},
+                "optimize": lambda r: {"success": True},
+                "validate": lambda r: {"success": True},
+                "patch": lambda r: {"success": True},
+            }
+
+            result = engine.advance_one_step(temp_run_dir, to_stage="patch")
+
+            assert result["completed"] is False
+            assert result["result"]["success"] is False
+            assert "Test exception" in result["result"]["error"]
+
+    def test_advance_one_step_returns_state_snapshot(self, mock_config, temp_run_dir):
+        """Test advance_one_step returns state snapshot in result."""
+        mock_repo = Mock()
+        mock_repo.load_state = Mock(return_value={})
+        mock_repo.save_state = Mock()
+        mock_repo.initialize = Mock()
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(
+                config=mock_config, repository=mock_repo, run_id="test_run"
+            )
+            engine.stages = {
+                "discovery": lambda r: {"success": True},
+                "branching": lambda r: {"success": True},
+                "pruning": lambda r: {"success": True},
+                "baseline": lambda r: {"success": True},
+                "optimize": lambda r: {"success": True},
+                "validate": lambda r: {"success": True},
+                "patch": lambda r: {"success": True},
+            }
+
+            result = engine.advance_one_step(temp_run_dir, to_stage="patch")
+
+            assert "state" in result
+            assert "run_id" in result["state"]
+            assert "current_stage" in result["state"]
+            assert "completed_stages" in result["state"]
+            assert "status" in result["state"]
+
+
+# =============================================================================
+# V8WorkflowEngine.resume() Tests
+# =============================================================================
+
+
+class TestResume:
+    """Tests for V8WorkflowEngine.resume() method."""
+
+    def test_resume_loads_existing_state_and_continues(self, mock_config, temp_run_dir):
+        """Test resume() loads existing state from run_dir and continues execution."""
+        # Create state file with discovery completed
+        supervisor_dir = temp_run_dir / "supervisor"
+        supervisor_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_state = {
+            "run_id": "resumed_run",
+            "current_stage": "branching",
+            "completed_stages": ["discovery"],
+            "stage_results": {
+                "discovery": {"success": True, "output_file": "/path/to/output.json"}
+            },
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+
+        state_file = supervisor_dir / "v8_state.json"
+        state_file.write_text(json.dumps(saved_state))
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine.stages = {
+                "discovery": lambda r: {"success": True},
+                "branching": lambda r: {"success": True},
+                "pruning": lambda r: {"success": True},
+                "baseline": lambda r: {"success": True},
+                "optimize": lambda r: {"success": True},
+                "validate": lambda r: {"success": True},
+                "patch": lambda r: {"success": True},
+            }
+
+            results = engine.resume(temp_run_dir, to_stage="patch")
+
+            # Verify that resume loaded the state
+            assert engine.state.run_id == "resumed_run"
+            # discovery should still be completed, and all other stages should now be completed too
+            assert "discovery" in engine.state.completed_stages
+            # All stages should have run since state only had discovery completed
+            assert len(engine.state.completed_stages) == 7
+
+    def test_resume_skips_completed_stages(self, mock_config, temp_run_dir):
+        """Test resume() skips already completed stages."""
+        call_order = []
+
+        # Create state file with discovery and branching completed
+        supervisor_dir = temp_run_dir / "supervisor"
+        supervisor_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_state = {
+            "run_id": "resumed_run",
+            "current_stage": "pruning",
+            "completed_stages": ["discovery", "branching"],
+            "stage_results": {
+                "discovery": {"success": True},
+                "branching": {"success": True},
+            },
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+
+        state_file = supervisor_dir / "v8_state.json"
+        state_file.write_text(json.dumps(saved_state))
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine.stages = {
+                "discovery": lambda r: (
+                    call_order.append("discovery"),
+                    {"success": True},
+                )[1],
+                "branching": lambda r: (
+                    call_order.append("branching"),
+                    {"success": True},
+                )[1],
+                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
+                    1
+                ],
+                "baseline": lambda r: (
+                    call_order.append("baseline"),
+                    {"success": True},
+                )[1],
+                "optimize": lambda r: (
+                    call_order.append("optimize"),
+                    {"success": True},
+                )[1],
+                "validate": lambda r: (
+                    call_order.append("validate"),
+                    {"success": True},
+                )[1],
+                "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+            }
+
+            engine.resume(temp_run_dir, to_stage="patch")
+
+            # Discovery and branching should NOT be called (already completed)
+            assert "discovery" not in call_order
+            assert "branching" not in call_order
+            # But pruning and subsequent stages should run
+            assert "pruning" in call_order
+            assert "baseline" in call_order
+
+    def test_resume_stops_on_failure(self, mock_config, temp_run_dir):
+        """Test resume() stops when a stage fails."""
+        call_order = []
+
+        # Create state file with discovery completed
+        supervisor_dir = temp_run_dir / "supervisor"
+        supervisor_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_state = {
+            "run_id": "resumed_run",
+            "current_stage": "branching",
+            "completed_stages": ["discovery"],
+            "stage_results": {"discovery": {"success": True}},
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+
+        state_file = supervisor_dir / "v8_state.json"
+        state_file.write_text(json.dumps(saved_state))
+
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine.stages = {
+                "discovery": lambda r: (
+                    call_order.append("discovery"),
+                    {"success": True},
+                )[1],
+                "branching": lambda r: (
+                    call_order.append("branching"),
+                    {"success": False, "error": "Failed"},
+                )[1],
+                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
+                    1
+                ],
+                "baseline": lambda r: (
+                    call_order.append("baseline"),
+                    {"success": True},
+                )[1],
+                "optimize": lambda r: (
+                    call_order.append("optimize"),
+                    {"success": True},
+                )[1],
+                "validate": lambda r: (
+                    call_order.append("validate"),
+                    {"success": True},
+                )[1],
+                "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
+            }
+
+            results = engine.resume(temp_run_dir, to_stage="patch")
+
+            # discovery is already done, branching should run and fail
+            assert "branching" in call_order
+            # pruning should NOT run (stopped after failure)
+            assert "pruning" not in call_order
+            assert results["branching"]["success"] is False
+
+    def test_resume_saves_state_after_completion(self, workflow_engine, temp_run_dir):
+        """Test resume() saves state after completing stages."""
+        workflow_engine.stages = {
+            "discovery": lambda r: {"success": True},
+            "branching": lambda r: {"success": True},
+            "pruning": lambda r: {"success": True},
+            "baseline": lambda r: {"success": True},
+            "optimize": lambda r: {"success": True},
+            "validate": lambda r: {"success": True},
+            "patch": lambda r: {"success": True},
+        }
+
+        workflow_engine.resume(temp_run_dir, to_stage="patch")
+
+        # Verify state file was created
+        state_file = temp_run_dir / "supervisor" / "v8_state.json"
+        assert state_file.exists()
+
+        saved_state = json.loads(state_file.read_text())
+        assert saved_state["run_id"] == workflow_engine.run_id
+        assert "patch" in saved_state["completed_stages"]
+
+
+# =============================================================================
+# V8WorkflowEngine.get_next_action() Tests
+# =============================================================================
+
+
+class TestGetNextAction:
+    """Tests for V8WorkflowEngine.get_next_action() method."""
+
+    def test_get_next_action_returns_run_when_no_state(
+        self, workflow_engine, temp_run_dir
+    ):
+        """Test get_next_action returns 'run' action when no previous state."""
+        action = workflow_engine.get_next_action(temp_run_dir)
+
+        assert action.action == "run"
+        assert action.stage == "discovery"
+        assert "No previous state" in action.reason
+
+    def test_get_next_action_returns_none_when_complete(
+        self, workflow_engine, temp_run_dir
+    ):
+        """Test get_next_action returns 'none' when already complete."""
+        # Create state file with all stages completed
+        supervisor_dir = temp_run_dir / "supervisor"
+        supervisor_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_state = {
+            "run_id": "test_run",
+            "current_stage": "patch",
+            "completed_stages": [
+                "discovery",
+                "branching",
+                "pruning",
+                "baseline",
+                "optimize",
+                "validate",
+                "patch",
+            ],
+            "stage_results": {},
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "completed",
+        }
+
+        state_file = supervisor_dir / "v8_state.json"
+        state_file.write_text(json.dumps(saved_state))
+
+        action = workflow_engine.get_next_action(temp_run_dir)
+
+        assert action.action == "none"
+        assert action.stage is None
+
+    def test_get_next_action_returns_resume_when_partial(
+        self, workflow_engine, temp_run_dir
+    ):
+        """Test get_next_action returns 'resume' when partially complete."""
+        supervisor_dir = temp_run_dir / "supervisor"
+        supervisor_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_state = {
+            "run_id": "test_run",
+            "current_stage": "branching",
+            "completed_stages": ["discovery"],
+            "stage_results": {"discovery": {"success": True}},
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+
+        state_file = supervisor_dir / "v8_state.json"
+        state_file.write_text(json.dumps(saved_state))
+
+        action = workflow_engine.get_next_action(temp_run_dir)
+
+        assert action.action == "resume"
+        assert action.stage == "branching"
+
+
+# =============================================================================
+# V8WorkflowEngine Stage Methods Tests
+# =============================================================================
+
+
+class TestStageMethods:
+    """Tests for individual stage execution methods."""
+
+    def test_run_discovery_creates_output_file(self, mock_config, temp_run_dir):
+        """Test _run_discovery creates output file with sql_units."""
+        # Mock Scanner at the source
+        mock_result = Mock()
+        mock_result.sql_units = [
+            {"sqlKey": "test1", "sql": "SELECT * FROM users"},
+            {"sqlKey": "test2", "sql": "SELECT * FROM orders"},
+        ]
+        mock_result.total_count = 2
+        mock_result.errors = []
+        mock_result.warnings = []
+
+        with patch("sqlopt.stages.discovery.Scanner") as mock_scanner_class:
+            mock_scanner_instance = Mock()
+            mock_scanner_instance.scan.return_value = mock_result
+            mock_scanner_class.return_value = mock_scanner_instance
+
+            with patch("sqlopt.application.workflow_v8.StatusResolver"):
+                from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+                engine = V8WorkflowEngine(config=mock_config, repository=None)
+                result = engine._run_discovery(temp_run_dir)
+
+                assert result["success"] is True
+                assert result["sql_units_count"] == 2
+
+                output_path = temp_run_dir / "discovery" / "sql_units.json"
+                assert output_path.exists()
+
+                saved_data = json.loads(output_path.read_text())
+                assert len(saved_data) == 2
+
+    def test_run_branching_returns_error_when_no_discovery(
+        self, mock_config, temp_run_dir
+    ):
+        """Test _run_branching returns error when discovery output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_branching(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+
+class TestStageMethodsContinuation:
+    """Continuation of stage method tests - tests actual stage behavior."""
+
+    def test_run_pruning_returns_error_when_no_branching(
+        self, mock_config, temp_run_dir
+    ):
+        """Test _run_pruning returns error when branching output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_pruning(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+    def test_run_baseline_returns_error_when_no_branching(
+        self, mock_config, temp_run_dir
+    ):
+        """Test _run_baseline returns error when branching output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_baseline(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+    def test_run_optimize_returns_error_when_no_baseline(
+        self, mock_config, temp_run_dir
+    ):
+        """Test _run_optimize returns error when baseline output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_optimize(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+    def test_run_validate_returns_error_when_no_optimize(
+        self, mock_config, temp_run_dir
+    ):
+        """Test _run_validate returns error when optimize output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_validate(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+    def test_run_patch_returns_error_when_no_validate(self, mock_config, temp_run_dir):
+        """Test _run_patch returns error when validate output missing."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            result = engine._run_patch(temp_run_dir)
+
+            assert result["success"] is False
+            assert "not found" in result["error"]
+
+
+# =============================================================================
+# State Persistence Tests
+# =============================================================================
+
+
+class TestStatePersistence:
+    """Tests for state persistence functionality."""
+
+    def test_persist_state_calls_repository_save(
+        self, workflow_engine, mock_repository
+    ):
+        """Test _persist_state calls repository.save_state."""
+        workflow_engine._persist_state()
+
+        mock_repository.save_state.assert_called_once()
+        call_args = mock_repository.save_state.call_args[0][0]
+
+        assert call_args["run_id"] == workflow_engine.run_id
+        assert call_args["status"] == "pending"
+        assert "completed_stages" in call_args
+
+    def test_load_state_from_repo_loads_v8_format(
+        self, workflow_engine, mock_repository
+    ):
+        """Test load_state_from_repo handles V8 format."""
+        saved_state = {
+            "run_id": "loaded_run",
+            "current_stage": "optimize",
+            "completed_stages": ["discovery", "branching"],
+            "stage_results": {"discovery": {"success": True}},
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+        mock_repository.load_state = Mock(return_value=saved_state)
+
+        workflow_engine.load_state_from_repo()
+
+        assert workflow_engine.state.run_id == "loaded_run"
+        assert workflow_engine.state.current_stage == "optimize"
+        assert "discovery" in workflow_engine.state.completed_stages
+        assert "branching" in workflow_engine.state.completed_stages
+
+    def test_load_state_from_repo_handles_legacy_format(
+        self, workflow_engine, mock_repository
+    ):
+        """Test load_state_from_repo handles legacy format."""
+        legacy_state = {
+            "phase_status": {
+                "discovery": "DONE",
+                "branching": "DONE",
+                "pruning": "IN_PROGRESS",
+            }
+        }
+        mock_repository.load_state = Mock(return_value=legacy_state)
+
+        workflow_engine.load_state_from_repo()
+
+        assert workflow_engine.state.status == "running"
+
+    def test_save_and_load_state_roundtrip(self, mock_config, temp_run_dir):
+        """Test state save and load produces consistent results."""
+        with patch("sqlopt.application.workflow_v8.StatusResolver"):
+            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+
+            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine.state.completed_stages = ["discovery", "branching"]
+            engine.state.current_stage = "pruning"
+            engine.state.status = "running"
+
+            # Save state
+            engine._save_state(temp_run_dir)
+
+            # Load into new state object
+            from sqlopt.application.workflow_v8 import V8WorkflowState
+
+            state_file = temp_run_dir / "supervisor" / "v8_state.json"
+            loaded_data = json.loads(state_file.read_text())
+
+            new_state = V8WorkflowState(**loaded_data)
+
+            assert new_state.completed_stages == ["discovery", "branching"]
+            assert new_state.current_stage == "pruning"
+            assert new_state.status == "running"
+
+
+# =============================================================================
+# Helper Functions Tests
+# =============================================================================
+
+
+class TestHelperFunctions:
+    """Tests for module-level helper functions."""
+
+    def test_run_v8_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
+        """Test run_v8_workflow creates engine and calls run."""
+        with patch(
+            "sqlopt.application.workflow_v8.V8WorkflowEngine"
+        ) as mock_engine_class:
+            mock_engine = Mock()
+            mock_engine.run.return_value = {"discovery": {"success": True}}
+            mock_engine_class.return_value = mock_engine
+
+            from sqlopt.application.workflow_v8 import run_v8_workflow
+
+            result = run_v8_workflow(mock_config, temp_run_dir, to_stage="discovery")
+
+            mock_engine_class.assert_called_once_with(mock_config)
+            mock_engine.run.assert_called_once_with(temp_run_dir, "discovery")
+            assert result == {"discovery": {"success": True}}
+
+    def test_runs_root_returns_correct_path(self, mock_config):
+        """Test runs_root returns correct path based on config."""
+        mock_config["project"]["root_path"] = "/project/root"
+
+        from sqlopt.application.workflow_v8 import runs_root
+
+        result = runs_root(mock_config)
+
+        assert result == Path("/project/root/runs")
+
+    def test_persist_state_calls_repository_save(
+        self, workflow_engine, mock_repository
+    ):
+        """Test _persist_state calls repository.save_state."""
+        workflow_engine._persist_state()
+
+        mock_repository.save_state.assert_called_once()
+        call_args = mock_repository.save_state.call_args[0][0]
+
+        assert call_args["run_id"] == workflow_engine.run_id
+        assert call_args["status"] == "pending"
+        assert "completed_stages" in call_args
+
+    def test_load_state_from_repo_loads_v8_format(
+        self, workflow_engine, mock_repository
+    ):
+        """Test load_state_from_repo handles V8 format."""
+        saved_state = {
+            "run_id": "loaded_run",
+            "current_stage": "optimize",
+            "completed_stages": ["discovery", "branching"],
+            "stage_results": {"discovery": {"success": True}},
+            "started_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "running",
+        }
+        mock_repository.load_state.return_value = saved_state
+
+        workflow_engine.load_state_from_repo()
+
+        assert workflow_engine.state.run_id == "loaded_run"
+        assert workflow_engine.state.current_stage == "optimize"
+        assert "discovery" in workflow_engine.state.completed_stages
+        assert "branching" in workflow_engine.state.completed_stages
+
+    def test_load_state_from_repo_handles_legacy_format(
+        self, workflow_engine, mock_repository
+    ):
+        """Test load_state_from_repo handles legacy format."""
+        legacy_state = {
+            "phase_status": {
+                "discovery": "DONE",
+                "branching": "DONE",
+                "pruning": "IN_PROGRESS",
+            }
+        }
+        mock_repository.load_state.return_value = legacy_state
+
+        workflow_engine.load_state_from_repo()
+
+        # Should set status to running for legacy format
+        assert workflow_engine.state.status == "running"
+
+    def test_save_and_load_state_roundtrip(self, workflow_engine, temp_run_dir):
+        """Test state save and load produces consistent results."""
+        workflow_engine.state.completed_stages = ["discovery", "branching"]
+        workflow_engine.state.current_stage = "pruning"
+        workflow_engine.state.status = "running"
+
+        # Save state
+        workflow_engine._save_state(temp_run_dir)
+
+        # Load into new state object
+        from sqlopt.application.workflow_v8 import V8WorkflowState
+
+        state_file = temp_run_dir / "supervisor" / "v8_state.json"
+        loaded_data = json.loads(state_file.read_text())
+
+        new_state = V8WorkflowState(**loaded_data)
+
+        assert new_state.completed_stages == ["discovery", "branching"]
+        assert new_state.current_stage == "pruning"
+        assert new_state.status == "running"
+
+
+# =============================================================================
+# Helper Functions Tests
+# =============================================================================
+
+
+class TestHelperFunctions:
+    """Tests for module-level helper functions."""
+
+    def test_run_v8_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
+        """Test run_v8_workflow creates engine and calls run."""
+        with patch(
+            "sqlopt.application.workflow_v8.V8WorkflowEngine"
+        ) as mock_engine_class:
+            mock_engine = Mock()
+            mock_engine.run.return_value = {"discovery": {"success": True}}
+            mock_engine_class.return_value = mock_engine
+
+            from sqlopt.application.workflow_v8 import run_v8_workflow
+
+            result = run_v8_workflow(mock_config, temp_run_dir, to_stage="discovery")
+
+            mock_engine_class.assert_called_once_with(mock_config)
+            mock_engine.run.assert_called_once_with(temp_run_dir, "discovery")
+            assert result == {"discovery": {"success": True}}
+
+    def test_runs_root_returns_correct_path(self, mock_config):
+        """Test runs_root returns correct path based on config."""
+        mock_config["project"]["root_path"] = "/project/root"
+
+        from sqlopt.application.workflow_v8 import runs_root
+
+        result = runs_root(mock_config)
+
+        assert result == Path("/project/root/runs")
+
+
+# =============================================================================
+# STAGE_ORDER Constant Tests
+# =============================================================================
+
+
+class TestStageOrder:
+    """Tests for STAGE_ORDER constant."""
+
+    def test_stage_order_has_seven_stages(self):
+        """Test STAGE_ORDER contains all 7 stages."""
+        from sqlopt.application.workflow_v8 import STAGE_ORDER
+
+        expected = [
+            "discovery",
+            "branching",
+            "pruning",
+            "baseline",
+            "optimize",
+            "validate",
+            "patch",
+        ]
+        assert STAGE_ORDER == expected
+
+    def test_stage_order_is_correct_sequence(self):
+        """Test STAGE_ORDER is in correct execution sequence."""
+        from sqlopt.application.workflow_v8 import STAGE_ORDER
+
+        assert STAGE_ORDER.index("discovery") < STAGE_ORDER.index("branching")
+        assert STAGE_ORDER.index("branching") < STAGE_ORDER.index("pruning")
+        assert STAGE_ORDER.index("pruning") < STAGE_ORDER.index("baseline")
+        assert STAGE_ORDER.index("baseline") < STAGE_ORDER.index("optimize")
+        assert STAGE_ORDER.index("optimize") < STAGE_ORDER.index("validate")
+        assert STAGE_ORDER.index("validate") < STAGE_ORDER.index("patch")
+
+
+# =============================================================================
+# V8WorkflowState Dataclass Tests
+# =============================================================================
+
+
+class TestV8WorkflowState:
+    """Tests for V8WorkflowState dataclass."""
+
+    def test_v8_workflow_state_default_values(self):
+        """Test V8WorkflowState default values."""
+        from sqlopt.application.workflow_v8 import V8WorkflowState
+
+        state = V8WorkflowState()
+
+        assert state.run_id == ""
+        assert state.current_stage == ""
+        assert state.completed_stages == []
+        assert state.stage_results == {}
+        assert state.started_at == ""
+        assert state.updated_at == ""
+        assert state.status == "pending"
+
+    def test_v8_workflow_state_with_values(self):
+        """Test V8WorkflowState with provided values."""
+        from sqlopt.application.workflow_v8 import V8WorkflowState
+
+        state = V8WorkflowState(
+            run_id="test_run",
+            current_stage="discovery",
+            completed_stages=["discovery", "branching"],
+            stage_results={"discovery": {"success": True}},
+            started_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:01:00Z",
+            status="running",
+        )
+
+        assert state.run_id == "test_run"
+        assert state.current_stage == "discovery"
+        assert len(state.completed_stages) == 2
+        assert state.status == "running"
+
+
+# =============================================================================
+# NextAction Dataclass Tests
+# =============================================================================
+
+
+class TestNextAction:
+    """Tests for NextAction dataclass."""
+
+    def test_next_action_default_values(self):
+        """Test NextAction default values."""
+        from sqlopt.application.workflow_v8 import NextAction
+
+        action = NextAction(action="run")
+
+        assert action.action == "run"
+        assert action.stage is None
+        assert action.reason == ""
+
+    def test_next_action_with_values(self):
+        """Test NextAction with provided values."""
+        from sqlopt.application.workflow_v8 import NextAction
+
+        action = NextAction(
+            action="resume", stage="discovery", reason="Start fresh run"
+        )
+
+        assert action.action == "resume"
+        assert action.stage == "discovery"
+        assert action.reason == "Start fresh run"
+
+
+# =============================================================================
+# Main Entry Point
+# =============================================================================
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

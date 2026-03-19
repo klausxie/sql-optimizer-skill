@@ -5,48 +5,149 @@ Handles branch generation from MyBatis dynamic SQL templates.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ...application.stage_registry import StageRegistry, stage_registry
 from ...contracts import ContractValidator
+from ...io_utils import append_jsonl
 from ...manifest import log_event
 from ...run_paths import canonical_paths
-from .brancher import Brancher, generate_branches
+from ..base import Stage, StageContext, StageResult
+from .brancher import Brancher
 
 
-@dataclass
-class BranchingResult:
-    """Result of branching for a single SQL unit."""
+@stage_registry.register
+class BranchingStage(Stage):
+    """Branching stage implementation for V8 architecture.
 
-    sql_key: str
-    branches: list[dict[str, Any]]
-    branch_count: int
-    execution_time_ms: float
-    trace: dict[str, Any]
+    Generates executable SQL branches from MyBatis dynamic SQL templates.
+    """
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    name: str = "branching"
+    version: str = "1.0.0"
+    dependencies: list[str] = ["discovery"]
+
+    def __init__(self, config: dict[str, Any] | None = None):
+        self.config = config or {}
+        self.brancher = Brancher(
+            strategy=self.config.get("branching_strategy", "all_combinations"),
+            max_branches=self.config.get("max_branches", 100),
+        )
+
+    def execute(self, context: StageContext) -> StageResult:
+        errors: list[str] = []
+        warnings: list[str] = []
+        artifacts: dict[str, Any] = {}
+        output_files: list[Path] = []
+
+        run_dir = context.data_dir
+        paths = canonical_paths(run_dir)
+        validator = ContractValidator(Path(__file__).resolve().parents[2])
+
+        sqlunits_path = paths.scan_units_path
+        if not sqlunits_path.exists():
+            return StageResult(
+                success=False,
+                output_files=[],
+                artifacts={},
+                errors=[f"input file not found: {sqlunits_path}"],
+                warnings=[],
+            )
+
+        all_branches: list[dict[str, Any]] = []
+
+        try:
+            with open(sqlunits_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    import json
+
+                    record = json.loads(line)
+                    sql_units = record.get("sqlUnits", [])
+                    for unit in sql_units:
+                        try:
+                            validator.validate_stage_input("branching", unit)
+                        except Exception as e:
+                            errors.append(f"input validation error: {e}")
+                            continue
+
+                        result = _execute_one(
+                            unit,
+                            run_dir,
+                            validator,
+                            self.config,
+                            self.brancher,
+                        )
+
+                        all_branches.append(result)
+
+        except Exception as e:
+            errors.append(f"error reading sqlunits: {e}")
+
+        branching_result = {
+            "branches": all_branches,
+            "totalBranchCount": len(all_branches),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        for branch_result in all_branches:
+            try:
+                validator.validate_stage_output("branching", branch_result)
+            except Exception as e:
+                errors.append(f"output validation error: {e}")
+
+        append_jsonl(paths.branches_path, branching_result)
+        output_files.append(paths.branches_path)
+
+        log_event(
+            paths.manifest_path,
+            "branching",
+            "done",
+            {
+                "run_id": context.run_id,
+                "branch_count": len(all_branches),
+            },
+        )
+
+        artifacts = {
+            "branches": all_branches,
+            "total_branch_count": len(all_branches),
+        }
+
+        return StageResult(
+            success=len(errors) == 0,
+            output_files=output_files,
+            artifacts=artifacts,
+            errors=errors,
+            warnings=warnings,
+        )
+
+    def get_input_contracts(self) -> list[str]:
+        return ["sqlunit"]
+
+    def get_output_contracts(self) -> list[str]:
+        return ["sqlunit"]
+
+    def execute_one(
+        self,
+        sql_unit: dict[str, Any],
+        run_dir: Path,
+        validator: ContractValidator,
+    ) -> dict[str, Any]:
+        return _execute_one(sql_unit, run_dir, validator, self.config, self.brancher)
 
 
-def execute_one(
+def _execute_one(
     sql_unit: dict[str, Any],
     run_dir: Path,
     validator: ContractValidator,
     config: dict[str, Any] | None = None,
+    brancher: Brancher | None = None,
 ) -> dict[str, Any]:
-    """Execute branching for a single SQL unit.
-
-    Args:
-        sql_unit: SQL unit dictionary with sql_key and sql fields
-        run_dir: Run directory
-        validator: Contract validator
-        config: Optional configuration
-
-    Returns:
-        Branching result dictionary
-    """
     config = config or {}
     paths = canonical_paths(run_dir)
 
@@ -58,18 +159,16 @@ def execute_one(
     )
     sql = sql_unit.get("sql", "")
 
-    # Get branching configuration
     strategy = config.get("branching_strategy", "all_combinations")
     max_branches = config.get("max_branches", 100)
 
-    # Run branch generation
-    brancher = Brancher(strategy=strategy, max_branches=max_branches)
+    if brancher is None:
+        brancher = Brancher(strategy=strategy, max_branches=max_branches)
+
     start_time = datetime.now(timezone.utc)
 
-    # Extract conditions from sql_unit if present
     conditions = sql_unit.get("conditions", [])
 
-    # Generate branches using the Brancher
     branch_objects = brancher.generate(sql, conditions)
     branches = [
         {
@@ -109,30 +208,10 @@ def execute_one(
     return branching_result
 
 
-class BranchingStage:
-    """Branching stage wrapper for V8 architecture."""
-
-    def __init__(self, config: dict[str, Any] | None = None):
-        self.config = config or {}
-        self.brancher = Brancher(
-            strategy=self.config.get("branching_strategy", "all_combinations"),
-            max_branches=self.config.get("max_branches", 100),
-        )
-
-    def execute_one(
-        self,
-        sql_unit: dict[str, Any],
-        run_dir: Path,
-        validator: ContractValidator,
-    ) -> dict[str, Any]:
-        """Execute branching for a single SQL unit.
-
-        Args:
-            sql_unit: SQL unit dictionary
-            run_dir: Run directory
-            validator: Contract validator
-
-        Returns:
-            Branching result dictionary
-        """
-        return execute_one(sql_unit, run_dir, validator, self.config)
+def execute_one(
+    sql_unit: dict[str, Any],
+    run_dir: Path,
+    validator: ContractValidator,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _execute_one(sql_unit, run_dir, validator, config)

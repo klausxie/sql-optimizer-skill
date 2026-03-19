@@ -4,7 +4,112 @@
 
 ---
 
-## 一、7 阶段总体流程
+## 一、Stage 插件架构
+
+V8 架构采用**插件式 Stage 设计**，所有 7 个阶段均通过统一的基础架构实现，便于扩展和维护。
+
+### 1.1 核心组件
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| `Stage` | `python/sqlopt/stages/base.py` | 阶段基类，定义接口契约 |
+| `StageContext` | `python/sqlopt/stages/base.py` | 阶段执行上下文，传递运行信息 |
+| `StageResult` | `python/sqlopt/stages/base.py` | 阶段执行结果，包含产物和错误 |
+| `StageRegistry` | `python/sqlopt/application/stage_registry.py` | 单例注册表，管理所有阶段 |
+
+### 1.2 Stage 接口
+
+所有阶段必须实现以下抽象方法：
+
+```python
+class Stage(ABC):
+    name: str = "base"           # 阶段名称
+    version: str = "1.0.0"       # 阶段版本
+    dependencies: list[str] = []  # 依赖阶段列表
+
+    @abstractmethod
+    def execute(self, context: StageContext) -> StageResult:
+        """执行阶段逻辑"""
+        pass
+
+    @abstractmethod
+    def get_input_contracts(self) -> list[str]:
+        """返回输入契约列表（如 sqlunit_v1, branch_v1）"""
+        pass
+
+    @abstractmethod
+    def get_output_contracts(self) -> list[str]:
+        """返回输出契约列表（如 risk_v1, baseline_v1）"""
+        pass
+```
+
+### 1.3 可选钩子方法
+
+| 钩子 | 说明 |
+|------|------|
+| `validate_input` | 验证输入是否有效 |
+| `can_process` | 判断是否能处理该 SQL 单元 |
+| `on_stage_start` | 阶段开始前调用 |
+| `on_stage_end` | 阶段结束后调用 |
+| `cleanup` | 清理资源 |
+
+### 1.4 阶段注册
+
+使用 `@stage_registry.register` 装饰器注册阶段：
+
+```python
+from sqlopt.application.stage_registry import stage_registry
+from sqlopt.stages.base import Stage, StageContext, StageResult
+
+@stage_registry.register
+class DiscoveryStage(Stage):
+    name: str = "discovery"
+    version: str = "1.0.0"
+    dependencies: list[str] = []
+
+    def execute(self, context: StageContext) -> StageResult:
+        # 实现阶段逻辑
+        ...
+
+    def get_input_contracts(self) -> list[str]:
+        return []
+
+    def get_output_contracts(self) -> list[str]:
+        return ["sqlunit_v1"]
+```
+
+### 1.5 获取阶段实例
+
+```python
+from sqlopt.application.stage_registry import stage_registry
+
+# 获取阶段实例（懒加载，单例）
+stage = stage_registry.get("discovery")
+
+# 列出所有注册的阶段
+all_stages = stage_registry.list_stages()
+# => ["baseline", "branching", "discovery", "optimize", "patch", "pruning", "validate"]
+
+# 获取阶段依赖
+deps = stage_registry.get_dependencies("optimize")
+# => ["baseline", "pruning"]
+```
+
+### 1.6 已注册的阶段
+
+| 阶段 | 类名 | 说明 |
+|------|------|------|
+| `discovery` | `DiscoveryStage` | 连接数据库、采集表结构、解析 MyBatis XML |
+| `branching` | `BranchingStage` | 展开动态标签生成分支路径（if/choose/foreach） |
+| `pruning` | `PruningStage` | 静态分析、风险标记、低价值分支过滤 |
+| `baseline` | `BaselineStage` | EXPLAIN 采集执行计划、记录性能基线 |
+| `optimize` | `OptimizeStage` | 规则引擎 + LLM 生成优化建议 |
+| `validate` | `ValidateStage` | 语义验证、性能对比、结果集校验 |
+| `patch` | `PatchStage` | 生成 XML 补丁、用户确认、应用变更 |
+
+---
+
+## 二、7 阶段总体流程
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐

@@ -7,30 +7,93 @@ Supports resume from interruption point.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple, Type
 import json
 import time
+import logging
+import sqlite3
 
 from .status_resolver import StatusResolver, PhaseExecutionPolicy, StatusResolution
 from .requests import AdvanceStepRequest, RunStatusRequest
 
+logger = logging.getLogger(__name__)
 
-@dataclass
-class StageContext:
-    run_id: str
-    config: dict
-    run_dir: Path
-    cache_dir: Path
-    metadata: dict
+MAX_RETRY_ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 1
+
+TRANSIENT_ERROR_TYPES: Tuple[Type[Exception], ...] = (
+    ConnectionError,
+    TimeoutError,
+    ConnectionResetError,
+    ConnectionRefusedError,
+    ConnectionAbortedError,
+    BrokenPipeError,
+    sqlite3.OperationalError,
+    sqlite3.InterfaceError,
+)
+
+TRANSIENT_ERROR_PATTERNS = [
+    "timeout",
+    "timed out",
+    "connection",
+    "network",
+    "transient",
+    "temporarily",
+    "unavailable",
+    "refused",
+    "reset",
+    "lost connection",
+    "deadlock",
+    "retry",
+    "temporary failure",
+]
 
 
-@dataclass
-class StageResult:
-    success: bool
-    output_files: list[Path]
-    artifacts: dict
-    errors: list[str]
-    warnings: list[str]
+def _is_transient_error(error: Exception) -> bool:
+    if isinstance(error, TRANSIENT_ERROR_TYPES):
+        return True
+
+    error_str = str(error).lower()
+    for pattern in TRANSIENT_ERROR_PATTERNS:
+        if pattern in error_str:
+            return True
+
+    return False
+
+
+def _execute_with_retry(
+    func: Callable[..., Any],
+    *args: Any,
+    max_attempts: int = MAX_RETRY_ATTEMPTS,
+    **kwargs: Any,
+) -> Any:
+    last_error: Optional[Exception] = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+
+            if not _is_transient_error(e):
+                logger.debug(
+                    f"Non-transient error in {func.__name__}: {e}. Not retrying."
+                )
+                raise
+
+            if attempt < max_attempts:
+                logger.warning(
+                    f"Transient error in {func.__name__} (attempt {attempt}/{max_attempts}): {e}. "
+                    f"Retrying in {RETRY_DELAY_SECONDS}s..."
+                )
+                time.sleep(RETRY_DELAY_SECONDS)
+            else:
+                logger.error(
+                    f"All {max_attempts} attempts failed for {func.__name__}: {e}"
+                )
+
+    if last_error is not None:
+        raise last_error
 
 
 @dataclass
@@ -101,6 +164,78 @@ class V8WorkflowEngine:
             phase_policies=DEFAULT_PHASE_POLICIES,
         )
 
+    # -------------------------------------------------------------------------
+    # Pipeline Configuration Support
+    # -------------------------------------------------------------------------
+
+    def _get_pipeline_config(self) -> dict[str, Any]:
+        """Get pipeline configuration from config dict.
+
+        Returns:
+            Pipeline config dict with stages list, or empty dict if not defined.
+        """
+        pipeline = self.config.get("pipeline", {})
+        if isinstance(pipeline, dict):
+            return pipeline
+        return {}
+
+    def _get_stage_enabled_map(self) -> dict[str, bool]:
+        """Build a map of stage name to enabled status from config.
+
+        Returns:
+            Dict mapping stage name to whether it's enabled.
+            Defaults to True for all stages if not specified in config.
+        """
+        pipeline = self._get_pipeline_config()
+        stages_config = pipeline.get("stages", [])
+
+        # Start with all stages enabled by default
+        enabled_map = {stage: True for stage in STAGE_ORDER}
+
+        # Apply config overrides
+        if isinstance(stages_config, list):
+            for stage_config in stages_config:
+                if isinstance(stage_config, dict):
+                    name = stage_config.get("name")
+                    if name in enabled_map:
+                        enabled_map[name] = stage_config.get("enabled", True)
+
+        return enabled_map
+
+    def _is_stage_enabled(self, stage_name: str) -> bool:
+        """Check if a stage is enabled based on config.
+
+        Args:
+            stage_name: Name of the stage to check.
+
+        Returns:
+            True if stage should run, False if disabled.
+        """
+        enabled_map = self._get_stage_enabled_map()
+        return enabled_map.get(stage_name, True)
+
+    def get_stage_config(self, stage_name: str) -> dict[str, Any]:
+        """Get configuration for a specific stage.
+
+        Args:
+            stage_name: Name of the stage.
+
+        Returns:
+            Stage-specific config dict, or empty dict if not defined.
+        """
+        pipeline = self._get_pipeline_config()
+        stages_config = pipeline.get("stages", [])
+
+        if isinstance(stages_config, list):
+            for stage_config in stages_config:
+                if (
+                    isinstance(stage_config, dict)
+                    and stage_config.get("name") == stage_name
+                ):
+                    return stage_config.get("config", {})
+
+        return {}
+
     def _register_stages(self):
         from ..stages.discovery import Scanner
         from ..stages.branching import BranchGenerator
@@ -165,12 +300,15 @@ class V8WorkflowEngine:
             if stage_name not in self.stages:
                 continue
 
+            if not self._is_stage_enabled(stage_name):
+                continue
+
             self.state.current_stage = stage_name
             self._persist_state()
 
             stage_fn = self.stages[stage_name]
             try:
-                result = stage_fn(run_dir)
+                result = _execute_with_retry(stage_fn, run_dir)
                 results[stage_name] = result
                 self.state.stage_results[stage_name] = result
 
@@ -179,7 +317,6 @@ class V8WorkflowEngine:
                     self._persist_state()
                     break
 
-                # 阶段成功完成，持久化状态
                 self.state.completed_stages.append(stage_name)
                 self._persist_state()
 
@@ -232,9 +369,30 @@ class V8WorkflowEngine:
         # 确定下一个要执行的阶段
         next_stage = None
         for stage_name in STAGE_ORDER:
-            if stage_name not in self.state.completed_stages:
+            if stage_name not in self.state.completed_stages and self._is_stage_enabled(
+                stage_name
+            ):
                 next_stage = stage_name
                 break
+
+        all_enabled_done = all(
+            s in self.state.completed_stages or not self._is_stage_enabled(s)
+            for s in STAGE_ORDER
+        )
+        if next_stage is None and all_enabled_done:
+            self.state.status = "completed"
+            self._persist_state()
+            return {
+                "completed": True,
+                "stage": None,
+                "result": None,
+                "state": {
+                    "run_id": self.state.run_id,
+                    "current_stage": self.state.current_stage,
+                    "completed_stages": self.state.completed_stages,
+                    "status": self.state.status,
+                },
+            }
 
         # 检查是否已完成所有阶段
         if next_stage is None:
@@ -294,7 +452,7 @@ class V8WorkflowEngine:
 
         stage_fn = self.stages[next_stage]
         try:
-            result = stage_fn(run_dir)
+            result = _execute_with_retry(stage_fn, run_dir)
             self.state.stage_results[next_stage] = result
 
             if result.get("success", False):
@@ -359,6 +517,9 @@ class V8WorkflowEngine:
             if stage_name not in self.stages:
                 continue
 
+            if not self._is_stage_enabled(stage_name):
+                continue
+
             # 检查阶段是否已完成
             if stage_name in self.state.completed_stages:
                 stage_result = self.state.stage_results.get(
@@ -369,7 +530,7 @@ class V8WorkflowEngine:
 
             stage_fn = self.stages[stage_name]
             try:
-                result = stage_fn(run_dir)
+                result = _execute_with_retry(stage_fn, run_dir)
                 results[stage_name] = result
 
                 if result.get("success", False):
@@ -414,10 +575,17 @@ class V8WorkflowEngine:
         """
         state = self._load_state(run_dir)
         if not state:
+            for stage_name in STAGE_ORDER:
+                if self._is_stage_enabled(stage_name):
+                    return NextAction(
+                        action="run",
+                        stage=stage_name,
+                        reason="No previous state found, start fresh run",
+                    )
             return NextAction(
-                action="run",
-                stage=STAGE_ORDER[0],
-                reason="No previous state found, start fresh run",
+                action="none",
+                stage=None,
+                reason="No enabled stages found in pipeline config",
             )
 
         self.state = state
@@ -432,7 +600,9 @@ class V8WorkflowEngine:
 
         # 找到下一个未完成的阶段
         for stage_name in STAGE_ORDER:
-            if stage_name not in self.state.completed_stages:
+            if stage_name not in self.state.completed_stages and self._is_stage_enabled(
+                stage_name
+            ):
                 return NextAction(
                     action="resume",
                     stage=stage_name,
@@ -442,7 +612,7 @@ class V8WorkflowEngine:
         return NextAction(
             action="none",
             stage=None,
-            reason="All stages completed",
+            reason="All enabled stages completed",
         )
 
     def _is_complete_to_stage(self, to_stage: str) -> bool:
