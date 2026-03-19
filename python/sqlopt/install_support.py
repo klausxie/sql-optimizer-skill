@@ -20,9 +20,11 @@ def home_dir() -> Path:
 
 def opencode_home() -> Path:
     """Returns the config directory for OpenCode skills."""
-    # Global: ~/.config/opencode/
-    # Project-local: <project>/.opencode/
-    config_home = os.environ.get("XDG_CONFIG_HOME") or (home_dir() / ".config")
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        config_home = Path(xdg)
+    else:
+        config_home = home_dir() / ".config"
     return config_home / "opencode"
 
 
