@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...application.stage_registry import StageRegistry, stage_registry
-from ...contracts import ContractValidator, STAGE_BOUNDARIES
-from ...io_utils import append_jsonl
+from ...application.stage_registry import stage_registry
+from ...contracts import ContractValidator
+from ...io_utils import read_jsonl, write_jsonl
 from ...manifest import log_event
 from ...run_paths import canonical_paths
 from ..base import Stage, StageContext, StageResult
@@ -21,119 +21,65 @@ from .analyzer import RiskDetector
 
 @stage_registry.register
 class PruningStage(Stage):
-    """Pruning stage implementation for V8 architecture.
-
-    Performs risk detection and branch pruning for SQL units.
-    """
+    """Pruning stage implementation for V8 architecture."""
 
     name: str = "pruning"
     version: str = "1.0.0"
-    dependencies: list[str] = ["discovery", "branching"]
+    dependencies: list[str] = ["branching"]
 
     def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.detector = RiskDetector()
 
     def execute(self, context: StageContext) -> StageResult:
-        """Execute the pruning stage.
-
-        Args:
-            context: Stage execution context containing run_id, config, and data_dir
-
-        Returns:
-            StageResult with pruning artifacts
-        """
         errors: list[str] = []
         warnings: list[str] = []
-        artifacts: dict[str, Any] = {}
-        output_files: list[Path] = []
-
         run_dir = context.data_dir
         paths = canonical_paths(run_dir)
+        paths.ensure_layout()
         validator = ContractValidator(Path(__file__).resolve().parents[2])
 
-        # Get SQL units from input (produced by branching stage)
-        scan_units_path = paths.scan_units_path
-        if not scan_units_path.exists():
-            errors.append(
-                "no scan units found - ensure discovery and branching stages completed"
-            )
+        input_path = paths.branches_path if paths.branches_path.exists() else paths.scan_units_path
+        if not input_path.exists():
             return StageResult(
                 success=False,
-                output_files=output_files,
-                artifacts=artifacts,
-                errors=errors,
-                warnings=warnings,
+                output_files=[],
+                artifacts={},
+                errors=[f"input file not found: {input_path}"],
+                warnings=[],
             )
 
-        # Read and process each SQL unit
-        all_risks: list[dict[str, Any]] = []
-        sql_units_processed = 0
+        sql_units = [row for row in read_jsonl(input_path) if isinstance(row, dict)]
+        risk_records: list[dict[str, Any]] = []
+        for unit in sql_units:
+            try:
+                validator.validate_stage_input("pruning", unit)
+                risk_records.append(self._prune_unit(unit, run_dir, validator))
+            except Exception as exc:
+                errors.append(
+                    f"error processing {unit.get('sqlKey', 'unknown')}: {exc}"
+                )
 
-        try:
-            with scan_units_path.open(encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    import json
-
-                    record = json.loads(line)
-                    sql_units = record.get("sqlUnits", [])
-                    if not sql_units:
-                        # Handle single sqlunit format
-                        if "sqlKey" in record:
-                            sql_units = [record]
-                        else:
-                            continue
-
-                    for unit in sql_units:
-                        try:
-                            result = self._prune_unit(unit, run_dir, validator)
-                            all_risks.append(result)
-                            sql_units_processed += 1
-                        except Exception as e:
-                            errors.append(
-                                f"error processing {unit.get('sqlKey', 'unknown')}: {e}"
-                            )
-
-        except Exception as e:
-            errors.append(f"error reading scan units: {e}")
-
-        # Build pruning result
-        pruning_result = {
-            "sqlUnitsProcessed": sql_units_processed,
-            "totalRisks": len(all_risks),
-            "risks": all_risks,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        # Persist to branching results (pruning modifies branch metadata)
-        output_files.append(paths.branches_path)
-
-        # Log completion
+        write_jsonl(paths.pruning_risks_path, risk_records)
         log_event(
             paths.manifest_path,
             "pruning",
             "done",
             {
                 "run_id": context.run_id,
-                "sql_units_processed": sql_units_processed,
-                "risk_count": len(all_risks),
+                "sql_units_processed": len(risk_records),
+                "risk_count": sum(len(row.get("risks", [])) for row in risk_records),
             },
         )
 
-        # Build artifacts
-        artifacts = {
-            "risks": all_risks,
-            "sql_units_processed": sql_units_processed,
-            "total_risk_count": len(all_risks),
-        }
-
         return StageResult(
             success=len(errors) == 0,
-            output_files=output_files,
-            artifacts=artifacts,
+            output_files=[paths.pruning_risks_path],
+            artifacts={
+                "risks": risk_records,
+                "sql_unit_count": len(risk_records),
+                "risk_count": sum(len(row.get("risks", [])) for row in risk_records),
+            },
             errors=errors,
             warnings=warnings,
         )
@@ -144,75 +90,12 @@ class PruningStage(Stage):
         run_dir: Path,
         validator: ContractValidator,
     ) -> dict[str, Any]:
-        """Prune risks for a single SQL unit.
-
-        Args:
-            sql_unit: SQL unit dictionary
-            run_dir: Run directory
-            validator: Contract validator
-
-        Returns:
-            Pruning result dictionary
-        """
-        paths = canonical_paths(run_dir)
-
-        sql_key = sql_unit.get(
-            "sqlKey",
-            sql_unit.get("namespace", "unknown")
-            + "."
-            + sql_unit.get("statementId", "unknown"),
-        )
-        original_sql = sql_unit.get("sql", "")
-
-        # Run risk detection
-        start_time = datetime.now(timezone.utc)
-        risks = self.detector.analyze(original_sql, sql_key)
-        end_time = datetime.now(timezone.utc)
-
-        execution_time_ms = (end_time - start_time).total_seconds() * 1000
-
-        # Determine pruned branches based on risk severity
-        pruned_branches = []
-        for risk in risks:
-            if risk.severity == "HIGH":
-                pruned_branches.append(f"risk:{risk.risk_type}")
-
-        result = {
-            "sqlKey": sql_key,
-            "risks": [risk.to_dict() for risk in risks],
-            "prunedBranches": pruned_branches,
-            "executionTimeMs": execution_time_ms,
-            "trace": {
-                "stage": "pruning",
-                "sql_key": sql_key,
-                "executor": "risk_detector",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        }
-
-        log_event(
-            paths.manifest_path,
-            "pruning",
-            "done",
-            {"statement_key": sql_key, "risk_count": len(risks)},
-        )
-
-        return result
+        return execute_one(sql_unit, run_dir, validator, self.config)
 
     def get_input_contracts(self) -> list[str]:
-        """Pruning takes sqlunit as input.
-
-        Returns:
-            List containing "sqlunit"
-        """
         return ["sqlunit"]
 
     def get_output_contracts(self) -> list[str]:
-        """Pruning produces custom risks output (not a standard schema).
-
-        Returns:
-            Empty list since output is not a known schema
-        """
         return []
 
     def execute_one(
@@ -221,16 +104,6 @@ class PruningStage(Stage):
         run_dir: Path,
         validator: ContractValidator,
     ) -> dict[str, Any]:
-        """Execute pruning for a single SQL unit.
-
-        Args:
-            sql_unit: SQL unit dictionary
-            run_dir: Run directory
-            validator: Contract validator
-
-        Returns:
-            Pruning result dictionary
-        """
         return self._prune_unit(sql_unit, run_dir, validator)
 
 
@@ -240,7 +113,7 @@ class PruningResult:
 
     sql_key: str
     risks: list[dict[str, Any]]
-    pruned_branches: list[str]
+    pruned_branches: list[int]
     execution_time_ms: float
     trace: dict[str, Any] = field(default_factory=dict)
 
@@ -254,49 +127,39 @@ def execute_one(
     validator: ContractValidator,
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute pruning analysis for a single SQL unit.
-
-    Args:
-        sql_unit: SQL unit dictionary
-        run_dir: Run directory
-        validator: Contract validator
-        config: Optional configuration
-
-    Returns:
-        Pruning result dictionary
-    """
-    config = config or {}
+    _ = config or {}
     paths = canonical_paths(run_dir)
-
-    sql_key = sql_unit.get(
-        "sqlKey",
-        sql_unit.get("namespace", "unknown")
-        + "."
-        + sql_unit.get("statementId", "unknown"),
-    )
-    original_sql = sql_unit.get("sql", "")
-
+    sql_key = str(sql_unit.get("sqlKey") or "unknown")
     detector = RiskDetector()
     start_time = datetime.now(timezone.utc)
-    risks = detector.analyze(original_sql, sql_key)
-    end_time = datetime.now(timezone.utc)
+    risks = detector.analyze(str(sql_unit.get("sql") or ""), sql_key)
+    execution_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
-    execution_time_ms = (end_time - start_time).total_seconds() * 1000
-
-    pruned_branches = []
-    for risk in risks:
-        if risk.severity == "HIGH":
-            pruned_branches.append(f"risk:{risk.risk_type}")
+    branch_ids = {
+        int(branch.get("id"))
+        for branch in (sql_unit.get("branches") or [])
+        if isinstance(branch, dict) and branch.get("id") is not None
+    }
+    pruned_branches = sorted(branch_ids) if any(r.severity == "HIGH" for r in risks) else []
 
     result = {
         "sqlKey": sql_key,
-        "risks": [risk.to_dict() for risk in risks],
+        "risks": [
+            {
+                "riskType": risk.risk_type,
+                "severity": risk.severity,
+                "message": risk.suggestion,
+                "branchIds": pruned_branches,
+            }
+            for risk in risks
+        ],
         "prunedBranches": pruned_branches,
-        "executionTimeMs": execution_time_ms,
+        "recommendedForBaseline": bool(risks),
         "trace": {
             "stage": "pruning",
             "sql_key": sql_key,
             "executor": "risk_detector",
+            "executionTimeMs": execution_time_ms,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     }
@@ -307,5 +170,4 @@ def execute_one(
         "done",
         {"statement_key": sql_key, "risk_count": len(risks)},
     )
-
     return result

@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...application.stage_registry import StageRegistry, stage_registry
+from ...application.stage_registry import stage_registry
 from ...contracts import ContractValidator
-from ...io_utils import append_jsonl
+from ...io_utils import read_jsonl, write_jsonl
 from ...manifest import log_event
 from ...run_paths import canonical_paths
 from ..base import Stage, StageContext, StageResult
@@ -20,10 +20,7 @@ from .brancher import Brancher
 
 @stage_registry.register
 class BranchingStage(Stage):
-    """Branching stage implementation for V8 architecture.
-
-    Generates executable SQL branches from MyBatis dynamic SQL templates.
-    """
+    """Branching stage implementation for V8 architecture."""
 
     name: str = "branching"
     version: str = "1.0.0"
@@ -32,96 +29,63 @@ class BranchingStage(Stage):
     def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.brancher = Brancher(
-            strategy=self.config.get("branching_strategy", "all_combinations"),
-            max_branches=self.config.get("max_branches", 100),
+            strategy=self.config.get("branching", {}).get(
+                "strategy", self.config.get("branching_strategy", "all_combinations")
+            ),
+            max_branches=self.config.get("branching", {}).get(
+                "max_branches", self.config.get("max_branches", 100)
+            ),
         )
 
     def execute(self, context: StageContext) -> StageResult:
         errors: list[str] = []
         warnings: list[str] = []
-        artifacts: dict[str, Any] = {}
-        output_files: list[Path] = []
-
         run_dir = context.data_dir
         paths = canonical_paths(run_dir)
+        paths.ensure_layout()
         validator = ContractValidator(Path(__file__).resolve().parents[2])
 
-        sqlunits_path = paths.scan_units_path
-        if not sqlunits_path.exists():
+        if not paths.scan_units_path.exists():
             return StageResult(
                 success=False,
                 output_files=[],
                 artifacts={},
-                errors=[f"input file not found: {sqlunits_path}"],
+                errors=[f"input file not found: {paths.scan_units_path}"],
                 warnings=[],
             )
 
-        all_branches: list[dict[str, Any]] = []
+        all_units = [row for row in read_jsonl(paths.scan_units_path) if isinstance(row, dict)]
+        branched_units: list[dict[str, Any]] = []
+        total_branch_count = 0
 
-        try:
-            with open(sqlunits_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    import json
-
-                    record = json.loads(line)
-                    sql_units = record.get("sqlUnits", [])
-                    for unit in sql_units:
-                        try:
-                            validator.validate_stage_input("branching", unit)
-                        except Exception as e:
-                            errors.append(f"input validation error: {e}")
-                            continue
-
-                        result = _execute_one(
-                            unit,
-                            run_dir,
-                            validator,
-                            self.config,
-                            self.brancher,
-                        )
-
-                        all_branches.append(result)
-
-        except Exception as e:
-            errors.append(f"error reading sqlunits: {e}")
-
-        branching_result = {
-            "branches": all_branches,
-            "totalBranchCount": len(all_branches),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        for branch_result in all_branches:
+        for unit in all_units:
             try:
-                validator.validate_stage_output("branching", branch_result)
-            except Exception as e:
-                errors.append(f"output validation error: {e}")
+                validator.validate_stage_input("branching", unit)
+                result = _execute_one(unit, run_dir, validator, self.config, self.brancher)
+                validator.validate_stage_output("branching", result)
+                branched_units.append(result)
+                total_branch_count += int(result.get("branchCount") or 0)
+            except Exception as exc:
+                errors.append(
+                    f"error processing {unit.get('sqlKey', 'unknown')}: {exc}"
+                )
 
-        append_jsonl(paths.branches_path, branching_result)
-        output_files.append(paths.branches_path)
-
+        write_jsonl(paths.branches_path, branched_units)
         log_event(
             paths.manifest_path,
             "branching",
             "done",
-            {
-                "run_id": context.run_id,
-                "branch_count": len(all_branches),
-            },
+            {"run_id": context.run_id, "branch_count": total_branch_count},
         )
-
-        artifacts = {
-            "branches": all_branches,
-            "total_branch_count": len(all_branches),
-        }
 
         return StageResult(
             success=len(errors) == 0,
-            output_files=output_files,
-            artifacts=artifacts,
+            output_files=[paths.branches_path],
+            artifacts={
+                "sql_units": branched_units,
+                "sql_unit_count": len(branched_units),
+                "total_branch_count": total_branch_count,
+            },
             errors=errors,
             warnings=warnings,
         )
@@ -150,52 +114,51 @@ def _execute_one(
 ) -> dict[str, Any]:
     config = config or {}
     paths = canonical_paths(run_dir)
+    sql_key = str(sql_unit.get("sqlKey") or "unknown")
+    sql = str(sql_unit.get("templateSql") or sql_unit.get("sql") or "")
+    conditions = sql_unit.get("conditions", [])
 
-    sql_key = sql_unit.get(
-        "sqlKey",
-        sql_unit.get("namespace", "unknown")
-        + "."
-        + sql_unit.get("statementId", "unknown"),
+    strategy = config.get("branching", {}).get(
+        "strategy", config.get("branching_strategy", "all_combinations")
     )
-    sql = sql_unit.get("sql", "")
-
-    strategy = config.get("branching_strategy", "all_combinations")
-    max_branches = config.get("max_branches", 100)
-
+    max_branches = config.get("branching", {}).get(
+        "max_branches", config.get("max_branches", 100)
+    )
     if brancher is None:
         brancher = Brancher(strategy=strategy, max_branches=max_branches)
 
     start_time = datetime.now(timezone.utc)
-
-    conditions = sql_unit.get("conditions", [])
-
     branch_objects = brancher.generate(sql, conditions)
-    branches = [
-        {
-            "branch_id": b.branch_id,
-            "active_conditions": b.active_conditions,
-            "sql": b.sql,
-            "condition_count": b.condition_count,
-            "risk_flags": b.risk_flags,
-        }
-        for b in branch_objects
-    ]
+    execution_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
-    end_time = datetime.now(timezone.utc)
-    execution_time_ms = (end_time - start_time).total_seconds() * 1000
+    risk_flags = list(dict.fromkeys(str(x) for x in (sql_unit.get("riskFlags") or [])))
+    branches: list[dict[str, Any]] = []
+    for idx, branch in enumerate(branch_objects, start=1):
+        branches.append(
+            {
+                "id": idx,
+                "conditions": list(branch.active_conditions),
+                "sql": branch.sql,
+                "type": "conditional" if branch.condition_count else "static",
+            }
+        )
+        for flag in branch.risk_flags:
+            text = str(flag).strip()
+            if text and text not in risk_flags:
+                risk_flags.append(text)
 
-    branching_result = {
-        "sqlKey": sql_key,
-        "branches": branches,
-        "branchCount": len(branches),
+    enriched_unit = dict(sql_unit)
+    enriched_unit["branches"] = branches
+    enriched_unit["branchCount"] = len(branches)
+    enriched_unit["problemBranchCount"] = sum(1 for b in branch_objects if b.risk_flags)
+    enriched_unit["riskFlags"] = risk_flags
+    enriched_unit["trace"] = {
+        "stage": "branching",
+        "sql_key": sql_key,
+        "executor": "brancher",
+        "strategy": strategy,
         "executionTimeMs": execution_time_ms,
-        "trace": {
-            "stage": "branching",
-            "sql_key": sql_key,
-            "executor": "brancher",
-            "strategy": strategy,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     log_event(
@@ -204,8 +167,7 @@ def _execute_one(
         "done",
         {"statement_key": sql_key, "branch_count": len(branches)},
     )
-
-    return branching_result
+    return enriched_unit
 
 
 def execute_one(
