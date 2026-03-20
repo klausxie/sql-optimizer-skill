@@ -1,8 +1,8 @@
 """
-V8 Workflow Engine - 7 Stage Pipeline
+V9-aligned workflow engine.
 
-Independent implementation with zero coupling to legacy workflow.
-Supports resume from interruption point.
+This orchestrator executes the canonical five-stage pipeline:
+init -> parse -> recognition -> optimize -> patch.
 """
 
 from dataclasses import dataclass, field
@@ -13,8 +13,12 @@ import time
 import logging
 import sqlite3
 
-from .status_resolver import StatusResolver, PhaseExecutionPolicy, StatusResolution
+from ..contracts import ContractValidator
+from ..run_paths import canonical_paths
+from ..v9_pipeline import STAGE_ORDER, require_v9_stage
+from .status_resolver import StatusResolver, PhaseExecutionPolicy
 from .requests import AdvanceStepRequest, RunStatusRequest
+from .v9_stages import build_stage_registry, run_stage
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +101,7 @@ def _execute_with_retry(
 
 
 @dataclass
-class V8WorkflowState:
+class V9WorkflowState:
     """状态快照，用于持久化"""
 
     run_id: str = ""
@@ -118,14 +122,6 @@ class NextAction:
     reason: str = ""
 
 
-STAGE_ORDER = [
-    "init",
-    "parse",
-    "recognition",
-    "optimize",
-    "patch",
-]
-
 DEFAULT_PHASE_POLICIES = {
     "init": PhaseExecutionPolicy(phase="init", allow_regenerate=False),
     "parse": PhaseExecutionPolicy(phase="parse", allow_regenerate=False),
@@ -135,23 +131,27 @@ DEFAULT_PHASE_POLICIES = {
 }
 
 
-class V8WorkflowEngine:
+class V9WorkflowEngine:
     def __init__(
         self,
         config: dict,
         repository: Optional[Any] = None,
         run_id: Optional[str] = None,
         status_resolver: Optional[StatusResolver] = None,
+        validator: Optional[ContractValidator] = None,
     ):
         self.config = config
         self.repository = repository
         self.run_id = run_id or f"run_{int(time.time())}"
-        self.state = V8WorkflowState(
+        self.state = V9WorkflowState(
             run_id=self.run_id,
             started_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         )
-        self.stages = {}
+        self.stages: dict[str, Callable[[Path], dict[str, Any]]] = {}
         self._status_resolver = status_resolver or self._create_default_resolver()
+        self._validator = validator or ContractValidator(
+            Path(__file__).resolve().parents[3]
+        )
         self._register_stages()
 
     def _create_default_resolver(self) -> StatusResolver:
@@ -232,52 +232,23 @@ class V8WorkflowEngine:
 
         return {}
 
-    def _register_stages(self):
-        """Register V9 stages: init, parse, recognition, optimize, patch"""
-        self.stages["init"] = self._run_init
-        self.stages["parse"] = self._run_parse
-        self.stages["recognition"] = self._run_recognition
-        self.stages["optimize"] = self._run_optimize
-        self.stages["patch"] = self._run_patch
-
-    def _build_stage_context(self, run_dir: Path, stage_name: str):
-        from ..stages.base import StageContext
-        from ..run_paths import canonical_paths
-
-        paths = canonical_paths(run_dir)
-        paths.ensure_layout()
-        return StageContext(
-            run_id=self.run_id,
+    def _register_stages(self) -> None:
+        """Register the canonical V9 stage runners."""
+        self.stages = build_stage_registry(
             config=self.config,
-            data_dir=run_dir,
-            cache_dir=paths.cache_dir,
-            metadata={
-                "stage_name": stage_name,
-                "db_reachable": bool(((self.config.get("db", {}) or {}).get("dsn"))),
-            },
+            validator=self._validator,
         )
 
-    def _stage_result_to_dict(self, stage_name: str, result: Any) -> dict[str, Any]:
-        output_files = [str(path) for path in (result.output_files or [])]
-        payload = {
-            "success": bool(result.success),
-            "output_files": output_files,
-            "output_file": output_files[0] if output_files else None,
-            "errors": list(result.errors or []),
-            "warnings": list(result.warnings or []),
-        }
-        payload.update(dict(result.artifacts or {}))
-        if not payload["success"] and payload["errors"]:
-            payload["error"] = payload["errors"][0]
-        return payload
+    def _require_known_stage(self, stage_name: str) -> str:
+        return require_v9_stage(stage_name)
 
-    def _run_stage_instance(
-        self, stage_name: str, stage_class: type[Any], run_dir: Path
-    ) -> dict:
-        stage = stage_class(self.config)
-        context = self._build_stage_context(run_dir, stage_name)
-        result = stage.execute(context)
-        return self._stage_result_to_dict(stage_name, result)
+    def _snapshot(self) -> dict[str, Any]:
+        return {
+            "run_id": self.state.run_id,
+            "current_stage": self.state.current_stage,
+            "completed_stages": self.state.completed_stages,
+            "status": self.state.status,
+        }
 
     def _update_timestamp(self) -> None:
         """更新时间戳"""
@@ -299,25 +270,25 @@ class V8WorkflowEngine:
             self.repository.save_state(state_dict)
 
     def load_state_from_repo(self) -> None:
-        """从 repository 加载状态，处理 V8 和 legacy 两种格式"""
+        """从 repository 加载当前 V9 状态格式。"""
         if self.repository is not None:
             state_dict = self.repository.load_state()
-            if "completed_stages" in state_dict:
-                self.state.run_id = state_dict.get("run_id", self.state.run_id)
-                self.state.current_stage = state_dict.get("current_stage", "")
-                self.state.completed_stages = state_dict.get("completed_stages", [])
-                self.state.stage_results = state_dict.get("stage_results", {})
-                self.state.started_at = state_dict.get("started_at", "")
-                self.state.updated_at = state_dict.get("updated_at", "")
-                self.state.status = state_dict.get("status", "pending")
-            elif "phase_status" in state_dict:
-                self.state.status = "running"
+            if not isinstance(state_dict, dict) or not state_dict:
+                return
+            self.state.run_id = state_dict.get("run_id", self.state.run_id)
+            self.state.current_stage = state_dict.get("current_stage", "")
+            self.state.completed_stages = state_dict.get("completed_stages", [])
+            self.state.stage_results = state_dict.get("stage_results", {})
+            self.state.started_at = state_dict.get("started_at", "")
+            self.state.updated_at = state_dict.get("updated_at", "")
+            self.state.status = state_dict.get("status", "pending")
 
     def run(
         self,
         run_dir: Path,
         to_stage: str = "patch",
     ) -> dict[str, Any]:
+        target_stage = self._require_known_stage(to_stage)
         results = {}
 
         # 初始化 repository（如果存在）
@@ -360,7 +331,7 @@ class V8WorkflowEngine:
                 self._persist_state()
                 break
 
-            if stage_name == to_stage:
+            if stage_name == target_stage:
                 break
 
         # 所有阶段完成
@@ -391,6 +362,8 @@ class V8WorkflowEngine:
             - result: dict - 阶段执行结果
             - state: dict - 当前状态快照
         """
+        target_stage = self._require_known_stage(to_stage)
+
         # 初始化 repository 并尝试加载之前保存的状态
         if self.repository is not None:
             self.repository.initialize(self.config, self.run_id)
@@ -416,12 +389,7 @@ class V8WorkflowEngine:
                 "completed": True,
                 "stage": None,
                 "result": None,
-                "state": {
-                    "run_id": self.state.run_id,
-                    "current_stage": self.state.current_stage,
-                    "completed_stages": self.state.completed_stages,
-                    "status": self.state.status,
-                },
+                "state": self._snapshot(),
             }
 
         # 检查是否已完成所有阶段
@@ -432,22 +400,13 @@ class V8WorkflowEngine:
                 "completed": True,
                 "stage": None,
                 "result": None,
-                "state": {
-                    "run_id": self.state.run_id,
-                    "current_stage": self.state.current_stage,
-                    "completed_stages": self.state.completed_stages,
-                    "status": self.state.status,
-                },
+                "state": self._snapshot(),
             }
 
         # 检查是否已到达目标阶段
         if self.state.completed_stages:
             last_completed_idx = STAGE_ORDER.index(self.state.completed_stages[-1])
-            to_stage_idx = (
-                STAGE_ORDER.index(to_stage)
-                if to_stage in STAGE_ORDER
-                else len(STAGE_ORDER) - 1
-            )
+            to_stage_idx = STAGE_ORDER.index(target_stage)
             if last_completed_idx >= to_stage_idx:
                 return {
                     "completed": True,
@@ -455,12 +414,7 @@ class V8WorkflowEngine:
                     "result": self.state.stage_results.get(
                         self.state.completed_stages[-1]
                     ),
-                    "state": {
-                        "run_id": self.state.run_id,
-                        "current_stage": self.state.current_stage,
-                        "completed_stages": self.state.completed_stages,
-                        "status": self.state.status,
-                    },
+                    "state": self._snapshot(),
                 }
 
         # 执行下一个阶段
@@ -472,12 +426,7 @@ class V8WorkflowEngine:
                 "completed": False,
                 "stage": next_stage,
                 "result": {"success": False, "error": f"Unknown stage: {next_stage}"},
-                "state": {
-                    "run_id": self.state.run_id,
-                    "current_stage": self.state.current_stage,
-                    "completed_stages": self.state.completed_stages,
-                    "status": self.state.status,
-                },
+                "state": self._snapshot(),
             }
 
         stage_fn = self.stages[next_stage]
@@ -496,12 +445,7 @@ class V8WorkflowEngine:
                 "completed": False,
                 "stage": next_stage,
                 "result": result,
-                "state": {
-                    "run_id": self.state.run_id,
-                    "current_stage": self.state.current_stage,
-                    "completed_stages": self.state.completed_stages,
-                    "status": self.state.status,
-                },
+                "state": self._snapshot(),
             }
 
         except Exception as e:
@@ -513,12 +457,7 @@ class V8WorkflowEngine:
                 "completed": False,
                 "stage": next_stage,
                 "result": result,
-                "state": {
-                    "run_id": self.state.run_id,
-                    "current_stage": self.state.current_stage,
-                    "completed_stages": self.state.completed_stages,
-                    "status": self.state.status,
-                },
+                "state": self._snapshot(),
             }
 
     def resume(
@@ -537,6 +476,7 @@ class V8WorkflowEngine:
         Returns:
             各阶段执行结果
         """
+        target_stage = self._require_known_stage(to_stage)
         state = self._load_state(run_dir)
         if state:
             self.state = state
@@ -580,13 +520,13 @@ class V8WorkflowEngine:
 
             self.state.current_stage = stage_name
 
-            if stage_name == to_stage:
+            if stage_name == target_stage:
                 break
 
         # 更新状态
         self.state.updated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         if self.state.status != "failed":
-            if self._is_complete_to_stage(to_stage):
+            if self._is_complete_to_stage(target_stage):
                 self.state.status = "completed"
 
         self._save_state(run_dir)
@@ -603,6 +543,7 @@ class V8WorkflowEngine:
         Returns:
             NextAction 对象，包含动作、阶段和原因
         """
+        target_stage = self._require_known_stage(to_stage)
         state = self._load_state(run_dir)
         if not state:
             for stage_name in STAGE_ORDER:
@@ -621,11 +562,11 @@ class V8WorkflowEngine:
         self.state = state
 
         # 检查是否已完成到目标阶段
-        if self._is_complete_to_stage(to_stage):
+        if self._is_complete_to_stage(target_stage):
             return NextAction(
                 action="none",
                 stage=None,
-                reason=f"Already completed to stage '{to_stage}'",
+                reason=f"Already completed to stage '{target_stage}'",
             )
 
         # 找到下一个未完成的阶段
@@ -662,7 +603,7 @@ class V8WorkflowEngine:
         )
 
     def _to_resolver_state(self) -> dict[str, Any]:
-        """将 V8WorkflowState 转换为 StatusResolver 期望的格式。
+        """将 V9WorkflowState 转换为 StatusResolver 期望的格式。
 
         Returns:
             转换后的状态字典
@@ -679,10 +620,10 @@ class V8WorkflowEngine:
         return {
             "phase_status": phase_status,
             "current_phase": self.state.current_stage,
-            "statements": {},  # V8 没有语句级别的跟踪
+            "statements": {},  # 当前状态快照默认不记录语句级跟踪
         }
 
-    def _load_state(self, run_dir: Path) -> Optional[V8WorkflowState]:
+    def _load_state(self, run_dir: Path) -> Optional[V9WorkflowState]:
         """从运行目录加载状态。
 
         Args:
@@ -691,14 +632,14 @@ class V8WorkflowEngine:
         Returns:
             加载的状态，如果不存在返回 None
         """
-        state_path = run_dir / "supervisor" / "v8_state.json"
+        state_path = canonical_paths(run_dir).v9_state_path
         if not state_path.exists():
             return None
 
         try:
             with open(state_path) as f:
                 data = json.load(f)
-            return V8WorkflowState(**data)
+            return V9WorkflowState(**data)
         except Exception:
             return None
 
@@ -708,7 +649,7 @@ class V8WorkflowEngine:
         Args:
             run_dir: 运行目录
         """
-        state_path = run_dir / "supervisor" / "v8_state.json"
+        state_path = canonical_paths(run_dir).v9_state_path
         state_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(state_path, "w") as f:
@@ -726,233 +667,49 @@ class V8WorkflowEngine:
                 indent=2,
             )
 
-    def _run_optimize(self, run_dir: Path) -> dict:
-        from ..platforms.sql.optimizer_sql import generate_proposal
-
-        # Read baselines from recognition stage
-        baselines_path = run_dir / "recognition" / "baselines.json"
-        if not baselines_path.exists():
-            return {"success": False, "error": "Recognition results not found"}
-
-        with open(baselines_path) as f:
-            baselines = json.load(f)
-
-        # Load SQL units from parse stage output
-        sql_units_path = run_dir / "parse" / "sql_units_with_branches.json"
-        if not sql_units_path.exists():
-            return {"success": False, "error": "Parse results not found"}
-
-        with open(sql_units_path) as f:
-            sql_units_data = json.load(f)
-
-        # Build sql_units map by sqlKey
-        sql_units_map = {unit.get("sqlKey", ""): unit for unit in sql_units_data}
-
-        proposals = []
-        for baseline in baselines:
-            sql_key = baseline.get("sqlKey", "")
-            sql_unit = sql_units_map.get(sql_key)
-
-            if not sql_unit:
-                continue
-
-            try:
-                proposal = generate_proposal(sql_unit, self.config)
-                proposals.append(proposal)
-            except Exception as exc:
-                # Log error but continue with other proposals
-                proposals.append(
-                    {
-                        "sqlKey": sql_key,
-                        "issues": [
-                            {"code": "OPTIMIZE_GENERATION_FAILED", "detail": str(exc)}
-                        ],
-                        "dbEvidenceSummary": {},
-                        "planSummary": {},
-                        "suggestions": [],
-                        "verdict": "NO_ACTION",
-                        "confidence": "low",
-                        "estimatedBenefit": "unknown",
-                    }
-                )
-
-        # Write proposals
-        output_path = run_dir / "optimize" / "proposals.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(proposals, f, indent=2, ensure_ascii=False)
-
-        actionable_count = sum(
-            1 for p in proposals if str(p.get("verdict") or "").upper() == "ACTIONABLE"
+    def _run_init(self, run_dir: Path) -> dict[str, Any]:
+        return run_stage(
+            "init",
+            run_dir,
+            config=self.config,
+            validator=self._validator,
         )
 
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "proposals_count": len(proposals),
-            "actionable_count": actionable_count,
-        }
-
-    def _run_init(self, run_dir: Path) -> dict:
-        from ..stages.discovery import Scanner
-
-        scanner = Scanner(self.config)
-        root_path = self.config.get("project", {}).get("root_path", ".")
-
-        result = scanner.scan(root_path)
-
-        output_path = run_dir / "init" / "sql_units.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(result.sql_units, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "sql_units_count": result.total_count,
-        }
-
-    def _run_parse(self, run_dir: Path) -> dict:
-        from ..stages.branching.brancher import Brancher
-        from ..stages.pruning import analyze_risks
-
-        init_path = run_dir / "init" / "sql_units.json"
-        if not init_path.exists():
-            return {"success": False, "error": "Init results not found"}
-
-        with open(init_path) as f:
-            sql_units = json.load(f)
-
-        branch_cfg = self.config.get("branching", {})
-        brancher = Brancher(
-            strategy=branch_cfg.get("strategy", "all_combinations"),
-            max_branches=branch_cfg.get("max_branches", 100),
+    def _run_parse(self, run_dir: Path) -> dict[str, Any]:
+        return run_stage(
+            "parse",
+            run_dir,
+            config=self.config,
+            validator=self._validator,
         )
 
-        for unit in sql_units:
-            sql_text = unit.get("templateSql", unit.get("sql", ""))
-            branches = brancher.generate(sql_text)
-            unit["branches"] = [
-                {
-                    "branch_id": b.branch_id,
-                    "active_conditions": b.active_conditions,
-                    "sql": b.sql,
-                    "condition_count": b.condition_count,
-                    "risk_flags": b.risk_flags,
-                }
-                for b in branches
-            ]
-            unit["branchCount"] = len(branches)
+    def _run_recognition(self, run_dir: Path) -> dict[str, Any]:
+        return run_stage(
+            "recognition",
+            run_dir,
+            config=self.config,
+            validator=self._validator,
+        )
 
-        all_risks = analyze_risks(sql_units)
+    def _run_optimize(self, run_dir: Path) -> dict[str, Any]:
+        return run_stage(
+            "optimize",
+            run_dir,
+            config=self.config,
+            validator=self._validator,
+        )
 
-        units_output_path = run_dir / "parse" / "sql_units_with_branches.json"
-        units_output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(units_output_path, "w") as f:
-            json.dump(sql_units, f, indent=2, ensure_ascii=False)
-
-        risks_output_path = run_dir / "parse" / "risks.json"
-        with open(risks_output_path, "w") as f:
-            json.dump(all_risks, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "sql_units_file": str(units_output_path),
-            "risks_file": str(risks_output_path),
-            "sql_units_count": len(sql_units),
-            "risks_count": len(all_risks),
-        }
-
-    def _run_recognition(self, run_dir: Path) -> dict:
-        from ..stages.baseline import collect_baseline
-
-        parse_path = run_dir / "parse" / "sql_units_with_branches.json"
-        if not parse_path.exists():
-            return {"success": False, "error": "Parse results not found"}
-
-        with open(parse_path) as f:
-            sql_units = json.load(f)
-
-        baselines = collect_baseline(self.config, sql_units)
-
-        output_path = run_dir / "recognition" / "baselines.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(baselines, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "baselines_count": len(baselines),
-        }
-
-    def _run_patch(self, run_dir: Path) -> dict:
-        optimize_path = run_dir / "optimize" / "proposals.json"
-        if not optimize_path.exists():
-            return {"success": False, "error": "Optimize results not found"}
-
-        with open(optimize_path) as f:
-            proposals = json.load(f)
-
-        patches = []
-        for proposal in proposals:
-            if not proposal.get("validated", False):
-                continue
-
-            sql_key = proposal.get("sqlKey", "unknown")
-            original_sql = proposal.get("originalSql", "")
-            optimized_sql = proposal.get("optimizedSql", original_sql)
-            rule_name = proposal.get("ruleName", "unknown")
-
-            patch_result = {
-                "sqlKey": sql_key,
-                "statementKey": sql_key,
-                "patchFiles": [],
-                "diffSummary": {
-                    "filesChanged": 1 if optimized_sql != original_sql else 0,
-                    "hunks": 1 if optimized_sql != original_sql else 0,
-                    "summary": f"rewrite by {rule_name}"
-                    if optimized_sql != original_sql
-                    else "no change",
-                },
-                "applyMode": "manual",
-                "rollback": "restore original mapper backup",
-                "applicable": optimized_sql != original_sql,
-                "originalSql": original_sql,
-                "optimizedSql": optimized_sql,
-                "ruleName": rule_name,
-            }
-
-            if patch_result["applicable"]:
-                patch_content = f"-- SQL Optimizer patch: {sql_key}\n-- Rule: {rule_name}\n{optimized_sql}"
-                patch_dir = run_dir / "patch" / "patches"
-                patch_dir.mkdir(parents=True, exist_ok=True)
-                patch_file = patch_dir / f"{sql_key.replace('/', '_')}.sql"
-                patch_file.write_text(patch_content, encoding="utf-8")
-                patch_result["patchFiles"] = [str(patch_file)]
-
-            patches.append(patch_result)
-
-        output_path = run_dir / "patch" / "patches.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(patches, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "patches_count": len(patches),
-            "applicable_count": sum(1 for p in patches if p.get("applicable")),
-        }
+    def _run_patch(self, run_dir: Path) -> dict[str, Any]:
+        return run_stage(
+            "patch",
+            run_dir,
+            config=self.config,
+            validator=self._validator,
+        )
 
 
-def run_v8_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:
-    engine = V8WorkflowEngine(config)
+def run_v9_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:
+    engine = V9WorkflowEngine(config)
     return engine.run(run_dir, to_stage)
 
 
@@ -962,10 +719,11 @@ def runs_root(config: dict) -> Path:
 
 
 def advance_one_step_request(request: AdvanceStepRequest) -> dict[str, Any]:
-    engine = V8WorkflowEngine(
+    engine = V9WorkflowEngine(
         config=request.config,
         repository=request.repository,
         run_id=request.run_dir.name if request.run_dir else None,
+        validator=request.validator,
     )
     return engine.advance_one_step(request.run_dir, request.to_stage)
 

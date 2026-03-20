@@ -7,8 +7,7 @@ from typing import Any
 from .constants import CONTRACT_VERSION, SKILL_VERSION
 from .io_utils import append_jsonl, read_json, write_json
 from .run_paths import RunPaths, canonical_paths
-
-PHASES = ["diagnose", "optimize", "validate", "apply", "report"]
+from .v9_pipeline import STAGE_ORDER as PHASES
 
 
 def get_run_paths(run_dir: Path) -> RunPaths:
@@ -31,25 +30,18 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
     )
     write_json(
         p.supervisor_dir / "plan.json",
-        {"phases": PHASES, "to_stage": "apply", "sql_keys": []},
+        {"phases": PHASES, "to_stage": "patch", "sql_keys": []},
     )
-    # Don't overwrite state.json if it already exists with V8 format (completed_stages)
-    state_path = p.supervisor_dir / "state.json"
-    if state_path.exists():
-        existing = read_json(state_path)
-        if "completed_stages" in existing:
-            return
     write_json(
-        state_path,
+        p.supervisor_dir / "state.json",
         {
-            "current_phase": "diagnose",
-            "phase_status": {k: "PENDING" for k in PHASES},
-            "statements": {},
-            "attempts_by_phase": {k: 0 for k in PHASES},
-            "report_rebuild_required": False,
-            "last_error": None,
-            "last_reason_code": None,
+            "run_id": run_id,
+            "current_stage": "",
+            "completed_stages": [],
+            "stage_results": {},
+            "started_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "status": "pending",
         },
     )
 

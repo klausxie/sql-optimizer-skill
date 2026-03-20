@@ -60,9 +60,9 @@ class BranchingStage(Stage):
 
         for unit in all_units:
             try:
-                validator.validate_stage_input("branching", unit)
+                validator.validate_stage_input("parse", unit)
                 result = _execute_one(unit, run_dir, validator, self.config, self.brancher)
-                validator.validate_stage_output("branching", result)
+                validator.validate_stage_output("parse", result)
                 branched_units.append(result)
                 total_branch_count += int(result.get("branchCount") or 0)
             except Exception as exc:

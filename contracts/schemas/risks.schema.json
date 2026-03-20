@@ -1,41 +1,66 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "RiskIssue",
+  "title": "ParseRiskReport",
   "type": "object",
   "required": [
     "sqlKey",
-    "risk_type",
-    "severity"
+    "risks",
+    "prunedBranches"
   ],
   "properties": {
     "sqlKey": {
       "type": "string",
       "description": "Unique identifier for the SQL statement"
     },
-    "risk_type": {
-      "type": "string",
-      "description": "Type of risk detected (e.g., PREFIX_WILDCARD, FUNCTION_WRAP, etc.)"
-    },
-    "severity": {
-      "type": "string",
-      "enum": ["HIGH", "MEDIUM", "LOW"],
-      "description": "Risk severity level"
-    },
-    "location": {
-      "type": "object",
-      "description": "Location of the risk in the SQL",
-      "properties": {
-        "line": {
-          "type": "integer"
-        },
-        "column": {
-          "type": "integer"
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["riskType", "severity"],
+        "properties": {
+          "riskType": {
+            "type": "string",
+            "description": "Type of risk detected (e.g., prefix_wildcard, function_wrap)"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW"],
+            "description": "Risk severity level"
+          },
+          "message": {
+            "type": ["string", "null"],
+            "description": "Human-readable remediation guidance"
+          },
+          "location": {
+            "type": ["string", "null"],
+            "description": "SQL location or clause summary for the detected risk"
+          },
+          "branchIds": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "Branch identifiers impacted by the risk"
+          }
         }
       }
     },
-    "suggestion": {
-      "type": "string",
-      "description": "Suggested fix or optimization"
+    "prunedBranches": {
+      "type": "array",
+      "items": {"type": "integer"},
+      "description": "Branches skipped from downstream baseline collection"
+    },
+    "recommendedForBaseline": {
+      "type": "boolean",
+      "description": "Whether the SQL should still proceed to recognition"
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "stage": {"type": "string"},
+        "sql_key": {"type": "string"},
+        "executor": {"type": "string"},
+        "executionTimeMs": {"type": "number"},
+        "timestamp": {"type": "string", "format": "date-time"}
+      }
     }
   }
 }

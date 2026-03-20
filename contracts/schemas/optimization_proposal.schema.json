@@ -2,62 +2,395 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OptimizationProposal",
   "type": "object",
-  "required": ["sqlKey", "issues", "dbEvidenceSummary", "planSummary", "suggestions", "verdict"],
+  "required": [
+    "sqlKey",
+    "issues",
+    "dbEvidenceSummary",
+    "planSummary",
+    "suggestions",
+    "verdict"
+  ],
   "properties": {
-    "sqlKey": {"type": "string"},
-    "issues": {"type": "array"},
-    "dbEvidenceSummary": {"type": "object"},
-    "planSummary": {"type": "object"},
-    "suggestions": {"type": "array"},
-    "verdict": {"type": "string"},
-    "estimatedBenefit": {"type": "string"},
-    "confidence": {"type": "string"},
-    "blockedBy": {"type": "array", "items": {"type": "string"}},
-    "actionability": {
-      "type": ["object", "null"],
-      "properties": {
-        "score": {"type": ["integer", "null"]},
-        "tier": {"type": ["string", "null"]},
-        "autoPatchLikelihood": {"type": ["string", "null"]},
-        "reasons": {"type": ["array", "null"], "items": {"type": "string"}},
-        "blockedBy": {"type": ["array", "null"], "items": {"type": "string"}}
+    "sqlKey": {
+      "type": "string"
+    },
+    "issues": {
+      "type": "array"
+    },
+    "dbEvidenceSummary": {
+      "type": "object"
+    },
+    "planSummary": {
+      "type": "object"
+    },
+    "suggestions": {
+      "type": "array"
+    },
+    "verdict": {
+      "type": "string"
+    },
+    "estimatedBenefit": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "string"
+    },
+    "blockedBy": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
-    "recommendedSuggestionIndex": {"type": ["integer", "null"]},
+    "actionability": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "score": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "autoPatchLikelihood": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasons": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockedBy": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recommendedSuggestionIndex": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
     "triggeredRules": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "ruleId": {"type": "string"},
-          "builtin": {"type": "string"},
-          "severity": {"type": "string"},
-          "sourceRef": {"type": ["string", "null"]},
-          "blocksActionability": {"type": ["boolean", "null"]}
+          "ruleId": {
+            "type": "string"
+          },
+          "builtin": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "sourceRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blocksActionability": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
         }
       }
     },
-    "llmCandidates": {"type": "array", "items": {"type": "object"}},
-    "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
-    "llmPromptStatus": {"type": "string"},
-    "llmPromptFile": {"type": "string"},
-    "candidateGenerationDiagnostics": {
-      "type": ["object", "null"],
-      "properties": {
-        "degradationKind": {"type": ["string", "null"]},
-        "recoveryAttempted": {"type": ["boolean", "null"]},
-        "recoveryStrategy": {"type": ["string", "null"]},
-        "recoverySucceeded": {"type": ["boolean", "null"]},
-        "recoveryReason": {"type": ["string", "null"]},
-        "rawCandidateCount": {"type": ["integer", "null"]},
-        "validatedCandidateCount": {"type": ["integer", "null"]},
-        "acceptedCandidateCount": {"type": ["integer", "null"]},
-        "prunedLowValueCount": {"type": ["integer", "null"]},
-        "lowValueCandidateCount": {"type": ["integer", "null"]},
-        "recoveredCandidateCount": {"type": ["integer", "null"]},
-        "rawRewriteStrategies": {"type": ["array", "null"], "items": {"type": "string"}},
-        "finalCandidateCount": {"type": ["integer", "null"]}
+    "llmCandidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
       }
+    },
+    "llmTraceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "llmPromptStatus": {
+      "type": "string"
+    },
+    "llmPromptFile": {
+      "type": "string"
+    },
+    "candidateGenerationDiagnostics": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "degradationKind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recoveryAttempted": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "recoveryStrategy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recoverySucceeded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "recoveryReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rawCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "validatedCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "acceptedCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "prunedLowValueCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lowValueCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "recoveredCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "rawRewriteStrategies": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "finalCandidateCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "validated": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "validationStatus": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "originalSql": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "optimizedSql": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rewrittenSql": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "selectedCandidateId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "candidateEvaluations": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object"
+      }
+    },
+    "selectionReason": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "selectionRationale": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "deliveryReadiness": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "decisionLayers": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "semanticEquivalence": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "patchability": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "selectedPatchStrategy": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "rewriteMaterialization": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "templateRewriteOps": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object"
+      }
+    },
+    "rewriteFacts": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "patchStrategyCandidates": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object"
+      }
+    },
+    "canonicalizationAssessment": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object"
+      }
+    },
+    "candidateSelectionTrace": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object"
+      }
+    },
+    "dynamicTemplate": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "warnings": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "riskFlags": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "validationResult": {
+      "type": [
+        "object",
+        "null"
+      ]
     }
   }
 }

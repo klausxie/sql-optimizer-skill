@@ -36,7 +36,7 @@ class PatchStage(Stage):
 
     name: str = "patch"
     version: str = "1.0.0"
-    dependencies: list[str] = ["validate"]
+    dependencies: list[str] = ["optimize"]
 
     def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
@@ -49,28 +49,28 @@ class PatchStage(Stage):
         paths.ensure_layout()
         validator = ContractValidator(Path(__file__).resolve().parents[2])
 
-        if not paths.acceptance_path.exists():
+        if not paths.proposals_path.exists():
             return StageResult(
                 success=False,
                 output_files=[],
                 artifacts={},
-                errors=[f"input file not found: {paths.acceptance_path}"],
+                errors=[f"input file not found: {paths.proposals_path}"],
                 warnings=[],
             )
 
-        acceptances = [row for row in read_jsonl(paths.acceptance_path) if isinstance(row, dict)]
+        proposals = [row for row in read_jsonl(paths.proposals_path) if isinstance(row, dict)]
         sql_units = _load_sql_units(run_dir)
         patches: list[dict[str, Any]] = []
-        for acceptance in acceptances:
+        for proposal in proposals:
             try:
-                validator.validate_stage_input("patch", acceptance)
-                sql_key = str(acceptance.get("sqlKey") or "unknown")
+                validator.validate_stage_input("patch", proposal)
+                sql_key = str(proposal.get("sqlKey") or "unknown")
                 sql_unit = sql_units.get(sql_key)
                 if sql_unit is None:
-                    raise ValueError(f"sql unit not found for acceptance: {sql_key}")
+                    raise ValueError(f"sql unit not found for proposal: {sql_key}")
                 patch_result = self.execute_one(
                     sql_unit=sql_unit,
-                    acceptance=acceptance,
+                    proposal=proposal,
                     run_dir=run_dir,
                     validator=validator,
                     config=self.config,
@@ -110,21 +110,21 @@ class PatchStage(Stage):
     def execute_one(
         self,
         sql_unit: dict[str, Any],
-        acceptance: dict[str, Any],
+        proposal: dict[str, Any],
         run_dir: Path,
         validator: ContractValidator,
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return generate_patch(
             sql_unit=sql_unit,
-            acceptance=acceptance,
+            proposal=proposal,
             run_dir=run_dir,
             validator=validator,
             config=config,
         )
 
     def get_input_contracts(self) -> list[str]:
-        return ["acceptance_result"]
+        return ["optimization_proposal"]
 
     def get_output_contracts(self) -> list[str]:
         return ["patch_result"]
@@ -132,14 +132,14 @@ class PatchStage(Stage):
 
 def execute_one(
     sql_unit: dict[str, Any],
-    acceptance: dict[str, Any],
+    proposal: dict[str, Any],
     run_dir: Path,
     validator: ContractValidator,
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return generate_patch(
         sql_unit=sql_unit,
-        acceptance=acceptance,
+        proposal=proposal,
         run_dir=run_dir,
         validator=validator,
         config=config,

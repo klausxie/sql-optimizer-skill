@@ -21,11 +21,11 @@ class PatchResult:
 
 
 class PatchGenerator:
-    def generate_patch(self, sql_unit: dict[str, Any], acceptance: dict[str, Any]) -> str:
+    def generate_patch(self, sql_unit: dict[str, Any], proposal: dict[str, Any]) -> str:
         namespace = str(sql_unit.get("namespace") or "unknown")
         statement_id = str(sql_unit.get("statementId") or "unknown")
         result_type = str(sql_unit.get("resultType") or "map")
-        rewritten_sql = str(acceptance.get("rewrittenSql") or sql_unit.get("sql") or "")
+        rewritten_sql = str(_proposal_rewritten_sql(sql_unit, proposal) or sql_unit.get("sql") or "")
         return (
             f"<!-- SQL Optimizer patch for {namespace}.{statement_id} -->\n"
             f"<select id=\"{statement_id}\" resultType=\"{result_type}\">\n"
@@ -34,9 +34,32 @@ class PatchGenerator:
         )
 
 
+def _proposal_rewritten_sql(sql_unit: dict[str, Any], proposal: dict[str, Any]) -> str:
+    selected_candidate_id = str(proposal.get("selectedCandidateId") or "").strip()
+    if selected_candidate_id:
+        for row in list(proposal.get("suggestions") or []) + list(proposal.get("llmCandidates") or []):
+            if isinstance(row, dict) and str(row.get("id") or "").strip() == selected_candidate_id:
+                text = str(row.get("rewrittenSql") or "").strip()
+                if text:
+                    return text
+
+    for key in ("optimizedSql", "rewrittenSql"):
+        text = str(proposal.get(key) or "").strip()
+        if text:
+            return text
+
+    for row in list(proposal.get("suggestions") or []) + list(proposal.get("llmCandidates") or []):
+        if isinstance(row, dict):
+            text = str(row.get("rewrittenSql") or "").strip()
+            if text:
+                return text
+
+    return str(sql_unit.get("sql") or "").strip()
+
+
 def execute_one(
     sql_unit: dict,
-    acceptance: dict,
+    proposal: dict,
     run_dir: Path,
     validator: ContractValidator,
     config: dict[str, Any] | None = None,
@@ -44,18 +67,18 @@ def execute_one(
     config = config or {}
     paths = canonical_paths(run_dir)
     paths.ensure_layout()
-    sql_key = str(sql_unit.get("sqlKey") or acceptance.get("sqlKey") or "unknown")
+    sql_key = str(sql_unit.get("sqlKey") or proposal.get("sqlKey") or "unknown")
     statement_key = sql_key
-    rewritten_sql = acceptance.get("rewrittenSql")
+    rewritten_sql = _proposal_rewritten_sql(sql_unit, proposal)
 
     patch_files: list[str] = []
-    applicable = bool(rewritten_sql and sql_unit.get("xmlPath"))
+    applicable = bool(proposal.get("validated")) and bool(rewritten_sql and sql_unit.get("xmlPath"))
     apply_check_error: str | None = None
     diff_summary = {"filesChanged": 0, "hunks": 0, "summary": "no patch generated"}
 
     if applicable:
         generator = PatchGenerator()
-        patch_text = generator.generate_patch(sql_unit, acceptance)
+        patch_text = generator.generate_patch(sql_unit, proposal)
         ensure_dir(paths.patch_files_dir)
         patch_file = paths.patch_files_dir / f"{sql_key_path_component(sql_key)}.patch"
         patch_file.write_text(patch_text, encoding="utf-8")
@@ -73,11 +96,19 @@ def execute_one(
         "diffSummary": diff_summary,
         "applyMode": str(((config.get("apply", {}) or {}).get("mode") or "manual")).lower(),
         "rollback": "restore original mapper backup",
-        "selectedCandidateId": acceptance.get("selectedCandidateId"),
-        "candidatesEvaluated": len(acceptance.get("candidateEvaluations") or []) or 1,
+        "selectedCandidateId": proposal.get("selectedCandidateId"),
+        "candidatesEvaluated": len(proposal.get("candidateEvaluations") or []) or 1,
         "applicable": applicable,
         "applyCheckError": apply_check_error,
-        "selectionReason": acceptance.get("selectionReason") or acceptance.get("selectionRationale"),
+        "selectionReason": proposal.get("selectionReason") or proposal.get("selectionRationale"),
+        "patchability": proposal.get("patchability"),
+        "strategyType": ((proposal.get("selectedPatchStrategy") or {}).get("strategyType") if isinstance(proposal.get("selectedPatchStrategy"), dict) else None),
+        "gates": {
+            "semanticEquivalenceStatus": ((proposal.get("semanticEquivalence") or {}).get("status") if isinstance(proposal.get("semanticEquivalence"), dict) else None),
+            "semanticEquivalenceBlocking": not bool(proposal.get("validated")),
+            "semanticConfidence": ((proposal.get("semanticEquivalence") or {}).get("confidence") if isinstance(proposal.get("semanticEquivalence"), dict) else None),
+            "semanticEvidenceLevel": ((proposal.get("semanticEquivalence") or {}).get("evidenceLevel") if isinstance(proposal.get("semanticEquivalence"), dict) else None),
+        },
     }
 
     validator.validate("patch_result", patch_result)

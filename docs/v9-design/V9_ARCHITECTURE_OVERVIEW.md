@@ -92,7 +92,7 @@ docs/
 python/sqlopt/
 ├── application/
 │   ├── workflow_engine.py           # 核心工作流引擎
-│   ├── workflow_v8.py              # V8/V9 兼容工作流
+│   ├── workflow_v9.py              # V9 工作流引擎
 │   └── run_service.py              # Run 生命周期管理
 │
 ├── stages/                          # 阶段实现（V9 使用直接调用）
@@ -273,19 +273,19 @@ sqlopt-cli run --config sqlopt.yml --sql-key com.example.UserMapper.selectById
 sqlopt-cli diagnose --config sqlopt.yml
 
 # 仅 Init 阶段
-sqlopt-cli run --config sqlopt.yml --stage init
+sqlopt-cli run --config sqlopt.yml --to-stage init
 
 # 仅 Parse 阶段
-sqlopt-cli run --config sqlopt.yml --stage parse
+sqlopt-cli run --config sqlopt.yml --to-stage parse
 
 # 仅 Recognition 阶段
-sqlopt-cli recognition --config sqlopt.yml
+sqlopt-cli run --config sqlopt.yml --to-stage recognition
 
 # 仅 Optimize 阶段
-sqlopt-cli run --config sqlopt.yml --stage optimize
+sqlopt-cli run --config sqlopt.yml --to-stage optimize
 
 # 仅 Patch 阶段
-sqlopt-cli run --config sqlopt.yml --stage patch
+sqlopt-cli run --config sqlopt.yml --to-stage patch
 ```
 
 ### 6.3 状态与恢复命令
@@ -319,9 +319,9 @@ sqlopt-cli apply --run-id <run_id> --dry-run
 | CLI 命令 | 执行阶段 | V9 支持 |
 |---------|---------|---------|
 | `sqlopt-cli run --config sqlopt.yml` | 1-5 全部 | ✅ |
-| `sqlopt-cli run --config sqlopt.yml --stage <stage>` | 指定阶段 | ✅ |
+| `sqlopt-cli run --config sqlopt.yml --to-stage <stage>` | 指定阶段 | ✅ |
 | `sqlopt-cli diagnose` | 1-2 (init+parse) | ✅ |
-| `sqlopt-cli recognition --config sqlopt.yml` | 3 | ✅ |
+| `sqlopt-cli run --config sqlopt.yml --to-stage recognition` | 3 | ✅ |
 | `sqlopt-cli verify --run-id <id> --sql-key <key>` | 4 结果查询 | ✅ |
 | `sqlopt-cli apply --run-id <id>` | 5 | ✅ |
 | `sqlopt-cli status --run-id <id>` | - | ✅ |

@@ -1325,7 +1325,7 @@ python3 -m pytest tests/test_baseline_module.py -v
 python3 -m pytest tests/test_optimize_proposal.py -v
 
 # 运行集成测试
-python3 -m pytest tests/test_workflow_v8_integration.py -v
+python3 -m pytest tests/test_workflow_v9_integration.py -v
 
 # Schema 验证
 python3 scripts/schema_validate_all.py

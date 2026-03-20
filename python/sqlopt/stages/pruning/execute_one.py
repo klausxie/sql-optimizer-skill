@@ -53,7 +53,7 @@ class PruningStage(Stage):
         risk_records: list[dict[str, Any]] = []
         for unit in sql_units:
             try:
-                validator.validate_stage_input("pruning", unit)
+                validator.validate_stage_input("parse", unit)
                 risk_records.append(self._prune_unit(unit, run_dir, validator))
             except Exception as exc:
                 errors.append(
@@ -163,6 +163,7 @@ def execute_one(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     }
+    validator.validate("risks", result)
 
     log_event(
         paths.manifest_path,

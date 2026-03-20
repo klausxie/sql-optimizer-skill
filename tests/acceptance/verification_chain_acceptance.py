@@ -73,6 +73,21 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> dict[st
     return payload
 
 
+def _legacy_patch_rows(run_dir: Path) -> list[dict[str, Any]]:
+    candidates = [
+        run_dir / "pipeline" / "apply" / "patch.results.jsonl",
+        run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl",
+    ]
+    for path in candidates:
+        if path.exists():
+            return [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+    return []
+
+
 def main() -> None:
     repo_root = _repo_root()
     fixture = _fixture_project(repo_root)
@@ -93,7 +108,7 @@ def main() -> None:
                 "--config",
                 str(config_path),
                 "--to-stage",
-                "patch_generate",
+                "patch",
                 "--max-steps",
                 "200",
                 "--max-seconds",
@@ -128,16 +143,17 @@ def main() -> None:
             for line in (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-        patch_rows = [
-            json.loads(line)
-            for line in (run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl").read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        patch_rows = _legacy_patch_rows(run_dir)
 
         phases = {str(row.get("phase")) for row in ledger_rows}
-        required_phases = {"scan", "optimize", "validate", "patch_generate"}
+        required_phases = {"scan", "optimize", "validate"}
+        patch_phase_candidates = {"apply", "patch_generate"}
         if not required_phases.issubset(phases):
             raise SystemExit(f"verification chain acceptance failed: missing phases {sorted(required_phases - phases)}")
+        if not (phases & patch_phase_candidates):
+            raise SystemExit(
+                "verification chain acceptance failed: missing patch/apply verification records"
+            )
 
         validation_sql = {
             str(row.get("sql_key"))
@@ -147,7 +163,7 @@ def main() -> None:
         patch_sql = {
             str(row.get("sql_key"))
             for row in ledger_rows
-            if str(row.get("phase")) == "patch_generate" and str(row.get("sql_key") or "").strip()
+            if str(row.get("phase")) in patch_phase_candidates and str(row.get("sql_key") or "").strip()
         }
         accepted_sql = {str(row.get("sqlKey")) for row in acceptance_rows if str(row.get("status")) == "PASS"}
         patch_result_sql = {str(row.get("sqlKey")) for row in patch_rows if str(row.get("sqlKey") or "").strip()}
@@ -155,7 +171,7 @@ def main() -> None:
         if not accepted_sql.issubset(validation_sql):
             raise SystemExit("verification chain acceptance failed: PASS acceptance rows missing validate verification records")
         if not patch_result_sql.issubset(patch_sql):
-            raise SystemExit("verification chain acceptance failed: patch results missing patch_generate verification records")
+            raise SystemExit("verification chain acceptance failed: patch results missing patch/apply verification records")
 
         report_verification = ((report.get("stats") or {}).get("verification") or {})
         stable_summary = {key: value for key, value in summary.items() if key != "generated_at"}

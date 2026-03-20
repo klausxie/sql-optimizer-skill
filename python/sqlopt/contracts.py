@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,15 +26,25 @@ SCHEMA_MAP = {
     "verification_record": "verification_record.schema.json",
     "verification_summary": "verification_summary.schema.json",
     "baseline_result": "baseline_result.schema.json",
+    "risks": "risks.schema.json",
 }
 
-# Stage boundary definitions: stage_name -> (input_schema_name | None, output_schema_name | None)
-STAGE_BOUNDARIES: dict[str, tuple[str | None, str | None]] = {
-    "init": (None, "sqlunit"),
-    "parse": ("sqlunit", None),  # Output is sql_units_with_branches.json + risks.json (custom)
-    "recognition": ("sqlunit", "baseline_result"),
-    "optimize": ("baseline_result", "optimization_proposal"),
-    "patch": ("acceptance_result", "patch_result"),
+
+@dataclass(frozen=True)
+class StageBoundary:
+    input_schemas: tuple[str, ...] = ()
+    output_schemas: tuple[str, ...] = ()
+
+
+# Canonical V9 boundaries used by the top-level workflow.
+STAGE_BOUNDARIES: dict[str, StageBoundary] = {
+    "init": StageBoundary(output_schemas=("sqlunit",)),
+    # Parse materializes two artifacts: branched sqlunits and risk reports.
+    "parse": StageBoundary(input_schemas=("sqlunit",), output_schemas=("sqlunit", "risks")),
+    "recognition": StageBoundary(input_schemas=("sqlunit",), output_schemas=("baseline_result",)),
+    # Optimize owns candidate generation + validation in V9, so patch only consumes optimize output.
+    "optimize": StageBoundary(input_schemas=("baseline_result",), output_schemas=("optimization_proposal",)),
+    "patch": StageBoundary(input_schemas=("optimization_proposal",), output_schemas=("patch_result",)),
 }
 
 STAGE_NAMES = frozenset(STAGE_BOUNDARIES.keys())
@@ -47,7 +58,6 @@ def _resolve_contract_dir(repo_root: Path) -> Path:
     ]
     for candidate in candidates:
         if candidate.exists():
-            # Check if schemas are in subdirectory
             schemas_dir = candidate / "schemas"
             if schemas_dir.exists():
                 return schemas_dir
@@ -70,20 +80,7 @@ class ContractValidator:
 
     def validate(self, name: str, payload: Any) -> None:
         schema = self._schema(name)
-        if jsonschema is not None:
-            try:
-                jsonschema.validate(instance=payload, schema=schema)
-            except Exception as exc:
-                raise ContractError(f"{name} schema validation failed: {exc}") from exc
-            return
-        if schema.get("type") == "object" and isinstance(payload, dict):
-            missing = [k for k in schema.get("required", []) if k not in payload]
-            if missing:
-                raise ContractError(f"{name} missing required fields: {missing}")
-        else:
-            raise ContractError(
-                f"jsonschema dependency missing; cannot validate {name}"
-            )
+        self._validate_against_schema(schema, payload, label=name)
 
     def get_stage_schema(self, stage_name: str, io_type: str) -> dict[str, Any] | None:
         if stage_name not in STAGE_BOUNDARIES:
@@ -92,59 +89,61 @@ class ContractValidator:
             )
         if io_type not in ("input", "output"):
             raise ContractError(f"io_type must be 'input' or 'output', got: {io_type}")
-        input_schema, output_schema = STAGE_BOUNDARIES[stage_name]
-        schema_name = input_schema if io_type == "input" else output_schema
-        if schema_name is None:
+        boundary = STAGE_BOUNDARIES[stage_name]
+        schema_names = boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        if not schema_names:
             return None
-        return self._schema(schema_name)
+        if len(schema_names) == 1:
+            return self._schema(schema_names[0])
+        return {"anyOf": [self._schema(name) for name in schema_names]}
 
     def validate_stage_input(self, stage_name: str, data: Any) -> None:
-        schema = self.get_stage_schema(stage_name, "input")
-        if schema is None:
-            return
-        if jsonschema is not None:
-            try:
-                jsonschema.validate(instance=data, schema=schema)
-            except Exception as exc:
-                path = _extract_error_path(exc)
-                raise ContractError(
-                    f"stage '{stage_name}' input validation failed{path}: {exc}"
-                ) from exc
-            return
-        if schema.get("type") == "object" and isinstance(data, dict):
-            missing = [k for k in schema.get("required", []) if k not in data]
-            if missing:
-                raise ContractError(
-                    f"stage '{stage_name}' input missing required fields: {missing}"
-                )
-        else:
-            raise ContractError(
-                f"jsonschema dependency missing; cannot validate stage '{stage_name}' input"
-            )
+        self._validate_stage_io(stage_name, "input", data)
 
     def validate_stage_output(self, stage_name: str, data: Any) -> None:
-        schema = self.get_stage_schema(stage_name, "output")
-        if schema is None:
+        self._validate_stage_io(stage_name, "output", data)
+
+    def _validate_stage_io(self, stage_name: str, io_type: str, data: Any) -> None:
+        if stage_name not in STAGE_BOUNDARIES:
+            raise ContractError(
+                f"unknown stage: {stage_name}; valid stages: {sorted(STAGE_NAMES)}"
+            )
+        boundary = STAGE_BOUNDARIES[stage_name]
+        schema_names = boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        if not schema_names:
             return
+        errors: list[str] = []
+        for schema_name in schema_names:
+            schema = self._schema(schema_name)
+            try:
+                self._validate_against_schema(
+                    schema,
+                    data,
+                    label=f"stage '{stage_name}' {io_type}",
+                )
+                return
+            except ContractError as exc:
+                errors.append(f"{schema_name}: {exc}")
+        allowed = ", ".join(schema_names)
+        detail = "; ".join(errors)
+        raise ContractError(
+            f"stage '{stage_name}' {io_type} validation failed against allowed schemas [{allowed}]: {detail}"
+        )
+
+    def _validate_against_schema(self, schema: dict[str, Any], payload: Any, *, label: str) -> None:
         if jsonschema is not None:
             try:
-                jsonschema.validate(instance=data, schema=schema)
+                jsonschema.validate(instance=payload, schema=schema)
             except Exception as exc:
                 path = _extract_error_path(exc)
-                raise ContractError(
-                    f"stage '{stage_name}' output validation failed{path}: {exc}"
-                ) from exc
+                raise ContractError(f"{label} validation failed{path}: {exc}") from exc
             return
-        if schema.get("type") == "object" and isinstance(data, dict):
-            missing = [k for k in schema.get("required", []) if k not in data]
+        if schema.get("type") == "object" and isinstance(payload, dict):
+            missing = [k for k in schema.get("required", []) if k not in payload]
             if missing:
-                raise ContractError(
-                    f"stage '{stage_name}' output missing required fields: {missing}"
-                )
-        else:
-            raise ContractError(
-                f"jsonschema dependency missing; cannot validate stage '{stage_name}' output"
-            )
+                raise ContractError(f"{label} missing required fields: {missing}")
+            return
+        raise ContractError(f"jsonschema dependency missing; cannot validate {label}")
 
 
 def _extract_error_path(exc: Exception) -> str:

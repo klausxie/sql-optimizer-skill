@@ -18,7 +18,7 @@ from .run_selection import (
 )
 from .lifecycle_policy import LifecycleOutcome
 from . import lifecycle_policy
-from . import workflow_v8
+from . import workflow_v9
 from .requests import AdvanceStepRequest, RunStatusRequest
 from .run_repository import RunRepository
 
@@ -49,7 +49,7 @@ def start_run(
     if runtime_checks.get("warning"):
         get_progress_reporter().report_warning(str(runtime_checks["warning"]))
     resolved_run_id = run_id or f"run_{uuid4().hex[:12]}"
-    runs_root = workflow_v8.runs_root(config)
+    runs_root = workflow_v9.runs_root(config)
     run_dir = runs_root / resolved_run_id
     repository = RunRepository(run_dir)
     if not run_dir.exists():
@@ -81,7 +81,7 @@ def start_run(
     repository.set_plan(plan)
 
     validator = ContractValidator(repo_root)
-    result = workflow_v8.advance_one_step_request(
+    result = workflow_v9.advance_one_step_request(
         AdvanceStepRequest(
             run_dir=run_dir,
             config=config,
@@ -101,18 +101,18 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     plan = repository.get_plan()
     runtime_checks = config_service.prepare_runtime_prerequisites(
         config,
-        to_stage=str(plan.get("to_stage", "apply")),
+        to_stage=str(plan.get("to_stage", "patch")),
         config_path=paths.config_resolved_path,
     )
     if runtime_checks.get("warning"):
         get_progress_reporter().report_warning(str(runtime_checks["warning"]))
     repository.write_resolved_config(config)
     validator = ContractValidator(repo_root)
-    return workflow_v8.advance_one_step_request(
+    return workflow_v9.advance_one_step_request(
         AdvanceStepRequest(
             run_dir=run_dir,
             config=config,
-            to_stage=plan.get("to_stage", "apply"),
+            to_stage=plan.get("to_stage", "patch"),
             validator=validator,
             repository=repository,
         )
@@ -127,7 +127,7 @@ def get_status(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     plan = repository.get_plan()
     meta = repository.load_meta()
     config = load_config(paths.config_resolved_path)
-    return workflow_v8.build_status_snapshot(
+    return workflow_v9.build_status_snapshot(
         RunStatusRequest(
             run_id=run_id,
             state=state,
@@ -169,7 +169,3 @@ def build_interrupt_payload(
     run_id: str, *, next_action: str | None = None
 ) -> dict[str, Any]:
     return lifecycle_policy.build_interrupt_payload(run_id, next_action=next_action)
-
-
-def status_requires_report_rebuild(status_snapshot: dict[str, Any]) -> bool:
-    return lifecycle_policy.status_requires_report_rebuild(status_snapshot)

@@ -50,7 +50,7 @@ class StatusResolverModuleTest(unittest.TestCase):
         self.assertEqual(result.next_action, "resume")
         self.assertEqual(result.current_sql_key, "demo#v1")
 
-    def test_resolve_status_returns_report_rebuild_for_completed_run(self) -> None:
+    def test_resolve_status_returns_none_when_target_complete(self) -> None:
         resolver = self._resolver()
         result = resolver.resolve_status(
             RunStatusRequest(
@@ -64,7 +64,6 @@ class StatusResolverModuleTest(unittest.TestCase):
                         "apply": "DONE",
                         "report": "DONE",
                     },
-                    "report_rebuild_required": True,
                     "statements": {},
                 },
                 plan={"to_stage": "apply"},
@@ -72,8 +71,43 @@ class StatusResolverModuleTest(unittest.TestCase):
                 config={"report": {"enabled": True}},
             )
         )
-        self.assertFalse(result.complete)
-        self.assertEqual(result.next_action, "report-rebuild")
+        self.assertTrue(result.complete)
+        self.assertEqual(result.next_action, "none")
+
+    def test_pending_by_phase_uses_stage_order_for_v9_pipeline(self) -> None:
+        resolver = StatusResolver(
+            stage_order=["init", "parse", "recognition", "optimize", "patch"],
+            phase_policies={
+                "init": PhaseExecutionPolicy("init"),
+                "parse": PhaseExecutionPolicy("parse"),
+                "recognition": PhaseExecutionPolicy("recognition"),
+                "optimize": PhaseExecutionPolicy("optimize"),
+                "patch": PhaseExecutionPolicy("patch"),
+            },
+        )
+
+        counts = resolver.pending_by_phase(
+            {
+                "statements": {
+                    "demo#v1": {
+                        "recognition": "DONE",
+                        "optimize": "PENDING",
+                        "patch": "PENDING",
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(
+            counts,
+            {
+                "init": 0,
+                "parse": 0,
+                "recognition": 0,
+                "optimize": 1,
+                "patch": 1,
+            },
+        )
 
 
 if __name__ == "__main__":

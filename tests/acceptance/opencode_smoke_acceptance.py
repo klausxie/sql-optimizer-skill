@@ -202,7 +202,7 @@ def main() -> None:
                 "--config",
                 "./sqlopt.local.yml",
                 "--to-stage",
-                "patch_generate",
+                "patch",
                 "--max-steps",
                 "200",
                 "--max-seconds",

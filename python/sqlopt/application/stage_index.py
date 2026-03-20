@@ -12,12 +12,20 @@ from ..run_paths import canonical_paths
 class LoadedStageIndex:
     units: dict[str, Any]
     proposals: dict[str, Any]
-    acceptance: dict[str, Any]
+    patch_ready_proposals: dict[str, Any]
 
 
 def load_index(run_dir: Path) -> LoadedStageIndex:
     paths = canonical_paths(run_dir)
     units = {x["sqlKey"]: x for x in read_jsonl(paths.scan_units_path)}
     proposals = {x["sqlKey"]: x for x in read_jsonl(paths.proposals_path)}
-    acceptance = {x["sqlKey"]: x for x in read_jsonl(paths.acceptance_path)}
-    return LoadedStageIndex(units=units, proposals=proposals, acceptance=acceptance)
+    patch_ready_proposals = {
+        x["sqlKey"]: x
+        for x in read_jsonl(paths.proposals_path)
+        if isinstance(x, dict) and x.get("validated") is True
+    }
+    return LoadedStageIndex(
+        units=units,
+        proposals=proposals,
+        patch_ready_proposals=patch_ready_proposals,
+    )
