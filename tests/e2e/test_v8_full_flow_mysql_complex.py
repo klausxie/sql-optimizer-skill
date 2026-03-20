@@ -258,35 +258,29 @@ def test_v8_full_flow_mysql_complex():
         print(f"  current_stage: {current_stage}")
         print(f"  completed_stages: {completed_stages}")
 
-        # Verify all 7 stages completed
-        v8_stages = [
-            "discovery",
-            "branching",
-            "pruning",
-            "baseline",
+        # Verify all 5 V9 stages completed
+        v9_stages = [
+            "init",
+            "parse",
+            "recognition",
             "optimize",
-            "validate",
             "patch",
         ]
-        for stage in v8_stages:
+        for stage in v9_stages:
             assert stage in completed_stages, f"Stage {stage} not completed"
 
         # Verify artifacts
-        print(f"\n=== V8 Artifacts ===")
+        print(f"\n=== V9 Artifacts ===")
         artifact_checks = {}
-        for stage in v8_stages:
-            if stage == "discovery":
+        for stage in v9_stages:
+            if stage == "init":
                 artifact_path = run_dir / stage / "sql_units.json"
-            elif stage == "branching":
+            elif stage == "parse":
                 artifact_path = run_dir / stage / "sql_units_with_branches.json"
-            elif stage == "pruning":
-                artifact_path = run_dir / stage / "risks.json"
-            elif stage == "baseline":
+            elif stage == "recognition":
                 artifact_path = run_dir / stage / "baselines.json"
             elif stage == "optimize":
                 artifact_path = run_dir / stage / "proposals.json"
-            elif stage == "validate":
-                artifact_path = run_dir / stage / "validations.json"
             else:  # patch
                 artifact_path = run_dir / stage / "patches.json"
 
@@ -303,12 +297,12 @@ def test_v8_full_flow_mysql_complex():
                         print(f"    keys: {list(data.keys())[:5]}")
 
         # Show branching details
-        branching_path = run_dir / "branching" / "sql_units_with_branches.json"
-        if branching_path.exists():
-            with open(branching_path) as f:
-                branching_data = json.load(f)
-            print(f"\n=== Branching Details ===")
-            for unit in branching_data:
+        parse_path = run_dir / "parse" / "sql_units_with_branches.json"
+        if parse_path.exists():
+            with open(parse_path) as f:
+                parse_data = json.load(f)
+            print(f"\n=== Parse Details ===")
+            for unit in parse_data:
                 sql_key = unit.get("sqlKey", "unknown")
                 branch_count = unit.get("branchCount", 0)
                 branches = unit.get("branches", [])
@@ -321,8 +315,8 @@ def test_v8_full_flow_mysql_complex():
                     )
                     print(f"    - {sql}")
 
-        # Show pruning risks
-        risks_path = run_dir / "pruning" / "risks.json"
+        # Show risks
+        risks_path = run_dir / "parse" / "risks.json"
         if risks_path.exists():
             with open(risks_path) as f:
                 risks = json.load(f)

@@ -147,12 +147,10 @@ class TestWorkflowEngineInitialization:
             engine = V8WorkflowEngine(config=mock_config)
 
             expected_stages = [
-                "discovery",
-                "branching",
-                "pruning",
-                "baseline",
+                "init",
+                "parse",
+                "recognition",
                 "optimize",
-                "validate",
                 "patch",
             ]
             for stage in expected_stages:
@@ -175,20 +173,18 @@ class TestWorkflowEngineRun:
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
-                "discovery": lambda r: {"success": True},
-                "branching": lambda r: {"success": True},
-                "pruning": lambda r: {"success": True},
-                "baseline": lambda r: {"success": True},
+                "init": lambda r: {"success": True},
+                "parse": lambda r: {"success": True},
+                "recognition": lambda r: {"success": True},
                 "optimize": lambda r: {"success": True},
-                "validate": lambda r: {"success": True},
                 "patch": lambda r: {"success": True},
             }
 
-            # Run to discovery stage
-            engine.run(temp_run_dir, to_stage="discovery")
+            # Run to init stage
+            engine.run(temp_run_dir, to_stage="init")
 
-            # Discovery completes successfully - stages are tracked
-            assert "discovery" in engine.state.completed_stages
+            # Init completes successfully - stages are tracked
+            assert "init" in engine.state.completed_stages
 
     def test_run_executes_stages_in_order(self, workflow_engine, temp_run_dir):
         """Test that run() executes stages in correct order."""
@@ -199,28 +195,23 @@ class TestWorkflowEngineRun:
             return {"success": True}
 
         workflow_engine.stages = {
-            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
-                1
-            ],
-            "branching": lambda r: (call_order.append("branching"), {"success": True})[
-                1
-            ],
-            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
-            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "init": lambda r: (call_order.append("init"), {"success": True})[1],
+            "parse": lambda r: (call_order.append("parse"), {"success": True})[1],
+            "recognition": lambda r: (
+                call_order.append("recognition"),
+                {"success": True},
+            )[1],
             "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
-            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
             "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
         }
 
         workflow_engine.run(temp_run_dir, to_stage="patch")
 
         assert call_order == [
-            "discovery",
-            "branching",
-            "pruning",
-            "baseline",
+            "init",
+            "parse",
+            "recognition",
             "optimize",
-            "validate",
             "patch",
         ]
 
@@ -229,26 +220,25 @@ class TestWorkflowEngineRun:
         call_order = []
 
         workflow_engine.stages = {
-            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
-                1
-            ],
-            "branching": lambda r: (
-                call_order.append("branching"),
+            "init": lambda r: (call_order.append("init"), {"success": True})[1],
+            "parse": lambda r: (
+                call_order.append("parse"),
                 {"success": False, "error": "Test error"},
             )[1],
-            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
-            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "recognition": lambda r: (
+                call_order.append("recognition"),
+                {"success": True},
+            )[1],
             "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
-            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
             "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
         }
 
         results = workflow_engine.run(temp_run_dir, to_stage="patch")
 
-        assert "discovery" in call_order
-        assert "branching" in call_order
-        assert "pruning" not in call_order  # Should not execute
-        assert results["branching"]["success"] is False
+        assert "init" in call_order
+        assert "parse" in call_order
+        assert "recognition" not in call_order  # Should not execute
+        assert results["parse"]["success"] is False
         assert workflow_engine.state.status == "failed"
 
     def test_run_respects_to_stage_limit(self, workflow_engine, temp_run_dir):
@@ -256,69 +246,58 @@ class TestWorkflowEngineRun:
         call_order = []
 
         workflow_engine.stages = {
-            "discovery": lambda r: (call_order.append("discovery"), {"success": True})[
-                1
-            ],
-            "branching": lambda r: (call_order.append("branching"), {"success": True})[
-                1
-            ],
-            "pruning": lambda r: (call_order.append("pruning"), {"success": True})[1],
-            "baseline": lambda r: (call_order.append("baseline"), {"success": True})[1],
+            "init": lambda r: (call_order.append("init"), {"success": True})[1],
+            "parse": lambda r: (call_order.append("parse"), {"success": True})[1],
+            "recognition": lambda r: (
+                call_order.append("recognition"),
+                {"success": True},
+            )[1],
             "optimize": lambda r: (call_order.append("optimize"), {"success": True})[1],
-            "validate": lambda r: (call_order.append("validate"), {"success": True})[1],
             "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
         }
 
-        workflow_engine.run(temp_run_dir, to_stage="baseline")
+        workflow_engine.run(temp_run_dir, to_stage="recognition")
 
         assert call_order == [
-            "discovery",
-            "branching",
-            "pruning",
-            "baseline",
+            "init",
+            "parse",
+            "recognition",
         ]
         assert "optimize" not in call_order
-        assert "validate" not in call_order
         assert "patch" not in call_order
 
     def test_run_updates_completed_stages(self, workflow_engine, temp_run_dir):
         """Test that run() updates completed_stages after each stage."""
         workflow_engine.stages = {
-            "discovery": lambda r: {"success": True},
-            "branching": lambda r: {"success": True},
-            "pruning": lambda r: {"success": True},
-            "baseline": lambda r: {"success": True},
+            "init": lambda r: {"success": True},
+            "parse": lambda r: {"success": True},
+            "recognition": lambda r: {"success": True},
             "optimize": lambda r: {"success": True},
-            "validate": lambda r: {"success": True},
             "patch": lambda r: {"success": True},
         }
 
         workflow_engine.run(temp_run_dir, to_stage="patch")
 
-        assert "discovery" in workflow_engine.state.completed_stages
-        assert "branching" in workflow_engine.state.completed_stages
-        assert "pruning" in workflow_engine.state.completed_stages
-        assert "baseline" in workflow_engine.state.completed_stages
+        assert "init" in workflow_engine.state.completed_stages
+        assert "parse" in workflow_engine.state.completed_stages
+        assert "recognition" in workflow_engine.state.completed_stages
         assert "optimize" in workflow_engine.state.completed_stages
-        assert "validate" in workflow_engine.state.completed_stages
         assert "patch" in workflow_engine.state.completed_stages
 
     def test_run_handles_stage_exception(self, workflow_engine, temp_run_dir):
         """Test that run() handles exceptions from stages."""
         workflow_engine.stages = {
-            "discovery": lambda r: (_ for _ in ()).throw(Exception("Stage error")),
-            "branching": lambda r: {"success": True},
-            "pruning": lambda r: {"success": True},
-            "baseline": lambda r: {"success": True},
+            "init": lambda r: (_ for _ in ()).throw(Exception("Stage error")),
+            "parse": lambda r: {"success": True},
+            "recognition": lambda r: {"success": True},
             "optimize": lambda r: {"success": True},
-            "validate": lambda r: {"success": True},
             "patch": lambda r: {"success": True},
         }
 
         results = workflow_engine.run(temp_run_dir, to_stage="patch")
 
-        assert results["discovery"]["success"] is False
-        assert "Stage error" in results["discovery"]["error"]
+        assert results["init"]["success"] is False
+        assert "Stage error" in results["init"]["error"]
         assert workflow_engine.state.status == "failed"
 
     def test_run_sets_completed_when_all_stages_done(
@@ -326,12 +305,10 @@ class TestWorkflowEngineRun:
     ):
         """Test that run() sets status to 'completed' when all stages finish."""
         workflow_engine.stages = {
-            "discovery": lambda r: {"success": True},
-            "branching": lambda r: {"success": True},
-            "pruning": lambda r: {"success": True},
-            "baseline": lambda r: {"success": True},
+            "init": lambda r: {"success": True},
+            "parse": lambda r: {"success": True},
+            "recognition": lambda r: {"success": True},
             "optimize": lambda r: {"success": True},
-            "validate": lambda r: {"success": True},
             "patch": lambda r: {"success": True},
         }
 
@@ -359,12 +336,10 @@ class TestAdvanceOneStep:
                 "run_id": "test_run",
                 "current_stage": "patch",
                 "completed_stages": [
-                    "discovery",
-                    "branching",
-                    "pruning",
-                    "baseline",
+                    "init",
+                    "parse",
+                    "recognition",
                     "optimize",
-                    "validate",
                     "patch",
                 ],
                 "stage_results": {},
@@ -405,43 +380,36 @@ class TestAdvanceOneStep:
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
-                "discovery": lambda r: (
-                    call_order.append("discovery"),
+                "init": lambda r: (
+                    call_order.append("init"),
                     {"success": True},
                 )[1],
-                "branching": lambda r: (
-                    call_order.append("branching"),
+                "parse": lambda r: (
+                    call_order.append("parse"),
                     {"success": True},
                 )[1],
-                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
-                    1
-                ],
-                "baseline": lambda r: (
-                    call_order.append("baseline"),
+                "recognition": lambda r: (
+                    call_order.append("recognition"),
                     {"success": True},
                 )[1],
                 "optimize": lambda r: (
                     call_order.append("optimize"),
                     {"success": True},
                 )[1],
-                "validate": lambda r: (
-                    call_order.append("validate"),
-                    {"success": True},
-                )[1],
                 "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
             }
 
-            # First call should do discovery
+            # First call should do init
             result1 = engine.advance_one_step(temp_run_dir, to_stage="patch")
             assert result1["completed"] is False
-            assert result1["stage"] == "discovery"
-            assert "discovery" in call_order
+            assert result1["stage"] == "init"
+            assert "init" in call_order
 
-            # Second call should do branching
+            # Second call should do parse
             result2 = engine.advance_one_step(temp_run_dir, to_stage="patch")
             assert result2["completed"] is False
-            assert result2["stage"] == "branching"
-            assert "branching" in call_order
+            assert result2["stage"] == "parse"
+            assert "parse" in call_order
 
     def test_advance_one_step_handles_stage_failure(self, mock_config, temp_run_dir):
         """Test advance_one_step handles stage failure."""
@@ -457,19 +425,17 @@ class TestAdvanceOneStep:
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
-                "discovery": lambda r: {"success": False, "error": "Discovery failed"},
-                "branching": lambda r: {"success": True},
-                "pruning": lambda r: {"success": True},
-                "baseline": lambda r: {"success": True},
+                "init": lambda r: {"success": False, "error": "Init failed"},
+                "parse": lambda r: {"success": True},
+                "recognition": lambda r: {"success": True},
                 "optimize": lambda r: {"success": True},
-                "validate": lambda r: {"success": True},
                 "patch": lambda r: {"success": True},
             }
 
             result = engine.advance_one_step(temp_run_dir, to_stage="patch")
 
             assert result["completed"] is False
-            assert result["stage"] == "discovery"
+            assert result["stage"] == "init"
             assert result["result"]["success"] is False
             assert engine.state.status == "failed"
 
@@ -487,14 +453,10 @@ class TestAdvanceOneStep:
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
-                "discovery": lambda r: (_ for _ in ()).throw(
-                    Exception("Test exception")
-                ),
-                "branching": lambda r: {"success": True},
-                "pruning": lambda r: {"success": True},
-                "baseline": lambda r: {"success": True},
+                "init": lambda r: (_ for _ in ()).throw(Exception("Test exception")),
+                "parse": lambda r: {"success": True},
+                "recognition": lambda r: {"success": True},
                 "optimize": lambda r: {"success": True},
-                "validate": lambda r: {"success": True},
                 "patch": lambda r: {"success": True},
             }
 
@@ -518,12 +480,10 @@ class TestAdvanceOneStep:
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
-                "discovery": lambda r: {"success": True},
-                "branching": lambda r: {"success": True},
-                "pruning": lambda r: {"success": True},
-                "baseline": lambda r: {"success": True},
+                "init": lambda r: {"success": True},
+                "parse": lambda r: {"success": True},
+                "recognition": lambda r: {"success": True},
                 "optimize": lambda r: {"success": True},
-                "validate": lambda r: {"success": True},
                 "patch": lambda r: {"success": True},
             }
 
@@ -546,16 +506,16 @@ class TestResume:
 
     def test_resume_loads_existing_state_and_continues(self, mock_config, temp_run_dir):
         """Test resume() loads existing state from run_dir and continues execution."""
-        # Create state file with discovery completed
+        # Create state file with init completed
         supervisor_dir = temp_run_dir / "supervisor"
         supervisor_dir.mkdir(parents=True, exist_ok=True)
 
         saved_state = {
             "run_id": "resumed_run",
-            "current_stage": "branching",
-            "completed_stages": ["discovery"],
+            "current_stage": "parse",
+            "completed_stages": ["init"],
             "stage_results": {
-                "discovery": {"success": True, "output_file": "/path/to/output.json"}
+                "init": {"success": True, "output_file": "/path/to/output.json"}
             },
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
@@ -570,12 +530,10 @@ class TestResume:
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
-                "discovery": lambda r: {"success": True},
-                "branching": lambda r: {"success": True},
-                "pruning": lambda r: {"success": True},
-                "baseline": lambda r: {"success": True},
+                "init": lambda r: {"success": True},
+                "parse": lambda r: {"success": True},
+                "recognition": lambda r: {"success": True},
                 "optimize": lambda r: {"success": True},
-                "validate": lambda r: {"success": True},
                 "patch": lambda r: {"success": True},
             }
 
@@ -583,26 +541,26 @@ class TestResume:
 
             # Verify that resume loaded the state
             assert engine.state.run_id == "resumed_run"
-            # discovery should still be completed, and all other stages should now be completed too
-            assert "discovery" in engine.state.completed_stages
-            # All stages should have run since state only had discovery completed
-            assert len(engine.state.completed_stages) == 7
+            # init should still be completed, and all other stages should now be completed too
+            assert "init" in engine.state.completed_stages
+            # All stages should have run since state only had init completed
+            assert len(engine.state.completed_stages) == 5
 
     def test_resume_skips_completed_stages(self, mock_config, temp_run_dir):
         """Test resume() skips already completed stages."""
         call_order = []
 
-        # Create state file with discovery and branching completed
+        # Create state file with init and parse completed
         supervisor_dir = temp_run_dir / "supervisor"
         supervisor_dir.mkdir(parents=True, exist_ok=True)
 
         saved_state = {
             "run_id": "resumed_run",
-            "current_stage": "pruning",
-            "completed_stages": ["discovery", "branching"],
+            "current_stage": "recognition",
+            "completed_stages": ["init", "parse"],
             "stage_results": {
-                "discovery": {"success": True},
-                "branching": {"success": True},
+                "init": {"success": True},
+                "parse": {"success": True},
             },
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
@@ -617,27 +575,20 @@ class TestResume:
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
-                "discovery": lambda r: (
-                    call_order.append("discovery"),
+                "init": lambda r: (
+                    call_order.append("init"),
                     {"success": True},
                 )[1],
-                "branching": lambda r: (
-                    call_order.append("branching"),
+                "parse": lambda r: (
+                    call_order.append("parse"),
                     {"success": True},
                 )[1],
-                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
-                    1
-                ],
-                "baseline": lambda r: (
-                    call_order.append("baseline"),
+                "recognition": lambda r: (
+                    call_order.append("recognition"),
                     {"success": True},
                 )[1],
                 "optimize": lambda r: (
                     call_order.append("optimize"),
-                    {"success": True},
-                )[1],
-                "validate": lambda r: (
-                    call_order.append("validate"),
                     {"success": True},
                 )[1],
                 "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
@@ -645,26 +596,26 @@ class TestResume:
 
             engine.resume(temp_run_dir, to_stage="patch")
 
-            # Discovery and branching should NOT be called (already completed)
-            assert "discovery" not in call_order
-            assert "branching" not in call_order
-            # But pruning and subsequent stages should run
-            assert "pruning" in call_order
-            assert "baseline" in call_order
+            # Init and parse should NOT be called (already completed)
+            assert "init" not in call_order
+            assert "parse" not in call_order
+            # But recognition and subsequent stages should run
+            assert "recognition" in call_order
+            assert "optimize" in call_order
 
     def test_resume_stops_on_failure(self, mock_config, temp_run_dir):
         """Test resume() stops when a stage fails."""
         call_order = []
 
-        # Create state file with discovery completed
+        # Create state file with init completed
         supervisor_dir = temp_run_dir / "supervisor"
         supervisor_dir.mkdir(parents=True, exist_ok=True)
 
         saved_state = {
             "run_id": "resumed_run",
-            "current_stage": "branching",
-            "completed_stages": ["discovery"],
-            "stage_results": {"discovery": {"success": True}},
+            "current_stage": "parse",
+            "completed_stages": ["init"],
+            "stage_results": {"init": {"success": True}},
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
             "status": "running",
@@ -678,27 +629,20 @@ class TestResume:
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
-                "discovery": lambda r: (
-                    call_order.append("discovery"),
+                "init": lambda r: (
+                    call_order.append("init"),
                     {"success": True},
                 )[1],
-                "branching": lambda r: (
-                    call_order.append("branching"),
+                "parse": lambda r: (
+                    call_order.append("parse"),
                     {"success": False, "error": "Failed"},
                 )[1],
-                "pruning": lambda r: (call_order.append("pruning"), {"success": True})[
-                    1
-                ],
-                "baseline": lambda r: (
-                    call_order.append("baseline"),
+                "recognition": lambda r: (
+                    call_order.append("recognition"),
                     {"success": True},
                 )[1],
                 "optimize": lambda r: (
                     call_order.append("optimize"),
-                    {"success": True},
-                )[1],
-                "validate": lambda r: (
-                    call_order.append("validate"),
                     {"success": True},
                 )[1],
                 "patch": lambda r: (call_order.append("patch"), {"success": True})[1],
@@ -706,21 +650,19 @@ class TestResume:
 
             results = engine.resume(temp_run_dir, to_stage="patch")
 
-            # discovery is already done, branching should run and fail
-            assert "branching" in call_order
-            # pruning should NOT run (stopped after failure)
-            assert "pruning" not in call_order
-            assert results["branching"]["success"] is False
+            # init is already done, parse should run and fail
+            assert "parse" in call_order
+            # recognition should NOT run (stopped after failure)
+            assert "recognition" not in call_order
+            assert results["parse"]["success"] is False
 
     def test_resume_saves_state_after_completion(self, workflow_engine, temp_run_dir):
         """Test resume() saves state after completing stages."""
         workflow_engine.stages = {
-            "discovery": lambda r: {"success": True},
-            "branching": lambda r: {"success": True},
-            "pruning": lambda r: {"success": True},
-            "baseline": lambda r: {"success": True},
+            "init": lambda r: {"success": True},
+            "parse": lambda r: {"success": True},
+            "recognition": lambda r: {"success": True},
             "optimize": lambda r: {"success": True},
-            "validate": lambda r: {"success": True},
             "patch": lambda r: {"success": True},
         }
 
@@ -750,7 +692,7 @@ class TestGetNextAction:
         action = workflow_engine.get_next_action(temp_run_dir)
 
         assert action.action == "run"
-        assert action.stage == "discovery"
+        assert action.stage == "init"
         assert "No previous state" in action.reason
 
     def test_get_next_action_returns_none_when_complete(
@@ -765,12 +707,10 @@ class TestGetNextAction:
             "run_id": "test_run",
             "current_stage": "patch",
             "completed_stages": [
-                "discovery",
-                "branching",
-                "pruning",
-                "baseline",
+                "init",
+                "parse",
+                "recognition",
                 "optimize",
-                "validate",
                 "patch",
             ],
             "stage_results": {},
@@ -796,9 +736,9 @@ class TestGetNextAction:
 
         saved_state = {
             "run_id": "test_run",
-            "current_stage": "branching",
-            "completed_stages": ["discovery"],
-            "stage_results": {"discovery": {"success": True}},
+            "current_stage": "parse",
+            "completed_stages": ["init"],
+            "stage_results": {"init": {"success": True}},
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
             "status": "running",
@@ -810,7 +750,7 @@ class TestGetNextAction:
         action = workflow_engine.get_next_action(temp_run_dir)
 
         assert action.action == "resume"
-        assert action.stage == "branching"
+        assert action.stage == "parse"
 
 
 # =============================================================================
@@ -821,8 +761,8 @@ class TestGetNextAction:
 class TestStageMethods:
     """Tests for individual stage execution methods."""
 
-    def test_run_discovery_creates_output_file(self, mock_config, temp_run_dir):
-        """Test _run_discovery creates output file with sql_units."""
+    def test_run_init_creates_output_file(self, mock_config, temp_run_dir):
+        """Test _run_init creates output file with sql_units."""
         # Mock Scanner at the source
         mock_result = Mock()
         mock_result.sql_units = [
@@ -842,26 +782,24 @@ class TestStageMethods:
                 from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
                 engine = V8WorkflowEngine(config=mock_config, repository=None)
-                result = engine._run_discovery(temp_run_dir)
+                result = engine._run_init(temp_run_dir)
 
                 assert result["success"] is True
                 assert result["sql_units_count"] == 2
 
-                output_path = temp_run_dir / "discovery" / "sql_units.json"
+                output_path = temp_run_dir / "init" / "sql_units.json"
                 assert output_path.exists()
 
                 saved_data = json.loads(output_path.read_text())
                 assert len(saved_data) == 2
 
-    def test_run_branching_returns_error_when_no_discovery(
-        self, mock_config, temp_run_dir
-    ):
-        """Test _run_branching returns error when discovery output missing."""
+    def test_run_parse_returns_error_when_no_init(self, mock_config, temp_run_dir):
+        """Test _run_parse returns error when init output missing."""
         with patch("sqlopt.application.workflow_v8.StatusResolver"):
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
-            result = engine._run_branching(temp_run_dir)
+            result = engine._run_parse(temp_run_dir)
 
             assert result["success"] is False
             assert "not found" in result["error"]
@@ -870,36 +808,23 @@ class TestStageMethods:
 class TestStageMethodsContinuation:
     """Continuation of stage method tests - tests actual stage behavior."""
 
-    def test_run_pruning_returns_error_when_no_branching(
+    def test_run_recognition_returns_error_when_no_parse(
         self, mock_config, temp_run_dir
     ):
-        """Test _run_pruning returns error when branching output missing."""
+        """Test _run_recognition returns error when parse output missing."""
         with patch("sqlopt.application.workflow_v8.StatusResolver"):
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
-            result = engine._run_pruning(temp_run_dir)
+            result = engine._run_recognition(temp_run_dir)
 
             assert result["success"] is False
             assert "not found" in result["error"]
 
-    def test_run_baseline_returns_error_when_no_branching(
+    def test_run_optimize_returns_error_when_no_recognition(
         self, mock_config, temp_run_dir
     ):
-        """Test _run_baseline returns error when branching output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
-
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
-            result = engine._run_baseline(temp_run_dir)
-
-            assert result["success"] is False
-            assert "not found" in result["error"]
-
-    def test_run_optimize_returns_error_when_no_baseline(
-        self, mock_config, temp_run_dir
-    ):
-        """Test _run_optimize returns error when baseline output missing."""
+        """Test _run_optimize returns error when recognition output missing."""
         with patch("sqlopt.application.workflow_v8.StatusResolver"):
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
@@ -909,21 +834,8 @@ class TestStageMethodsContinuation:
             assert result["success"] is False
             assert "not found" in result["error"]
 
-    def test_run_validate_returns_error_when_no_optimize(
-        self, mock_config, temp_run_dir
-    ):
-        """Test _run_validate returns error when optimize output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
-
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
-            result = engine._run_validate(temp_run_dir)
-
-            assert result["success"] is False
-            assert "not found" in result["error"]
-
-    def test_run_patch_returns_error_when_no_validate(self, mock_config, temp_run_dir):
-        """Test _run_patch returns error when validate output missing."""
+    def test_run_patch_returns_error_when_no_optimize(self, mock_config, temp_run_dir):
+        """Test _run_patch returns error when optimize output missing."""
         with patch("sqlopt.application.workflow_v8.StatusResolver"):
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
@@ -962,8 +874,8 @@ class TestStatePersistence:
         saved_state = {
             "run_id": "loaded_run",
             "current_stage": "optimize",
-            "completed_stages": ["discovery", "branching"],
-            "stage_results": {"discovery": {"success": True}},
+            "completed_stages": ["init", "parse"],
+            "stage_results": {"init": {"success": True}},
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
             "status": "running",
@@ -974,8 +886,8 @@ class TestStatePersistence:
 
         assert workflow_engine.state.run_id == "loaded_run"
         assert workflow_engine.state.current_stage == "optimize"
-        assert "discovery" in workflow_engine.state.completed_stages
-        assert "branching" in workflow_engine.state.completed_stages
+        assert "init" in workflow_engine.state.completed_stages
+        assert "parse" in workflow_engine.state.completed_stages
 
     def test_load_state_from_repo_handles_legacy_format(
         self, workflow_engine, mock_repository
@@ -983,9 +895,9 @@ class TestStatePersistence:
         """Test load_state_from_repo handles legacy format."""
         legacy_state = {
             "phase_status": {
-                "discovery": "DONE",
-                "branching": "DONE",
-                "pruning": "IN_PROGRESS",
+                "init": "DONE",
+                "parse": "DONE",
+                "recognition": "IN_PROGRESS",
             }
         }
         mock_repository.load_state = Mock(return_value=legacy_state)
@@ -1000,8 +912,8 @@ class TestStatePersistence:
             from sqlopt.application.workflow_v8 import V8WorkflowEngine
 
             engine = V8WorkflowEngine(config=mock_config, repository=None)
-            engine.state.completed_stages = ["discovery", "branching"]
-            engine.state.current_stage = "pruning"
+            engine.state.completed_stages = ["init", "parse"]
+            engine.state.current_stage = "recognition"
             engine.state.status = "running"
 
             # Save state
@@ -1015,8 +927,8 @@ class TestStatePersistence:
 
             new_state = V8WorkflowState(**loaded_data)
 
-            assert new_state.completed_stages == ["discovery", "branching"]
-            assert new_state.current_stage == "pruning"
+            assert new_state.completed_stages == ["init", "parse"]
+            assert new_state.current_stage == "recognition"
             assert new_state.status == "running"
 
 
@@ -1075,8 +987,8 @@ class TestHelperFunctions:
         saved_state = {
             "run_id": "loaded_run",
             "current_stage": "optimize",
-            "completed_stages": ["discovery", "branching"],
-            "stage_results": {"discovery": {"success": True}},
+            "completed_stages": ["init", "parse"],
+            "stage_results": {"init": {"success": True}},
             "started_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:01:00Z",
             "status": "running",
@@ -1087,8 +999,8 @@ class TestHelperFunctions:
 
         assert workflow_engine.state.run_id == "loaded_run"
         assert workflow_engine.state.current_stage == "optimize"
-        assert "discovery" in workflow_engine.state.completed_stages
-        assert "branching" in workflow_engine.state.completed_stages
+        assert "init" in workflow_engine.state.completed_stages
+        assert "parse" in workflow_engine.state.completed_stages
 
     def test_load_state_from_repo_handles_legacy_format(
         self, workflow_engine, mock_repository
@@ -1096,9 +1008,9 @@ class TestHelperFunctions:
         """Test load_state_from_repo handles legacy format."""
         legacy_state = {
             "phase_status": {
-                "discovery": "DONE",
-                "branching": "DONE",
-                "pruning": "IN_PROGRESS",
+                "init": "DONE",
+                "parse": "DONE",
+                "recognition": "IN_PROGRESS",
             }
         }
         mock_repository.load_state.return_value = legacy_state
@@ -1110,8 +1022,8 @@ class TestHelperFunctions:
 
     def test_save_and_load_state_roundtrip(self, workflow_engine, temp_run_dir):
         """Test state save and load produces consistent results."""
-        workflow_engine.state.completed_stages = ["discovery", "branching"]
-        workflow_engine.state.current_stage = "pruning"
+        workflow_engine.state.completed_stages = ["init", "parse"]
+        workflow_engine.state.current_stage = "recognition"
         workflow_engine.state.status = "running"
 
         # Save state
@@ -1125,8 +1037,8 @@ class TestHelperFunctions:
 
         new_state = V8WorkflowState(**loaded_data)
 
-        assert new_state.completed_stages == ["discovery", "branching"]
-        assert new_state.current_stage == "pruning"
+        assert new_state.completed_stages == ["init", "parse"]
+        assert new_state.current_stage == "recognition"
         assert new_state.status == "running"
 
 
@@ -1174,17 +1086,15 @@ class TestHelperFunctions:
 class TestStageOrder:
     """Tests for STAGE_ORDER constant."""
 
-    def test_stage_order_has_seven_stages(self):
-        """Test STAGE_ORDER contains all 7 stages."""
+    def test_stage_order_has_five_stages(self):
+        """Test STAGE_ORDER contains all 5 V9 stages."""
         from sqlopt.application.workflow_v8 import STAGE_ORDER
 
         expected = [
-            "discovery",
-            "branching",
-            "pruning",
-            "baseline",
+            "init",
+            "parse",
+            "recognition",
             "optimize",
-            "validate",
             "patch",
         ]
         assert STAGE_ORDER == expected
@@ -1193,12 +1103,10 @@ class TestStageOrder:
         """Test STAGE_ORDER is in correct execution sequence."""
         from sqlopt.application.workflow_v8 import STAGE_ORDER
 
-        assert STAGE_ORDER.index("discovery") < STAGE_ORDER.index("branching")
-        assert STAGE_ORDER.index("branching") < STAGE_ORDER.index("pruning")
-        assert STAGE_ORDER.index("pruning") < STAGE_ORDER.index("baseline")
-        assert STAGE_ORDER.index("baseline") < STAGE_ORDER.index("optimize")
-        assert STAGE_ORDER.index("optimize") < STAGE_ORDER.index("validate")
-        assert STAGE_ORDER.index("validate") < STAGE_ORDER.index("patch")
+        assert STAGE_ORDER.index("init") < STAGE_ORDER.index("parse")
+        assert STAGE_ORDER.index("parse") < STAGE_ORDER.index("recognition")
+        assert STAGE_ORDER.index("recognition") < STAGE_ORDER.index("optimize")
+        assert STAGE_ORDER.index("optimize") < STAGE_ORDER.index("patch")
 
 
 # =============================================================================
@@ -1229,16 +1137,16 @@ class TestV8WorkflowState:
 
         state = V8WorkflowState(
             run_id="test_run",
-            current_stage="discovery",
-            completed_stages=["discovery", "branching"],
-            stage_results={"discovery": {"success": True}},
+            current_stage="init",
+            completed_stages=["init", "parse"],
+            stage_results={"init": {"success": True}},
             started_at="2024-01-01T00:00:00Z",
             updated_at="2024-01-01T00:01:00Z",
             status="running",
         )
 
         assert state.run_id == "test_run"
-        assert state.current_stage == "discovery"
+        assert state.current_stage == "init"
         assert len(state.completed_stages) == 2
         assert state.status == "running"
 
@@ -1265,12 +1173,10 @@ class TestNextAction:
         """Test NextAction with provided values."""
         from sqlopt.application.workflow_v8 import NextAction
 
-        action = NextAction(
-            action="resume", stage="discovery", reason="Start fresh run"
-        )
+        action = NextAction(action="resume", stage="init", reason="Start fresh run")
 
         assert action.action == "resume"
-        assert action.stage == "discovery"
+        assert action.stage == "init"
         assert action.reason == "Start fresh run"
 
 

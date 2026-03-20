@@ -299,6 +299,36 @@ class RunPaths:
     def sqlmap_catalog_dir(self) -> Path:
         return self.run_dir / "sqlmap_catalog"
 
+    # --- V9 directory properties ---
+
+    @property
+    def init_dir(self) -> Path:
+        return self.run_dir / "init"
+
+    @property
+    def init_sql_units_path(self) -> Path:
+        return self.init_dir / "sql_units.json"
+
+    @property
+    def parse_dir(self) -> Path:
+        return self.run_dir / "parse"
+
+    @property
+    def parse_sql_units_with_branches_path(self) -> Path:
+        return self.parse_dir / "sql_units_with_branches.json"
+
+    @property
+    def parse_risks_path(self) -> Path:
+        return self.parse_dir / "risks.json"
+
+    @property
+    def recognition_dir(self) -> Path:
+        return self.run_dir / "recognition"
+
+    @property
+    def recognition_results_path(self) -> Path:
+        return self.recognition_dir / "baselines.json"
+
     def supervisor_result_path(self, phase: str) -> Path:
         return self.supervisor_results_dir / f"{phase}.jsonl"
 
@@ -333,6 +363,9 @@ class RunPaths:
             self.diagnostics_dir,
             self.project_context_dir,
             self.sqlmap_catalog_dir,
+            self.init_dir,
+            self.parse_dir,
+            self.recognition_dir,
         ):
             ensure_dir(path)
 

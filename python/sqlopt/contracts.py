@@ -29,12 +29,10 @@ SCHEMA_MAP = {
 
 # Stage boundary definitions: stage_name -> (input_schema_name | None, output_schema_name | None)
 STAGE_BOUNDARIES: dict[str, tuple[str | None, str | None]] = {
-    "discovery": (None, "sqlunit"),
-    "branching": ("sqlunit", "sqlunit"),
-    "pruning": ("sqlunit", None),  # Output is custom risks.json, not a known schema
-    "baseline": ("sqlunit", "baseline_result"),
+    "init": (None, "sqlunit"),
+    "parse": ("sqlunit", None),  # Output is sql_units_with_branches.json + risks.json (custom)
+    "recognition": ("sqlunit", "baseline_result"),
     "optimize": ("baseline_result", "optimization_proposal"),
-    "validate": ("optimization_proposal", "acceptance_result"),
     "patch": ("acceptance_result", "patch_result"),
 }
 

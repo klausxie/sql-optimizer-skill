@@ -119,22 +119,18 @@ class NextAction:
 
 
 STAGE_ORDER = [
-    "discovery",
-    "branching",
-    "pruning",
-    "baseline",
+    "init",
+    "parse",
+    "recognition",
     "optimize",
-    "validate",
     "patch",
 ]
 
 DEFAULT_PHASE_POLICIES = {
-    "discovery": PhaseExecutionPolicy(phase="discovery", allow_regenerate=False),
-    "branching": PhaseExecutionPolicy(phase="branching", allow_regenerate=False),
-    "pruning": PhaseExecutionPolicy(phase="pruning", allow_regenerate=False),
-    "baseline": PhaseExecutionPolicy(phase="baseline", allow_regenerate=False),
+    "init": PhaseExecutionPolicy(phase="init", allow_regenerate=False),
+    "parse": PhaseExecutionPolicy(phase="parse", allow_regenerate=False),
+    "recognition": PhaseExecutionPolicy(phase="recognition", allow_regenerate=False),
     "optimize": PhaseExecutionPolicy(phase="optimize", allow_regenerate=False),
-    "validate": PhaseExecutionPolicy(phase="validate", allow_regenerate=False),
     "patch": PhaseExecutionPolicy(phase="patch", allow_regenerate=False),
 }
 
@@ -237,21 +233,11 @@ class V8WorkflowEngine:
         return {}
 
     def _register_stages(self):
-        from ..stages.discovery import DiscoveryStage
-        from ..stages.branching import BranchingStage
-        from ..stages.pruning import PruningStage
-        from ..stages.baseline import BaselineStage
-        from ..stages.optimize import OptimizeStage
-        from ..stages.validate import ValidateStage
-        from ..stages.patch import PatchStage
-        from .stage_registry import stage_registry
-
-        self.stages["discovery"] = self._run_discovery
-        self.stages["branching"] = self._run_branching
-        self.stages["pruning"] = self._run_pruning
-        self.stages["baseline"] = self._run_baseline
+        """Register V9 stages: init, parse, recognition, optimize, patch"""
+        self.stages["init"] = self._run_init
+        self.stages["parse"] = self._run_parse
+        self.stages["recognition"] = self._run_recognition
         self.stages["optimize"] = self._run_optimize
-        self.stages["validate"] = self._run_validate
         self.stages["patch"] = self._run_patch
 
     def _build_stage_context(self, run_dir: Path, stage_name: str):
@@ -267,9 +253,7 @@ class V8WorkflowEngine:
             cache_dir=paths.cache_dir,
             metadata={
                 "stage_name": stage_name,
-                "db_reachable": bool(
-                    ((self.config.get("db", {}) or {}).get("dsn"))
-                ),
+                "db_reachable": bool(((self.config.get("db", {}) or {}).get("dsn"))),
             },
         )
 
@@ -287,7 +271,9 @@ class V8WorkflowEngine:
             payload["error"] = payload["errors"][0]
         return payload
 
-    def _run_stage_instance(self, stage_name: str, stage_class: type[Any], run_dir: Path) -> dict:
+    def _run_stage_instance(
+        self, stage_name: str, stage_class: type[Any], run_dir: Path
+    ) -> dict:
         stage = stage_class(self.config)
         context = self._build_stage_context(run_dir, stage_name)
         result = stage.execute(context)
@@ -758,7 +744,9 @@ class V8WorkflowEngine:
             sql_key = str(unit.get("sqlKey") or "unknown")
             statement_id = sql_key.split(".")[-1] if "." in sql_key else sql_key
             unit.setdefault("xmlPath", "")
-            unit.setdefault("namespace", sql_key.rsplit(".", 1)[0] if "." in sql_key else "")
+            unit.setdefault(
+                "namespace", sql_key.rsplit(".", 1)[0] if "." in sql_key else ""
+            )
             unit.setdefault("statementId", statement_id)
             unit.setdefault("statementType", "select")
             unit.setdefault("variantId", "base")
@@ -816,6 +804,102 @@ class V8WorkflowEngine:
         from ..stages.validate import ValidateStage
 
         return self._run_stage_instance("validate", ValidateStage, run_dir)
+
+    def _run_init(self, run_dir: Path) -> dict:
+        from ..stages.discovery import Scanner
+
+        scanner = Scanner(self.config)
+        root_path = self.config.get("project", {}).get("root_path", ".")
+
+        result = scanner.scan(root_path)
+
+        output_path = run_dir / "init" / "sql_units.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w") as f:
+            json.dump(result.sql_units, f, indent=2, ensure_ascii=False)
+
+        return {
+            "success": True,
+            "output_file": str(output_path),
+            "sql_units_count": result.total_count,
+        }
+
+    def _run_parse(self, run_dir: Path) -> dict:
+        from ..stages.branching.brancher import Brancher
+        from ..stages.pruning import analyze_risks
+
+        init_path = run_dir / "init" / "sql_units.json"
+        if not init_path.exists():
+            return {"success": False, "error": "Init results not found"}
+
+        with open(init_path) as f:
+            sql_units = json.load(f)
+
+        branch_cfg = self.config.get("branching", {})
+        brancher = Brancher(
+            strategy=branch_cfg.get("strategy", "all_combinations"),
+            max_branches=branch_cfg.get("max_branches", 100),
+        )
+
+        for unit in sql_units:
+            sql_text = unit.get("templateSql", unit.get("sql", ""))
+            branches = brancher.generate(sql_text)
+            unit["branches"] = [
+                {
+                    "branch_id": b.branch_id,
+                    "active_conditions": b.active_conditions,
+                    "sql": b.sql,
+                    "condition_count": b.condition_count,
+                    "risk_flags": b.risk_flags,
+                }
+                for b in branches
+            ]
+            unit["branchCount"] = len(branches)
+
+        all_risks = analyze_risks(sql_units)
+
+        units_output_path = run_dir / "parse" / "sql_units_with_branches.json"
+        units_output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(units_output_path, "w") as f:
+            json.dump(sql_units, f, indent=2, ensure_ascii=False)
+
+        risks_output_path = run_dir / "parse" / "risks.json"
+        with open(risks_output_path, "w") as f:
+            json.dump(all_risks, f, indent=2, ensure_ascii=False)
+
+        return {
+            "success": True,
+            "sql_units_file": str(units_output_path),
+            "risks_file": str(risks_output_path),
+            "sql_units_count": len(sql_units),
+            "risks_count": len(all_risks),
+        }
+
+    def _run_recognition(self, run_dir: Path) -> dict:
+        from ..stages.baseline import collect_baseline
+
+        parse_path = run_dir / "parse" / "sql_units_with_branches.json"
+        if not parse_path.exists():
+            return {"success": False, "error": "Parse results not found"}
+
+        with open(parse_path) as f:
+            sql_units = json.load(f)
+
+        baselines = collect_baseline(self.config, sql_units)
+
+        output_path = run_dir / "recognition" / "baselines.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w") as f:
+            json.dump(baselines, f, indent=2, ensure_ascii=False)
+
+        return {
+            "success": True,
+            "output_file": str(output_path),
+            "baselines_count": len(baselines),
+        }
 
     def _run_patch(self, run_dir: Path) -> dict:
         from ..stages.patch import PatchStage

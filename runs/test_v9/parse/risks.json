@@ -1,0 +1,32 @@
+[
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersConditional",
+    "risk_type": "select_star",
+    "severity": "LOW",
+    "suggestion": "Avoid SELECT *. Specify only needed columns to reduce data transfer and prevent issues with schema changes.",
+    "location": {
+      "line": 1,
+      "column": 0
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersByMode",
+    "risk_type": "select_star",
+    "severity": "LOW",
+    "suggestion": "Avoid SELECT *. Specify only needed columns to reduce data transfer and prevent issues with schema changes.",
+    "location": {
+      "line": 1,
+      "column": 0
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersComplex",
+    "risk_type": "select_star",
+    "severity": "LOW",
+    "suggestion": "Avoid SELECT *. Specify only needed columns to reduce data transfer and prevent issues with schema changes.",
+    "location": {
+      "line": 1,
+      "column": 0
+    }
+  }
+]

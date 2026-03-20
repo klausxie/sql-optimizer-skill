@@ -188,40 +188,34 @@ def test_v8_full_flow_mysql():
         print(f"  completed_stages: {completed_stages}")
         print(f"  stage_results keys: {list(stage_results.keys())}")
 
-        # Verify all 7 stages completed
-        v8_stages = [
-            "discovery",
-            "branching",
-            "pruning",
-            "baseline",
+        # Verify all 5 V9 stages completed
+        v9_stages = [
+            "init",
+            "parse",
+            "recognition",
             "optimize",
-            "validate",
             "patch",
         ]
-        for stage in v8_stages:
+        for stage in v9_stages:
             assert stage in completed_stages, f"Stage {stage} not completed"
 
         # Verify artifacts
-        print(f"\n=== V8 Artifacts ===")
+        print(f"\n=== V9 Artifacts ===")
         artifact_checks = {}
-        for stage in v8_stages:
+        for stage in v9_stages:
             artifact_path = (
                 run_dir / stage / f"{stage}s.json"
                 if stage != "patch"
                 else run_dir / stage / "patches.json"
             )
-            if stage == "discovery":
+            if stage == "init":
                 artifact_path = run_dir / stage / "sql_units.json"
-            elif stage == "branching":
+            elif stage == "parse":
                 artifact_path = run_dir / stage / "sql_units_with_branches.json"
-            elif stage == "pruning":
-                artifact_path = run_dir / stage / "risks.json"
-            elif stage == "baseline":
+            elif stage == "recognition":
                 artifact_path = run_dir / stage / "baselines.json"
             elif stage == "optimize":
                 artifact_path = run_dir / stage / "proposals.json"
-            elif stage == "validate":
-                artifact_path = run_dir / stage / "validations.json"
 
             exists = artifact_path.exists()
             artifact_checks[stage] = exists

@@ -540,7 +540,7 @@ def cmd_verify(args: argparse.Namespace) -> None:
 
 
 def cmd_diagnose(args: argparse.Namespace) -> None:
-    """执行诊断模式（discovery + branching + pruning）"""
+    """执行诊断模式（init + parse）"""
     config_path = Path(args.config).resolve()
     if not config_path.exists():
         error_info = format_error_message(
@@ -573,14 +573,14 @@ def cmd_diagnose(args: argparse.Namespace) -> None:
 
     engine = workflow_v8.V8WorkflowEngine(config, run_id=requested_run_id)
 
-    # Run only stages 1-3: discovery, branching, pruning
-    result = engine.run(run_dir, to_stage="pruning")
+    # Run only stages 1-2: init, parse
+    result = engine.run(run_dir, to_stage="parse")
 
     print(
         {
             "run_id": requested_run_id,
             "command": "diagnose",
-            "stages": ["discovery", "branching", "pruning"],
+            "stages": ["init", "parse"],
             "result": result,
             "completed": engine.state.status == "completed",
         }
@@ -967,7 +967,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_diagnose = sub.add_parser(
         "diagnose",
         help="执行诊断模式",
-        description="执行诊断模式（discovery + branching + pruning），生成诊断报告。",
+        description="执行诊断模式（init + parse），生成诊断报告。",
         epilog=(
             "示例:\n"
             "  sqlopt-cli diagnose --config sqlopt.yml\n"

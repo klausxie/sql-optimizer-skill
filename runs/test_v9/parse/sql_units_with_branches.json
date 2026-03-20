@@ -1,0 +1,245 @@
+[
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersWithCommon",
+    "xmlPath": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/target/classes/mapper/OrderMapper.xml",
+    "namespace": "com.test.mapper.OrderMapper",
+    "statementId": "findOrdersWithCommon",
+    "statementType": "select",
+    "variantId": "v1",
+    "sql": "SELECT , FROM orders o AND o.status = #{orderStatus}",
+    "parameterMappings": [],
+    "paramExample": {},
+    "locators": {
+      "statementId": "findOrdersWithCommon"
+    },
+    "riskFlags": [],
+    "scanWarnings": null,
+    "templateSql": "SELECT <include refid=\"orderWithCommonColumns\" />\n        FROM orders o\n        <where>\n            <include refid=\"orderSearchCondition\" />\n        </where>\n        <include refid=\"com.test.mapper.CommonMapper.paginationCondition\" />",
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE"
+    ],
+    "includeTrace": [
+      "com.test.mapper.OrderMapper.orderWithCommonColumns",
+      "com.test.mapper.CommonMapper.orderBaseColumns",
+      "com.test.mapper.CommonMapper.auditColumns",
+      "com.test.mapper.OrderMapper.orderSearchCondition",
+      "com.test.mapper.CommonMapper.activeStatusCondition",
+      "com.test.mapper.OrderMapper.orderStatusCondition",
+      "com.test.mapper.CommonMapper.dateRangeCondition",
+      "com.test.mapper.CommonMapper.paginationCondition"
+    ],
+    "dynamicTrace": {
+      "statementFeatures": [
+        "INCLUDE",
+        "WHERE"
+      ],
+      "includeFragments": [
+        {
+          "ref": "com.test.mapper.OrderMapper.orderWithCommonColumns",
+          "dynamicFeatures": [
+            "INCLUDE"
+          ]
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.orderBaseColumns",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.auditColumns",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.OrderMapper.orderSearchCondition",
+          "dynamicFeatures": [
+            "INCLUDE"
+          ]
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.activeStatusCondition",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.OrderMapper.orderStatusCondition",
+          "dynamicFeatures": [
+            "IF"
+          ]
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.dateRangeCondition",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.paginationCondition",
+          "dynamicFeatures": []
+        }
+      ]
+    },
+    "branches": [
+      {
+        "branch_id": "default",
+        "active_conditions": [],
+        "sql": "SELECT <include refid=\"orderWithCommonColumns\" />\n        FROM orders o\n        <where>\n            <include refid=\"orderSearchCondition\" />\n        </where>\n        <include refid=\"com.test.mapper.CommonMapper.paginationCondition\" />",
+        "condition_count": 0,
+        "risk_flags": []
+      }
+    ],
+    "branchCount": 1
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersConditional",
+    "xmlPath": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/target/classes/mapper/OrderMapper.xml",
+    "namespace": "com.test.mapper.OrderMapper",
+    "statementId": "findOrdersConditional",
+    "statementType": "select",
+    "variantId": "v2",
+    "sql": "SELECT * FROM orders AND status = #{orderStatus}",
+    "parameterMappings": [],
+    "paramExample": {},
+    "locators": {
+      "statementId": "findOrdersConditional"
+    },
+    "riskFlags": [],
+    "scanWarnings": null,
+    "templateSql": "SELECT * FROM orders\n        <where>\n            <if test=\"useCommonCondition\">\n                <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n            </if>\n            <if test=\"orderStatus != null\">AND status = #{orderStatus}</if>\n        </where>",
+    "dynamicFeatures": [
+      "WHERE",
+      "IF",
+      "INCLUDE"
+    ],
+    "includeTrace": [
+      "com.test.mapper.CommonMapper.complexCommonCondition"
+    ],
+    "dynamicTrace": {
+      "statementFeatures": [
+        "WHERE",
+        "IF",
+        "INCLUDE"
+      ],
+      "includeFragments": [
+        {
+          "ref": "com.test.mapper.CommonMapper.complexCommonCondition",
+          "dynamicFeatures": []
+        }
+      ]
+    },
+    "branches": [
+      {
+        "branch_id": "default",
+        "active_conditions": [],
+        "sql": "SELECT * FROM orders\n        <where>\n            <if test=\"useCommonCondition\">\n                <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n            </if>\n            <if test=\"orderStatus != null\">AND status = #{orderStatus}</if>\n        </where>",
+        "condition_count": 0,
+        "risk_flags": []
+      }
+    ],
+    "branchCount": 1
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersByMode",
+    "xmlPath": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/target/classes/mapper/OrderMapper.xml",
+    "namespace": "com.test.mapper.OrderMapper",
+    "statementId": "findOrdersByMode",
+    "statementType": "select",
+    "variantId": "v3",
+    "sql": "SELECT * FROM orders",
+    "parameterMappings": [],
+    "paramExample": {},
+    "locators": {
+      "statementId": "findOrdersByMode"
+    },
+    "riskFlags": [],
+    "scanWarnings": null,
+    "templateSql": "SELECT * FROM orders\n        <where>\n            <choose>\n                <when test=\"mode == 'active'\">\n                    <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />\n                </when>\n                <when test=\"mode == 'dateRange'\">\n                    <include refid=\"com.test.mapper.CommonMapper.dateRangeCondition\" />\n                </when>\n                <otherwise>\n                    <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n                </otherwise>\n            </choose>\n        </where>",
+    "dynamicFeatures": [
+      "WHERE",
+      "CHOOSE",
+      "INCLUDE"
+    ],
+    "includeTrace": [
+      "com.test.mapper.CommonMapper.activeStatusCondition",
+      "com.test.mapper.CommonMapper.dateRangeCondition",
+      "com.test.mapper.CommonMapper.complexCommonCondition"
+    ],
+    "dynamicTrace": {
+      "statementFeatures": [
+        "WHERE",
+        "CHOOSE",
+        "INCLUDE"
+      ],
+      "includeFragments": [
+        {
+          "ref": "com.test.mapper.CommonMapper.activeStatusCondition",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.dateRangeCondition",
+          "dynamicFeatures": []
+        },
+        {
+          "ref": "com.test.mapper.CommonMapper.complexCommonCondition",
+          "dynamicFeatures": []
+        }
+      ]
+    },
+    "branches": [
+      {
+        "branch_id": "default",
+        "active_conditions": [],
+        "sql": "SELECT * FROM orders\n        <where>\n            <choose>\n                <when test=\"mode == 'active'\">\n                    <include refid=\"com.test.mapper.CommonMapper.activeStatusCondition\" />\n                </when>\n                <when test=\"mode == 'dateRange'\">\n                    <include refid=\"com.test.mapper.CommonMapper.dateRangeCondition\" />\n                </when>\n                <otherwise>\n                    <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n                </otherwise>\n            </choose>\n        </where>",
+        "condition_count": 0,
+        "risk_flags": []
+      }
+    ],
+    "branchCount": 1
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersComplex",
+    "xmlPath": "/Users/hzz/workspace/sql-optimizer-skill/test-files/mybatis-test/target/classes/mapper/OrderMapper.xml",
+    "namespace": "com.test.mapper.OrderMapper",
+    "statementId": "findOrdersComplex",
+    "statementType": "select",
+    "variantId": "v4",
+    "sql": "SELECT * FROM orders AND id IN #{id}",
+    "parameterMappings": [],
+    "paramExample": {},
+    "locators": {
+      "statementId": "findOrdersComplex"
+    },
+    "riskFlags": [],
+    "scanWarnings": null,
+    "templateSql": "SELECT * FROM orders\n        <where>\n            <if test=\"filterEnabled\">\n                <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n            </if>\n            <if test=\"ids != null and ids.size() &gt; 0\">\n                AND id IN\n                <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>\n            </if>\n        </where>",
+    "dynamicFeatures": [
+      "WHERE",
+      "IF",
+      "INCLUDE",
+      "FOREACH"
+    ],
+    "includeTrace": [
+      "com.test.mapper.CommonMapper.complexCommonCondition"
+    ],
+    "dynamicTrace": {
+      "statementFeatures": [
+        "WHERE",
+        "IF",
+        "INCLUDE",
+        "FOREACH"
+      ],
+      "includeFragments": [
+        {
+          "ref": "com.test.mapper.CommonMapper.complexCommonCondition",
+          "dynamicFeatures": []
+        }
+      ]
+    },
+    "branches": [
+      {
+        "branch_id": "default",
+        "active_conditions": [],
+        "sql": "SELECT * FROM orders\n        <where>\n            <if test=\"filterEnabled\">\n                <include refid=\"com.test.mapper.CommonMapper.complexCommonCondition\" />\n            </if>\n            <if test=\"ids != null and ids.size() &gt; 0\">\n                AND id IN\n                <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach>\n            </if>\n        </where>",
+        "condition_count": 0,
+        "risk_flags": []
+      }
+    ],
+    "branchCount": 1
+  }
+]

@@ -1,0 +1,17 @@
+project:
+  root_path: .
+
+scan:
+  mapper_globs:
+    - test-files/mybatis-test/target/classes/**/*.xml
+
+db:
+  platform: postgresql
+  dsn: postgresql://user:pass@host:5432/db
+
+llm:
+  enabled: false
+  provider: heuristic
+
+report:
+  enabled: true
