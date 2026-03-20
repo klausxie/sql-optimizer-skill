@@ -726,84 +726,73 @@ class V8WorkflowEngine:
                 indent=2,
             )
 
-    def _run_discovery(self, run_dir: Path) -> dict:
-        from ..stages.discovery import Scanner
-        from ..contracts import ContractValidator
-        from ..io_utils import write_jsonl
-        from ..run_paths import canonical_paths
-
-        paths = canonical_paths(run_dir)
-        paths.ensure_layout()
-        scanner = Scanner(self.config)
-        root_path = self.config.get("project", {}).get("root_path", ".")
-        scan_result = scanner.scan(root_path)
-        validator = ContractValidator(Path(__file__).resolve().parents[1])
-        normalized_units = []
-        for raw_unit in scan_result.sql_units:
-            unit = dict(raw_unit)
-            sql_key = str(unit.get("sqlKey") or "unknown")
-            statement_id = sql_key.split(".")[-1] if "." in sql_key else sql_key
-            unit.setdefault("xmlPath", "")
-            unit.setdefault(
-                "namespace", sql_key.rsplit(".", 1)[0] if "." in sql_key else ""
-            )
-            unit.setdefault("statementId", statement_id)
-            unit.setdefault("statementType", "select")
-            unit.setdefault("variantId", "base")
-            unit.setdefault("parameterMappings", [])
-            unit.setdefault("paramExample", {})
-            unit.setdefault("locators", {})
-            unit.setdefault("riskFlags", [])
-            validator.validate("sqlunit", unit)
-            normalized_units.append(unit)
-        write_jsonl(paths.scan_units_path, normalized_units)
-
-        payload = {
-            "success": len(scan_result.errors or []) == 0,
-            "errors": list(scan_result.errors or []),
-            "warnings": list(scan_result.warnings or []),
-            "sql_unit_count": len(normalized_units),
-            "sql_units_count": len(normalized_units),
-            "mapper_count": len(
-                {
-                    str(unit.get("xmlPath") or "")
-                    for unit in normalized_units
-                    if unit.get("xmlPath")
-                }
-            ),
-        }
-        legacy_output = run_dir / "discovery" / "sql_units.json"
-        legacy_output.parent.mkdir(parents=True, exist_ok=True)
-        with open(legacy_output, "w", encoding="utf-8") as f:
-            json.dump(normalized_units, f, indent=2, ensure_ascii=False)
-        payload["output_file"] = str(legacy_output)
-        payload["output_files"] = [str(paths.scan_units_path), str(legacy_output)]
-        return payload
-
-    def _run_branching(self, run_dir: Path) -> dict:
-        from ..stages.branching import BranchingStage
-
-        return self._run_stage_instance("branching", BranchingStage, run_dir)
-
-    def _run_pruning(self, run_dir: Path) -> dict:
-        from ..stages.pruning import PruningStage
-
-        return self._run_stage_instance("pruning", PruningStage, run_dir)
-
-    def _run_baseline(self, run_dir: Path) -> dict:
-        from ..stages.baseline import BaselineStage
-
-        return self._run_stage_instance("baseline", BaselineStage, run_dir)
-
     def _run_optimize(self, run_dir: Path) -> dict:
-        from ..stages.optimize import OptimizeStage
+        from ..platforms.sql.optimizer_sql import generate_proposal
 
-        return self._run_stage_instance("optimize", OptimizeStage, run_dir)
+        # Read baselines from recognition stage
+        baselines_path = run_dir / "recognition" / "baselines.json"
+        if not baselines_path.exists():
+            return {"success": False, "error": "Recognition results not found"}
 
-    def _run_validate(self, run_dir: Path) -> dict:
-        from ..stages.validate import ValidateStage
+        with open(baselines_path) as f:
+            baselines = json.load(f)
 
-        return self._run_stage_instance("validate", ValidateStage, run_dir)
+        # Load SQL units from parse stage output
+        sql_units_path = run_dir / "parse" / "sql_units_with_branches.json"
+        if not sql_units_path.exists():
+            return {"success": False, "error": "Parse results not found"}
+
+        with open(sql_units_path) as f:
+            sql_units_data = json.load(f)
+
+        # Build sql_units map by sqlKey
+        sql_units_map = {unit.get("sqlKey", ""): unit for unit in sql_units_data}
+
+        proposals = []
+        for baseline in baselines:
+            sql_key = baseline.get("sqlKey", "")
+            sql_unit = sql_units_map.get(sql_key)
+
+            if not sql_unit:
+                continue
+
+            try:
+                proposal = generate_proposal(sql_unit, self.config)
+                proposals.append(proposal)
+            except Exception as exc:
+                # Log error but continue with other proposals
+                proposals.append(
+                    {
+                        "sqlKey": sql_key,
+                        "issues": [
+                            {"code": "OPTIMIZE_GENERATION_FAILED", "detail": str(exc)}
+                        ],
+                        "dbEvidenceSummary": {},
+                        "planSummary": {},
+                        "suggestions": [],
+                        "verdict": "NO_ACTION",
+                        "confidence": "low",
+                        "estimatedBenefit": "unknown",
+                    }
+                )
+
+        # Write proposals
+        output_path = run_dir / "optimize" / "proposals.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w") as f:
+            json.dump(proposals, f, indent=2, ensure_ascii=False)
+
+        actionable_count = sum(
+            1 for p in proposals if str(p.get("verdict") or "").upper() == "ACTIONABLE"
+        )
+
+        return {
+            "success": True,
+            "output_file": str(output_path),
+            "proposals_count": len(proposals),
+            "actionable_count": actionable_count,
+        }
 
     def _run_init(self, run_dir: Path) -> dict:
         from ..stages.discovery import Scanner
@@ -902,9 +891,64 @@ class V8WorkflowEngine:
         }
 
     def _run_patch(self, run_dir: Path) -> dict:
-        from ..stages.patch import PatchStage
+        optimize_path = run_dir / "optimize" / "proposals.json"
+        if not optimize_path.exists():
+            return {"success": False, "error": "Optimize results not found"}
 
-        return self._run_stage_instance("patch", PatchStage, run_dir)
+        with open(optimize_path) as f:
+            proposals = json.load(f)
+
+        patches = []
+        for proposal in proposals:
+            if not proposal.get("validated", False):
+                continue
+
+            sql_key = proposal.get("sqlKey", "unknown")
+            original_sql = proposal.get("originalSql", "")
+            optimized_sql = proposal.get("optimizedSql", original_sql)
+            rule_name = proposal.get("ruleName", "unknown")
+
+            patch_result = {
+                "sqlKey": sql_key,
+                "statementKey": sql_key,
+                "patchFiles": [],
+                "diffSummary": {
+                    "filesChanged": 1 if optimized_sql != original_sql else 0,
+                    "hunks": 1 if optimized_sql != original_sql else 0,
+                    "summary": f"rewrite by {rule_name}"
+                    if optimized_sql != original_sql
+                    else "no change",
+                },
+                "applyMode": "manual",
+                "rollback": "restore original mapper backup",
+                "applicable": optimized_sql != original_sql,
+                "originalSql": original_sql,
+                "optimizedSql": optimized_sql,
+                "ruleName": rule_name,
+            }
+
+            if patch_result["applicable"]:
+                patch_content = f"-- SQL Optimizer patch: {sql_key}\n-- Rule: {rule_name}\n{optimized_sql}"
+                patch_dir = run_dir / "patch" / "patches"
+                patch_dir.mkdir(parents=True, exist_ok=True)
+                patch_file = patch_dir / f"{sql_key.replace('/', '_')}.sql"
+                patch_file.write_text(patch_content, encoding="utf-8")
+                patch_result["patchFiles"] = [str(patch_file)]
+
+            patches.append(patch_result)
+
+        output_path = run_dir / "patch" / "patches.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w") as f:
+            json.dump(patches, f, indent=2, ensure_ascii=False)
+
+        return {
+            "success": True,
+            "output_file": str(output_path),
+            "patches_count": len(patches),
+            "applicable_count": sum(1 for p in patches if p.get("applicable")),
+        }
 
 
 def run_v8_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:

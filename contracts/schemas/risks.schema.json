@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RiskIssue",
+  "type": "object",
+  "required": [
+    "sqlKey",
+    "risk_type",
+    "severity"
+  ],
+  "properties": {
+    "sqlKey": {
+      "type": "string",
+      "description": "Unique identifier for the SQL statement"
+    },
+    "risk_type": {
+      "type": "string",
+      "description": "Type of risk detected (e.g., PREFIX_WILDCARD, FUNCTION_WRAP, etc.)"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW"],
+      "description": "Risk severity level"
+    },
+    "location": {
+      "type": "object",
+      "description": "Location of the risk in the SQL",
+      "properties": {
+        "line": {
+          "type": "integer"
+        },
+        "column": {
+          "type": "integer"
+        }
+      }
+    },
+    "suggestion": {
+      "type": "string",
+      "description": "Suggested fix or optimization"
+    }
+  }
+}
