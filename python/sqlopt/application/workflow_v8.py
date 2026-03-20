@@ -254,6 +254,45 @@ class V8WorkflowEngine:
         self.stages["validate"] = self._run_validate
         self.stages["patch"] = self._run_patch
 
+    def _build_stage_context(self, run_dir: Path, stage_name: str):
+        from ..stages.base import StageContext
+        from ..run_paths import canonical_paths
+
+        paths = canonical_paths(run_dir)
+        paths.ensure_layout()
+        return StageContext(
+            run_id=self.run_id,
+            config=self.config,
+            data_dir=run_dir,
+            cache_dir=paths.cache_dir,
+            metadata={
+                "stage_name": stage_name,
+                "db_reachable": bool(
+                    ((self.config.get("db", {}) or {}).get("dsn"))
+                ),
+            },
+        )
+
+    def _stage_result_to_dict(self, stage_name: str, result: Any) -> dict[str, Any]:
+        output_files = [str(path) for path in (result.output_files or [])]
+        payload = {
+            "success": bool(result.success),
+            "output_files": output_files,
+            "output_file": output_files[0] if output_files else None,
+            "errors": list(result.errors or []),
+            "warnings": list(result.warnings or []),
+        }
+        payload.update(dict(result.artifacts or {}))
+        if not payload["success"] and payload["errors"]:
+            payload["error"] = payload["errors"][0]
+        return payload
+
+    def _run_stage_instance(self, stage_name: str, stage_class: type[Any], run_dir: Path) -> dict:
+        stage = stage_class(self.config)
+        context = self._build_stage_context(run_dir, stage_name)
+        result = stage.execute(context)
+        return self._stage_result_to_dict(stage_name, result)
+
     def _update_timestamp(self) -> None:
         """更新时间戳"""
         self.state.updated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -703,235 +742,85 @@ class V8WorkflowEngine:
 
     def _run_discovery(self, run_dir: Path) -> dict:
         from ..stages.discovery import Scanner
+        from ..contracts import ContractValidator
+        from ..io_utils import write_jsonl
+        from ..run_paths import canonical_paths
 
+        paths = canonical_paths(run_dir)
+        paths.ensure_layout()
         scanner = Scanner(self.config)
         root_path = self.config.get("project", {}).get("root_path", ".")
+        scan_result = scanner.scan(root_path)
+        validator = ContractValidator(Path(__file__).resolve().parents[1])
+        normalized_units = []
+        for raw_unit in scan_result.sql_units:
+            unit = dict(raw_unit)
+            sql_key = str(unit.get("sqlKey") or "unknown")
+            statement_id = sql_key.split(".")[-1] if "." in sql_key else sql_key
+            unit.setdefault("xmlPath", "")
+            unit.setdefault("namespace", sql_key.rsplit(".", 1)[0] if "." in sql_key else "")
+            unit.setdefault("statementId", statement_id)
+            unit.setdefault("statementType", "select")
+            unit.setdefault("variantId", "base")
+            unit.setdefault("parameterMappings", [])
+            unit.setdefault("paramExample", {})
+            unit.setdefault("locators", {})
+            unit.setdefault("riskFlags", [])
+            validator.validate("sqlunit", unit)
+            normalized_units.append(unit)
+        write_jsonl(paths.scan_units_path, normalized_units)
 
-        result = scanner.scan(root_path)
-
-        output_path = run_dir / "discovery" / "sql_units.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(result.sql_units, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "sql_units_count": result.total_count,
-            "errors": result.errors,
-            "warnings": result.warnings,
+        payload = {
+            "success": len(scan_result.errors or []) == 0,
+            "errors": list(scan_result.errors or []),
+            "warnings": list(scan_result.warnings or []),
+            "sql_unit_count": len(normalized_units),
+            "sql_units_count": len(normalized_units),
+            "mapper_count": len(
+                {
+                    str(unit.get("xmlPath") or "")
+                    for unit in normalized_units
+                    if unit.get("xmlPath")
+                }
+            ),
         }
+        legacy_output = run_dir / "discovery" / "sql_units.json"
+        legacy_output.parent.mkdir(parents=True, exist_ok=True)
+        with open(legacy_output, "w", encoding="utf-8") as f:
+            json.dump(normalized_units, f, indent=2, ensure_ascii=False)
+        payload["output_file"] = str(legacy_output)
+        payload["output_files"] = [str(paths.scan_units_path), str(legacy_output)]
+        return payload
 
     def _run_branching(self, run_dir: Path) -> dict:
-        from ..stages.branching.brancher import Brancher
+        from ..stages.branching import BranchingStage
 
-        discovery_path = run_dir / "discovery" / "sql_units.json"
-        if not discovery_path.exists():
-            return {"success": False, "error": "Discovery results not found"}
-
-        with open(discovery_path) as f:
-            sql_units = json.load(f)
-
-        branch_cfg = self.config.get("branching", {})
-        brancher = Brancher(
-            strategy=branch_cfg.get("strategy", "all_combinations"),
-            max_branches=branch_cfg.get("max_branches", 100),
-        )
-
-        total_branches = 0
-        for unit in sql_units:
-            sql_text = unit.get("templateSql", unit.get("sql", ""))
-            branches = brancher.generate(sql_text)
-            unit["branches"] = [
-                {
-                    "branch_id": b.branch_id,
-                    "active_conditions": b.active_conditions,
-                    "sql": b.sql,
-                    "condition_count": b.condition_count,
-                    "risk_flags": b.risk_flags,
-                }
-                for b in branches
-            ]
-            unit["branchCount"] = len(branches)
-            total_branches += len(branches)
-
-        output_path = run_dir / "branching" / "sql_units_with_branches.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(sql_units, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "total_branches": total_branches,
-        }
+        return self._run_stage_instance("branching", BranchingStage, run_dir)
 
     def _run_pruning(self, run_dir: Path) -> dict:
-        from ..stages.pruning import RiskDetector, analyze_risks
+        from ..stages.pruning import PruningStage
 
-        branching_path = run_dir / "branching" / "sql_units_with_branches.json"
-        if not branching_path.exists():
-            return {"success": False, "error": "Branching results not found"}
-
-        with open(branching_path) as f:
-            sql_units = json.load(f)
-
-        all_risks = analyze_risks(sql_units)
-
-        output_path = run_dir / "pruning" / "risks.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(all_risks, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "risks_count": len(all_risks),
-        }
+        return self._run_stage_instance("pruning", PruningStage, run_dir)
 
     def _run_baseline(self, run_dir: Path) -> dict:
-        from ..stages.baseline import collect_baseline
+        from ..stages.baseline import BaselineStage
 
-        branching_path = run_dir / "branching" / "sql_units_with_branches.json"
-        if not branching_path.exists():
-            return {"success": False, "error": "Branching results not found"}
-
-        with open(branching_path) as f:
-            sql_units = json.load(f)
-
-        baselines = collect_baseline(self.config, sql_units)
-
-        output_path = run_dir / "baseline" / "baselines.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(baselines, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "baselines_count": len(baselines),
-        }
+        return self._run_stage_instance("baseline", BaselineStage, run_dir)
 
     def _run_optimize(self, run_dir: Path) -> dict:
-        from ..stages.optimize.rule_engine import apply_rules
+        from ..stages.optimize import OptimizeStage
 
-        baseline_path = run_dir / "baseline" / "baselines.json"
-        if not baseline_path.exists():
-            return {"success": False, "error": "Baseline results not found"}
-
-        with open(baseline_path) as f:
-            baselines = json.load(f)
-
-        proposals = []
-        for baseline in baselines:
-            sql = baseline.get("sql", "")
-            rule_results = apply_rules(sql)
-            if rule_results:
-                proposals.append(
-                    {
-                        "sqlKey": baseline.get("sqlKey"),
-                        "originalSql": sql,
-                        "optimizations": [
-                            {
-                                "ruleName": r.rule_name,
-                                "optimizedSql": r.optimized_sql,
-                                "improvement": r.improvement,
-                            }
-                            for r in rule_results
-                        ],
-                    }
-                )
-
-        output_path = run_dir / "optimize" / "proposals.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(proposals, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "proposals_count": len(proposals),
-        }
+        return self._run_stage_instance("optimize", OptimizeStage, run_dir)
 
     def _run_validate(self, run_dir: Path) -> dict:
-        from ..stages.validate.semantic_checker import SemanticChecker
+        from ..stages.validate import ValidateStage
 
-        optimize_path = run_dir / "optimize" / "proposals.json"
-        if not optimize_path.exists():
-            return {"success": False, "error": "Optimize results not found"}
-
-        with open(optimize_path) as f:
-            proposals = json.load(f)
-
-        checker = SemanticChecker()
-        validations = []
-        for proposal in proposals:
-            for opt in proposal.get("optimizations", []):
-                original = opt.get("originalSql", "")
-                optimized = opt.get("optimizedSql", "")
-                if original and optimized:
-                    result = checker._perform_validation(original, optimized)
-                    validations.append(
-                        {
-                            "sqlKey": proposal.get("sqlKey"),
-                            "ruleName": opt.get("ruleName"),
-                            "isEquivalent": result.is_equivalent,
-                            "confidence": result.confidence,
-                            "reason": result.reason,
-                        }
-                    )
-
-        output_path = run_dir / "validate" / "validations.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(validations, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "validations_count": len(validations),
-        }
+        return self._run_stage_instance("validate", ValidateStage, run_dir)
 
     def _run_patch(self, run_dir: Path) -> dict:
-        from ..stages.patch.patch_generator import PatchGenerator
+        from ..stages.patch import PatchStage
 
-        validate_path = run_dir / "validate" / "validations.json"
-        if not validate_path.exists():
-            return {"success": False, "error": "Validate results not found"}
-
-        with open(validate_path) as f:
-            validations = json.load(f)
-
-        generator = PatchGenerator()
-        patches = []
-        for validation in validations:
-            if validation.get("isEquivalent", False):
-                patches.append(
-                    {
-                        "sqlKey": validation.get("sqlKey"),
-                        "ruleName": validation.get("ruleName"),
-                        "status": "ready",
-                        "applied": False,
-                    }
-                )
-
-        output_path = run_dir / "patch" / "patches.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "w") as f:
-            json.dump(patches, f, indent=2, ensure_ascii=False)
-
-        return {
-            "success": True,
-            "output_file": str(output_path),
-            "patches_count": len(patches),
-        }
+        return self._run_stage_instance("patch", PatchStage, run_dir)
 
 
 def run_v8_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:

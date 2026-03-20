@@ -1,6 +1,8 @@
 # SQL Optimizer V8 - 7 阶段功能全景图
 
 > 版本：V8 | 更新日期：2026-03-19
+>
+> 补充规范：阶段 API、输入输出契约与样例请参见 [STAGE_API_CONTRACTS.md](./STAGE_API_CONTRACTS.md)。
 
 ---
 

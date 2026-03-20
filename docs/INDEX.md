@@ -20,6 +20,7 @@ V8 是 SQL Optimizer 的核心架构，采用 7 阶段流水线设计。
 |------|------|
 | [V8/V8_SUMMARY.md](./V8/V8_SUMMARY.md) | V8 架构设计总览 |
 | [V8/V8_STAGES_OVERVIEW.md](./V8/V8_STAGES_OVERVIEW.md) | 7 阶段详解 |
+| [V8/STAGE_API_CONTRACTS.md](./V8/STAGE_API_CONTRACTS.md) | 阶段 API、输入输出契约与样例规范 |
 
 ### V8 核心流程
 

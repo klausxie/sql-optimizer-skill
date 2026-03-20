@@ -191,6 +191,14 @@ class RunPaths:
         return self.branching_dir / "branch.results.jsonl"
 
     @property
+    def pruning_dir(self) -> Path:
+        return self.pipeline_dir / "pruning"
+
+    @property
+    def pruning_risks_path(self) -> Path:
+        return self.pruning_dir / "risks.jsonl"
+
+    @property
     def baseline_dir(self) -> Path:
         return self.pipeline_dir / "baseline"
 
@@ -313,6 +321,7 @@ class RunPaths:
             self.supervisor_results_dir,
             self.scan_dir,
             self.branching_dir,
+            self.pruning_dir,
             self.baseline_dir,
             self.optimize_dir,
             self.validate_dir,

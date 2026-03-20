@@ -6,24 +6,33 @@ Handles validation of optimization proposals for a single SQL unit.
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...application.stage_registry import StageRegistry, stage_registry
-from ...contracts import ContractValidator, STAGE_BOUNDARIES
-from ...io_utils import append_jsonl
+from ...application.stage_registry import stage_registry
+from ...contracts import ContractValidator
+from ...io_utils import read_jsonl, write_jsonl
 from ...manifest import log_event
 from ...run_paths import canonical_paths
 from ..base import Stage, StageContext, StageResult
+from ...platforms.sql.validator_sql import validate_proposal
+
+
+def _load_sql_units(run_dir: Path) -> dict[str, dict[str, Any]]:
+    paths = canonical_paths(run_dir)
+    input_path = paths.branches_path if paths.branches_path.exists() else paths.scan_units_path
+    rows = [row for row in read_jsonl(input_path) if isinstance(row, dict)] if input_path.exists() else []
+    result: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        sql_key = str(row.get("sqlKey") or "").strip()
+        if sql_key:
+            result[sql_key] = row
+    return result
 
 
 @stage_registry.register
 class ValidateStage(Stage):
-    """Validate stage implementation for V8 architecture.
-
-    Validates optimization proposals and generates acceptance results.
-    """
+    """Validate stage implementation for V8 architecture."""
 
     name: str = "validate"
     version: str = "1.0.0"
@@ -33,82 +42,48 @@ class ValidateStage(Stage):
         self.config = config or {}
 
     def execute(self, context: StageContext) -> StageResult:
-        """Execute the validate stage.
-
-        Args:
-            context: Stage execution context containing run_id, config, and data_dir
-
-        Returns:
-            StageResult with validation artifacts
-        """
         errors: list[str] = []
         warnings: list[str] = []
-        artifacts: dict[str, Any] = {}
-        output_files: list[Path] = []
-
         run_dir = context.data_dir
         paths = canonical_paths(run_dir)
+        paths.ensure_layout()
         validator = ContractValidator(Path(__file__).resolve().parents[2])
 
-        # Get proposals from optimize stage output
-        proposals_path = paths.proposals_path
-        if not proposals_path.exists():
-            warnings.append("no proposals found, skipping validation")
-            return StageResult(
-                success=True,
-                output_files=output_files,
-                artifacts=artifacts,
-                errors=errors,
-                warnings=warnings,
-            )
-
-        # Read all proposals
-        proposals: list[dict[str, Any]] = []
-        try:
-            with open(proposals_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        proposals.append(eval(line))
-        except Exception as e:
-            errors.append(f"error reading proposals: {e}")
+        if not paths.proposals_path.exists():
             return StageResult(
                 success=False,
-                output_files=output_files,
-                artifacts=artifacts,
-                errors=errors,
-                warnings=warnings,
+                output_files=[],
+                artifacts={},
+                errors=[f"input file not found: {paths.proposals_path}"],
+                warnings=[],
             )
 
-        if not proposals:
-            warnings.append("no proposals to validate")
-
-        # Process each proposal
+        proposals = [row for row in read_jsonl(paths.proposals_path) if isinstance(row, dict)]
+        sql_units = _load_sql_units(run_dir)
         acceptances: list[dict[str, Any]] = []
+        db_reachable = bool(context.metadata.get("db_reachable", False))
+
         for proposal in proposals:
             try:
-                sql_unit = proposal.get("sql_unit", {})
+                validator.validate_stage_input("validate", proposal)
+                sql_key = str(proposal.get("sqlKey") or "unknown")
+                sql_unit = sql_units.get(sql_key)
+                if sql_unit is None:
+                    raise ValueError(f"sql unit not found for proposal: {sql_key}")
                 acceptance = self.execute_one(
                     sql_unit=sql_unit,
                     proposal=proposal,
                     run_dir=run_dir,
                     validator=validator,
-                    db_reachable=context.metadata.get("db_reachable", False),
+                    db_reachable=db_reachable,
                     config=self.config,
                 )
+                validator.validate_stage_output("validate", acceptance)
                 acceptances.append(acceptance)
-            except Exception as e:
-                errors.append(f"error validating proposal: {e}")
+            except Exception as exc:
+                errors.append(f"error validating proposal: {exc}")
 
-        # Build artifacts
-        artifacts = {
-            "acceptances": acceptances,
-            "total_count": len(acceptances),
-            "pass_count": sum(1 for a in acceptances if a.get("status") == "PASS"),
-            "fail_count": sum(1 for a in acceptances if a.get("status") == "FAIL"),
-        }
-
-        # Log completion
+        write_jsonl(paths.acceptance_path, acceptances)
         log_event(
             paths.manifest_path,
             "validate",
@@ -116,15 +91,20 @@ class ValidateStage(Stage):
             {
                 "run_id": context.run_id,
                 "total_count": len(acceptances),
-                "pass_count": artifacts["pass_count"],
-                "fail_count": artifacts["fail_count"],
+                "pass_count": sum(1 for a in acceptances if a.get("status") == "PASS"),
+                "fail_count": sum(1 for a in acceptances if a.get("status") == "FAIL"),
             },
         )
 
         return StageResult(
             success=len(errors) == 0,
-            output_files=output_files,
-            artifacts=artifacts,
+            output_files=[paths.acceptance_path],
+            artifacts={
+                "acceptances": acceptances,
+                "total_count": len(acceptances),
+                "pass_count": sum(1 for a in acceptances if a.get("status") == "PASS"),
+                "fail_count": sum(1 for a in acceptances if a.get("status") == "FAIL"),
+            },
             errors=errors,
             warnings=warnings,
         )
@@ -138,71 +118,22 @@ class ValidateStage(Stage):
         db_reachable: bool,
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute validation for a single SQL unit.
-
-        Args:
-            sql_unit: SQL unit dictionary
-            proposal: Optimization proposal
-            run_dir: Run directory
-            validator: Contract validator
-            db_reachable: Whether database is reachable
-            config: Optional configuration
-
-        Returns:
-            Acceptance result dictionary
-        """
-        config = config or {}
-        paths = canonical_paths(run_dir)
-
-        sql_key = sql_unit.get(
-            "sqlKey",
-            sql_unit.get("namespace", "unknown")
-            + "."
-            + sql_unit.get("statementId", "unknown"),
-        )
-
-        acceptance = {
-            "sqlKey": sql_key,
-            "status": "PASS",
-            "rewrittenSql": proposal.get("candidates", [{}])[0].get("rewrittenSql")
-            if proposal.get("candidates")
-            else None,
-            "trace": {
-                "stage": "validate",
-                "sql_key": sql_key,
-                "db_reachable": db_reachable,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        }
-
-        # Validate against acceptance_result schema
-        validator.validate("acceptance_result", acceptance)
-        append_jsonl(paths.acceptance_path, acceptance)
-
-        log_event(
-            paths.manifest_path,
-            "validate",
-            "done",
-            {"statement_key": sql_key, "status": acceptance.get("status")},
-        )
-
-        return acceptance
+        return execute_one(sql_unit, proposal, run_dir, validator, db_reachable, config)
 
     def get_input_contracts(self) -> list[str]:
-        """Validate stage expects optimization_proposal input.
-
-        Returns:
-            List containing "optimization_proposal"
-        """
         return ["optimization_proposal"]
 
     def get_output_contracts(self) -> list[str]:
-        """Validate stage outputs acceptance_result.
-
-        Returns:
-            List containing "acceptance_result"
-        """
         return ["acceptance_result"]
+
+
+@dataclass
+class ValidationExecutionTrace:
+    sql_key: str
+    trace: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def execute_one(
@@ -213,51 +144,21 @@ def execute_one(
     db_reachable: bool,
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute validation for a single SQL unit.
-
-    Args:
-        sql_unit: SQL unit dictionary
-        proposal: Optimization proposal
-        run_dir: Run directory
-        validator: Contract validator
-        db_reachable: Whether database is reachable
-        config: Optional configuration
-
-    Returns:
-        Acceptance result dictionary
-    """
-    config = config or {}
-    paths = canonical_paths(run_dir)
-
-    sql_key = sql_unit.get(
-        "sqlKey",
-        sql_unit.get("namespace", "unknown")
-        + "."
-        + sql_unit.get("statementId", "unknown"),
+    _ = canonical_paths(run_dir)
+    result = validate_proposal(
+        sql_unit,
+        proposal,
+        db_reachable,
+        config=config or {},
+        evidence_dir=canonical_paths(run_dir).sql_evidence_dir(str(sql_unit.get("sqlKey") or "unknown")),
+        fragment_catalog={},
     )
-
-    acceptance = {
-        "sqlKey": sql_key,
-        "status": "PASS",
-        "rewrittenSql": proposal.get("candidates", [{}])[0].get("rewrittenSql")
-        if proposal.get("candidates")
-        else None,
-        "trace": {
-            "stage": "validate",
-            "sql_key": sql_key,
-            "db_reachable": db_reachable,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        },
-    }
-
+    acceptance = result.to_contract() if hasattr(result, "to_contract") else dict(result)
     validator.validate("acceptance_result", acceptance)
-    append_jsonl(paths.acceptance_path, acceptance)
-
     log_event(
-        paths.manifest_path,
+        canonical_paths(run_dir).manifest_path,
         "validate",
         "done",
-        {"statement_key": sql_key, "status": acceptance.get("status")},
+        {"statement_key": acceptance.get("sqlKey"), "status": acceptance.get("status")},
     )
-
     return acceptance
