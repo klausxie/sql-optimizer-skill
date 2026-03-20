@@ -65,7 +65,7 @@ class ValidateStage(Stage):
 
         for proposal in proposals:
             try:
-                validator.validate_stage_input("validate", proposal)
+                validator.validate("optimization_proposal", proposal)
                 sql_key = str(proposal.get("sqlKey") or "unknown")
                 sql_unit = sql_units.get(sql_key)
                 if sql_unit is None:
@@ -78,7 +78,7 @@ class ValidateStage(Stage):
                     db_reachable=db_reachable,
                     config=self.config,
                 )
-                validator.validate_stage_output("validate", acceptance)
+                validator.validate("acceptance_result", acceptance)
                 acceptances.append(acceptance)
             except Exception as exc:
                 errors.append(f"error validating proposal: {exc}")

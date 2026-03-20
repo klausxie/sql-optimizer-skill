@@ -93,7 +93,7 @@ def main() -> None:
                 "--config",
                 str(config_path),
                 "--to-stage",
-                "patch_generate",
+                "patch",
                 "--max-steps",
                 "200",
                 "--max-seconds",

@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sqlopt.application import config_service
-from sqlopt.errors import StageError
 from sqlopt.errors import ConfigError
 
 
@@ -196,7 +195,7 @@ class ConfigServiceTest(unittest.TestCase):
             },
         ):
             result = config_service.prepare_runtime_prerequisites(
-                config, to_stage="validate"
+                config, to_stage="optimize"
             )
 
         self.assertTrue(result["requires_db"])
@@ -204,7 +203,7 @@ class ConfigServiceTest(unittest.TestCase):
         self.assertIn("connection refused", result["warning"])
         self.assertFalse(config["validate"]["db_reachable"])
 
-    def test_prepare_runtime_prerequisites_rejects_placeholder_dsn_for_db_stage(
+    def test_prepare_runtime_prerequisites_does_not_require_db_for_patch_stage(
         self,
     ) -> None:
         config = {
@@ -215,11 +214,11 @@ class ConfigServiceTest(unittest.TestCase):
             "validate": {"allow_db_unreachable_fallback": True},
         }
 
-        with self.assertRaises(StageError) as ctx:
-            config_service.prepare_runtime_prerequisites(config, to_stage="report")
+        result = config_service.prepare_runtime_prerequisites(config, to_stage="patch")
 
-        self.assertEqual(ctx.exception.reason_code, "DB_CONNECTION_FAILED")
-        self.assertIn("placeholders", str(ctx.exception))
+        self.assertFalse(result["requires_db"])
+        self.assertIsNone(result["db_reachable"])
+        self.assertIsNone(result["warning"])
 
 
 if __name__ == "__main__":

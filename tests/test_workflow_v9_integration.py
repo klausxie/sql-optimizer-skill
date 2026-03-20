@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-V8 Workflow Engine Integration Tests
+V9 Workflow Engine Integration Tests
 
-Tests the complete V8 workflow execution flow including:
+Tests the complete V9 workflow execution flow including:
 1. Normal execution (run method)
 2. Single step execution (advance_one_step method)
 3. Resume execution (resume method)
@@ -76,15 +76,15 @@ def temp_run_dir(tmp_path):
 
 @pytest.fixture
 def workflow_engine(mock_config, mock_repository):
-    """Create a V8WorkflowEngine with mocked dependencies."""
-    with patch("sqlopt.application.workflow_v8.StatusResolver") as mock_resolver:
+    """Create a V9WorkflowEngine with mocked dependencies."""
+    with patch("sqlopt.application.workflow_v9.StatusResolver") as mock_resolver:
         mock_resolver_instance = Mock()
         mock_resolver_instance.is_complete_to_stage = Mock(return_value=False)
         mock_resolver.return_value = mock_resolver_instance
 
-        from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-        engine = V8WorkflowEngine(
+        engine = V9WorkflowEngine(
             config=mock_config,
             repository=mock_repository,
             run_id="test_run_001",
@@ -93,19 +93,19 @@ def workflow_engine(mock_config, mock_repository):
 
 
 # =============================================================================
-# V8WorkflowEngine Initialization Tests
+# V9WorkflowEngine Initialization Tests
 # =============================================================================
 
 
 class TestWorkflowEngineInitialization:
-    """Tests for V8WorkflowEngine initialization."""
+    """Tests for V9WorkflowEngine initialization."""
 
     def test_engine_initializes_with_config(self, mock_config, mock_repository):
         """Test engine initializes with provided config."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config,
                 repository=mock_repository,
                 run_id="test_init_001",
@@ -117,20 +117,20 @@ class TestWorkflowEngineInitialization:
 
     def test_engine_generates_run_id_if_not_provided(self, mock_config):
         """Test engine generates run_id when not provided."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config)
+            engine = V9WorkflowEngine(config=mock_config)
 
             assert engine.run_id.startswith("run_")
             assert len(engine.run_id) > 10
 
     def test_engine_initializes_with_default_state(self, mock_config):
         """Test engine initializes with default state."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config)
+            engine = V9WorkflowEngine(config=mock_config)
 
             assert engine.state.run_id == engine.run_id
             assert engine.state.status == "pending"
@@ -141,10 +141,10 @@ class TestWorkflowEngineInitialization:
 
     def test_engine_registers_all_stages(self, mock_config):
         """Test engine registers all 7 stages."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config)
+            engine = V9WorkflowEngine(config=mock_config)
 
             expected_stages = [
                 "init",
@@ -159,19 +159,19 @@ class TestWorkflowEngineInitialization:
 
 
 # =============================================================================
-# V8WorkflowEngine.run() Tests
+# V9WorkflowEngine.run() Tests
 # =============================================================================
 
 
 class TestWorkflowEngineRun:
-    """Tests for V8WorkflowEngine.run() method."""
+    """Tests for V9WorkflowEngine.run() method."""
 
     def test_run_sets_status_after_run(self, mock_config, temp_run_dir):
         """Test that run() completes successfully with repository=None."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
                 "init": lambda r: {"success": True},
                 "parse": lambda r: {"success": True},
@@ -318,12 +318,12 @@ class TestWorkflowEngineRun:
 
 
 # =============================================================================
-# V8WorkflowEngine.advance_one_step() Tests
+# V9WorkflowEngine.advance_one_step() Tests
 # =============================================================================
 
 
 class TestAdvanceOneStep:
-    """Tests for V8WorkflowEngine.advance_one_step() method."""
+    """Tests for V9WorkflowEngine.advance_one_step() method."""
 
     def test_advance_one_step_returns_completed_when_all_done(
         self, mock_config, temp_run_dir
@@ -351,10 +351,10 @@ class TestAdvanceOneStep:
         mock_repo.save_state = Mock()
         mock_repo.initialize = Mock()
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
 
@@ -373,10 +373,10 @@ class TestAdvanceOneStep:
         mock_repo.save_state = Mock()
         mock_repo.initialize = Mock()
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
@@ -418,10 +418,10 @@ class TestAdvanceOneStep:
         mock_repo.save_state = Mock()
         mock_repo.initialize = Mock()
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
@@ -446,10 +446,10 @@ class TestAdvanceOneStep:
         mock_repo.save_state = Mock()
         mock_repo.initialize = Mock()
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
@@ -473,10 +473,10 @@ class TestAdvanceOneStep:
         mock_repo.save_state = Mock()
         mock_repo.initialize = Mock()
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(
+            engine = V9WorkflowEngine(
                 config=mock_config, repository=mock_repo, run_id="test_run"
             )
             engine.stages = {
@@ -497,12 +497,12 @@ class TestAdvanceOneStep:
 
 
 # =============================================================================
-# V8WorkflowEngine.resume() Tests
+# V9WorkflowEngine.resume() Tests
 # =============================================================================
 
 
 class TestResume:
-    """Tests for V8WorkflowEngine.resume() method."""
+    """Tests for V9WorkflowEngine.resume() method."""
 
     def test_resume_loads_existing_state_and_continues(self, mock_config, temp_run_dir):
         """Test resume() loads existing state from run_dir and continues execution."""
@@ -522,13 +522,13 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v8_state.json"
+        state_file = supervisor_dir / "v9_state.json"
         state_file.write_text(json.dumps(saved_state))
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
                 "init": lambda r: {"success": True},
                 "parse": lambda r: {"success": True},
@@ -567,13 +567,13 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v8_state.json"
+        state_file = supervisor_dir / "v9_state.json"
         state_file.write_text(json.dumps(saved_state))
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
                 "init": lambda r: (
                     call_order.append("init"),
@@ -621,13 +621,13 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v8_state.json"
+        state_file = supervisor_dir / "v9_state.json"
         state_file.write_text(json.dumps(saved_state))
 
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             engine.stages = {
                 "init": lambda r: (
                     call_order.append("init"),
@@ -669,7 +669,7 @@ class TestResume:
         workflow_engine.resume(temp_run_dir, to_stage="patch")
 
         # Verify state file was created
-        state_file = temp_run_dir / "supervisor" / "v8_state.json"
+        state_file = temp_run_dir / "supervisor" / "v9_state.json"
         assert state_file.exists()
 
         saved_state = json.loads(state_file.read_text())
@@ -678,12 +678,12 @@ class TestResume:
 
 
 # =============================================================================
-# V8WorkflowEngine.get_next_action() Tests
+# V9WorkflowEngine.get_next_action() Tests
 # =============================================================================
 
 
 class TestGetNextAction:
-    """Tests for V8WorkflowEngine.get_next_action() method."""
+    """Tests for V9WorkflowEngine.get_next_action() method."""
 
     def test_get_next_action_returns_run_when_no_state(
         self, workflow_engine, temp_run_dir
@@ -719,7 +719,7 @@ class TestGetNextAction:
             "status": "completed",
         }
 
-        state_file = supervisor_dir / "v8_state.json"
+        state_file = supervisor_dir / "v9_state.json"
         state_file.write_text(json.dumps(saved_state))
 
         action = workflow_engine.get_next_action(temp_run_dir)
@@ -744,7 +744,7 @@ class TestGetNextAction:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v8_state.json"
+        state_file = supervisor_dir / "v9_state.json"
         state_file.write_text(json.dumps(saved_state))
 
         action = workflow_engine.get_next_action(temp_run_dir)
@@ -754,7 +754,7 @@ class TestGetNextAction:
 
 
 # =============================================================================
-# V8WorkflowEngine Stage Methods Tests
+# V9WorkflowEngine Stage Methods Tests
 # =============================================================================
 
 
@@ -778,10 +778,10 @@ class TestStageMethods:
             mock_scanner_instance.scan.return_value = mock_result
             mock_scanner_class.return_value = mock_scanner_instance
 
-            with patch("sqlopt.application.workflow_v8.StatusResolver"):
-                from sqlopt.application.workflow_v8 import V8WorkflowEngine
+            with patch("sqlopt.application.workflow_v9.StatusResolver"):
+                from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-                engine = V8WorkflowEngine(config=mock_config, repository=None)
+                engine = V9WorkflowEngine(config=mock_config, repository=None)
                 result = engine._run_init(temp_run_dir)
 
                 assert result["success"] is True
@@ -795,10 +795,10 @@ class TestStageMethods:
 
     def test_run_parse_returns_error_when_no_init(self, mock_config, temp_run_dir):
         """Test _run_parse returns error when init output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             result = engine._run_parse(temp_run_dir)
 
             assert result["success"] is False
@@ -812,10 +812,10 @@ class TestStageMethodsContinuation:
         self, mock_config, temp_run_dir
     ):
         """Test _run_recognition returns error when parse output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             result = engine._run_recognition(temp_run_dir)
 
             assert result["success"] is False
@@ -825,10 +825,10 @@ class TestStageMethodsContinuation:
         self, mock_config, temp_run_dir
     ):
         """Test _run_optimize returns error when recognition output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             result = engine._run_optimize(temp_run_dir)
 
             assert result["success"] is False
@@ -836,10 +836,10 @@ class TestStageMethodsContinuation:
 
     def test_run_patch_returns_error_when_no_optimize(self, mock_config, temp_run_dir):
         """Test _run_patch returns error when optimize output missing."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             result = engine._run_patch(temp_run_dir)
 
             assert result["success"] is False
@@ -867,10 +867,10 @@ class TestStatePersistence:
         assert call_args["status"] == "pending"
         assert "completed_stages" in call_args
 
-    def test_load_state_from_repo_loads_v8_format(
+    def test_load_state_from_repo_loads_v9_format(
         self, workflow_engine, mock_repository
     ):
-        """Test load_state_from_repo handles V8 format."""
+        """Test load_state_from_repo handles V9 format."""
         saved_state = {
             "run_id": "loaded_run",
             "current_stage": "optimize",
@@ -889,29 +889,12 @@ class TestStatePersistence:
         assert "init" in workflow_engine.state.completed_stages
         assert "parse" in workflow_engine.state.completed_stages
 
-    def test_load_state_from_repo_handles_legacy_format(
-        self, workflow_engine, mock_repository
-    ):
-        """Test load_state_from_repo handles legacy format."""
-        legacy_state = {
-            "phase_status": {
-                "init": "DONE",
-                "parse": "DONE",
-                "recognition": "IN_PROGRESS",
-            }
-        }
-        mock_repository.load_state = Mock(return_value=legacy_state)
-
-        workflow_engine.load_state_from_repo()
-
-        assert workflow_engine.state.status == "running"
-
     def test_save_and_load_state_roundtrip(self, mock_config, temp_run_dir):
         """Test state save and load produces consistent results."""
-        with patch("sqlopt.application.workflow_v8.StatusResolver"):
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        with patch("sqlopt.application.workflow_v9.StatusResolver"):
+            from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            engine = V8WorkflowEngine(config=mock_config, repository=None)
+            engine = V9WorkflowEngine(config=mock_config, repository=None)
             engine.state.completed_stages = ["init", "parse"]
             engine.state.current_stage = "recognition"
             engine.state.status = "running"
@@ -920,12 +903,12 @@ class TestStatePersistence:
             engine._save_state(temp_run_dir)
 
             # Load into new state object
-            from sqlopt.application.workflow_v8 import V8WorkflowState
+            from sqlopt.application.workflow_v9 import V9WorkflowState
 
-            state_file = temp_run_dir / "supervisor" / "v8_state.json"
+            state_file = temp_run_dir / "supervisor" / "v9_state.json"
             loaded_data = json.loads(state_file.read_text())
 
-            new_state = V8WorkflowState(**loaded_data)
+            new_state = V9WorkflowState(**loaded_data)
 
             assert new_state.completed_stages == ["init", "parse"]
             assert new_state.current_stage == "recognition"
@@ -940,28 +923,28 @@ class TestStatePersistence:
 class TestHelperFunctions:
     """Tests for module-level helper functions."""
 
-    def test_run_v8_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
-        """Test run_v8_workflow creates engine and calls run."""
+    def test_run_v9_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
+        """Test run_v9_workflow creates engine and calls run."""
         with patch(
-            "sqlopt.application.workflow_v8.V8WorkflowEngine"
+            "sqlopt.application.workflow_v9.V9WorkflowEngine"
         ) as mock_engine_class:
             mock_engine = Mock()
-            mock_engine.run.return_value = {"discovery": {"success": True}}
+            mock_engine.run.return_value = {"init": {"success": True}}
             mock_engine_class.return_value = mock_engine
 
-            from sqlopt.application.workflow_v8 import run_v8_workflow
+            from sqlopt.application.workflow_v9 import run_v9_workflow
 
-            result = run_v8_workflow(mock_config, temp_run_dir, to_stage="discovery")
+            result = run_v9_workflow(mock_config, temp_run_dir, to_stage="init")
 
             mock_engine_class.assert_called_once_with(mock_config)
-            mock_engine.run.assert_called_once_with(temp_run_dir, "discovery")
-            assert result == {"discovery": {"success": True}}
+            mock_engine.run.assert_called_once_with(temp_run_dir, "init")
+            assert result == {"init": {"success": True}}
 
     def test_runs_root_returns_correct_path(self, mock_config):
         """Test runs_root returns correct path based on config."""
         mock_config["project"]["root_path"] = "/project/root"
 
-        from sqlopt.application.workflow_v8 import runs_root
+        from sqlopt.application.workflow_v9 import runs_root
 
         result = runs_root(mock_config)
 
@@ -980,10 +963,10 @@ class TestHelperFunctions:
         assert call_args["status"] == "pending"
         assert "completed_stages" in call_args
 
-    def test_load_state_from_repo_loads_v8_format(
+    def test_load_state_from_repo_loads_v9_format(
         self, workflow_engine, mock_repository
     ):
-        """Test load_state_from_repo handles V8 format."""
+        """Test load_state_from_repo handles V9 format."""
         saved_state = {
             "run_id": "loaded_run",
             "current_stage": "optimize",
@@ -1002,24 +985,6 @@ class TestHelperFunctions:
         assert "init" in workflow_engine.state.completed_stages
         assert "parse" in workflow_engine.state.completed_stages
 
-    def test_load_state_from_repo_handles_legacy_format(
-        self, workflow_engine, mock_repository
-    ):
-        """Test load_state_from_repo handles legacy format."""
-        legacy_state = {
-            "phase_status": {
-                "init": "DONE",
-                "parse": "DONE",
-                "recognition": "IN_PROGRESS",
-            }
-        }
-        mock_repository.load_state.return_value = legacy_state
-
-        workflow_engine.load_state_from_repo()
-
-        # Should set status to running for legacy format
-        assert workflow_engine.state.status == "running"
-
     def test_save_and_load_state_roundtrip(self, workflow_engine, temp_run_dir):
         """Test state save and load produces consistent results."""
         workflow_engine.state.completed_stages = ["init", "parse"]
@@ -1030,12 +995,12 @@ class TestHelperFunctions:
         workflow_engine._save_state(temp_run_dir)
 
         # Load into new state object
-        from sqlopt.application.workflow_v8 import V8WorkflowState
+        from sqlopt.application.workflow_v9 import V9WorkflowState
 
-        state_file = temp_run_dir / "supervisor" / "v8_state.json"
+        state_file = temp_run_dir / "supervisor" / "v9_state.json"
         loaded_data = json.loads(state_file.read_text())
 
-        new_state = V8WorkflowState(**loaded_data)
+        new_state = V9WorkflowState(**loaded_data)
 
         assert new_state.completed_stages == ["init", "parse"]
         assert new_state.current_stage == "recognition"
@@ -1050,28 +1015,28 @@ class TestHelperFunctions:
 class TestHelperFunctions:
     """Tests for module-level helper functions."""
 
-    def test_run_v8_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
-        """Test run_v8_workflow creates engine and calls run."""
+    def test_run_v9_workflow_creates_engine_and_runs(self, mock_config, temp_run_dir):
+        """Test run_v9_workflow creates engine and calls run."""
         with patch(
-            "sqlopt.application.workflow_v8.V8WorkflowEngine"
+            "sqlopt.application.workflow_v9.V9WorkflowEngine"
         ) as mock_engine_class:
             mock_engine = Mock()
-            mock_engine.run.return_value = {"discovery": {"success": True}}
+            mock_engine.run.return_value = {"init": {"success": True}}
             mock_engine_class.return_value = mock_engine
 
-            from sqlopt.application.workflow_v8 import run_v8_workflow
+            from sqlopt.application.workflow_v9 import run_v9_workflow
 
-            result = run_v8_workflow(mock_config, temp_run_dir, to_stage="discovery")
+            result = run_v9_workflow(mock_config, temp_run_dir, to_stage="init")
 
             mock_engine_class.assert_called_once_with(mock_config)
-            mock_engine.run.assert_called_once_with(temp_run_dir, "discovery")
-            assert result == {"discovery": {"success": True}}
+            mock_engine.run.assert_called_once_with(temp_run_dir, "init")
+            assert result == {"init": {"success": True}}
 
     def test_runs_root_returns_correct_path(self, mock_config):
         """Test runs_root returns correct path based on config."""
         mock_config["project"]["root_path"] = "/project/root"
 
-        from sqlopt.application.workflow_v8 import runs_root
+        from sqlopt.application.workflow_v9 import runs_root
 
         result = runs_root(mock_config)
 
@@ -1088,7 +1053,7 @@ class TestStageOrder:
 
     def test_stage_order_has_five_stages(self):
         """Test STAGE_ORDER contains all 5 V9 stages."""
-        from sqlopt.application.workflow_v8 import STAGE_ORDER
+        from sqlopt.application.workflow_v9 import STAGE_ORDER
 
         expected = [
             "init",
@@ -1101,7 +1066,7 @@ class TestStageOrder:
 
     def test_stage_order_is_correct_sequence(self):
         """Test STAGE_ORDER is in correct execution sequence."""
-        from sqlopt.application.workflow_v8 import STAGE_ORDER
+        from sqlopt.application.workflow_v9 import STAGE_ORDER
 
         assert STAGE_ORDER.index("init") < STAGE_ORDER.index("parse")
         assert STAGE_ORDER.index("parse") < STAGE_ORDER.index("recognition")
@@ -1110,18 +1075,18 @@ class TestStageOrder:
 
 
 # =============================================================================
-# V8WorkflowState Dataclass Tests
+# V9WorkflowState Dataclass Tests
 # =============================================================================
 
 
-class TestV8WorkflowState:
-    """Tests for V8WorkflowState dataclass."""
+class TestV9WorkflowState:
+    """Tests for V9WorkflowState dataclass."""
 
-    def test_v8_workflow_state_default_values(self):
-        """Test V8WorkflowState default values."""
-        from sqlopt.application.workflow_v8 import V8WorkflowState
+    def test_v9_workflow_state_default_values(self):
+        """Test V9WorkflowState default values."""
+        from sqlopt.application.workflow_v9 import V9WorkflowState
 
-        state = V8WorkflowState()
+        state = V9WorkflowState()
 
         assert state.run_id == ""
         assert state.current_stage == ""
@@ -1131,11 +1096,11 @@ class TestV8WorkflowState:
         assert state.updated_at == ""
         assert state.status == "pending"
 
-    def test_v8_workflow_state_with_values(self):
-        """Test V8WorkflowState with provided values."""
-        from sqlopt.application.workflow_v8 import V8WorkflowState
+    def test_v9_workflow_state_with_values(self):
+        """Test V9WorkflowState with provided values."""
+        from sqlopt.application.workflow_v9 import V9WorkflowState
 
-        state = V8WorkflowState(
+        state = V9WorkflowState(
             run_id="test_run",
             current_stage="init",
             completed_stages=["init", "parse"],
@@ -1161,7 +1126,7 @@ class TestNextAction:
 
     def test_next_action_default_values(self):
         """Test NextAction default values."""
-        from sqlopt.application.workflow_v8 import NextAction
+        from sqlopt.application.workflow_v9 import NextAction
 
         action = NextAction(action="run")
 
@@ -1171,7 +1136,7 @@ class TestNextAction:
 
     def test_next_action_with_values(self):
         """Test NextAction with provided values."""
-        from sqlopt.application.workflow_v8 import NextAction
+        from sqlopt.application.workflow_v9 import NextAction
 
         action = NextAction(action="resume", stage="init", reason="Start fresh run")
 

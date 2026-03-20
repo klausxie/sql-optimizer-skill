@@ -35,21 +35,23 @@ class TemplatePatchSuggestion:
 
 def build_template_patch_prompt(
     sql_unit: dict[str, Any],
-    acceptance: dict[str, Any],
+    proposal: dict[str, Any],
     patch_result: dict[str, Any],
 ) -> dict[str, Any]:
     """Build prompt for template patch suggestion.
 
     Args:
         sql_unit: SQL unit
-        acceptance: Validation acceptance result
+        proposal: Validated optimization proposal
         patch_result: Patch generation result
 
     Returns:
         Prompt dictionary for LLM call
     """
     original_template = str(sql_unit.get("templateSql") or "")
-    rewritten_sql = str(acceptance.get("rewrittenSql") or "")
+    rewritten_sql = str(
+        proposal.get("optimizedSql") or proposal.get("rewrittenSql") or ""
+    )
     dynamic_features = list(sql_unit.get("dynamicFeatures") or [])
     include_trace = sql_unit.get("includeTrace") or []
     dynamic_trace = sql_unit.get("dynamicTrace") or {}
@@ -157,7 +159,7 @@ def _parse_llm_template_suggestion(
 
 def generate_template_patch_suggestion(
     sql_unit: dict[str, Any],
-    acceptance: dict[str, Any],
+    proposal: dict[str, Any],
     patch_result: dict[str, Any],
     llm_cfg: dict[str, Any],
 ) -> TemplatePatchSuggestion | None:
@@ -165,7 +167,7 @@ def generate_template_patch_suggestion(
 
     Args:
         sql_unit: SQL unit
-        acceptance: Validation acceptance result
+        proposal: Validated optimization proposal
         patch_result: Patch generation result
         llm_cfg: LLM configuration
 
@@ -175,7 +177,7 @@ def generate_template_patch_suggestion(
     if not llm_cfg.get("enabled", False):
         return None
 
-    prompt = build_template_patch_prompt(sql_unit, acceptance, patch_result)
+    prompt = build_template_patch_prompt(sql_unit, proposal, patch_result)
     response_text = "建议使用模板级改写；CLI 内置模式无法执行深度分析"
     return _parse_llm_template_suggestion(response_text, prompt)
 

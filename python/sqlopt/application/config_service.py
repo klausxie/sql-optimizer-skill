@@ -6,6 +6,7 @@ from typing import Any
 from ..errors import StageError
 from ..platforms.dispatch import check_db_connectivity
 from ..config import load_config
+from ..v9_pipeline import DB_REQUIRED_STAGES
 
 
 _DSN_PLACEHOLDERS = (
@@ -46,7 +47,7 @@ def prepare_runtime_prerequisites(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     target_stage = str(to_stage or "").strip().lower()
-    requires_db = target_stage in {"validate", "apply", "report"}
+    requires_db = target_stage in DB_REQUIRED_STAGES
     result = {
         "requires_db": requires_db,
         "db_reachable": None,

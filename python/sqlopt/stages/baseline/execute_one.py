@@ -39,7 +39,7 @@ def execute_one(
     sql = str(sql_unit.get("sql") or "")
     params = sql_unit.get("paramExample", {}) or {}
 
-    validator.validate_stage_input("baseline", sql_unit)
+    validator.validate_stage_input("recognition", sql_unit)
     collector = BaselineCollector(config)
     result = collector.collect(sql_unit)
 

@@ -1,4 +1,4 @@
-"""Tests for Phase 5 patch_generate LLM assistance"""
+"""Tests for patch-stage LLM assistance."""
 
 import pytest
 from sqlopt.stages.patch.llm_assist import (
@@ -22,7 +22,7 @@ class TestBuildTemplatePatchPrompt:
             "dynamicFeatures": ["IF", "WHERE"],
             "dynamicTrace": {"includeFragments": []},
         }
-        acceptance = {
+        proposal = {
             "rewrittenSql": "SELECT id, name FROM users WHERE id = ?",
         }
         patch_result = {
@@ -32,7 +32,7 @@ class TestBuildTemplatePatchPrompt:
             }
         }
 
-        prompt = build_template_patch_prompt(sql_unit, acceptance, patch_result)
+        prompt = build_template_patch_prompt(sql_unit, proposal, patch_result)
 
         assert prompt["task"] == "mybatis_template_patch_suggestion"
         assert prompt["original_template"] == "SELECT * FROM users WHERE id = #{id}"
@@ -58,10 +58,10 @@ class TestBuildTemplatePatchPrompt:
                 ]
             },
         }
-        acceptance = {"rewrittenSql": "SELECT * FROM table WHERE status = 1"}
+        proposal = {"rewrittenSql": "SELECT * FROM table WHERE status = 1"}
         patch_result = {"selectionReason": {}}
 
-        prompt = build_template_patch_prompt(sql_unit, acceptance, patch_result)
+        prompt = build_template_patch_prompt(sql_unit, proposal, patch_result)
 
         assert len(prompt["include_fragments"]) == 1
         assert prompt["include_fragments"][0]["fragmentId"] == "common.where"
@@ -284,12 +284,12 @@ class TestGenerateTemplatePatchSuggestion:
 
     def test_llm_disabled(self):
         sql_unit = {"sqlKey": "test#c1", "templateSql": "SELECT 1"}
-        acceptance = {"rewrittenSql": "SELECT 2"}
+        proposal = {"rewrittenSql": "SELECT 2"}
         patch_result = {"applicable": False}
         llm_cfg = {"enabled": False}
 
         result = generate_template_patch_suggestion(
-            sql_unit, acceptance, patch_result, llm_cfg
+            sql_unit, proposal, patch_result, llm_cfg
         )
         assert result is None
 
@@ -300,7 +300,7 @@ class TestGenerateTemplatePatchSuggestion:
             "dynamicFeatures": ["IF"],
             "dynamicTrace": {"includeFragments": []},
         }
-        acceptance = {"rewrittenSql": "SELECT id FROM users"}
+        proposal = {"rewrittenSql": "SELECT id FROM users"}
         patch_result = {
             "selectionReason": {
                 "code": "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
@@ -314,7 +314,7 @@ class TestGenerateTemplatePatchSuggestion:
 
         # 内置模式会返回保守结果
         result = generate_template_patch_suggestion(
-            sql_unit, acceptance, patch_result, llm_cfg
+            sql_unit, proposal, patch_result, llm_cfg
         )
 
         # 内置模式可能返回 None 或保守建议

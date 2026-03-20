@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Benchmark script for V8 Workflow performance measurement.
+Benchmark script for V9 workflow performance measurement.
 
 Measures:
 - Total execution time
@@ -23,16 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
 
 
-# Stage order from workflow_v8.py
-STAGE_ORDER = [
-    "discovery",
-    "branching",
-    "pruning",
-    "baseline",
-    "optimize",
-    "validate",
-    "patch",
-]
+from sqlopt.v9_pipeline import STAGE_ORDER
 
 
 def create_mock_config() -> dict:
@@ -88,11 +79,11 @@ def create_mock_sql_units(count: int = 10) -> list[dict]:
     return units
 
 
-def run_stage_discovery(run_dir: Path, config: dict) -> dict:
-    """Mock discovery stage - in real impl this would scan XML files."""
+def run_stage_init(run_dir: Path, config: dict) -> dict:
+    """Mock init stage - in real impl this would scan XML files."""
     time.sleep(0.01)  # Simulate work
     sql_units = create_mock_sql_units(count=10)
-    output_path = run_dir / "discovery" / "sql_units.json"
+    output_path = run_dir / "init" / "sql_units.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(sql_units, f)
@@ -103,34 +94,18 @@ def run_stage_discovery(run_dir: Path, config: dict) -> dict:
     }
 
 
-def run_stage_branching(run_dir: Path, config: dict) -> dict:
-    """Mock branching stage - in real impl this would generate branches."""
-    time.sleep(0.02)  # Simulate work
-    branching_path = run_dir / "discovery" / "sql_units.json"
-    if not branching_path.exists():
-        return {"success": False, "error": "Discovery results not found"}
-    with open(branching_path) as f:
+def run_stage_parse(run_dir: Path, config: dict) -> dict:
+    """Mock parse stage - in real impl this would expand branches and risks."""
+    time.sleep(0.035)  # Simulate branch expansion + risk analysis
+    init_path = run_dir / "init" / "sql_units.json"
+    if not init_path.exists():
+        return {"success": False, "error": "Init results not found"}
+    with open(init_path) as f:
         sql_units = json.load(f)
-    total_branches = sum(u.get("branchCount", 0) for u in sql_units)
-    output_path = run_dir / "branching" / "sql_units_with_branches.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    units_output_path = run_dir / "parse" / "sql_units_with_branches.json"
+    units_output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(units_output_path, "w") as f:
         json.dump(sql_units, f)
-    return {
-        "success": True,
-        "output_file": str(output_path),
-        "total_branches": total_branches,
-    }
-
-
-def run_stage_pruning(run_dir: Path, config: dict) -> dict:
-    """Mock pruning stage - in real impl this would analyze risks."""
-    time.sleep(0.015)  # Simulate work
-    branching_path = run_dir / "branching" / "sql_units_with_branches.json"
-    if not branching_path.exists():
-        return {"success": False, "error": "Branching results not found"}
-    with open(branching_path) as f:
-        sql_units = json.load(f)
     risks = []
     for unit in sql_units:
         for branch in unit.get("branches", []):
@@ -142,24 +117,25 @@ def run_stage_pruning(run_dir: Path, config: dict) -> dict:
                         "risk_flag": flag,
                     }
                 )
-    output_path = run_dir / "pruning" / "risks.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    risks_output_path = run_dir / "parse" / "risks.json"
+    with open(risks_output_path, "w") as f:
         json.dump(risks, f)
     return {
         "success": True,
-        "output_file": str(output_path),
+        "sql_units_file": str(units_output_path),
+        "risks_file": str(risks_output_path),
+        "total_branches": sum(u.get("branchCount", 0) for u in sql_units),
         "risks_count": len(risks),
     }
 
 
-def run_stage_baseline(run_dir: Path, config: dict) -> dict:
-    """Mock baseline stage - in real impl this would call database EXPLAIN."""
+def run_stage_recognition(run_dir: Path, config: dict) -> dict:
+    """Mock recognition stage - in real impl this would call database EXPLAIN."""
     time.sleep(0.03)  # Simulate work (database call)
-    branching_path = run_dir / "branching" / "sql_units_with_branches.json"
-    if not branching_path.exists():
-        return {"success": False, "error": "Branching results not found"}
-    with open(branching_path) as f:
+    parse_path = run_dir / "parse" / "sql_units_with_branches.json"
+    if not parse_path.exists():
+        return {"success": False, "error": "Parse results not found"}
+    with open(parse_path) as f:
         sql_units = json.load(f)
     baselines = []
     for unit in sql_units:
@@ -175,7 +151,7 @@ def run_stage_baseline(run_dir: Path, config: dict) -> dict:
                     },
                 }
             )
-    output_path = run_dir / "baseline" / "baselines.json"
+    output_path = run_dir / "recognition" / "baselines.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(baselines, f)
@@ -187,11 +163,11 @@ def run_stage_baseline(run_dir: Path, config: dict) -> dict:
 
 
 def run_stage_optimize(run_dir: Path, config: dict) -> dict:
-    """Mock optimize stage - in real impl this would apply optimization rules."""
-    time.sleep(0.05)  # Simulate work (rule engine + LLM)
-    baseline_path = run_dir / "baseline" / "baselines.json"
+    """Mock optimize stage - in real impl this would propose and validate rewrites."""
+    time.sleep(0.09)  # Simulate rule engine + validation work
+    baseline_path = run_dir / "recognition" / "baselines.json"
     if not baseline_path.exists():
-        return {"success": False, "error": "Baseline results not found"}
+        return {"success": False, "error": "Recognition results not found"}
     with open(baseline_path) as f:
         baselines = json.load(f)
     proposals = []
@@ -200,15 +176,12 @@ def run_stage_optimize(run_dir: Path, config: dict) -> dict:
             {
                 "sqlKey": baseline.get("sqlKey"),
                 "originalSql": baseline.get("sql", ""),
-                "optimizations": [
-                    {
-                        "ruleName": "index_usage",
-                        "optimizedSql": baseline.get("sql", "").replace(
-                            "SELECT *", "SELECT id, name"
-                        ),
-                        "improvement": "reduced_columns",
-                    },
-                ],
+                "ruleName": "index_usage",
+                "optimizedSql": baseline.get("sql", "").replace(
+                    "SELECT *", "SELECT id, name"
+                ),
+                "validated": True,
+                "validationStatus": "PASS",
             }
         )
     output_path = run_dir / "optimize" / "proposals.json"
@@ -222,52 +195,21 @@ def run_stage_optimize(run_dir: Path, config: dict) -> dict:
     }
 
 
-def run_stage_validate(run_dir: Path, config: dict) -> dict:
-    """Mock validate stage - in real impl this would verify semantic equivalence."""
-    time.sleep(0.04)  # Simulate work (semantic check)
+def run_stage_patch(run_dir: Path, config: dict) -> dict:
+    """Mock patch stage - in real impl this would generate XML patches."""
+    time.sleep(0.01)  # Simulate work
     optimize_path = run_dir / "optimize" / "proposals.json"
     if not optimize_path.exists():
         return {"success": False, "error": "Optimize results not found"}
     with open(optimize_path) as f:
         proposals = json.load(f)
-    validations = []
-    for proposal in proposals:
-        for opt in proposal.get("optimizations", []):
-            validations.append(
-                {
-                    "sqlKey": proposal.get("sqlKey"),
-                    "ruleName": opt.get("ruleName"),
-                    "isEquivalent": True,
-                    "confidence": 0.95,
-                    "reason": "semantic_equivalent",
-                }
-            )
-    output_path = run_dir / "validate" / "validations.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(validations, f)
-    return {
-        "success": True,
-        "output_file": str(output_path),
-        "validations_count": len(validations),
-    }
-
-
-def run_stage_patch(run_dir: Path, config: dict) -> dict:
-    """Mock patch stage - in real impl this would generate XML patches."""
-    time.sleep(0.01)  # Simulate work
-    validate_path = run_dir / "validate" / "validations.json"
-    if not validate_path.exists():
-        return {"success": False, "error": "Validate results not found"}
-    with open(validate_path) as f:
-        validations = json.load(f)
     patches = []
-    for validation in validations:
-        if validation.get("isEquivalent", False):
+    for proposal in proposals:
+        if proposal.get("validated", False):
             patches.append(
                 {
-                    "sqlKey": validation.get("sqlKey"),
-                    "ruleName": validation.get("ruleName"),
+                    "sqlKey": proposal.get("sqlKey"),
+                    "ruleName": proposal.get("ruleName"),
                     "status": "ready",
                     "applied": False,
                 }
@@ -284,12 +226,10 @@ def run_stage_patch(run_dir: Path, config: dict) -> dict:
 
 
 STAGE_FUNCTIONS = {
-    "discovery": run_stage_discovery,
-    "branching": run_stage_branching,
-    "pruning": run_stage_pruning,
-    "baseline": run_stage_baseline,
+    "init": run_stage_init,
+    "parse": run_stage_parse,
+    "recognition": run_stage_recognition,
     "optimize": run_stage_optimize,
-    "validate": run_stage_validate,
     "patch": run_stage_patch,
 }
 
@@ -356,7 +296,7 @@ def average_results(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Benchmark V8 Workflow performance",
+        description="Benchmark V9 workflow performance",
     )
     parser.add_argument(
         "--runs",

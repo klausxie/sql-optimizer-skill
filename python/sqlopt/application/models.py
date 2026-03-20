@@ -3,18 +3,8 @@ from __future__ import annotations
 from typing import Any, Literal, TypedDict
 
 
-class PhaseStatusMap(TypedDict):
-    diagnose: str
-    optimize: str
-    validate: str
-    apply: str
-    report: str
-
-
-class StatementPhaseState(TypedDict):
-    optimize: str
-    validate: str
-    apply: str
+PhaseStatusMap = dict[str, str]
+StatementPhaseState = dict[str, str]
 
 
 class RunState(TypedDict, total=False):
@@ -22,7 +12,6 @@ class RunState(TypedDict, total=False):
     phase_status: PhaseStatusMap
     statements: dict[str, StatementPhaseState]
     attempts_by_phase: dict[str, int]
-    report_rebuild_required: bool
     last_error: str | None
     last_reason_code: str | None
     updated_at: str

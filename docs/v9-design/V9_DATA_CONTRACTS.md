@@ -401,9 +401,9 @@ runs/<run_id>/
 | CLI 命令 | 执行阶段 | V9 支持 |
 |---------|---------|---------|
 | `sqlopt-cli run --config sqlopt.yml` | 1-5 全部 | ✅ |
-| `sqlopt-cli run --config sqlopt.yml --stage <stage>` | 指定阶段 | ✅ |
+| `sqlopt-cli run --config sqlopt.yml --to-stage <stage>` | 指定阶段 | ✅ |
 | `sqlopt-cli diagnose` | 1-2 (init+parse) | ✅ |
-| `sqlopt-cli recognition --mapper <path> --dsn <dsn>` | 3 | ✅ |
+| `sqlopt-cli run --config sqlopt.yml --to-stage recognition` | 3 | ✅ |
 | `sqlopt-cli optimize --config sqlopt.yml [--sql-key <key>]` | 4 | ⚠️ 需更新 |
 | `sqlopt-cli verify --run-id <id> --sql-key <key>` | 4 结果查询 | ✅ |
 | `sqlopt-cli apply --run-id <id>` | 5 | ✅ |
