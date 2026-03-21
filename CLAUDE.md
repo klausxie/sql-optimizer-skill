@@ -25,10 +25,10 @@ python3 scripts/ci/release_acceptance.py
 # Validate all JSON schemas
 python3 scripts/schema_validate_all.py
 
-# Scan-only smoke test (validates scanner coverage)
+# Early-stage smoke (init + parse)
 python3 scripts/run_until_budget.py \
   --config tests/fixtures/project/sqlopt.scan.local.yml \
-  --to-stage scan \
+  --to-stage parse \
   --max-steps 10 \
   --max-seconds 30
 ```
@@ -46,9 +46,6 @@ python3 scripts/sqlopt_cli.py status --run-id <run_id>
 
 # Resume an existing run
 python3 scripts/sqlopt_cli.py resume --run-id <run_id>
-
-# Rebuild report only (when status.next_action=report-rebuild)
-python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run_id>
 
 # View verification evidence chain for a SQL statement
 python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey>
@@ -78,8 +75,8 @@ sqlopt-cli run --max-seconds 300
 # Resume previous run
 sqlopt-cli resume --run-id run_xxx
 
-# Target specific stage
-sqlopt-cli run --to-stage scan
+# Target specific V9 stage (init | parse | recognition | optimize | patch)
+sqlopt-cli run --to-stage parse
 ```
 
 ### Skill Installation
@@ -97,68 +94,45 @@ python3 install/doctor.py --project /path/to/project
 
 ## Architecture
 
-### V8 Seven-Stage Pipeline
+### V9 Five-Stage Pipeline (default)
+
+Canonical order is defined once in `python/sqlopt/v9_pipeline.py` as `STAGE_ORDER`:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                              V8 Pipeline                                                  │
-│  Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch               │
-└─────────────────────────────────────────────────────────────────────────────────────────────┘
+init → parse → recognition → optimize → patch
 ```
 
-| Stage | Name | Description |
-|-------|------|-------------|
-| 1 | Discovery | Connect DB, parse MyBatis XML, extract SQL |
-| 2 | Branching | Expand dynamic tags to execution branches (if/choose/foreach) |
-| 3 | Pruning | Static analysis, risk marking, low-value branch filtering |
-| 4 | Baseline | EXPLAIN plan collection, performance baseline |
-| 5 | Optimize | Rule engine + LLM generates optimization proposals |
-| 6 | Validate | Semantic verification, performance comparison |
-| 7 | Patch | Generate XML patches, user confirmation, apply changes |
+| Stage | Role | Primary outputs under `runs/<run_id>/` |
+|-------|------|----------------------------------------|
+| init | Scan MyBatis XML, extract SQL units | `init/sql_units.json` |
+| parse | Branch expansion + risk analysis (reuses branching/pruning) | `parse/sql_units_with_branches.json`, `parse/risks.json` |
+| recognition | EXPLAIN / baseline (reuses baseline collector) | `recognition/baselines.json` |
+| optimize | Proposals + DB validation loop | `optimize/proposals.json` |
+| patch | Patch artifacts | `patch/patches.json`, `patch/patches/` |
+
+Legacy stage packages under `python/sqlopt/stages/` (`discovery`, `branching`, `pruning`, `baseline`, `optimize`, `validate`, `patch`) are **implementation modules** invoked by V9 stages or older tooling; they are not separate top-level CLI stage names.
 
 ### Key Architectural Boundaries
 
 - **Orchestrator** (`python/sqlopt/application/`): Command routing, stage orchestration, state management
-  - `workflow_v8.py`: V8 workflow orchestration (replaces old `workflow_engine.py`)
+  - `workflow_v9.py`: V9 workflow (`V9WorkflowEngine`)
+  - `v9_stages/runtime.py`: `run_stage` / `build_stage_registry` for per-stage execution and tests
   - `run_service.py`: Run lifecycle management
   - `run_repository.py`: Run state persistence
   - `config_service.py`: Configuration loading and validation
-- **Stages** (`python/sqlopt/stages/`): Domain logic for each phase
-  - `discovery/`, `branching/`, `pruning/`, `baseline/`, `optimize/`, `validate/`, `patch/`, `report/`
+  - `post_process_service.py`: Apply / report-style post-processing outside the five-stage core
+- **Stages** (`python/sqlopt/stages/`): Shared domain logic (scanner, brancher, baseline, patch generator, etc.)
 - **Contracts** (`contracts/*.schema.json`): Schema validation, run artifacts, reporting
 
 ### Stage Pipeline
 
-Fixed execution order: `Discovery → Branching → Pruning → Baseline → Optimize → Validate → Patch`
+Fixed execution order: **`init → parse → recognition → optimize → patch`** (see `STAGE_ORDER`).
 
-Each stage:
-- Reads from previous stage artifacts in `runs/<run_id>/`
-- Produces structured JSONL/JSON outputs
-- Must write diagnostic events even on failure
-- Never directly calls other stages (orchestrator mediates)
+Each stage reads prior artifacts only from the V9 layout under `runs/<run_id>/` and writes JSON (arrays/objects) for the paths above. Optional JSONL artifacts from the legacy stage registry (e.g. `parse/branch.results.jsonl`) live **beside** V9 files, not under a `pipeline/` tree.
 
-### Key Stages
+Operational metadata: `supervisor/manifest.jsonl`, `supervisor/ops/`, `supervisor/verification/` (no `runs/.../pipeline/` prefix).
 
-**Discovery**: Connects to DB, collects table schemas, parses MyBatis XML files, extracts SQL statements. Outputs `scan.sqlunits.jsonl` and `sqlmap_catalog/` index.
-
-**Branching**: Expands dynamic SQL into concrete execution branches. Supports three strategies: `all_combinations`, `pairwise`, `boundary`. Outputs `branches/<sql_key>.json` with branch data.
-
-**Pruning**: Static analysis detecting performance issues:
-- `prefix_wildcard`: `LIKE '%value'` - HIGH risk (cannot use index)
-- `suffix_wildcard_only`: `LIKE 'value%'` - LOW risk
-- `concat_wildcard`: `CONCAT('%', name)` - HIGH risk
-- `function_wrap`: `UPPER(col)`, `YEAR(date)` - MEDIUM risk (index失效)
-- `select_star`: `SELECT *` - MEDIUM risk
-
-Outputs `risks/<sql_key>.json`.
-
-**Baseline**: Executes EXPLAIN, collects performance data (execution time, rows scanned, result hash). Outputs `baseline/<sql_key>.json`.
-
-**Optimize**: Rule engine + LLM generates optimization proposals. Outputs `proposals/<sql_key>/prompt.json` and `proposals/<sql_key>/proposal.json`.
-
-**Validate**: Semantic equivalence verification, performance comparison, result set validation. Outputs `acceptance/<sql_key>.json` and `verification/<sql_key>.json`.
-
-**Patch**: Generates MyBatis XML patches. Supports user confirmation before applying. Outputs `patches/<sql_key>/patch.xml`.
+See `docs/v9-design/V9_DATA_CONTRACTS.md` for field-level contracts.
 
 ### State Management
 
@@ -211,7 +185,7 @@ llm:
 
 - `project.root_path`: Project base directory
 - `scan.mapper_globs`: MyBatis XML file patterns
-- `scan.java_scanner.jar_path`: Path to Java scanner JAR (deprecated, V8 uses pure Python)
+- `scan.java_scanner.jar_path`: Path to Java scanner JAR (deprecated; V9 uses pure Python)
 - `scan.class_resolution.mode`: Class resolution strategy (tolerant/strict)
 - `db.platform`: Database type (postgresql, mysql)
 - `db.dsn`: Database connection string
@@ -252,7 +226,7 @@ stages:
 
 ### Removed Configuration Keys
 
-The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated into the `stages` section or removed in V8.
+The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated into the `stages` section or removed in newer config versions.
 
 ### MySQL-Specific Notes
 
@@ -270,48 +244,44 @@ All stage outputs must conform to JSON schemas in `contracts/`:
 
 Schema validation failures terminate the run by default.
 
-## Run Directory Structure
+## Run Directory Structure (V9)
 
 ```
 runs/<run_id>/
-├── supervisor/                           # Run state (shared by all stages)
-│   ├── meta.json                        # Run metadata
-│   ├── plan.json                        # SQL execution plan
-│   ├── state.json                       # Stage state
-│   └── results/                         # Step results
-│
-├── scan.sqlunits.jsonl                   # [Stage 1] SQL unit list
-├── sqlmap_catalog/                       # [Stage 1] SQL fragment catalog
-│   ├── index.json                       # Index file
-│   └── <sql_key>.json                   # Individual SQL details
-│
-├── branches/                             # [Stage 2] Branch data
-│   └── <sql_key>.json                   # Individual SQL branches
-│
-├── risks/                                # [Stage 3] Risk data
-│   └── <sql_key>.json                   # Individual SQL risks
-│
-├── baseline/                             # [Stage 4] Performance baseline
-│   └── <sql_key>.json                   # Individual SQL baseline
-│
-├── proposals/                            # [Stage 5] Optimization proposals
-│   └── <sql_key>/
-│       ├── prompt.json                  # LLM prompt
-│       └── proposal.json                # LLM optimization proposal
-│
-├── acceptance/                           # [Stage 6] Validation results
-│   └── <sql_key>.json                   # Individual SQL validation result
-│
-├── verification/                         # [Stage 6] Verification evidence
-│   └── <sql_key>.json                   # Verification evidence
-│
-├── patches/                              # [Stage 7] Patch files
-│   └── <sql_key>/
-│       └── patch.xml                    # Generated XML patch
-│
-├── report.json                           # [Stage 7] JSON report
-├── report.md                             # [Stage 7] Markdown report
-└── report.summary.md                    # [Stage 7] Summary report
+├── supervisor/
+│   ├── meta.json
+│   ├── plan.json
+│   ├── state.json
+│   ├── manifest.jsonl
+│   ├── results/                    # per-phase step JSONL
+│   ├── ops/                        # topology, health, failures, preflight, …
+│   └── verification/               # ledger.jsonl, summary.json
+├── overview/
+│   ├── config.resolved.json
+│   ├── report.json
+│   ├── report.md
+│   └── report.summary.md
+├── init/
+│   └── sql_units.json
+├── parse/
+│   ├── sql_units_with_branches.json
+│   ├── risks.json
+│   └── branch.results.jsonl        # optional legacy stage-registry output
+├── recognition/
+│   └── baselines.json
+├── optimize/
+│   ├── proposals.json
+│   ├── optimization.proposals.jsonl   # optional legacy optimize stage output
+│   └── validation/
+│       └── acceptance.results.jsonl     # optional legacy validate stage output
+├── patch/
+│   ├── patches.json
+│   ├── patches/                    # V9 patch snippets / files
+│   ├── legacy.patch.results.jsonl
+│   └── legacy_mapper_patches/      # legacy PatchStage .patch files
+├── sql/                            # per-sql_key traces, evidence
+├── sqlmap_catalog/
+└── diagnostics/
 ```
 
 ## Failure Handling
@@ -328,7 +298,7 @@ Retry behavior controlled by `runtime.stage_retry_*` config. Completed statement
 1. Stages communicate only through run directory artifacts, never direct function calls
 2. All stage outputs must be structured objects, not natural language
 3. Dynamic template statements cannot be overwritten with flat SQL patches
-4. V8 uses pure Python scanner (no Java dependency)
+4. V9 uses pure Python scanner (no Java dependency)
 5. Each run advances one statement step per invocation to respect 120s timeout
 6. Schema validation is strict by default and will fail the run on violations
 7. Branching supports three strategies: `all_combinations`, `pairwise`, `boundary`
@@ -407,22 +377,21 @@ Configuration:
   - `python3 scripts/ci/report_rebuild_acceptance.py`
 - Schema validation before committing: `python3 scripts/schema_validate_all.py`
 
-### V8 Stage Implementation Status
+### V9 vs legacy stage modules
 
-| Stage | Status | Modules |
-|-------|--------|---------|
-| Discovery | ✅ | Pure Python XML parsing |
-| Branching | ✅ | 16 modules |
-| Pruning | ⚠️ Partial | Static analysis only |
-| Baseline | ⚠️ Partial | Simplified |
-| Optimize | ⚠️ Partial | execute_one.py present |
-| Validate | ⚠️ Partial | execute_one.py present |
-| Patch | ✅ | execute_one.py present |
-| Report | ❌ | Not implemented |
+| V9 stage | Implementation |
+|----------|------------------|
+| init | `v9_stages/init.py` → `stages.discovery.Scanner` |
+| parse | `v9_stages/parse.py` → branching + pruning |
+| recognition | `v9_stages/recognition.py` → `stages.baseline` |
+| optimize | `v9_stages/optimize.py` → platforms SQL optimizer/validator |
+| patch | `v9_stages/patch.py` |
+
+Legacy `stages/*/execute_one.py` modules remain for the stage registry and tests; they write optional JSONL beside V9 JSON outputs.
 
 ### Scanner Coverage Validation
 
-The V8 scanner supports these MyBatis dynamic tags (pure Python implementation):
+The scanner supports these MyBatis dynamic tags (pure Python implementation):
 - `bind`
 - `choose/when/otherwise`
 - `where`
@@ -432,8 +401,8 @@ The V8 scanner supports these MyBatis dynamic tags (pure Python implementation):
 - `trim`
 - `set`
 
-Verify scanner output:
-- `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
+Verify scanner output (V9 layout):
+- `tests/fixtures/project/runs/<run_id>/init/sql_units.json`
 - `tests/fixtures/project/runs/<run_id>/sqlmap_catalog/`
 
 ### MySQL Local Testing

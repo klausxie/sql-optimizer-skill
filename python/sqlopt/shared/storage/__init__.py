@@ -20,7 +20,7 @@ def save_artifact(run_dir: Path, artifact_type: str, data: Any) -> Path:
     Returns:
         Path to saved artifact
     """
-    artifact_dir = run_dir / "pipeline" / artifact_type
+    artifact_dir = run_dir / "supervisor" / "artifacts" / artifact_type
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
     artifact_path = artifact_dir / "data.json"
@@ -40,7 +40,7 @@ def load_artifact(run_dir: Path, artifact_type: str) -> Any:
     Returns:
         Loaded artifact data
     """
-    artifact_path = run_dir / "pipeline" / artifact_type / "data.json"
+    artifact_path = run_dir / "supervisor" / "artifacts" / artifact_type / "data.json"
 
     if not artifact_path.exists():
         return None
@@ -58,13 +58,13 @@ def list_artifacts(run_dir: Path) -> list[str]:
     Returns:
         List of artifact types
     """
-    pipeline_dir = run_dir / "pipeline"
+    artifacts_root = run_dir / "supervisor" / "artifacts"
 
-    if not pipeline_dir.exists():
+    if not artifacts_root.exists():
         return []
 
     artifacts = []
-    for item in pipeline_dir.iterdir():
+    for item in artifacts_root.iterdir():
         if item.is_dir() and (item / "data.json").exists():
             artifacts.append(item.name)
 

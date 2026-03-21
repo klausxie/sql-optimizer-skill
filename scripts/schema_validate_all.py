@@ -65,10 +65,12 @@ def _validate_v9_run_output(v: ContractValidator, run_dir: Path) -> None:
     _validate_json_array(v, "optimization_proposal", run_dir / "optimize" / "proposals.json")
     _validate_json_array(v, "patch_result", run_dir / "patch" / "patches.json")
     _validate_if_present(v, "run_report", run_dir / "overview" / "report.json")
-    _validate_if_present(v, "ops_health", run_dir / "pipeline" / "ops" / "health.json")
-    _validate_if_present(v, "ops_topology", run_dir / "pipeline" / "ops" / "topology.json")
+    _validate_if_present(v, "ops_health", run_dir / "supervisor" / "ops" / "health.json")
+    _validate_if_present(v, "ops_topology", run_dir / "supervisor" / "ops" / "topology.json")
     _validate_if_present(
-        v, "verification_summary", run_dir / "pipeline" / "verification" / "summary.json"
+        v,
+        "verification_summary",
+        run_dir / "supervisor" / "verification" / "summary.json",
     )
 
 

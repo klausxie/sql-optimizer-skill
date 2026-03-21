@@ -5,6 +5,7 @@ Handles risk detection and branch pruning for a single SQL unit.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,17 +40,26 @@ class PruningStage(Stage):
         paths.ensure_layout()
         validator = ContractValidator(Path(__file__).resolve().parents[2])
 
-        input_path = paths.branches_path if paths.branches_path.exists() else paths.scan_units_path
-        if not input_path.exists():
+        sql_units: list[dict[str, Any]]
+        if paths.branches_path.exists():
+            sql_units = [
+                row for row in read_jsonl(paths.branches_path) if isinstance(row, dict)
+            ]
+        elif paths.scan_units_path.exists():
+            raw = json.loads(paths.scan_units_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                raw = []
+            sql_units = [row for row in raw if isinstance(row, dict)]
+        else:
             return StageResult(
                 success=False,
                 output_files=[],
                 artifacts={},
-                errors=[f"input file not found: {input_path}"],
+                errors=[
+                    f"input file not found: {paths.branches_path} or {paths.scan_units_path}"
+                ],
                 warnings=[],
             )
-
-        sql_units = [row for row in read_jsonl(input_path) if isinstance(row, dict)]
         risk_records: list[dict[str, Any]] = []
         for unit in sql_units:
             try:

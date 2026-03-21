@@ -43,6 +43,36 @@ def read_jsonl(path: Path) -> list[Any]:
     return out
 
 
+def merge_init_sql_units(path: Path, new_units: list[dict[str, Any]]) -> None:
+    """Merge SQL units into init/sql_units.json (JSON array), keyed by sqlKey."""
+    ensure_dir(path.parent)
+    existing: list[dict[str, Any]] = []
+    if path.exists():
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+            existing = [x for x in raw if isinstance(x, dict)]
+    by_key: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for u in existing:
+        k = str(u.get("sqlKey") or "")
+        if k and k not in by_key:
+            order.append(k)
+        if k:
+            by_key[k] = u
+    for u in new_units:
+        k = str(u.get("sqlKey") or "")
+        if not k:
+            continue
+        if k not in by_key:
+            order.append(k)
+        by_key[k] = u
+    merged = [by_key[k] for k in order if k in by_key]
+    path.write_text(
+        json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 class JsonlWriter:
     """批量 JSONL 写入器，减少文件打开次数。
 

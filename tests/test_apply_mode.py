@@ -22,7 +22,7 @@ class ApplyModeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_inplace_") as td:
             run_dir = Path(td)
             project_root = run_dir / "project"
-            patch_dir = run_dir / "pipeline" / "apply"
+            patch_dir = run_dir / "patch"
             project_root.mkdir(parents=True, exist_ok=True)
             patch_dir.mkdir(parents=True, exist_ok=True)
             patch_file = patch_dir / "a.patch"
@@ -37,7 +37,7 @@ class ApplyModeTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            (patch_dir / "patch.results.jsonl").write_text(
+            (patch_dir / "legacy.patch.results.jsonl").write_text(
                 json.dumps({"patchFiles": [str(patch_file)]}) + "\n",
                 encoding="utf-8",
             )
@@ -61,7 +61,7 @@ class ApplyModeTest(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_skip_") as td:
             run_dir = Path(td)
-            patch_dir = run_dir / "pipeline" / "apply"
+            patch_dir = run_dir / "patch"
             overview_dir = run_dir / "overview"
             project_root = run_dir / "project"
             patch_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +76,7 @@ class ApplyModeTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            (patch_dir / "patch.results.jsonl").write_text(
+            (patch_dir / "legacy.patch.results.jsonl").write_text(
                 json.dumps(
                     {
                         "patchFiles": [],

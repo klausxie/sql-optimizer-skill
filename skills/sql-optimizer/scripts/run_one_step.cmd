@@ -8,7 +8,7 @@ set "CONFIG_PATH=%~1"
 if "%CONFIG_PATH%"=="" set "CONFIG_PATH=sqlopt.yml"
 
 set "TO_STAGE=%~2"
-if "%TO_STAGE%"=="" set "TO_STAGE=patch_generate"
+if "%TO_STAGE%"=="" set "TO_STAGE=patch"
 
 set "RUN_ID=%~3"
 

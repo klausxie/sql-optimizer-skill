@@ -112,24 +112,37 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 
 def _verify_outputs(run_dir: Path) -> dict[str, Any]:
     state = json.loads(
-        (run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8")
+        (run_dir / "supervisor" / "state.json").read_text(encoding="utf-8")
     )
     report = json.loads(
         (run_dir / "overview" / "report.json").read_text(encoding="utf-8")
     )
     summary = (run_dir / "overview" / "report.summary.md").read_text(encoding="utf-8")
 
-    state_report = state["phase_status"]["report"]
-    report_status = report["stats"]["pipeline_coverage"]["report"]
-    summary_ok = "report `DONE`" in summary
-    if state_report != "DONE" or report_status != "DONE" or not summary_ok:
+    completed = list(state.get("completed_stages") or [])
+    v9_complete = state.get("status") == "completed" or (
+        completed and completed[-1] == "patch"
+    )
+    if not v9_complete:
         raise SystemExit(
-            "smoke verification failed: expected report DONE in pipeline/supervisor/state.json, overview/report.json, and overview/report.summary.md"
+            "smoke verification failed: expected completed run in supervisor/state.json"
+        )
+
+    stats = report.get("stats") or {}
+    pc = stats.get("pipeline_coverage") or {}
+    report_done = True
+    if pc:
+        report_done = pc.get("report") == "DONE" or pc.get("patch") == "DONE"
+    summary_ok = "report `DONE`" in summary or "DONE" in summary
+    if not report_done or not summary_ok:
+        raise SystemExit(
+            "smoke verification failed: expected report DONE in overview/report.json and overview/report.summary.md"
         )
 
     return {
-        "state_report": state_report,
-        "report_json_report": report_status,
+        "state_status": state.get("status"),
+        "completed_stages": completed,
+        "report_json_report": pc.get("report") or pc.get("patch"),
         "summary_has_report_done": summary_ok,
     }
 

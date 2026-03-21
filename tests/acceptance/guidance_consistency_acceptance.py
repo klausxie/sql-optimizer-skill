@@ -79,6 +79,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def _legacy_patch_rows(run_dir: Path, *, sql_key: str) -> list[dict[str, Any]]:
     candidates = [
+        run_dir / "patch" / "legacy.patch.results.jsonl",
         run_dir / "pipeline" / "apply" / "patch.results.jsonl",
         run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl",
     ]
@@ -183,13 +184,16 @@ def main() -> None:
 
         verification_rows = [
             row
-            for row in _read_jsonl(run_dir / "pipeline" / "verification" / "ledger.jsonl")
+            for row in _read_jsonl(
+                run_dir / "supervisor" / "verification" / "ledger.jsonl"
+            )
             if str(row.get("sql_key") or "") == sql_key
         ]
+        acc_path = run_dir / "optimize" / "validation" / "acceptance.results.jsonl"
+        if not acc_path.exists():
+            acc_path = run_dir / "pipeline" / "validate" / "acceptance.results.jsonl"
         acceptance_rows = [
-            row
-            for row in _read_jsonl(run_dir / "pipeline" / "validate" / "acceptance.results.jsonl")
-            if str(row.get("sqlKey") or "") == sql_key
+            row for row in _read_jsonl(acc_path) if str(row.get("sqlKey") or "") == sql_key
         ]
         patch_rows = _legacy_patch_rows(run_dir, sql_key=sql_key)
         verify_payload = build_verify_payload(
@@ -197,7 +201,7 @@ def main() -> None:
             run_dir,
             sql_key,
             None,
-            (run_dir / "pipeline" / "verification" / "ledger.jsonl").exists(),
+            (run_dir / "supervisor" / "verification" / "ledger.jsonl").exists(),
             verification_rows,
             acceptance_rows,
             patch_rows,

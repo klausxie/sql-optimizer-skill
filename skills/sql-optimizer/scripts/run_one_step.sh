@@ -3,7 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_PATH="${1:-sqlopt.yml}"
-TO_STAGE="${2:-patch_generate}"
+TO_STAGE="${2:-patch}"
 RUN_ID="${3:-}"
 MAX_STEPS="${4:-200}"
 MAX_SECONDS="${5:-95}"

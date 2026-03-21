@@ -603,6 +603,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     top_epilog = (
+        "V9 主流程阶段: init → parse → recognition → optimize → patch\n"
+        "（与 run/resume 的 --to-stage 可选值一致）\n"
+        "\n"
         "快速工作流:\n"
         "  1) sqlopt-cli validate-config --config sqlopt.yml\n"
         "  2) sqlopt-cli run --config sqlopt.yml\n"
@@ -610,7 +613,7 @@ def build_parser() -> argparse.ArgumentParser:
         "  4) sqlopt-cli apply\n"
         "\n"
         "默认行为:\n"
-        "  - run: 默认 --config sqlopt.yml，max-steps/max-seconds=0 表示持续运行到完成\n"
+        "  - run: 默认 --config sqlopt.yml，--to-stage 默认为 patch；max-steps/max-seconds=0 表示持续运行到完成\n"
         "  - status/resume/apply: 省略 --run-id 时自动选择最新 run（可用 --project 指定项目目录）\n"
         "\n"
         "更多信息请参阅：https://github.com/your-org/sql-optimizer/docs"
@@ -618,7 +621,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sqlopt",
         description=(
-            "SQL Optimizer CLI - 分析和优化 MyBatis SQL 语句\n"
+            "SQL Optimizer CLI - 分析和优化 MyBatis SQL（V9 五阶段工作流）。\n"
             "覆盖 run / resume / status / apply 全流程。"
         ),
         epilog=top_epilog,
@@ -640,8 +643,8 @@ def build_parser() -> argparse.ArgumentParser:
             "示例:\n"
             "  sqlopt-cli run\n"
             "  sqlopt-cli run --config sqlopt.yml --run-id run_demo_001\n"
-            "  sqlopt-cli run --to-stage optimize --run-id <run-id>\n"
-            "  sqlopt-cli run --max-steps 3 --max-seconds 60"
+            "  sqlopt-cli run --to-stage recognition --run-id <run-id>\n"
+            "  sqlopt-cli run --to-stage patch --max-steps 3 --max-seconds 60"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -670,7 +673,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--to-stage",
         default="patch",
         choices=STAGE_ORDER,
-        help="目标运行阶段（默认：patch）",
+        help="目标阶段: init|parse|recognition|optimize|patch（默认：patch）",
     )
     p_run.add_argument(
         "--max-steps",
@@ -723,7 +726,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--to-stage",
         default="patch",
         choices=STAGE_ORDER,
-        help="目标运行阶段（默认：patch）",
+        help="目标阶段: init|parse|recognition|optimize|patch（默认：patch）",
     )
     p_resume.set_defaults(func=cmd_resume)
 
@@ -897,8 +900,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_validate_sql = sub.add_parser(
         "validate",
-        help="验证指定 SQL",
-        description="对已完成的 run 中指定 SQL 执行验证阶段（需要 --run-id 和 --sql-key）。",
+        help="查看指定 SQL 的验证摘要",
+        description=(
+            "V9 将验证写入 optimize 阶段产物。本命令重新跑 optimize 并筛选指定 sql-key，"
+            "返回 proposals 中的 validated / validationResult 等字段（需要 --run-id 与 --sql-key）。"
+        ),
         epilog=(
             "示例:\n"
             "  sqlopt-cli validate --run-id <run-id> --sql-key <sql-key>\n"

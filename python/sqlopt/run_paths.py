@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from .io_utils import ensure_dir
+from .io_utils import ensure_dir, read_jsonl
 from .utils import sql_key_path_component
 
 RUN_META_GLOB_SUFFIX = "supervisor/meta.json"
@@ -63,11 +65,7 @@ class RunPaths:
         ):
             ensure_dir(path)
 
-    # --- Existing run directory properties ---
-
-    @property
-    def pipeline_dir(self) -> Path:
-        return self.run_dir / "pipeline"
+    # --- Run directory layout (V9: no pipeline/* tree) ---
 
     @property
     def overview_dir(self) -> Path:
@@ -95,90 +93,11 @@ class RunPaths:
 
     @property
     def manifest_path(self) -> Path:
-        return self.pipeline_dir / "manifest.jsonl"
-
-    @property
-    def scan_dir(self) -> Path:
-        return self.pipeline_dir / "scan"
-
-    @property
-    def diagnose_dir(self) -> Path:
-        """Alias for scan_dir - diagnose is the new stage name."""
-        return self.pipeline_dir / "scan"
-
-    @property
-    def scan_units_path(self) -> Path:
-        return self.scan_dir / "sqlunits.jsonl"
-
-    @property
-    def diagnose_units_path(self) -> Path:
-        """Path to SQL units with baseline diagnostics."""
-        return self.scan_dir / "diagnose.sqlunits.jsonl"
-
-    @property
-    def scan_fragments_path(self) -> Path:
-        return self.scan_dir / "fragments.jsonl"
-
-    @property
-    def branching_dir(self) -> Path:
-        return self.pipeline_dir / "branching"
-
-    @property
-    def branches_path(self) -> Path:
-        return self.branching_dir / "branch.results.jsonl"
-
-    @property
-    def pruning_dir(self) -> Path:
-        return self.pipeline_dir / "pruning"
-
-    @property
-    def pruning_risks_path(self) -> Path:
-        return self.pruning_dir / "risks.jsonl"
-
-    @property
-    def baseline_dir(self) -> Path:
-        return self.pipeline_dir / "baseline"
-
-    @property
-    def baseline_results_path(self) -> Path:
-        return self.baseline_dir / "baseline.results.jsonl"
-
-    @property
-    def optimize_dir(self) -> Path:
-        return self.pipeline_dir / "optimize"
-
-    @property
-    def proposals_path(self) -> Path:
-        return self.optimize_dir / "optimization.proposals.jsonl"
-
-    @property
-    def validate_dir(self) -> Path:
-        return self.pipeline_dir / "validate"
-
-    @property
-    def acceptance_path(self) -> Path:
-        return self.validate_dir / "acceptance.results.jsonl"
-
-    @property
-    def apply_dir(self) -> Path:
-        return self.pipeline_dir / "apply"
-
-    @property
-    def patch_generate_dir(self) -> Path:
-        """Alias for apply_dir - deprecated, use apply_dir."""
-        return self.apply_dir
-
-    @property
-    def patches_path(self) -> Path:
-        return self.apply_dir / "patch.results.jsonl"
-
-    @property
-    def patch_files_dir(self) -> Path:
-        return self.apply_dir / "files"
+        return self.supervisor_dir / "manifest.jsonl"
 
     @property
     def ops_dir(self) -> Path:
-        return self.pipeline_dir / "ops"
+        return self.supervisor_dir / "ops"
 
     @property
     def topology_path(self) -> Path:
@@ -194,7 +113,7 @@ class RunPaths:
 
     @property
     def verification_dir(self) -> Path:
-        return self.pipeline_dir / "verification"
+        return self.supervisor_dir / "verification"
 
     @property
     def verification_ledger_path(self) -> Path:
@@ -203,6 +122,86 @@ class RunPaths:
     @property
     def verification_summary_path(self) -> Path:
         return self.verification_dir / "summary.json"
+
+    # Legacy stage registry artifacts (JSONL), colocated with V9 stage dirs
+
+    @property
+    def scan_units_path(self) -> Path:
+        """Same file as V9 init output (JSON array)."""
+        return self.init_sql_units_path
+
+    @property
+    def branching_dir(self) -> Path:
+        return self.parse_dir
+
+    @property
+    def branches_path(self) -> Path:
+        return self.parse_dir / "branch.results.jsonl"
+
+    @property
+    def pruning_dir(self) -> Path:
+        return self.parse_dir
+
+    @property
+    def pruning_risks_path(self) -> Path:
+        return self.parse_dir / "pruning.risks.jsonl"
+
+    @property
+    def baseline_dir(self) -> Path:
+        return self.recognition_dir
+
+    @property
+    def baseline_results_path(self) -> Path:
+        return self.recognition_dir / "baseline.results.jsonl"
+
+    @property
+    def optimize_dir(self) -> Path:
+        return self.v9_optimize_dir
+
+    @property
+    def proposals_path(self) -> Path:
+        return self.v9_optimize_dir / "optimization.proposals.jsonl"
+
+    @property
+    def validate_dir(self) -> Path:
+        return self.v9_optimize_dir / "validation"
+
+    @property
+    def acceptance_path(self) -> Path:
+        return self.validate_dir / "acceptance.results.jsonl"
+
+    @property
+    def apply_dir(self) -> Path:
+        return self.v9_patch_dir
+
+    @property
+    def patches_path(self) -> Path:
+        return self.v9_patch_dir / "legacy.patch.results.jsonl"
+
+    @property
+    def patch_files_dir(self) -> Path:
+        return self.v9_patch_dir / "legacy_mapper_patches"
+
+    def load_sql_units_map(self) -> dict[str, dict[str, Any]]:
+        """Load sqlKey → unit from parse output, branch JSONL, or init JSON (in order)."""
+        rows: list[dict[str, Any]] = []
+        parse_path = self.parse_sql_units_with_branches_path
+        if parse_path.exists():
+            raw = json.loads(parse_path.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                rows = [x for x in raw if isinstance(x, dict)]
+        elif self.branches_path.exists():
+            rows = [x for x in read_jsonl(self.branches_path) if isinstance(x, dict)]
+        elif self.init_sql_units_path.exists():
+            raw = json.loads(self.init_sql_units_path.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                rows = [x for x in raw if isinstance(x, dict)]
+        result: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            k = str(row.get("sqlKey") or "").strip()
+            if k:
+                result[k] = row
+        return result
 
     @property
     def config_resolved_path(self) -> Path:

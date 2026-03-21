@@ -12,7 +12,7 @@ from typing import Any
 
 from ...application.stage_registry import stage_registry
 from ...contracts import ContractValidator
-from ...io_utils import append_jsonl, write_jsonl
+from ...io_utils import merge_init_sql_units, write_json
 from ...manifest import log_event
 from ...run_paths import canonical_paths
 from ..base import Stage, StageContext, StageResult
@@ -51,7 +51,7 @@ class DiscoveryStage(Stage):
         for unit in all_sql_units:
             validator.validate("sqlunit", unit)
 
-        write_jsonl(paths.scan_units_path, all_sql_units)
+        write_json(paths.scan_units_path, all_sql_units)
         output_files.append(paths.scan_units_path)
 
         log_event(
@@ -116,7 +116,7 @@ class DiscoveryStage(Stage):
         validator = ContractValidator(Path(__file__).resolve().parents[2])
         for unit in sql_units:
             validator.validate("sqlunit", unit)
-            append_jsonl(paths.scan_units_path, unit)
+            merge_init_sql_units(paths.scan_units_path, [unit])
 
         log_event(
             paths.manifest_path,
@@ -170,7 +170,7 @@ def execute_one(
 
     for unit in sql_units:
         validator.validate("sqlunit", unit)
-        append_jsonl(paths.scan_units_path, unit)
+        merge_init_sql_units(paths.scan_units_path, [unit])
 
     namespace = sql_units[0].get("namespace", "unknown") if sql_units else "unknown"
     log_event(

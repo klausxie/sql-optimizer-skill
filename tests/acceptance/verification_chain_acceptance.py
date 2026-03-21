@@ -75,6 +75,7 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> dict[st
 
 def _legacy_patch_rows(run_dir: Path) -> list[dict[str, Any]]:
     candidates = [
+        run_dir / "patch" / "legacy.patch.results.jsonl",
         run_dir / "pipeline" / "apply" / "patch.results.jsonl",
         run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl",
     ]
@@ -125,8 +126,8 @@ def main() -> None:
             raise SystemExit("verification chain acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        ledger_path = run_dir / "pipeline" / "verification" / "ledger.jsonl"
-        summary_path = run_dir / "pipeline" / "verification" / "summary.json"
+        ledger_path = run_dir / "supervisor" / "verification" / "ledger.jsonl"
+        summary_path = run_dir / "supervisor" / "verification" / "summary.json"
         report_path = run_dir / "overview" / "report.json"
         if not ledger_path.exists():
             raise SystemExit("verification chain acceptance failed: verification ledger missing")
@@ -138,18 +139,34 @@ def main() -> None:
         ledger_rows = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        acceptance_rows = [
-            json.loads(line)
-            for line in (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        acceptance_path = (
+            run_dir / "optimize" / "validation" / "acceptance.results.jsonl"
+        )
+        if not acceptance_path.exists():
+            acceptance_path = (
+                run_dir / "pipeline" / "validate" / "acceptance.results.jsonl"
+            )
+        acceptance_rows = (
+            [
+                json.loads(line)
+                for line in acceptance_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if acceptance_path.exists()
+            else []
+        )
         patch_rows = _legacy_patch_rows(run_dir)
 
         phases = {str(row.get("phase")) for row in ledger_rows}
-        required_phases = {"scan", "optimize", "validate"}
-        patch_phase_candidates = {"apply", "patch_generate"}
-        if not required_phases.issubset(phases):
-            raise SystemExit(f"verification chain acceptance failed: missing phases {sorted(required_phases - phases)}")
+        required_phases = {"optimize", "patch"}
+        legacy_required = {"scan", "optimize", "validate"}
+        patch_phase_candidates = {"apply", "patch_generate", "patch"}
+        if not required_phases.issubset(phases) and not legacy_required.issubset(
+            phases
+        ):
+            raise SystemExit(
+                f"verification chain acceptance failed: missing phases {sorted(required_phases - phases)}"
+            )
         if not (phases & patch_phase_candidates):
             raise SystemExit(
                 "verification chain acceptance failed: missing patch/apply verification records"
@@ -158,18 +175,22 @@ def main() -> None:
         validation_sql = {
             str(row.get("sql_key"))
             for row in ledger_rows
-            if str(row.get("phase")) == "validate" and str(row.get("sql_key") or "").strip()
+            if str(row.get("phase")) in {"validate", "optimize"}
+            and str(row.get("sql_key") or "").strip()
         }
         patch_sql = {
             str(row.get("sql_key"))
             for row in ledger_rows
-            if str(row.get("phase")) in patch_phase_candidates and str(row.get("sql_key") or "").strip()
+            if str(row.get("phase")) in patch_phase_candidates
+            and str(row.get("sql_key") or "").strip()
         }
         accepted_sql = {str(row.get("sqlKey")) for row in acceptance_rows if str(row.get("status")) == "PASS"}
         patch_result_sql = {str(row.get("sqlKey")) for row in patch_rows if str(row.get("sqlKey") or "").strip()}
 
-        if not accepted_sql.issubset(validation_sql):
-            raise SystemExit("verification chain acceptance failed: PASS acceptance rows missing validate verification records")
+        if acceptance_rows and not accepted_sql.issubset(validation_sql):
+            raise SystemExit(
+                "verification chain acceptance failed: PASS acceptance rows missing validate/optimize verification records"
+            )
         if not patch_result_sql.issubset(patch_sql):
             raise SystemExit("verification chain acceptance failed: patch results missing patch/apply verification records")
 

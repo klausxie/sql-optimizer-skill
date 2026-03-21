@@ -19,15 +19,7 @@ from ...platforms.sql.optimizer_sql import generate_proposal
 
 
 def _load_sql_units(run_dir: Path) -> dict[str, dict[str, Any]]:
-    paths = canonical_paths(run_dir)
-    input_path = paths.branches_path if paths.branches_path.exists() else paths.scan_units_path
-    rows = [row for row in read_jsonl(input_path) if isinstance(row, dict)] if input_path.exists() else []
-    result: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        sql_key = str(row.get("sqlKey") or "").strip()
-        if sql_key:
-            result[sql_key] = row
-    return result
+    return canonical_paths(run_dir).load_sql_units_map()
 
 
 def _fallback_proposal(sql_key: str, error: Exception) -> dict[str, Any]:

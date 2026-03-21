@@ -5,13 +5,14 @@ Handles branch generation from MyBatis dynamic SQL templates.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ...application.stage_registry import stage_registry
 from ...contracts import ContractValidator
-from ...io_utils import read_jsonl, write_jsonl
+from ...io_utils import write_jsonl
 from ...manifest import log_event
 from ...run_paths import canonical_paths
 from ..base import Stage, StageContext, StageResult
@@ -54,7 +55,10 @@ class BranchingStage(Stage):
                 warnings=[],
             )
 
-        all_units = [row for row in read_jsonl(paths.scan_units_path) if isinstance(row, dict)]
+        raw = json.loads(paths.scan_units_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            raw = []
+        all_units = [row for row in raw if isinstance(row, dict)]
         branched_units: list[dict[str, Any]] = []
         total_branch_count = 0
 

@@ -23,21 +23,22 @@ SQL Optimizer 是一个 Python 工具，用于：
 ```
 python/sqlopt/
 ├── application/          # 业务流程编排层
-│   ├── workflow_engine.py    # 核心工作流引擎 (旧版，待废弃)
-│   ├── workflow_v8.py        # V8 工作流引擎
+│   ├── workflow_v9.py        # V9 工作流引擎（默认）
+│   ├── v9_stages/            # init/parse/recognition/optimize/patch 实现
 │   ├── run_service.py        # Run 生命周期管理
+│   ├── post_process_service.py  # apply / report 类后处理
 │   └── config_service.py     # 配置加载验证
 │
-├── stages/               # 阶段处理 (V8 架构)
-│   ├── discovery/            # 发现阶段：XML 解析、SQL 提取
-│   ├── branching/            # 分支阶段：动态 SQL 展开
-│   ├── pruning/              # 剪枝阶段：风险检测
-│   ├── baseline/             # 基线阶段：EXPLAIN 采集
-│   ├── optimize/            # 优化阶段：规则引擎 + LLM
-│   ├── validate/            # 验证阶段：语义验证
-│   ├── patch/               # 补丁阶段：生成 + 应用
-│   ├── diagnose.py          # 诊断阶段 (scan + branch + baseline)
-│   ├── scan.py              # 扫描阶段
+├── stages/               # 共享领域实现（供 V9 与旧 registry 复用）
+│   ├── discovery/            # XML 解析、SQL 提取
+│   ├── branching/            # 动态 SQL 展开
+│   ├── pruning/              # 风险检测
+│   ├── baseline/             # EXPLAIN 采集
+│   ├── optimize/            # 规则引擎 + LLM
+│   ├── validate/            # 语义验证（可选路径）
+│   ├── patch/               # 补丁生成 + 应用
+│   ├── diagnose.py          # 诊断辅助
+│   ├── scan.py              # 扫描辅助
 │   └── report*.py          # 报告相关
 │
 ├── scripting/            # 分支推断
@@ -71,7 +72,7 @@ install/                  # 安装脚本
 |------|------|------|
 | CLI 脚本 | `scripts/sqlopt_cli.py` | 主入口 |
 | CLI 命令 | `python/sqlopt/cli.py` | 子命令路由 |
-| 工作流引擎 | `python/sqlopt/application/workflow_engine.py` | 阶段编排 |
+| 工作流引擎 | `python/sqlopt/application/workflow_v9.py` | V9 五阶段编排 |
 | 分支推断 | `python/sqlopt/scripting/branch_generator.py` | BranchGenerator |
 | Schema | `contracts/*.schema.json` | 数据契约 |
 
@@ -125,17 +126,19 @@ sqlopt-cli run --config sqlopt.yml \
 
 ---
 
-## 阶段流水线
+## 阶段流水线（V9 默认）
 
 ```
-discovery → branching → pruning → baseline → optimize → validate → patch
+init → parse → recognition → optimize → patch
 ```
+
+单一事实来源：`python/sqlopt/v9_pipeline.py` 中的 `STAGE_ORDER`。
 
 **阶段特性**:
-- 固定执行顺序
-- 通过 `runs/<run_id>/` 产物通信
+- 固定执行顺序；CLI `--to-stage` 仅接受上述五阶段名
+- 通过 `runs/<run_id>/` 下 `init/`、`parse/`、`recognition/`、`optimize/`、`patch/` 与 `supervisor/` 通信（无 `pipeline/` 目录）
 - 失败时写入诊断事件
-- `report` 阶段可单独重建
+- `stages/` 下 discovery、branching 等为**实现模块**，不是 CLI 阶段名
 
 ---
 
@@ -184,20 +187,16 @@ llm:
 
 ```
 runs/<run_id>/
-├── supervisor/
-│   ├── meta.json         # 运行元信息
-│   ├── plan.json         # 固定语句列表
-│   ├── state.json        # 阶段状态
-│   └── results/          # 步骤结果
-├── scan.sqlunits.jsonl   # 扫描产物
-├── proposals/            # 优化建议
-├── acceptance/           # 验证结果
-├── patches/              # 补丁产物
-├── verification/         # 验证证据链
-├── report.json           # JSON 报告
-├── report.md             # Markdown 报告
-└── report.summary.md     # 摘要报告
+├── supervisor/           # meta, plan, state, manifest.jsonl, results/, ops/, verification/
+├── overview/           # config.resolved.json, report*.md/json
+├── init/sql_units.json
+├── parse/              # sql_units_with_branches.json, risks.json
+├── recognition/baselines.json
+├── optimize/proposals.json
+└── patch/patches.json, patch/patches/
 ```
+
+详见 `docs/v9-design/V9_DATA_CONTRACTS.md`。
 
 ---
 
