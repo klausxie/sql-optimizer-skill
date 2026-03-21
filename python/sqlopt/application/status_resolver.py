@@ -48,7 +48,7 @@ class StatusResolver:
     ) -> bool:
         del include_report
         for phase in self.stage_order:
-            status = state.get("phase_status", {}).get(phase)
+            status = state.get("stage_status", {}).get(phase)
             if phase == to_stage:
                 return status == "DONE"
             if status not in {"DONE", "SKIPPED"}:
@@ -58,14 +58,14 @@ class StatusResolver:
     def resolve_status(self, request: RunStatusRequest) -> StatusResolution:
         target_stage = request.plan.get("to_stage", self.stage_order[-1] if self.stage_order else "")
         complete = self.is_complete_to_stage(request.state, target_stage)
-        current_phase = request.state.get("current_phase")
+        current_stage = request.state.get("current_stage")
         current_sql_key = None
         if (
-            isinstance(current_phase, str)
-            and current_phase in self.stage_order
+            isinstance(current_stage, str)
+            and current_stage in self.stage_order
             and not complete
         ):
-            current_sql_key = self.next_pending_sql(request.state, current_phase)
+            current_sql_key = self.next_pending_sql(request.state, current_stage)
 
         return StatusResolution(
             complete=complete,

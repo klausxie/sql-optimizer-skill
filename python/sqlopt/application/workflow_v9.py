@@ -608,18 +608,18 @@ class V9WorkflowEngine:
         Returns:
             转换后的状态字典
         """
-        phase_status = {}
+        stage_status = {}
         for stage in STAGE_ORDER:
             if stage in self.state.completed_stages:
-                phase_status[stage] = "DONE"
+                stage_status[stage] = "DONE"
             elif stage == self.state.current_stage:
-                phase_status[stage] = "IN_PROGRESS"
+                stage_status[stage] = "IN_PROGRESS"
             else:
-                phase_status[stage] = "PENDING"
+                stage_status[stage] = "PENDING"
 
         return {
-            "phase_status": phase_status,
-            "current_phase": self.state.current_stage,
+            "stage_status": stage_status,
+            "current_stage": self.state.current_stage,
             "statements": {},  # 当前状态快照默认不记录语句级跟踪
         }
 
@@ -632,7 +632,7 @@ class V9WorkflowEngine:
         Returns:
             加载的状态，如果不存在返回 None
         """
-        state_path = canonical_paths(run_dir).v9_state_path
+        state_path = canonical_paths(run_dir).state_path
         if not state_path.exists():
             return None
 
@@ -649,7 +649,7 @@ class V9WorkflowEngine:
         Args:
             run_dir: 运行目录
         """
-        state_path = canonical_paths(run_dir).v9_state_path
+        state_path = canonical_paths(run_dir).state_path
         state_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(state_path, "w") as f:

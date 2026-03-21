@@ -35,7 +35,6 @@ runs/<run_id>/
 ├── supervisor/                      # 运行状态
 │   ├── meta.json                  # 运行元信息
 │   ├── state.json                  # 阶段状态
-│   ├── v8_state.json              # V8兼容状态
 │   └── results/                    # 各阶段结果
 │
 ├── init/                           # [阶段1] 初始化

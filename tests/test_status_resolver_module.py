@@ -9,13 +9,13 @@ from sqlopt.application.status_resolver import PhaseExecutionPolicy, StatusResol
 class StatusResolverModuleTest(unittest.TestCase):
     def _resolver(self) -> StatusResolver:
         return StatusResolver(
-            stage_order=["diagnose", "optimize", "validate", "apply", "report"],
+            stage_order=["init", "parse", "recognition", "optimize", "patch"],
             phase_policies={
-                "diagnose": PhaseExecutionPolicy("diagnose"),
+                "init": PhaseExecutionPolicy("init"),
+                "parse": PhaseExecutionPolicy("parse"),
+                "recognition": PhaseExecutionPolicy("recognition"),
                 "optimize": PhaseExecutionPolicy("optimize"),
-                "validate": PhaseExecutionPolicy("validate"),
-                "apply": PhaseExecutionPolicy("apply"),
-                "report": PhaseExecutionPolicy("report", allow_regenerate=True),
+                "patch": PhaseExecutionPolicy("patch"),
             },
         )
 
@@ -25,25 +25,25 @@ class StatusResolverModuleTest(unittest.TestCase):
             RunStatusRequest(
                 run_id="run_demo",
                 state={
-                    "current_phase": "validate",
-                    "phase_status": {
-                        "diagnose": "DONE",
-                        "optimize": "DONE",
-                        "validate": "PENDING",
-                        "apply": "PENDING",
-                        "report": "PENDING",
+                    "current_stage": "optimize",
+                    "stage_status": {
+                        "init": "DONE",
+                        "parse": "DONE",
+                        "recognition": "DONE",
+                        "optimize": "PENDING",
+                        "patch": "PENDING",
                     },
                     "statements": {
                         "demo#v1": {
-                            "optimize": "DONE",
-                            "validate": "PENDING",
-                            "apply": "PENDING",
+                            "recognition": "DONE",
+                            "optimize": "PENDING",
+                            "patch": "PENDING",
                         }
                     },
                 },
-                plan={"to_stage": "apply"},
+                plan={"to_stage": "patch"},
                 meta={"status": "RUNNING"},
-                config={"report": {"enabled": True}},
+                config={},
             )
         )
         self.assertFalse(result.complete)
@@ -56,35 +56,26 @@ class StatusResolverModuleTest(unittest.TestCase):
             RunStatusRequest(
                 run_id="run_done",
                 state={
-                    "current_phase": "report",
-                    "phase_status": {
-                        "diagnose": "DONE",
+                    "current_stage": "patch",
+                    "stage_status": {
+                        "init": "DONE",
+                        "parse": "DONE",
+                        "recognition": "DONE",
                         "optimize": "DONE",
-                        "validate": "DONE",
-                        "apply": "DONE",
-                        "report": "DONE",
+                        "patch": "DONE",
                     },
                     "statements": {},
                 },
-                plan={"to_stage": "apply"},
+                plan={"to_stage": "patch"},
                 meta={"status": "COMPLETED"},
-                config={"report": {"enabled": True}},
+                config={},
             )
         )
         self.assertTrue(result.complete)
         self.assertEqual(result.next_action, "none")
 
     def test_pending_by_phase_uses_stage_order_for_v9_pipeline(self) -> None:
-        resolver = StatusResolver(
-            stage_order=["init", "parse", "recognition", "optimize", "patch"],
-            phase_policies={
-                "init": PhaseExecutionPolicy("init"),
-                "parse": PhaseExecutionPolicy("parse"),
-                "recognition": PhaseExecutionPolicy("recognition"),
-                "optimize": PhaseExecutionPolicy("optimize"),
-                "patch": PhaseExecutionPolicy("patch"),
-            },
-        )
+        resolver = self._resolver()
 
         counts = resolver.pending_by_phase(
             {

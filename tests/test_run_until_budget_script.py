@@ -73,7 +73,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": True,
-                        "current_phase": "patch",
+                        "current_stage": "patch",
                         "remaining_statements": 0,
                     },
                     "",
@@ -153,7 +153,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": True,
-                        "current_phase": "patch",
+                        "current_stage": "patch",
                         "remaining_statements": 0,
                     },
                     "",

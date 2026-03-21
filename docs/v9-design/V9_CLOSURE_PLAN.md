@@ -16,11 +16,11 @@
 ### Phase 2: 运行时收口
 - [ ] 清理 `run_paths.py` 中带 `diagnose / validate / apply / report` 的 deprecated 路径常量与 alias。
 - [ ] 给 V9 明确唯一产物布局，停止新增对 `pipeline/*` 旧目录的依赖。
-- [ ] 统一 `state.json` / `plan.json` / CLI status 输出的最终语义，确保 `supervisor` 状态成为唯一真相。
+- [x] 统一 `state.json` / `plan.json` / CLI status 输出的最终语义，确保 `supervisor` 状态成为唯一真相。
 
 ### Phase 3: 生命周期与状态机收口
 - [x] 将 `status_resolver.py` 中的 `report` 特殊处理从 V9 主状态机中拆离。
-- [ ] 让 `run_service.py` 主体只负责五阶段工作流；`apply`、`report` 相关逻辑下沉到单独后处理服务。
+- [x] 让 `run_service.py` 主体只负责五阶段工作流；`apply`、`report` 相关逻辑下沉到单独后处理服务。
 - [ ] 用阶段声明驱动 runtime prerequisites，而不是分散在多个入口写死规则。
 
 ### Phase 4: 命令与文档收口
@@ -35,4 +35,4 @@
 
 ## 本轮实现范围
 
-本轮先落地 Phase 1，并为后续 Phase 2/3 的大清理建立稳定的公共入口。
+本轮已继续推进 Phase 2/3：统一 supervisor 状态语义，移除 `v9_state.json` 双轨状态，并将 `apply` 下沉到独立后处理服务。

@@ -231,7 +231,7 @@ def main() -> None:
                     "reason": "completed",
                     "completion_mode": completion_mode,
                     "steps_executed": step_calls,
-                    "current_phase": status_payload.get("current_phase"),
+                    "current_stage": status_payload.get("current_stage"),
                     "remaining_statements": status_payload.get("remaining_statements"),
                 }
             )

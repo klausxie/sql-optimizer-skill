@@ -349,9 +349,6 @@ class RunPaths:
     def v9_patch_files_dir(self) -> Path:
         return self.v9_patch_dir / "patches"
 
-    @property
-    def v9_state_path(self) -> Path:
-        return self.supervisor_dir / "v9_state.json"
 
     def supervisor_result_path(self, phase: str) -> Path:
         return self.supervisor_results_dir / f"{phase}.jsonl"
@@ -373,13 +370,6 @@ class RunPaths:
             self.run_dir,
             self.supervisor_dir,
             self.supervisor_results_dir,
-            self.scan_dir,
-            self.branching_dir,
-            self.pruning_dir,
-            self.baseline_dir,
-            self.optimize_dir,
-            self.validate_dir,
-            self.apply_dir,
             self.ops_dir,
             self.verification_dir,
             self.overview_dir,

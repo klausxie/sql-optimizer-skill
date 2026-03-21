@@ -14,7 +14,7 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass  # Fallback to default if reconfigure not available
 
-from sqlopt.application import config_service, run_index, run_service
+from sqlopt.application import config_service, post_process_service, run_index, run_service
 from sqlopt.application.run_resolution import resolve_run_id
 from sqlopt.application import workflow_v9
 from sqlopt.config import load_config
@@ -355,7 +355,7 @@ def cmd_apply(args: argparse.Namespace) -> None:
             except Exception:
                 pass
 
-        print(run_service.apply_run(resolved_run_id, repo_root=_repo_root()))
+        print(post_process_service.apply_run(resolved_run_id, repo_root=_repo_root()))
     except FileNotFoundError:
         error_info = format_error_message(
             "RUN_NOT_FOUND", "run_id not found in run index"

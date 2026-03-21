@@ -522,7 +522,7 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v9_state.json"
+        state_file = supervisor_dir / "state.json"
         state_file.write_text(json.dumps(saved_state))
 
         with patch("sqlopt.application.workflow_v9.StatusResolver"):
@@ -567,7 +567,7 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v9_state.json"
+        state_file = supervisor_dir / "state.json"
         state_file.write_text(json.dumps(saved_state))
 
         with patch("sqlopt.application.workflow_v9.StatusResolver"):
@@ -621,7 +621,7 @@ class TestResume:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v9_state.json"
+        state_file = supervisor_dir / "state.json"
         state_file.write_text(json.dumps(saved_state))
 
         with patch("sqlopt.application.workflow_v9.StatusResolver"):
@@ -669,7 +669,7 @@ class TestResume:
         workflow_engine.resume(temp_run_dir, to_stage="patch")
 
         # Verify state file was created
-        state_file = temp_run_dir / "supervisor" / "v9_state.json"
+        state_file = temp_run_dir / "supervisor" / "state.json"
         assert state_file.exists()
 
         saved_state = json.loads(state_file.read_text())
@@ -719,7 +719,7 @@ class TestGetNextAction:
             "status": "completed",
         }
 
-        state_file = supervisor_dir / "v9_state.json"
+        state_file = supervisor_dir / "state.json"
         state_file.write_text(json.dumps(saved_state))
 
         action = workflow_engine.get_next_action(temp_run_dir)
@@ -744,7 +744,7 @@ class TestGetNextAction:
             "status": "running",
         }
 
-        state_file = supervisor_dir / "v9_state.json"
+        state_file = supervisor_dir / "state.json"
         state_file.write_text(json.dumps(saved_state))
 
         action = workflow_engine.get_next_action(temp_run_dir)
@@ -905,7 +905,7 @@ class TestStatePersistence:
             # Load into new state object
             from sqlopt.application.workflow_v9 import V9WorkflowState
 
-            state_file = temp_run_dir / "supervisor" / "v9_state.json"
+            state_file = temp_run_dir / "supervisor" / "state.json"
             loaded_data = json.loads(state_file.read_text())
 
             new_state = V9WorkflowState(**loaded_data)
@@ -997,7 +997,7 @@ class TestHelperFunctions:
         # Load into new state object
         from sqlopt.application.workflow_v9 import V9WorkflowState
 
-        state_file = temp_run_dir / "supervisor" / "v9_state.json"
+        state_file = temp_run_dir / "supervisor" / "state.json"
         loaded_data = json.loads(state_file.read_text())
 
         new_state = V9WorkflowState(**loaded_data)

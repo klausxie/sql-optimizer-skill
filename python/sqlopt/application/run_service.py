@@ -9,7 +9,6 @@ from ..contracts import ContractValidator
 from ..manifest import log_event
 from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
-from ..stages.patch import apply as apply_stage
 from . import config_service, run_index
 from .run_selection import (
     apply_selection_to_config,
@@ -136,12 +135,6 @@ def get_status(run_id: str, *, repo_root: Path) -> dict[str, Any]:
             config=config,
         )
     )
-
-
-def apply_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
-    run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
-    state = apply_stage.apply_from_config(run_dir)
-    return {"run_id": run_id, "apply": state}
 
 
 def advance_run_until_complete(

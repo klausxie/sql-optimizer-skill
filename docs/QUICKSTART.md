@@ -186,8 +186,7 @@ sqlopt-cli run --config sqlopt.yml --to-stage patch --run-id <run-id>
 runs/<run-id>/
 ├── supervisor/
 │   ├── meta.json          # 运行元信息
-│   ├── state.json         # 旧 supervisor 状态
-│   ├── v9_state.json      # V9 阶段状态
+│   ├── state.json         # V9 工作流状态
 │   └── results/           # 步骤结果
 ├── init/
 │   └── sql_units.json
