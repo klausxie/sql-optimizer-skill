@@ -15,18 +15,13 @@ from typing import Any, Optional
 
 from ...contracts import ContractValidator
 from ...run_paths import canonical_paths
+from ...shared.xml_utils import _local_name, _qualify_ref
 from .common import normalize_sqlunit
 
 
 # =============================================================================
 # XML Parsing Utilities
 # =============================================================================
-
-
-def _local_name(tag: str) -> str:
-    if "}" in tag:
-        return tag.rsplit("}", 1)[-1]
-    return tag
 
 
 def _inner_xml(node: ET.Element) -> str:
@@ -61,15 +56,6 @@ def _is_mybatis_mapper_root(root: ET.Element) -> bool:
     return _local_name(str(root.tag)).lower() == "mapper" and bool(
         str(root.attrib.get("namespace") or "").strip()
     )
-
-
-def _qualify_ref(namespace: str, refid: str | None) -> str:
-    ref = str(refid or "").strip()
-    if not ref:
-        return ""
-    if "." in ref:
-        return ref
-    return f"{namespace}.{ref}" if namespace else ref
 
 
 def _extract_include_refs(node: ET.Element, namespace: str) -> list[str]:
