@@ -21,10 +21,10 @@
 ### Phase 3: 生命周期与状态机收口
 - [x] 将 `status_resolver.py` 中的 `report` 特殊处理从 V9 主状态机中拆离。
 - [x] 让 `run_service.py` 主体只负责五阶段工作流；`apply`、`report` 相关逻辑下沉到单独后处理服务。
-- [ ] 用阶段声明驱动 runtime prerequisites，而不是分散在多个入口写死规则。
+- [x] 用阶段声明驱动 runtime prerequisites，而不是分散在多个入口写死规则。
 
 ### Phase 4: 命令与文档收口
-- [ ] 清理 CLI 帮助、示例和命令说明中的旧阶段语义。
+- [x] 清理 CLI 帮助、示例和命令说明中的旧阶段语义。
 - [ ] 更新 `docs/v9-design/*` 中过时的“已完成”描述，改成基于当前代码的真实状态。
 - [ ] 将仍然使用 V8/旧阶段命名的测试、脚本、README 逐步重命名。
 

@@ -96,8 +96,8 @@ runs/<run_id>/
 | `workflow_v9.py` | ✅ 主干完成 | 已作为默认 workflow engine 导出 |
 | `v9_stages/runtime.py` | ✅ 已落地 | 阶段可独立绑定和单独执行 |
 | `contracts.py` | ✅ 已更新 | V9 边界与多 Schema 校验已接入 |
-| `cli/main.py` | ⚠️ 收口中 | 主流程已 V9 化，`apply` 已迁到独立后处理服务，但仍有旧命令/帮助语义残留 |
-| `run_paths.py` | ⚠️ 收口中 | supervisor 状态已统一到 `state.json`，但仍保留部分 legacy pipeline 路径常量 |
+| `cli/main.py` | ✅ 主干完成 | 主流程已 V9 化，全命令 V9-ified，`apply` 已迁到独立后处理服务 |
+| `run_paths.py` | ✅ 主路径已收口 | supervisor 状态已统一到 `state.json`，legacy 别名已重定向到 V9 路径以保持向后兼容 |
 | `status_resolver.py` | ✅ 主路径已收口 | V9 状态解析已使用 `stage_status/current_stage` 语义 |
 | `risks.schema.json` | ✅ 已创建 | Parse 风险输出已具备独立 Schema |
 | 单元测试 | ✅ 持续补强 | 已覆盖 V9 workflow、runtime、contracts 等关键模块 |

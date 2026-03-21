@@ -60,7 +60,7 @@ runs/<run_id>/
 
 ### 4.1 init → parse: `sqlunit.schema.json`
 
-**来源**：Discovery 阶段解析 MyBatis XML 生成
+**来源**：Init 阶段解析 MyBatis XML 生成
 
 **Schema**：
 ```json

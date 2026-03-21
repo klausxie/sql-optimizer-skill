@@ -41,6 +41,12 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # 导入核心模块
+# 注意: 直接从 execute_one 子模块导入会产生弃用警告
+# 弃用警告: 这些 execute_one 函数为向后兼容保留
+# 现代用法: 请使用 sqlopt.stages.discovery.DiscoveryStage 类或从父模块导入
+import warnings
+warnings.filterwarnings("default", category=DeprecationWarning)
+
 from sqlopt.stages.discovery.execute_one import execute_one as discovery_execute_one
 from sqlopt.contracts import ContractValidator
 from sqlopt.run_paths import canonical_paths
