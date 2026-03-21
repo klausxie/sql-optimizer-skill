@@ -8,12 +8,16 @@ from pathlib import Path
 from typing import Any
 
 
-_NAMESPACE_RE = re.compile(r"<mapper\b[^>]*\bnamespace\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
+_NAMESPACE_RE = re.compile(
+    r"<mapper\b[^>]*\bnamespace\s*=\s*(['\"])(.*?)\1", re.IGNORECASE
+)
 _STATEMENT_RE = re.compile(
     r"<(select|update|delete|insert)\b[^>]*\bid\s*=\s*(['\"])(.*?)\2[^>]*>([\s\S]*?)</\1>",
     re.IGNORECASE,
 )
-_FRAGMENT_RE = re.compile(r"<sql\b[^>]*\bid\s*=\s*(['\"])(.*?)\1[^>]*>([\s\S]*?)</sql>", re.IGNORECASE)
+_FRAGMENT_RE = re.compile(
+    r"<sql\b[^>]*\bid\s*=\s*(['\"])(.*?)\1[^>]*>([\s\S]*?)</sql>", re.IGNORECASE
+)
 
 _KNOWN_DYNAMIC_TAGS = {
     "foreach": "FOREACH",
@@ -27,11 +31,7 @@ _KNOWN_DYNAMIC_TAGS = {
 }
 _NON_OPAQUE_TAGS = set(_KNOWN_DYNAMIC_TAGS) | {"when", "otherwise", "property"}
 
-
-def _local_name(tag: str) -> str:
-    if "}" in tag:
-        return tag.rsplit("}", 1)[-1]
-    return tag
+from sqlopt.shared.xml_utils import _local_name, _qualify_ref
 
 
 def _normalize_sql_text(text: str) -> str:
@@ -41,15 +41,6 @@ def _normalize_sql_text(text: str) -> str:
 def _extract_namespace(xml_text: str) -> str:
     match = _NAMESPACE_RE.search(xml_text)
     return match.group(2).strip() if match else "unknown"
-
-
-def _qualify_display_ref(namespace: str, ref_id: str | None) -> str:
-    ref = str(ref_id or "").strip()
-    if not ref:
-        return ""
-    if "." in ref:
-        return ref
-    return f"{namespace}.{ref}" if namespace else ref
 
 
 def _fragment_key(xml_path: Path, display_ref: str) -> str:
@@ -104,7 +95,9 @@ def _extract_attr(attrs: dict[str, Any], name: str) -> str:
     return str(attrs.get(name) or "").strip()
 
 
-def _extract_include_bindings(body: str, namespace: str, xml_path: Path) -> list[dict[str, Any]]:
+def _extract_include_bindings(
+    body: str, namespace: str, xml_path: Path
+) -> list[dict[str, Any]]:
     if not body.strip():
         return []
     try:
@@ -115,7 +108,7 @@ def _extract_include_bindings(body: str, namespace: str, xml_path: Path) -> list
     for elem in root.iter():
         if _local_name(str(elem.tag)).lower() != "include":
             continue
-        display_ref = _qualify_display_ref(namespace, elem.attrib.get("refid"))
+        display_ref = _qualify_ref(namespace, elem.attrib.get("refid"))
         if not display_ref:
             continue
         props: list[dict[str, str]] = []
@@ -125,20 +118,30 @@ def _extract_include_bindings(body: str, namespace: str, xml_path: Path) -> list
             name = _extract_attr(child.attrib, "name")
             value = _extract_attr(child.attrib, "value")
             props.append({"name": name, "valueRaw": value, "valueNormalized": value})
-        binding_source = display_ref + "|" + "|".join(f"{p['name']}={p['valueNormalized']}" for p in props)
+        binding_source = (
+            display_ref
+            + "|"
+            + "|".join(f"{p['name']}={p['valueNormalized']}" for p in props)
+        )
         bindings.append(
             {
                 "ref": _fragment_key(xml_path, display_ref),
                 "displayRef": display_ref,
                 "properties": props,
-                "bindingHash": hashlib.sha1(binding_source.encode("utf-8")).hexdigest()[:12],
+                "bindingHash": hashlib.sha1(binding_source.encode("utf-8")).hexdigest()[
+                    :12
+                ],
             }
         )
     return bindings
 
 
 def _direct_fragment_refs(fragment_row: dict[str, Any]) -> list[str]:
-    return [str(binding.get("ref") or "") for binding in fragment_row.get("includeBindings", []) if str(binding.get("ref") or "").strip()]
+    return [
+        str(binding.get("ref") or "")
+        for binding in fragment_row.get("includeBindings", [])
+        if str(binding.get("ref") or "").strip()
+    ]
 
 
 def _resolve_include_trace(
@@ -163,7 +166,9 @@ def _resolve_include_trace(
                 {
                     "ref": ref,
                     "displayRef": (fragment or {}).get("displayRef", ""),
-                    "dynamicFeatures": list((fragment or {}).get("dynamicFeatures", [])),
+                    "dynamicFeatures": list(
+                        (fragment or {}).get("dynamicFeatures", [])
+                    ),
                 }
             )
             seen_summary.add(ref)
@@ -197,10 +202,12 @@ def _parse_mappers(project_root: Path, mapper_globs: list[str]) -> list[dict[str
     return out
 
 
-def _build_fragment_row(xml_path: Path, namespace: str, xml_text: str, match: re.Match[str]) -> dict[str, Any]:
+def _build_fragment_row(
+    xml_path: Path, namespace: str, xml_text: str, match: re.Match[str]
+) -> dict[str, Any]:
     fragment_id = match.group(2).strip()
     body = match.group(3)
-    display_ref = _qualify_display_ref(namespace, fragment_id)
+    display_ref = _qualify_ref(namespace, fragment_id)
     return {
         "fragmentKey": _fragment_key(xml_path, display_ref),
         "displayRef": display_ref,
@@ -218,7 +225,9 @@ def _build_fragment_row(xml_path: Path, namespace: str, xml_text: str, match: re
     }
 
 
-def _build_statement_meta(xml_path: Path, namespace: str, xml_text: str, match: re.Match[str]) -> tuple[str, dict[str, Any]]:
+def _build_statement_meta(
+    xml_path: Path, namespace: str, xml_text: str, match: re.Match[str]
+) -> tuple[str, dict[str, Any]]:
     statement_id = match.group(3).strip()
     statement_key = f"{namespace}.{statement_id}"
     body = match.group(4)
@@ -235,7 +244,9 @@ def _build_statement_meta(xml_path: Path, namespace: str, xml_text: str, match: 
     }
 
 
-def _enrich_sql_unit(unit: dict[str, Any], statements_by_key: dict[str, dict[str, Any]]) -> None:
+def _enrich_sql_unit(
+    unit: dict[str, Any], statements_by_key: dict[str, dict[str, Any]]
+) -> None:
     statement_key = str(unit.get("sqlKey", "")).split("#", 1)[0]
     meta = statements_by_key.get(statement_key)
     if not meta:
@@ -248,7 +259,9 @@ def _enrich_sql_unit(unit: dict[str, Any], statements_by_key: dict[str, dict[str
     unit["primaryFragmentTarget"] = meta["primaryFragmentTarget"]
 
 
-def build_fragment_catalog(project_root: Path, mapper_globs: list[str]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+def build_fragment_catalog(
+    project_root: Path, mapper_globs: list[str]
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     fragments: list[dict[str, Any]] = []
     fragments_by_key: dict[str, dict[str, Any]] = {}
     for mapper in _parse_mappers(project_root, mapper_globs):
@@ -261,7 +274,9 @@ def build_fragment_catalog(project_root: Path, mapper_globs: list[str]) -> tuple
             fragments.append(row)
             fragments_by_key[key] = row
     for row in fragments:
-        trace, summaries, degraded = _resolve_include_trace(_direct_fragment_refs(row), fragments_by_key)
+        trace, summaries, degraded = _resolve_include_trace(
+            _direct_fragment_refs(row), fragments_by_key
+        )
         row["includeTrace"] = trace
         row["dynamicTrace"] = {
             "templateFeatures": list(row.get("dynamicFeatures", [])),
@@ -283,7 +298,9 @@ def enrich_sql_units_with_catalog(
         namespace = str(mapper["namespace"])
         xml_text = str(mapper["xmlText"])
         for match in _STATEMENT_RE.finditer(xml_text):
-            statement_key, statement_meta = _build_statement_meta(xml_path, namespace, xml_text, match)
+            statement_key, statement_meta = _build_statement_meta(
+                xml_path, namespace, xml_text, match
+            )
             statements_by_key[statement_key] = statement_meta
     for unit in units:
         _enrich_sql_unit(unit, statements_by_key)

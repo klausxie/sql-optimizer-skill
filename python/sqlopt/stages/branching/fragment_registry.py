@@ -12,10 +12,7 @@ class FragmentRegistry:
         return refid in self._fragments
 
 
-def _local_name(tag: str) -> str:
-    if "}" in tag:
-        return tag.rsplit("}", 1)[-1]
-    return tag
+from sqlopt.shared.xml_utils import _local_name
 
 
 def _inner_xml(node) -> str:
