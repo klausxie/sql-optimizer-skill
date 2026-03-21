@@ -14,69 +14,6 @@ REL_OVERVIEW_REPORT_MD = "overview/report.md"
 REL_OVERVIEW_REPORT_SUMMARY_MD = "overview/report.summary.md"
 REL_OVERVIEW_CONFIG_RESOLVED = "overview/config.resolved.json"
 
-# Deprecated: legacy path constants (for backward compatibility)
-REL_PIPELINE_SUPERVISOR_STATE = (
-    "pipeline/supervisor/state.json"  # deprecated: use supervisor_dir
-)
-REL_PIPELINE_SUPERVISOR_PLAN = (
-    "pipeline/supervisor/plan.json"  # deprecated: use supervisor_dir
-)
-REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = (
-    "pipeline/supervisor/results/scan.jsonl"  # deprecated: use supervisor_results_dir
-)
-REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"  # deprecated: use supervisor_results_dir
-REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"  # deprecated: use supervisor_results_dir
-REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = (
-    "pipeline/supervisor/results/apply.jsonl"  # deprecated: use supervisor_results_dir
-)
-REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = (
-    "pipeline/supervisor/results/report.jsonl"  # deprecated: use supervisor_results_dir
-)
-REL_PIPELINE_MANIFEST = "pipeline/manifest.jsonl"
-REL_PIPELINE_SCAN_UNITS = "pipeline/scan/sqlunits.jsonl"
-REL_PIPELINE_SCAN_FRAGMENTS = "pipeline/scan/fragments.jsonl"
-REL_PIPELINE_OPTIMIZE_PROPOSALS = "pipeline/optimize/optimization.proposals.jsonl"
-REL_PIPELINE_VALIDATE_ACCEPTANCE = "pipeline/validate/acceptance.results.jsonl"
-REL_PIPELINE_PATCH_RESULTS = "pipeline/apply/patch.results.jsonl"
-REL_PIPELINE_OPS_TOPOLOGY = "pipeline/ops/topology.json"
-REL_PIPELINE_OPS_HEALTH = "pipeline/ops/health.json"
-REL_PIPELINE_OPS_FAILURES = "pipeline/ops/failures.jsonl"
-REL_PIPELINE_VERIFICATION_LEDGER = "pipeline/verification/ledger.jsonl"
-REL_PIPELINE_VERIFICATION_SUMMARY = "pipeline/verification/summary.json"
-
-REL_SQL_CATALOG = "sql/catalog.jsonl"
-REL_DIAGNOSTICS_SQL_OUTCOMES = "diagnostics/sql_outcomes.jsonl"
-REL_DIAGNOSTICS_SQL_ARTIFACTS = "diagnostics/sql_artifacts.jsonl"
-REL_DIAGNOSTICS_BLOCKERS_SUMMARY = "diagnostics/blockers.summary.json"
-
-REPORT_RUN_INDEX_OVERVIEW_GROUP = [
-    REL_OVERVIEW_REPORT_JSON,
-    REL_OVERVIEW_REPORT_MD,
-    REL_OVERVIEW_REPORT_SUMMARY_MD,
-    REL_OVERVIEW_CONFIG_RESOLVED,
-]
-
-REPORT_RUN_INDEX_PIPELINE_GROUP = [
-    REL_PIPELINE_MANIFEST,
-    REL_PIPELINE_SCAN_UNITS,
-    REL_PIPELINE_SCAN_FRAGMENTS,
-    REL_PIPELINE_OPTIMIZE_PROPOSALS,
-    REL_PIPELINE_VALIDATE_ACCEPTANCE,
-    REL_PIPELINE_PATCH_RESULTS,
-    REL_PIPELINE_SUPERVISOR_STATE,
-    REL_PIPELINE_SUPERVISOR_PLAN,
-    REL_PIPELINE_SUPERVISOR_RESULTS_SCAN,
-    REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE,
-    REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE,
-    REL_PIPELINE_SUPERVISOR_RESULTS_PATCH,
-    REL_PIPELINE_SUPERVISOR_RESULTS_REPORT,
-    REL_PIPELINE_OPS_TOPOLOGY,
-    REL_PIPELINE_OPS_HEALTH,
-    REL_PIPELINE_OPS_FAILURES,
-    REL_PIPELINE_VERIFICATION_LEDGER,
-    REL_PIPELINE_VERIFICATION_SUMMARY,
-]
-
 
 def to_posix_relative(run_dir: Path, path: Path) -> str:
     return str(path.relative_to(run_dir)).replace("\\", "/")
@@ -348,7 +285,6 @@ class RunPaths:
     @property
     def v9_patch_files_dir(self) -> Path:
         return self.v9_patch_dir / "patches"
-
 
     def supervisor_result_path(self, phase: str) -> Path:
         return self.supervisor_results_dir / f"{phase}.jsonl"
