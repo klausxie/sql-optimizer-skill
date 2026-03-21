@@ -13,6 +13,7 @@
 | [V9_STAGE_API_CONTRACTS.md](./V9_STAGE_API_CONTRACTS.md) | 阶段 API 契约、数据 Schema、JSON 示例 |
 | [V9_STAGE_DEV_GUIDE.md](./V9_STAGE_DEV_GUIDE.md) | 各阶段独立开发演示示例 |
 | [V9_DATA_CONTRACTS.md](./V9_DATA_CONTRACTS.md) | 数据契约定义、Schema、阶段接口 |
+| [V9_CLOSURE_PLAN.md](./V9_CLOSURE_PLAN.md) | V9 收口计划、阶段性开发路线图 |
 
 ---
 
@@ -39,10 +40,10 @@ Init → Parse → Recognition → Optimize → Patch
 sqlopt-cli run --config sqlopt.yml
 
 # 诊断模式 (init + parse)
-sqlopt-cli diagnose --config sqlopt.yml
+sqlopt-cli run --config sqlopt.yml --to-stage parse
 
 # 单阶段执行
-sqlopt-cli run --config sqlopt.yml --stage optimize
+sqlopt-cli run --config sqlopt.yml --to-stage optimize
 
 # 状态查看
 sqlopt-cli status --run-id <run_id>
@@ -88,19 +89,18 @@ runs/<run_id>/
 
 ---
 
-## 开发状态
+## 开发状态（按当前代码收敛情况）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
-| `workflow_v8.py` | ✅ 完成 | 支持 V9 5阶段，直接方法调用 |
-| `run_paths.py` | ✅ 完成 | 添加 init/, parse/, recognition/ 目录 |
-| `contracts.py` | ✅ 完成 | 更新 STAGE_BOUNDARIES |
-| `cli/main.py` | ✅ 完成 | cmd_diagnose 更新为 init + parse |
-| Stage 类扁平化 | ✅ 完成 | OptimizeStage, PatchStage 已扁平化 |
-| V8 死代码清理 | ✅ 完成 | 删除 _run_discovery 等死方法 |
-| `risks.schema.json` | ✅ 完成 | 已创建风险检测 Schema |
-| DiscoveryStage | ✅ 已移除 | 不再导出，仅代码保留 |
-| 单元测试 | ✅ 完成 | 测试通过 |
+| `workflow_v9.py` | ✅ 主干完成 | 已作为默认 workflow engine 导出 |
+| `v9_stages/runtime.py` | ✅ 已落地 | 阶段可独立绑定和单独执行 |
+| `contracts.py` | ✅ 已更新 | V9 边界与多 Schema 校验已接入 |
+| `cli/main.py` | ⚠️ 收口中 | 主流程已 V9 化，`apply` 已迁到独立后处理服务，但仍有旧命令/帮助语义残留 |
+| `run_paths.py` | ⚠️ 收口中 | supervisor 状态已统一到 `state.json`，但仍保留部分 legacy pipeline 路径常量 |
+| `status_resolver.py` | ✅ 主路径已收口 | V9 状态解析已使用 `stage_status/current_stage` 语义 |
+| `risks.schema.json` | ✅ 已创建 | Parse 风险输出已具备独立 Schema |
+| 单元测试 | ✅ 持续补强 | 已覆盖 V9 workflow、runtime、contracts 等关键模块 |
 
 ---
 

@@ -169,13 +169,13 @@ sqlopt-cli apply --run-id <run-id>
 | 命令 | 说明 |
 |------|------|
 | `sqlopt-cli run --config sqlopt.yml --sql-key <key>` | 只诊断特定 SQL |
-| `sqlopt-cli run --config sqlopt.yml --to-stage discovery` | 只跑 Discovery 阶段 |
+| `sqlopt-cli run --config sqlopt.yml --to-stage parse` | 只跑到 Parse 阶段 |
 
 ### 阶段推进选项
 
 ```bash
-# 执行到 report 阶段（重建报告）
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+# 执行到 patch 阶段（V9 五阶段完整流水线终点）
+sqlopt-cli run --config sqlopt.yml --to-stage patch --run-id <run-id>
 ```
 
 `--sql-key` 支持多种格式：`sqlKey`、`namespace.statementId`、`statementId`、`statementId#vN`。
@@ -186,13 +186,20 @@ sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
 runs/<run-id>/
 ├── supervisor/
 │   ├── meta.json          # 运行元信息
-│   ├── state.json         # 阶段状态
+│   ├── state.json         # V9 工作流状态
 │   └── results/           # 步骤结果
-├── scan.sqlunits.jsonl    # 扫描产物
-├── proposals/             # 优化建议
-├── acceptance/            # 验证结果
-├── patches/               # 补丁产物
-└── report.summary.md      # 摘要报告
+├── init/
+│   └── sql_units.json
+├── parse/
+│   ├── sql_units_with_branches.json
+│   └── risks.json
+├── recognition/
+│   └── baselines.json
+├── optimize/
+│   └── proposals.json
+└── patch/
+    ├── patches.json
+    └── patches/
 ```
 
 ## 9. 已知限制

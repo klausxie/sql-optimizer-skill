@@ -25,6 +25,12 @@ def _load_module():
 
 
 class RunUntilBudgetScriptTest(unittest.TestCase):
+    def test_default_target_stage_is_v9_patch(self) -> None:
+        mod = _load_module()
+        parser = mod._build_parser()
+        args = parser.parse_args([])
+        self.assertEqual(args.to_stage, "patch")
+
     def test_parse_payload_supports_python_repr(self) -> None:
         mod = _load_module()
         payload = mod._parse_payload("{'run_id': 'r1', 'complete': False}\n")
@@ -41,7 +47,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         payload = ast.literal_eval(proc.stdout.strip())
         self.assertFalse(payload["retryable"])
 
-    def test_main_rebuilds_report_when_status_requests_it(self) -> None:
+    def test_main_resumes_when_status_requires_more_work(self) -> None:
         mod = _load_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_run_until_budget_") as td:
             config_path = Path(td) / "sqlopt.yml"
@@ -55,19 +61,19 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": False,
-                        "run_status": "COMPLETED",
-                        "next_action": "report-rebuild",
+                        "run_status": "RUNNING",
+                        "next_action": "resume",
                     },
                     "",
                     "",
                 ),
-                mod.CliResult(0, {"run_id": "run_demo", "result": {"complete": True, "phase": "report"}}, "", ""),
+                mod.CliResult(0, {"run_id": "run_demo", "result": {"complete": True, "phase": "patch"}}, "", ""),
                 mod.CliResult(
                     0,
                     {
                         "run_id": "run_demo",
                         "complete": True,
-                        "current_phase": "report",
+                        "current_stage": "patch",
                         "remaining_statements": 0,
                     },
                     "",
@@ -87,18 +93,18 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                         with redirect_stdout(buf):
                             mod.main()
 
-        self.assertEqual(calls[0], ("run", "--config", str(resolved_config), "--to-stage", "patch_generate", "--max-steps", "1"))
+        self.assertEqual(calls[0], ("run", "--config", str(resolved_config), "--to-stage", "patch", "--max-steps", "1"))
         self.assertEqual(calls[1], ("status", "--run-id", "run_demo"))
         self.assertEqual(
             calls[2],
-            ("run", "--config", str(resolved_config), "--to-stage", "report", "--run-id", "run_demo", "--max-steps", "1"),
+            ("resume", "--run-id", "run_demo", "--max-steps", "1"),
         )
         self.assertEqual(calls[3], ("status", "--run-id", "run_demo"))
         lines = [line.strip() for line in buf.getvalue().splitlines() if line.strip()]
         payload = ast.literal_eval(lines[-1])
-        self.assertEqual(payload["completion_mode"], "report-rebuild")
+        self.assertEqual(payload["completion_mode"], "pipeline")
 
-    def test_step_budget_uses_report_rebuild_continue_command(self) -> None:
+    def test_step_budget_uses_resume_continue_command(self) -> None:
         mod = _load_module()
         with tempfile.TemporaryDirectory(prefix="sqlopt_run_until_budget_") as td:
             config_path = Path(td) / "sqlopt.yml"
@@ -110,8 +116,8 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": False,
-                        "run_status": "COMPLETED",
-                        "next_action": "report-rebuild",
+                        "run_status": "RUNNING",
+                        "next_action": "resume",
                     },
                     "",
                     "",
@@ -130,8 +136,8 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         payload = ast.literal_eval(lines[-1])
         self.assertEqual(payload["reason"], "step_budget_exhausted")
         self.assertTrue(payload["retryable"])
-        self.assertEqual(payload["next_mode"], "report-rebuild")
-        self.assertIn("--to-stage report", payload["next_action"])
+        self.assertEqual(payload["next_mode"], "resume")
+        self.assertIn("--to-stage patch", payload["next_action"])
         self.assertIn("--run-id run_demo", payload["next_action"])
         self.assertIn("--max-steps 1", payload["next_action"])
 
@@ -147,7 +153,7 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": True,
-                        "current_phase": "patch_generate",
+                        "current_stage": "patch",
                         "remaining_statements": 0,
                     },
                     "",
@@ -167,14 +173,12 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         payload = ast.literal_eval(lines[-1])
         self.assertEqual(payload["completion_mode"], "pipeline")
 
-    def test_next_invocation_uses_lifecycle_policy_for_report_rebuild(self) -> None:
+    def test_next_invocation_returns_resume_for_resume_status(self) -> None:
         mod = _load_module()
         cfg = Path("/tmp/demo_sqlopt.yml")
-        with patch.object(mod.lifecycle_policy, "status_requires_report_rebuild", return_value=True) as policy:
-            invocation = mod._next_invocation(cfg, "run_demo", {"next_action": "resume"})
-        self.assertEqual(invocation.mode, "report-rebuild")
-        self.assertIn("--to-stage report", " ".join(invocation.cli_args))
-        policy.assert_called_once_with({"next_action": "resume"})
+        invocation = mod._next_invocation(cfg, "run_demo", {"next_action": "resume"})
+        self.assertEqual(invocation.mode, "resume")
+        self.assertEqual(invocation.cli_args, ["resume", "--run-id", "run_demo", "--max-steps", "1"])
 
     def test_follow_up_failure_reports_structured_next_mode(self) -> None:
         mod = _load_module()
@@ -188,15 +192,15 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
                     {
                         "run_id": "run_demo",
                         "complete": False,
-                        "run_status": "COMPLETED",
-                        "next_action": "report-rebuild",
+                        "run_status": "RUNNING",
+                        "next_action": "resume",
                     },
                     "",
                     "",
                 ),
                 mod.CliResult(
                     2,
-                    {"run_id": "run_demo", "error": {"reason_code": "REPORT_FAILED", "message": "report broke"}},
+                    {"run_id": "run_demo", "error": {"reason_code": "RESUME_FAILED", "message": "resume broke"}},
                     "",
                     "",
                 ),
@@ -215,9 +219,9 @@ class RunUntilBudgetScriptTest(unittest.TestCase):
         lines = [line.strip() for line in buf.getvalue().splitlines() if line.strip()]
         payload = ast.literal_eval(lines[-1])
         self.assertTrue(payload["retryable"])
-        self.assertEqual(payload["next_mode"], "report-rebuild")
-        self.assertEqual(payload["error"]["reason_code"], "REPORT_FAILED")
-        self.assertIn("--to-stage report", payload["details"]["next_recovery"])
+        self.assertEqual(payload["next_mode"], "resume")
+        self.assertEqual(payload["error"]["reason_code"], "RESUME_FAILED")
+        self.assertIn("resume --run-id run_demo", payload["details"]["next_recovery"])
         self.assertIn("--max-steps 1", payload["details"]["next_recovery"])
 
 

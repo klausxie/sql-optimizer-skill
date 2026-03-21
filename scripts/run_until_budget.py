@@ -17,9 +17,7 @@ _PYTHON_ROOT = _REPO_ROOT / "python"
 if str(_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYTHON_ROOT))
 
-from sqlopt.application import lifecycle_policy
-
-STAGE_ORDER = ["scan", "optimize", "validate", "patch_generate", "report"]
+from sqlopt.v9_pipeline import STAGE_ORDER
 
 
 @dataclass
@@ -135,7 +133,7 @@ def _continue_cmd(
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="sqlopt.yml")
-    p.add_argument("--to-stage", default="patch_generate", choices=STAGE_ORDER)
+    p.add_argument("--to-stage", default="patch", choices=STAGE_ORDER)
     p.add_argument("--run-id")
     p.add_argument("--max-steps", type=int, default=0)  # 0 表示不限制
     p.add_argument("--max-seconds", type=int, default=0)  # 0 表示不限制
@@ -143,26 +141,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _next_invocation(config_path: Path, run_id: str, status_payload: dict[str, Any]) -> NextInvocation:
-    if lifecycle_policy.status_requires_report_rebuild(status_payload):
-        recovery_cmd = (
-            f"python scripts/sqlopt_cli.py run --config {config_path} --to-stage report --run-id {run_id} --max-steps 1"
-        )
-        return NextInvocation(
-            mode="report-rebuild",
-            cli_args=[
-                "run",
-                "--config",
-                str(config_path),
-                "--to-stage",
-                "report",
-                "--run-id",
-                run_id,
-                "--max-steps",
-                "1",
-            ],
-            recovery_cmd=recovery_cmd,
-            error_reason="REPORT_REBUILD_FAILED",
-        )
     next_action = str(status_payload.get("next_action") or "resume")
     if next_action not in {"resume", ""}:
         raise ValueError(f"unsupported next_action: {next_action}")
@@ -253,7 +231,7 @@ def main() -> None:
                     "reason": "completed",
                     "completion_mode": completion_mode,
                     "steps_executed": step_calls,
-                    "current_phase": status_payload.get("current_phase"),
+                    "current_stage": status_payload.get("current_stage"),
                     "remaining_statements": status_payload.get("remaining_statements"),
                 }
             )
@@ -269,9 +247,6 @@ def main() -> None:
             )
             raise SystemExit(2)
 
-        budget_next_mode = "report-rebuild" if lifecycle_policy.status_requires_report_rebuild(status_payload) else "resume"
-        budget_next_stage = "report" if budget_next_mode == "report-rebuild" else args.to_stage
-
         # 0 表示不限制步数
         if args.max_steps > 0 and step_calls >= args.max_steps:
             print(
@@ -281,14 +256,13 @@ def main() -> None:
                     "retryable": True,
                     "reason": "step_budget_exhausted",
                     "steps_executed": step_calls,
-                    "next_mode": budget_next_mode,
+                    "next_mode": "resume",
                     "next_action": _continue_cmd(
                         config_path,
                         args.to_stage,
                         run_id,
                         args.max_steps,
                         args.max_seconds,
-                        next_stage=budget_next_stage,
                     ),
                 }
             )
@@ -302,14 +276,13 @@ def main() -> None:
                     "retryable": True,
                     "reason": "time_budget_exhausted",
                     "steps_executed": step_calls,
-                    "next_mode": budget_next_mode,
+                    "next_mode": "resume",
                     "next_action": _continue_cmd(
                         config_path,
                         args.to_stage,
                         run_id,
                         args.max_steps,
                         args.max_seconds,
-                        next_stage=budget_next_stage,
                     ),
                 }
             )
@@ -320,7 +293,6 @@ def main() -> None:
         except ValueError as exc:
             _error("INVALID_STATUS", str(exc), run_id=run_id, retryable=False)
             raise SystemExit(2)
-        completion_mode = next_invocation.mode if next_invocation.mode == "report-rebuild" else completion_mode
 
         step_result = _run_cli(repo_root, *next_invocation.cli_args)
         step_payload = step_result.payload or {}

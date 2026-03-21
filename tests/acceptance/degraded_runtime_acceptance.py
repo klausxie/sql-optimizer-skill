@@ -82,7 +82,7 @@ def _run_until_complete(repo_root: Path, config_path: Path) -> str:
             "--config",
             str(config_path),
             "--to-stage",
-            "patch_generate",
+            "patch",
             "--max-steps",
             "200",
             "--max-seconds",

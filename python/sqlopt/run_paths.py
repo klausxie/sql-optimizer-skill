@@ -329,6 +329,27 @@ class RunPaths:
     def recognition_results_path(self) -> Path:
         return self.recognition_dir / "baselines.json"
 
+    @property
+    def v9_optimize_dir(self) -> Path:
+        return self.run_dir / "optimize"
+
+    @property
+    def v9_proposals_path(self) -> Path:
+        return self.v9_optimize_dir / "proposals.json"
+
+    @property
+    def v9_patch_dir(self) -> Path:
+        return self.run_dir / "patch"
+
+    @property
+    def v9_patch_results_path(self) -> Path:
+        return self.v9_patch_dir / "patches.json"
+
+    @property
+    def v9_patch_files_dir(self) -> Path:
+        return self.v9_patch_dir / "patches"
+
+
     def supervisor_result_path(self, phase: str) -> Path:
         return self.supervisor_results_dir / f"{phase}.jsonl"
 
@@ -349,13 +370,6 @@ class RunPaths:
             self.run_dir,
             self.supervisor_dir,
             self.supervisor_results_dir,
-            self.scan_dir,
-            self.branching_dir,
-            self.pruning_dir,
-            self.baseline_dir,
-            self.optimize_dir,
-            self.validate_dir,
-            self.apply_dir,
             self.ops_dir,
             self.verification_dir,
             self.overview_dir,
@@ -366,6 +380,9 @@ class RunPaths:
             self.init_dir,
             self.parse_dir,
             self.recognition_dir,
+            self.v9_optimize_dir,
+            self.v9_patch_dir,
+            self.v9_patch_files_dir,
         ):
             ensure_dir(path)
 

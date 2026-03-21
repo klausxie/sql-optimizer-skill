@@ -3,26 +3,15 @@ from __future__ import annotations
 from typing import Any, Literal, TypedDict
 
 
-class PhaseStatusMap(TypedDict):
-    diagnose: str
-    optimize: str
-    validate: str
-    apply: str
-    report: str
-
-
-class StatementPhaseState(TypedDict):
-    optimize: str
-    validate: str
-    apply: str
+StageStatusMap = dict[str, str]
+StatementStageState = dict[str, str]
 
 
 class RunState(TypedDict, total=False):
-    current_phase: str
-    phase_status: PhaseStatusMap
-    statements: dict[str, StatementPhaseState]
-    attempts_by_phase: dict[str, int]
-    report_rebuild_required: bool
+    current_stage: str
+    stage_status: StageStatusMap
+    statements: dict[str, StatementStageState]
+    attempts_by_stage: dict[str, int]
     last_error: str | None
     last_reason_code: str | None
     updated_at: str

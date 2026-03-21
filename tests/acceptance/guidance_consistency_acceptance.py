@@ -77,6 +77,20 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _legacy_patch_rows(run_dir: Path, *, sql_key: str) -> list[dict[str, Any]]:
+    candidates = [
+        run_dir / "pipeline" / "apply" / "patch.results.jsonl",
+        run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl",
+    ]
+    for path in candidates:
+        rows = [
+            row for row in _read_jsonl(path) if str(row.get("sqlKey") or "") == sql_key
+        ]
+        if rows or path.exists():
+            return rows
+    return []
+
+
 def _require_payload(proc: subprocess.CompletedProcess[str], *, step: str) -> dict[str, Any]:
     if proc.returncode != 0:
         if proc.stdout.strip():
@@ -128,7 +142,7 @@ def main() -> None:
                 "--config",
                 str(config_path),
                 "--to-stage",
-                "patch_generate",
+                "patch",
                 "--max-steps",
                 "200",
                 "--max-seconds",
@@ -177,11 +191,7 @@ def main() -> None:
             for row in _read_jsonl(run_dir / "pipeline" / "validate" / "acceptance.results.jsonl")
             if str(row.get("sqlKey") or "") == sql_key
         ]
-        patch_rows = [
-            row
-            for row in _read_jsonl(run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl")
-            if str(row.get("sqlKey") or "") == sql_key
-        ]
+        patch_rows = _legacy_patch_rows(run_dir, sql_key=sql_key)
         verify_payload = build_verify_payload(
             run_id,
             run_dir,

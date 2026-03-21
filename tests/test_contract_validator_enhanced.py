@@ -80,9 +80,22 @@ class TestStageBoundaryValidation(unittest.TestCase):
         }
         v.validate_stage_output("parse", sqlunit)
 
-    def test_validate_stage_output_parse_none(self) -> None:
+    def test_validate_stage_output_parse_risk_report(self) -> None:
         v = self._validator()
-        v.validate_stage_output("parse", {"custom": "risks"})
+        risk_report = {
+            "sqlKey": "com.example.Mapper.selectAll",
+            "risks": [
+                {
+                    "riskType": "prefix_wildcard",
+                    "severity": "HIGH",
+                    "message": "leading wildcard disables index lookups",
+                    "branchIds": [1],
+                }
+            ],
+            "prunedBranches": [1],
+            "recommendedForBaseline": False,
+        }
+        v.validate_stage_output("parse", risk_report)
 
     def test_validate_stage_input_recognition_sqlunit(self) -> None:
         v = self._validator()
@@ -136,16 +149,17 @@ class TestStageBoundaryValidation(unittest.TestCase):
         v.validate_stage_output("optimize", proposal)
 
 
-    def test_validate_stage_input_patch_acceptance_result(self) -> None:
+    def test_validate_stage_input_patch_proposal(self) -> None:
         v = self._validator()
-        acceptance = {
+        proposal = {
             "sqlKey": "com.example.Mapper.selectAll",
-            "status": "PASSED",
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
+            "issues": ["PREFIX_WILDCARD"],
+            "dbEvidenceSummary": {},
+            "planSummary": {},
+            "suggestions": [],
+            "verdict": "ACTIONABLE",
         }
-        v.validate_stage_input("patch", acceptance)
+        v.validate_stage_input("patch", proposal)
 
     def test_validate_stage_output_patch_patch_result(self) -> None:
         v = self._validator()
@@ -186,10 +200,12 @@ class TestStageBoundaryValidation(unittest.TestCase):
         self.assertIsInstance(schema, dict)
         self.assertEqual(schema.get("title"), "OptimizationProposal")
 
-    def test_get_stage_schema_none_output(self) -> None:
+    def test_get_stage_schema_parse_output_any_of(self) -> None:
         v = self._validator()
         schema = v.get_stage_schema("parse", "output")
-        self.assertIsNone(schema)
+        self.assertIsInstance(schema, dict)
+        self.assertIn("anyOf", schema)
+        self.assertEqual(len(schema["anyOf"]), 2)
 
     def test_get_stage_schema_none_input(self) -> None:
         v = self._validator()
@@ -293,14 +309,7 @@ class TestStageBoundaryIntegration(unittest.TestCase):
             "verdict": "ACTIONABLE",
         }
         v.validate_stage_output("optimize", proposal)
-        acceptance = {
-            "sqlKey": "com.example.Mapper.selectAll",
-            "status": "PASSED",
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
-        v.validate_stage_input("patch", acceptance)
+        v.validate_stage_input("patch", proposal)
         patch = {
             "sqlKey": "com.example.Mapper.selectAll",
             "patchFiles": [],
@@ -309,6 +318,7 @@ class TestStageBoundaryIntegration(unittest.TestCase):
             "rollback": "N/A",
         }
         v.validate_stage_output("patch", patch)
+
 
 
 if __name__ == "__main__":

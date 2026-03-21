@@ -338,8 +338,8 @@ def prune_cmd(args):
 
                             with open(state_file) as f:
                                 state = json.load(f)
-                                phase = state.get("current_phase", "")
-                                if phase in keep_phases:
+                                stage = state.get("current_stage", "")
+                                if stage in keep_phases:
                                     runs_to_keep.add(run_dir.name)
                         except:
                             pass

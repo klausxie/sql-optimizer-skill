@@ -30,10 +30,6 @@ def is_retryable_reason(reason_code: str | None) -> bool:
     return classify_reason_code(code) == "retryable"
 
 
-def status_requires_report_rebuild(status_snapshot: dict[str, Any]) -> bool:
-    return str(status_snapshot.get("next_action") or "") == "report-rebuild"
-
-
 def advance_until_complete(
     initial_result: dict[str, Any],
     *,

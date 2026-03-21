@@ -13,6 +13,7 @@
     "optimization_proposal.schema.json",
     "patch_result.schema.json",
     "policy.schema.json",
+    "risks.schema.json",
     "run_index.schema.json",
     "run_report.schema.json",
     "sql_artifact_index_row.schema.json",

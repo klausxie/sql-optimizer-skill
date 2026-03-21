@@ -14,23 +14,20 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass  # Fallback to default if reconfigure not available
 
-from sqlopt.application import config_service, run_index, run_service
+from sqlopt.application import config_service, post_process_service, run_index, run_service
 from sqlopt.application.run_resolution import resolve_run_id
-from sqlopt.application import workflow_v8
+from sqlopt.application import workflow_v9
 from sqlopt.config import load_config
 from sqlopt.error_messages import format_error_message
 from sqlopt.errors import ConfigError, StageError
 from sqlopt.progress import get_progress_reporter, init_progress_reporter
 from sqlopt.run_paths import canonical_paths
+from sqlopt.v9_pipeline import STAGE_ORDER
 from sqlopt.verification import read_verification_ledger, summarize_records
 
-# V8 为默认引擎
-STAGE_ORDER = workflow_v8.STAGE_ORDER
-
-
-def _get_stage_order(use_v8: bool) -> list[str]:
-    """根据引擎类型返回阶段顺序。"""
-    return workflow_v8.STAGE_ORDER
+def _get_stage_order() -> list[str]:
+    """返回 canonical V9 阶段顺序。"""
+    return list(STAGE_ORDER)
 
 
 def _repo_root() -> Path:
@@ -45,7 +42,6 @@ def _run_label(run_id: str | None) -> str:
 def _resolve_requested_run_id(
     requested_run_id: str | None, project: str | Path | None = None
 ) -> str:
-    # Keep explicit run_id passthrough for backward compatibility; only auto-resolve when omitted.
     if str(requested_run_id or "").strip():
         return str(requested_run_id)
     resolved_run_id, _ = resolve_run_id(None, project=project, repo_root=_repo_root())
@@ -53,7 +49,7 @@ def _resolve_requested_run_id(
 
 
 def _resolve_run_dir(run_id: str) -> Path:
-    """Compatibility wrapper for run directory resolution."""
+    """Resolve a run directory through the shared run index."""
     return run_index.resolve_run_dir(run_id, repo_root_fn=_repo_root)
 
 
@@ -122,7 +118,6 @@ def cmd_run(args: argparse.Namespace) -> None:
         )
         raise SystemExit(2)
 
-    use_v8 = getattr(args, "use_v8", True)
     repo_root = _repo_root()
     run_id: str | None = None
     requested_run_id = (
@@ -134,48 +129,25 @@ def cmd_run(args: argparse.Namespace) -> None:
         _validate_budget_args(args)
         get_progress_reporter().report_info(f"run_id={requested_run_id}")
 
-        if use_v8:
-            # V8 引擎路径
-            config = load_config(config_path)
-            from sqlopt.application.workflow_v8 import V8WorkflowEngine
+        config = load_config(config_path)
+        from sqlopt.application.workflow_v9 import V9WorkflowEngine
 
-            runs_root = Path(config["project"]["root_path"]).resolve() / "runs"
-            run_dir = runs_root / requested_run_id
-            run_dir.mkdir(parents=True, exist_ok=True)
+        runs_root = Path(config["project"]["root_path"]).resolve() / "runs"
+        run_dir = runs_root / requested_run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
 
-            engine = workflow_v8.V8WorkflowEngine(config, run_id=requested_run_id)
-            to_stage = getattr(args, "to_stage", "patch")
-            result = engine.run(run_dir, to_stage=to_stage)
+        engine = V9WorkflowEngine(config, run_id=requested_run_id)
+        to_stage = getattr(args, "to_stage", "patch")
+        result = engine.run(run_dir, to_stage=to_stage)
 
-            print(
-                {
-                    "run_id": requested_run_id,
-                    "engine": "v8",
-                    "result": result,
-                    "completed": engine.state.status == "completed",
-                }
-            )
-        else:
-            # 旧版引擎路径
-            selection = {
-                "mapper_paths": list(getattr(args, "mapper_path", None) or []),
-                "sql_keys": list(getattr(args, "sql_key", None) or []),
+        print(
+            {
+                "run_id": requested_run_id,
+                "engine": "v9",
+                "result": result,
+                "completed": engine.state.status == "completed",
             }
-            run_id, initial_result = run_service.start_run(
-                config_path,
-                args.to_stage,
-                requested_run_id,
-                repo_root=repo_root,
-                selection=selection,
-            )
-            outcome = run_service.advance_run_until_complete(
-                run_id,
-                initial_result,
-                step_fn=lambda: run_service.resume_run(run_id, repo_root=repo_root),
-                max_steps=int(args.max_steps),
-                max_seconds=int(args.max_seconds),
-            )
-            print(run_service.build_progress_payload(run_id, outcome))
+        )
     except ValueError as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
         fallback_run_id = run_id or requested_run_id or "<pending>"
@@ -222,43 +194,25 @@ def cmd_resume(args: argparse.Namespace) -> None:
         )
         get_progress_reporter().report_info(f"run_id={resolved_run_id}")
 
-        use_v8 = getattr(args, "use_v8", True)
-        if use_v8:
-            # V8 引擎路径
-            run_dir = run_index.resolve_run_dir(
-                resolved_run_id, repo_root_fn=_repo_root
-            )
-            paths = canonical_paths(run_dir)
-            config = load_config(paths.config_resolved_path)
+        run_dir = run_index.resolve_run_dir(
+            resolved_run_id, repo_root_fn=_repo_root
+        )
+        paths = canonical_paths(run_dir)
+        config = load_config(paths.config_resolved_path)
 
-            engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
-            engine.load_state_from_repo()
-            to_stage = getattr(args, "to_stage", "patch")
-            result = engine.resume(run_dir, to_stage=to_stage)
+        engine = workflow_v9.V9WorkflowEngine(config, run_id=resolved_run_id)
+        engine.load_state_from_repo()
+        to_stage = getattr(args, "to_stage", "patch")
+        result = engine.resume(run_dir, to_stage=to_stage)
 
-            print(
-                {
-                    "run_id": resolved_run_id,
-                    "engine": "v8",
-                    "result": result,
-                    "completed": engine.state.status == "completed",
-                }
-            )
-        else:
-            # 旧版引擎路径
-            initial_result = run_service.resume_run(
-                resolved_run_id, repo_root=_repo_root()
-            )
-            outcome = run_service.advance_run_until_complete(
-                resolved_run_id,
-                initial_result,
-                step_fn=lambda: run_service.resume_run(
-                    resolved_run_id or "", repo_root=_repo_root()
-                ),
-                max_steps=int(args.max_steps),
-                max_seconds=int(args.max_seconds),
-            )
-            print(run_service.build_progress_payload(resolved_run_id, outcome))
+        print(
+            {
+                "run_id": resolved_run_id,
+                "engine": "v9",
+                "result": result,
+                "completed": engine.state.status == "completed",
+            }
+        )
     except ValueError as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
         print(
@@ -301,79 +255,38 @@ def cmd_status(args: argparse.Namespace) -> None:
             getattr(args, "run_id", None), getattr(args, "project", ".")
         )
         output_format = getattr(args, "format", "json")
-        use_v8 = getattr(args, "use_v8", True)
+        run_dir = run_index.resolve_run_dir(
+            resolved_run_id, repo_root_fn=_repo_root
+        )
+        paths = canonical_paths(run_dir)
+        config = load_config(paths.config_resolved_path)
 
-        if use_v8:
-            # V8 引擎路径
-            run_dir = run_index.resolve_run_dir(
-                resolved_run_id, repo_root_fn=_repo_root
+        engine = workflow_v9.V9WorkflowEngine(config, run_id=resolved_run_id)
+        engine.load_state_from_repo()
+
+        status_result = {
+            "run_id": engine.state.run_id,
+            "status": engine.state.status,
+            "current_stage": engine.state.current_stage,
+            "completed_stages": engine.state.completed_stages,
+            "stage_results": engine.state.stage_results,
+            "started_at": engine.state.started_at,
+            "updated_at": engine.state.updated_at,
+            "completed": engine.state.status == "completed",
+        }
+
+        if output_format == "summary":
+            print(f"=== Run Status Summary (V9) ===")
+            print(f"Run ID:    {engine.state.run_id}")
+            print(
+                f"Status:    {engine.state.status} {'✓' if engine.state.status == 'completed' else '...'}"
             )
-            paths = canonical_paths(run_dir)
-            config = load_config(paths.config_resolved_path)
-
-            engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
-            engine.load_state_from_repo()
-
-            status_result = {
-                "run_id": engine.state.run_id,
-                "status": engine.state.status,
-                "current_stage": engine.state.current_stage,
-                "completed_stages": engine.state.completed_stages,
-                "stage_results": engine.state.stage_results,
-                "started_at": engine.state.started_at,
-                "updated_at": engine.state.updated_at,
-                "completed": engine.state.status == "completed",
-            }
-
-            if output_format == "summary":
-                print(f"=== Run Status Summary (V8) ===")
-                print(f"Run ID:    {engine.state.run_id}")
-                print(
-                    f"Status:    {engine.state.status} {'✓' if engine.state.status == 'completed' else '...'}"
-                )
-                print(f"Current:   {engine.state.current_stage or 'none'}")
-                print(
-                    f"Completed: {', '.join(engine.state.completed_stages) or 'none'}"
-                )
-            else:
-                print(status_result)
+            print(f"Current:   {engine.state.current_stage or 'none'}")
+            print(
+                f"Completed: {', '.join(engine.state.completed_stages) or 'none'}"
+            )
         else:
-            # 旧版引擎路径
-            status_result = run_service.get_status(
-                resolved_run_id, repo_root=_repo_root()
-            )
-
-            if output_format == "summary":
-                run_id = status_result.get("run_id", resolved_run_id or "unknown")
-                phase = status_result.get("phase", "unknown")
-                status = status_result.get("status", "unknown")
-                completed = status_result.get("completed", False)
-                total_sql = status_result.get("total_sql", 0)
-                completed_sql = status_result.get("completed_sql", 0)
-                progress_pct = status_result.get("progress_percentage", 0.0)
-
-                print(f"=== Run Status Summary ===")
-                print(f"Run ID:    {run_id}")
-                print(f"Status:    {status} {'✓' if completed else '...'}")
-                print(f"Phase:     {phase}")
-                print(
-                    f"Progress:  {completed_sql}/{total_sql} SQL ({progress_pct:.1f}%)"
-                )
-
-                # Show next action if available
-                next_action = status_result.get("next_action")
-                if next_action:
-                    print(f"Next:      {next_action}")
-
-                # Show errors if any
-                errors = status_result.get("errors", [])
-                if errors:
-                    print(f"Errors:    {len(errors)}")
-                    for err in errors[:3]:  # Show first 3 errors
-                        print(f"  - {err}")
-            else:
-                # JSON format (default)
-                print(status_result)
+            print(status_result)
     except FileNotFoundError:
         error_info = format_error_message(
             "RUN_NOT_FOUND", "run_id not found in run index"
@@ -442,7 +355,7 @@ def cmd_apply(args: argparse.Namespace) -> None:
             except Exception:
                 pass
 
-        print(run_service.apply_run(resolved_run_id, repo_root=_repo_root()))
+        print(post_process_service.apply_run(resolved_run_id, repo_root=_repo_root()))
     except FileNotFoundError:
         error_info = format_error_message(
             "RUN_NOT_FOUND", "run_id not found in run index"
@@ -571,7 +484,7 @@ def cmd_diagnose(args: argparse.Namespace) -> None:
     run_dir = runs_root / requested_run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    engine = workflow_v8.V8WorkflowEngine(config, run_id=requested_run_id)
+    engine = workflow_v9.V9WorkflowEngine(config, run_id=requested_run_id)
 
     # Run only stages 1-2: init, parse
     result = engine.run(run_dir, to_stage="parse")
@@ -608,7 +521,7 @@ def cmd_optimize(args: argparse.Namespace) -> None:
         paths = canonical_paths(run_dir)
         config = load_config(paths.config_resolved_path)
 
-        engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+        engine = workflow_v9.V9WorkflowEngine(config, run_id=resolved_run_id)
         engine.load_state_from_repo()
 
         # Run optimize stage
@@ -648,7 +561,7 @@ def cmd_optimize(args: argparse.Namespace) -> None:
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
-    """验证指定 SQL（需要 --run-id 和 --sql-key）"""
+    """返回指定 SQL 在 V9 optimize 输出中的验证结果（需要 --run-id 和 --sql-key）"""
     resolved_run_id: str | None = None
     try:
         resolved_run_id = _resolve_requested_run_id(
@@ -668,23 +581,31 @@ def cmd_validate(args: argparse.Namespace) -> None:
         paths = canonical_paths(run_dir)
         config = load_config(paths.config_resolved_path)
 
-        engine = workflow_v8.V8WorkflowEngine(config, run_id=resolved_run_id)
+        engine = workflow_v9.V9WorkflowEngine(config, run_id=resolved_run_id)
         engine.load_state_from_repo()
 
-        # Run validate stage
-        result = engine._run_validate(run_dir)
+        # In V9, validation is embedded into optimize proposals.
+        result = engine._run_optimize(run_dir)
 
-        # Filter result for the specific sql_key
-        if result.get("success") and result.get("validations_count", 0) > 0:
-            validations_path = run_dir / "validate" / "validations.json"
-            if validations_path.exists():
+        # Filter validation info for the specific sql_key from optimize proposals.
+        if result.get("success") and result.get("proposals_count", 0) > 0:
+            proposals_path = run_dir / "optimize" / "proposals.json"
+            if proposals_path.exists():
                 import json
 
-                with open(validations_path) as f:
-                    all_validations = json.load(f)
-                filtered = [v for v in all_validations if v.get("sqlKey") == sql_key]
-                result["validations"] = filtered
-                result["validations_count"] = len(filtered)
+                with open(proposals_path) as f:
+                    all_proposals = json.load(f)
+                filtered = [p for p in all_proposals if p.get("sqlKey") == sql_key]
+                result["validations"] = [
+                    {
+                        "sqlKey": proposal.get("sqlKey"),
+                        "validated": proposal.get("validated"),
+                        "validationStatus": proposal.get("validationStatus"),
+                        "validationResult": proposal.get("validationResult"),
+                    }
+                    for proposal in filtered
+                ]
+                result["validations_count"] = len(result["validations"])
 
         print(
             {
@@ -746,7 +667,7 @@ def build_parser() -> argparse.ArgumentParser:
             "示例:\n"
             "  sqlopt-cli run\n"
             "  sqlopt-cli run --config sqlopt.yml --run-id run_demo_001\n"
-            "  sqlopt-cli run --to-stage report --run-id <run-id>\n"
+            "  sqlopt-cli run --to-stage optimize --run-id <run-id>\n"
             "  sqlopt-cli run --max-steps 3 --max-seconds 60"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
@@ -772,7 +693,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--run-id",
         help="运行 ID（默认自动生成；若指定且已存在，则继续该 run）",
     )
-    # 合并 V8 和旧版阶段作为有效选项
     p_run.add_argument(
         "--to-stage",
         default="patch",
@@ -790,12 +710,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="最多运行秒数（默认：0，不限制，直到完成）",
-    )
-    p_run.add_argument(
-        "--use-v8",
-        type=lambda x: x.lower() not in ("false", "0", "no"),
-        default=True,
-        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
     p_run.set_defaults(func=cmd_run)
 
@@ -833,12 +747,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="最多运行秒数（默认：0，不限制，直到完成）",
     )
     p_resume.add_argument(
-        "--use-v8",
-        type=lambda x: x.lower() not in ("false", "0", "no"),
-        default=True,
-        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
-    )
-    p_resume.add_argument(
         "--to-stage",
         default="patch",
         choices=STAGE_ORDER,
@@ -872,12 +780,6 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["json", "summary"],
         default="json",
         help="输出格式：json（默认）或 summary（人类可读摘要）",
-    )
-    p_status.add_argument(
-        "--use-v8",
-        type=lambda x: x.lower() not in ("false", "0", "no"),
-        default=True,
-        help="使用 V8 引擎（默认：True）。设为 false 使用旧版引擎",
     )
     p_status.set_defaults(func=cmd_status)
 
