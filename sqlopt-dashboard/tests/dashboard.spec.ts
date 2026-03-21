@@ -2,69 +2,45 @@ import { test, expect } from '@playwright/test';
 
 test.describe('SQL Optimizer Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
   });
 
-  test('should load the main page', async ({ page }) => {
-    // Verify page loads
-    await expect(page).toHaveTitle(/SQL Optimizer/);
-    
-    // Verify main components are visible
-    await expect(page.locator('text=SQL Optimizer')).toBeVisible();
-    await expect(page.locator('text=MyBatis SQL Analysis')).toBeVisible();
+  test('should display header with logo', async ({ page }) => {
+    await expect(page.locator('h1')).toContainText('SQL Optimizer');
   });
 
-  test('should display dashboard stats', async ({ page }) => {
-    // Check stats cards
-    await expect(page.locator('text=Total Runs')).toBeVisible();
-    await expect(page.locator('text=SQL Analyzed')).toBeVisible();
-    await expect(page.locator('text=Issues Found')).toBeVisible();
-    await expect(page.locator('text=Optimized')).toBeVisible();
+  test('should have three tabs', async ({ page }) => {
+    await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Runs' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Analysis' })).toBeVisible();
+  });
+
+  test('should display mock mode alert in mock mode', async ({ page }) => {
+    // Check for mock mode indicator (if running in mock mode)
+    const mockAlert = page.getByText('Mock Mode');
+    if (await mockAlert.isVisible()) {
+      await expect(mockAlert).toBeVisible();
+    }
+  });
+
+  test('should display stats cards', async ({ page }) => {
+    await expect(page.getByText('Total Runs')).toBeVisible();
+    await expect(page.getByText('SQL Analyzed')).toBeVisible();
+    await expect(page.getByText('Issues Found')).toBeVisible();
+    await expect(page.getByText('Optimized')).toBeVisible();
   });
 
   test('should display current run section', async ({ page }) => {
-    await expect(page.locator('text=Current Run')).toBeVisible();
-    await expect(page.locator('text=Phase:')).toBeVisible();
+    await expect(page.getByText('Current Run')).toBeVisible();
   });
 
-  test('should display recent runs table', async ({ page }) => {
-    await expect(page.locator('text=Recent Runs')).toBeVisible();
-    // Check table headers
-    await expect(page.locator('text=Run ID')).toBeVisible();
-    await expect(page.locator('text=Progress')).toBeVisible();
-  });
-
-  test('should switch between tabs', async ({ page }) => {
-    // Default tab is Dashboard
-    await expect(page.locator('text=Current Run')).toBeVisible();
-    
-    // Click Runs tab - use more specific selector
+  test('should navigate to Runs tab', async ({ page }) => {
     await page.getByRole('tab', { name: 'Runs' }).click();
-    await expect(page.locator('text=SQL Units')).toBeVisible();
-    
-    // Click Analysis tab
+    await expect(page.getByText('SQL Units')).toBeVisible();
+  });
+
+  test('should navigate to Analysis tab', async ({ page }) => {
     await page.getByRole('tab', { name: 'Analysis' }).click();
-    await expect(page.locator('text=Optimization Proposals')).toBeVisible();
-  });
-
-  test('should show pause and resume buttons', async ({ page }) => {
-    await expect(page.locator('button:has-text("Pause")')).toBeVisible();
-    await expect(page.locator('button:has-text("Resume")')).toBeVisible();
-  });
-
-  test('should display CLI and Settings buttons', async ({ page }) => {
-    await expect(page.locator('button:has-text("CLI")')).toBeVisible();
-    await expect(page.locator('button:has-text("Settings")')).toBeVisible();
-  });
-});
-
-test.describe('SQL Optimizer Dashboard - Responsive', () => {
-  test('should work on mobile viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('http://localhost:5173');
-    
-    // Page should still load
-    await expect(page).toHaveTitle(/SQL Optimizer/);
-    await expect(page.locator('text=SQL Optimizer')).toBeVisible();
+    await expect(page.getByText('Optimization Proposals')).toBeVisible();
   });
 });

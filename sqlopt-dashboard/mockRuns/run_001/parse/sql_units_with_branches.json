@@ -1,0 +1,93 @@
+[
+  {
+    "sqlKey": "com.example.UserMapper.findById",
+    "xmlPath": "/mappers/UserMapper.xml",
+    "namespace": "com.example",
+    "statementId": "findById",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id}",
+    "parameterMappings": [],
+    "paramExample": { "id": 1 },
+    "locators": { "statementId": "findById" },
+    "riskFlags": [],
+    "dynamicFeatures": [],
+    "templateSql": "SELECT * FROM users WHERE id = #{id}",
+    "includeTrace": [],
+    "dynamicTrace": null,
+    "branches": [
+      { "id": 1, "conditions": [], "sql": "SELECT * FROM users WHERE id = #{id}", "type": "static" }
+    ],
+    "branchCount": 1,
+    "problemBranchCount": 0
+  },
+  {
+    "sqlKey": "com.example.UserMapper.searchUsers",
+    "xmlPath": "/mappers/UserMapper.xml",
+    "namespace": "com.example",
+    "statementId": "searchUsers",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE name LIKE #{name} AND status = #{status}",
+    "parameterMappings": [],
+    "paramExample": { "name": "%john%", "status": "active" },
+    "locators": { "statementId": "searchUsers" },
+    "riskFlags": ["PREFIX_WILDCARD"],
+    "dynamicFeatures": ["IF"],
+    "templateSql": "SELECT * FROM users WHERE name LIKE #{name} AND status = #{status}",
+    "includeTrace": [],
+    "dynamicTrace": null,
+    "branches": [
+      { "id": 1, "conditions": ["name != null", "status != null"], "sql": "SELECT * FROM users WHERE name LIKE #{name} AND status = #{status}", "type": "conditional" },
+      { "id": 2, "conditions": ["name != null", "status == null"], "sql": "SELECT * FROM users WHERE name LIKE #{name}", "type": "conditional" },
+      { "id": 3, "conditions": ["name == null", "status != null"], "sql": "SELECT * FROM users WHERE status = #{status}", "type": "conditional" }
+    ],
+    "branchCount": 3,
+    "problemBranchCount": 1
+  },
+  {
+    "sqlKey": "com.example.OrderMapper.findByCondition",
+    "xmlPath": "/mappers/OrderMapper.xml",
+    "namespace": "com.example",
+    "statementId": "findByCondition",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM orders WHERE created_at > #{startDate}",
+    "parameterMappings": [],
+    "paramExample": { "startDate": "2024-01-01" },
+    "locators": { "statementId": "findByCondition" },
+    "riskFlags": [],
+    "dynamicFeatures": ["WHERE"],
+    "templateSql": "SELECT * FROM orders WHERE created_at > #{startDate}",
+    "includeTrace": [],
+    "dynamicTrace": null,
+    "branches": [
+      { "id": 1, "conditions": [], "sql": "SELECT * FROM orders WHERE created_at > #{startDate}", "type": "static" }
+    ],
+    "branchCount": 1,
+    "problemBranchCount": 0
+  },
+  {
+    "sqlKey": "com.example.ProductMapper.search",
+    "xmlPath": "/mappers/ProductMapper.xml",
+    "namespace": "com.example",
+    "statementId": "search",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM products WHERE UPPER(name) LIKE #{keyword}",
+    "parameterMappings": [],
+    "paramExample": { "keyword": "% electronics %" },
+    "locators": { "statementId": "search" },
+    "riskFlags": ["FUNCTION_WRAP", "PREFIX_WILDCARD"],
+    "dynamicFeatures": ["IF"],
+    "templateSql": "SELECT * FROM products WHERE UPPER(name) LIKE #{keyword}",
+    "includeTrace": [],
+    "dynamicTrace": null,
+    "branches": [
+      { "id": 1, "conditions": ["keyword != null"], "sql": "SELECT * FROM products WHERE UPPER(name) LIKE #{keyword}", "type": "conditional" },
+      { "id": 2, "conditions": ["keyword == null"], "sql": "SELECT * FROM products", "type": "conditional" }
+    ],
+    "branchCount": 2,
+    "problemBranchCount": 2
+  }
+]

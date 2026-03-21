@@ -229,8 +229,6 @@ class E2EBaselineScanTypeTest(unittest.TestCase):
 
     def test_07_seq_scan_detection(self) -> None:
         """测试全表扫描检测"""
-        from sqlopt.adapters.branch_diagnose import diagnose_branches
-
         config = _get_config()
         sql = "SELECT * FROM users"
         branches = [{"sql": sql}]
@@ -249,8 +247,6 @@ class E2EBaselineScanTypeTest(unittest.TestCase):
 
     def test_08_index_scan_detection(self) -> None:
         """测试索引扫描检测"""
-        from sqlopt.adapters.branch_diagnose import diagnose_branches
-
         config = _get_config()
         sql = "SELECT * FROM users WHERE id = 1"
         branches = [{"sql": sql}]
@@ -305,8 +301,6 @@ class E2EBaselineBranchTest(unittest.TestCase):
 
     def test_11_multiple_branches(self) -> None:
         """测试多分支基线收集"""
-        from sqlopt.adapters.branch_diagnose import diagnose_branches
-
         config = _get_config()
         branches = [
             {"sql": "SELECT * FROM users WHERE status = 'ACTIVE'"},
@@ -322,8 +316,6 @@ class E2EBaselineBranchTest(unittest.TestCase):
 
     def test_12_problematic_pattern_detection(self) -> None:
         """测试问题模式检测"""
-        from sqlopt.adapters.branch_diagnose import diagnose_branches
-
         config = _get_config()
         # LIKE '%xxx%' 会导致全表扫描
         sql = "SELECT * FROM users WHERE name LIKE '%Alice%'"

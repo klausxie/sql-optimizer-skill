@@ -11,6 +11,7 @@ from ...run_paths import canonical_paths
 def run_patch(
     run_dir: Path,
     *,
+    config: dict[str, Any],
     validator: ContractValidator,
 ) -> dict[str, Any]:
     paths = canonical_paths(run_dir)
@@ -32,6 +33,7 @@ def run_patch(
         optimized_sql = proposal.get("optimizedSql", original_sql)
         rule_name = proposal.get("ruleName", "unknown")
 
+        patch_config = config.get("patch", {})
         patch_result = {
             "sqlKey": sql_key,
             "statementKey": sql_key,
@@ -43,8 +45,8 @@ def run_patch(
                 if optimized_sql != original_sql
                 else "no change",
             },
-            "applyMode": "manual",
-            "rollback": "restore original mapper backup",
+            "applyMode": patch_config.get("applyMode", "manual"),
+            "rollback": patch_config.get("rollback", "restore original mapper backup"),
             "applicable": optimized_sql != original_sql,
             "originalSql": original_sql,
             "optimizedSql": optimized_sql,
@@ -52,9 +54,7 @@ def run_patch(
         }
 
         if patch_result["applicable"]:
-            patch_content = (
-                f"-- SQL Optimizer patch: {sql_key}\n-- Rule: {rule_name}\n{optimized_sql}"
-            )
+            patch_content = f"-- SQL Optimizer patch: {sql_key}\n-- Rule: {rule_name}\n{optimized_sql}"
             patch_dir = paths.v9_patch_files_dir
             patch_dir.mkdir(parents=True, exist_ok=True)
             patch_file = patch_dir / f"{sql_key.replace('/', '_')}.sql"

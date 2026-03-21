@@ -1,0 +1,14 @@
+{
+  "run_id": "run_001",
+  "status": "completed",
+  "current_stage": "patch",
+  "completed_stages": ["init", "parse", "recognition", "optimize"],
+  "stage_results": {
+    "init": { "success": true, "sql_units_count": 4 },
+    "parse": { "success": true, "branch_count": 8 },
+    "recognition": { "success": true },
+    "optimize": { "success": true, "proposals_count": 3 }
+  },
+  "started_at": "2026-03-21T10:00:00Z",
+  "updated_at": "2026-03-21T10:05:00Z"
+}

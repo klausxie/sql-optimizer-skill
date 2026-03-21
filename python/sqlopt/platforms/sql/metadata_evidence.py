@@ -12,7 +12,9 @@ def _prepare_explain_sql(sql: str) -> str:
     converted = re.sub(r"\?", "NULL", converted)
     converted = re.sub(r"\$\{[^}]+\}", "NULL", converted)
     converted = re.sub(r"(?i)\bselect\s+from\b", "SELECT * FROM", converted)
-    converted = re.sub(r"(?i)\bfrom\s+([a-zA-Z0-9_.\"]+)\s+and\b", r"FROM \1 WHERE", converted)
+    converted = re.sub(
+        r"(?i)\bfrom\s+([a-zA-Z0-9_.\"]+)\s+and\b", r"FROM \1 WHERE", converted
+    )
     converted = re.sub(r"(?i)\bwhere\s+and\b", "WHERE", converted)
     converted = re.sub(r"</?[^>]+>", " ", converted)
     return converted
@@ -58,7 +60,14 @@ def _collect_metadata(config: dict[str, Any], sql: str) -> dict[str, Any]:
 
     tables = _extract_tables(sql)
     if not tables:
-        return {"enabled": True, "ok": True, "tables": [], "indexes": [], "tableStats": [], "columns": []}
+        return {
+            "enabled": True,
+            "ok": True,
+            "tables": [],
+            "indexes": [],
+            "tableStats": [],
+            "columns": [],
+        }
 
     schema = db_cfg.get("schema")
     statement_timeout_ms = int(db_cfg.get("statement_timeout_ms", 3000))
@@ -81,7 +90,10 @@ def _collect_metadata(config: dict[str, Any], sql: str) -> dict[str, Any]:
                     """,
                     (schema, tables),
                 )
-                indexes = [{"table": r[0], "index": r[1], "definition": r[2]} for r in cur.fetchall()]
+                indexes = [
+                    {"table": r[0], "index": r[1], "definition": r[2]}
+                    for r in cur.fetchall()
+                ]
 
                 cur.execute(
                     """
@@ -95,7 +107,9 @@ def _collect_metadata(config: dict[str, Any], sql: str) -> dict[str, Any]:
                     """,
                     (schema, tables),
                 )
-                table_stats = [{"table": r[0], "estimatedRows": int(r[1])} for r in cur.fetchall()]
+                table_stats = [
+                    {"table": r[0], "estimatedRows": int(r[1])} for r in cur.fetchall()
+                ]
 
                 cur.execute(
                     """
@@ -108,7 +122,12 @@ def _collect_metadata(config: dict[str, Any], sql: str) -> dict[str, Any]:
                     (schema, tables),
                 )
                 columns = [
-                    {"table": r[0], "column": r[1], "dataType": r[2], "isNullable": r[3] == "YES"}
+                    {
+                        "table": r[0],
+                        "column": r[1],
+                        "dataType": r[2],
+                        "isNullable": r[3] == "YES",
+                    }
                     for r in cur.fetchall()
                 ]
     except Exception as exc:
@@ -155,9 +174,16 @@ def _collect_explain(config: dict[str, Any], sql: str) -> dict[str, Any]:
     return {"enabled": True, "ok": True, "driver": driver, "planLines": plan_lines}
 
 
-def collect_sql_evidence(config: dict[str, Any], sql: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def collect_sql_evidence(
+    config: dict[str, Any],
+    sql: str,
+    schema_metadata: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     explain = _collect_explain(config, sql)
-    meta = _collect_metadata(config, sql)
+    if schema_metadata is not None:
+        meta = schema_metadata
+    else:
+        meta = _collect_metadata(config, sql)
 
     platform = str((config.get("db", {}) or {}).get("platform", "sql"))
     evidence: dict[str, Any] = {"dbType": platform}
@@ -186,4 +212,7 @@ def collect_sql_evidence(config: dict[str, Any], sql: str) -> tuple[dict[str, An
     plan_lines = explain.get("planLines", [])
     evidence["collectionMode"] = "DB_CONNECTED"
     evidence["planLines"] = plan_lines[:20]
-    return evidence, {"summary": plan_lines[0] if plan_lines else "empty plan", "lineCount": len(plan_lines)}
+    return evidence, {
+        "summary": plan_lines[0] if plan_lines else "empty plan",
+        "lineCount": len(plan_lines),
+    }

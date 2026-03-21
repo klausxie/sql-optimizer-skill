@@ -22,6 +22,7 @@ from sqlopt.application import (
 )
 from sqlopt.application.run_resolution import resolve_run_id
 from sqlopt.application import workflow_v9
+from sqlopt.application.v9_stages.runtime import run_stage
 from sqlopt.config import load_config
 from sqlopt.error_messages import format_error_message
 from sqlopt.errors import ConfigError, StageError
@@ -497,8 +498,10 @@ def cmd_optimize(args: argparse.Namespace) -> None:
         engine = workflow_v9.V9WorkflowEngine(config, run_id=resolved_run_id)
         engine.load_state_from_repo()
 
-        # Run optimize stage
-        result = engine._run_optimize(run_dir)
+        # Run optimize stage using public API
+        result = run_stage(
+            "optimize", run_dir, config=config, validator=engine._validator
+        )
 
         # Filter result for the specific sql_key
         if result.get("success") and result.get("proposals_count", 0) > 0:
@@ -558,7 +561,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
         engine.load_state_from_repo()
 
         # In V9, validation is embedded into optimize proposals.
-        result = engine._run_optimize(run_dir)
+        result = run_stage(
+            "optimize", run_dir, config=config, validator=engine._validator
+        )
 
         # Filter validation info for the specific sql_key from optimize proposals.
         if result.get("success") and result.get("proposals_count", 0) > 0:

@@ -1,10 +1,5 @@
 """
 SQL Optimizer Commands Module.
 
-Provides CLI command implementations for branch and baseline operations.
+Provides CLI command implementations.
 """
-
-from sqlopt.commands import branch
-from sqlopt.commands import baseline
-
-__all__ = ["branch", "baseline"]

@@ -22,8 +22,6 @@ class V9StageSpec:
         config: dict[str, Any],
         validator: ContractValidator,
     ) -> StageRunner:
-        if self.name == "patch":
-            return lambda run_dir: self.runner(run_dir, validator=validator)
         return lambda run_dir: self.runner(
             run_dir,
             config=config,

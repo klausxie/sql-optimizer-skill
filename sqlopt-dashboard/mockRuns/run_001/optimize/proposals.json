@@ -1,0 +1,55 @@
+[
+  {
+    "sqlKey": "com.example.UserMapper.searchUsers",
+    "issues": ["PREFIX_WILDCARD causes full table scan"],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE #{name}",
+        "suggestedSql": "SELECT * FROM users USE INDEX (idx_name) WHERE name LIKE #{name}",
+        "rationale": "Add covering index to avoid full table scan"
+      }
+    ],
+    "validated": true,
+    "validationStatus": "PASS",
+    "originalSql": "SELECT * FROM users WHERE name LIKE #{name}",
+    "optimizedSql": "SELECT * FROM users USE INDEX (idx_name) WHERE name LIKE #{name}",
+    "riskFlags": ["PREFIX_WILDCARD"]
+  },
+  {
+    "sqlKey": "com.example.ProductMapper.search",
+    "issues": ["FUNCTION_WRAP prevents index usage", "PREFIX_WILDCARD causes full table scan"],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "MEDIUM",
+    "suggestions": [
+      {
+        "type": "EXPRESSION_INDEX",
+        "originalSql": "SELECT * FROM products WHERE UPPER(name) LIKE #{keyword}",
+        "suggestedSql": "SELECT * FROM products WHERE name LIKE #{keyword}",
+        "rationale": "Remove UPPER function to allow index usage, or create expression index"
+      }
+    ],
+    "validated": false,
+    "validationStatus": null,
+    "originalSql": "SELECT * FROM products WHERE UPPER(name) LIKE #{keyword}",
+    "optimizedSql": null,
+    "riskFlags": ["FUNCTION_WRAP", "PREFIX_WILDCARD"]
+  },
+  {
+    "sqlKey": "com.example.OrderMapper.findByCondition",
+    "issues": [],
+    "verdict": "NO_ACTION",
+    "estimatedBenefit": null,
+    "confidence": null,
+    "suggestions": [],
+    "validated": null,
+    "validationStatus": null,
+    "originalSql": "SELECT * FROM orders WHERE created_at > #{startDate}",
+    "optimizedSql": null,
+    "riskFlags": []
+  }
+]

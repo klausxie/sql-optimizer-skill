@@ -25,10 +25,16 @@ def _max_estimated_rows(table_stats: list[dict[str, Any]] | None) -> int | None:
     return max(values)
 
 
-def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
+def _estimate_actionability(
+    sql_unit: dict[str, Any], proposal: dict[str, Any]
+) -> dict[str, Any]:
     sql = str(sql_unit.get("sql") or "")
-    dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
-    suggestions = [row for row in (proposal.get("suggestions") or []) if isinstance(row, dict)]
+    dynamic_features = [
+        str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()
+    ]
+    suggestions = [
+        row for row in (proposal.get("suggestions") or []) if isinstance(row, dict)
+    ]
     issues = [row for row in (proposal.get("issues") or []) if isinstance(row, dict)]
     verdict = str(proposal.get("verdict") or "").strip()
     db_summary = proposal.get("dbEvidenceSummary", {}) or {}
@@ -41,7 +47,9 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     blocked_trigger_rules = [
         str(row.get("ruleId") or "").strip()
         for row in (proposal.get("triggeredRules") or [])
-        if isinstance(row, dict) and bool(row.get("blocksActionability")) and str(row.get("ruleId") or "").strip()
+        if isinstance(row, dict)
+        and bool(row.get("blocksActionability"))
+        and str(row.get("ruleId") or "").strip()
     ]
 
     if "${" in sql:
@@ -57,7 +65,9 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
             "score": 0,
             "tier": "BLOCKED",
             "autoPatchLikelihood": "LOW",
-            "reasons": ["custom diagnostics rule blocks automatic optimization rollout"],
+            "reasons": [
+                "custom diagnostics rule blocks automatic optimization rollout"
+            ],
             "blockedBy": blocked_trigger_rules,
         }
 
@@ -80,13 +90,21 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     if not dynamic_features:
         score += 10
         reasons.append("static statement is easier to patch automatically")
-    if max_estimated_rows is not None and issue_codes and issue_codes.issubset(_ROW_SENSITIVE_RULES):
+    if (
+        max_estimated_rows is not None
+        and issue_codes
+        and issue_codes.issubset(_ROW_SENSITIVE_RULES)
+    ):
         if max_estimated_rows < 1000:
             score -= 35
-            reasons.append("small-table row count reduces the payoff of generic scan warnings")
+            reasons.append(
+                "small-table row count reduces the payoff of generic scan warnings"
+            )
         elif max_estimated_rows < 10000:
             score -= 15
-            reasons.append("estimated row count suggests this is a medium-priority performance cleanup")
+            reasons.append(
+                "estimated row count suggests this is a medium-priority performance cleanup"
+            )
 
     score = max(0, min(score, 100))
     if score == 0:
@@ -211,8 +229,14 @@ def build_optimize_prompt(
         "rewriteConstraints": {
             "forbidMultiStatement": True,
             "preserveParameterSemantics": True,
-            "dynamicTemplateRequiresTemplateAwarePatch": bool(sql_unit.get("dynamicFeatures")),
-            "mustProduceCandidateTypes": ["SECURITY_FIX", "PLAN_IMPROVE", "CONSERVATIVE_NOOP_PLUS"],
+            "dynamicTemplateRequiresTemplateAwarePatch": bool(
+                sql_unit.get("dynamicFeatures")
+            ),
+            "mustProduceCandidateTypes": [
+                "SECURITY_FIX",
+                "PLAN_IMPROVE",
+                "CONSERVATIVE_NOOP_PLUS",
+            ],
         },
     }
 
@@ -232,8 +256,14 @@ def build_optimize_prompt(
     return prompt
 
 
-def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
-    db_evidence, plan_summary = collect_sql_evidence(config, sql_unit["sql"])
+def generate_proposal(
+    sql_unit: dict[str, Any],
+    config: dict[str, Any],
+    schema_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    db_evidence, plan_summary = collect_sql_evidence(
+        config, sql_unit["sql"], schema_metadata
+    )
     rule_result = evaluate_rules(
         {
             **sql_unit,
@@ -245,7 +275,9 @@ def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[
         "sqlKey": sql_unit["sqlKey"],
         "issues": rule_result["issues"],
         "dbEvidenceSummary": db_evidence,
-        "planSummary": plan_summary if plan_summary else {"risk": "low" if rule_result["suggestions"] else "none"},
+        "planSummary": plan_summary
+        if plan_summary
+        else {"risk": "low" if rule_result["suggestions"] else "none"},
         "suggestions": rule_result["suggestions"],
         "verdict": rule_result["verdict"],
         "confidence": "medium",

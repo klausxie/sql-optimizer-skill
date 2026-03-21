@@ -193,6 +193,18 @@ class RunPaths:
         return self.init_dir / "sql_units.json"
 
     @property
+    def init_db_connectivity_path(self) -> Path:
+        path = self.init_dir / "db_connectivity.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def init_schema_metadata_path(self) -> Path:
+        path = self.init_dir / "schema_metadata.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
     def parse_dir(self) -> Path:
         return self.run_dir / "parse"
 

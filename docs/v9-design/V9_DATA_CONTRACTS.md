@@ -38,7 +38,9 @@ runs/<run_id>/
 │   └── results/                    # 各阶段结果
 │
 ├── init/                           # [阶段1] 初始化
-│   └── sql_units.json              # SQL单元列表
+│   ├── sql_units.json              # SQL单元列表 (含 paramExample)
+│   ├── schema_metadata.json        # ⚠️ 设计目标: DB元数据缓存
+│   └── db_connectivity.json       # ⚠️ 设计目标: DB连接状态
 │
 ├── parse/                          # [阶段2] 解析(分支+风险)
 │   ├── sql_units_with_branches.json # 带分支的SQL单元
@@ -54,6 +56,8 @@ runs/<run_id>/
     └── patches.json                # 最终补丁
 ```
 
+> **注**：`schema_metadata.json` 和 `db_connectivity.json` 是设计目标，当前实现未生成。
+
 ---
 
 ## 四、数据契约详解
@@ -62,7 +66,14 @@ runs/<run_id>/
 
 **来源**：Init 阶段解析 MyBatis XML 生成
 
-**Schema**：
+**⚠️ 当前实现 vs 设计目标**：
+
+| 字段 | 设计目标 | 当前实现 |
+|------|---------|---------|
+| `paramExample` | 基于列类型生成参数示例 | ⚠️ 始终为空 `{}` |
+| `parameterMappings` | 完整的参数映射 | ⚠️ 始终为空 `[]` |
+
+**设计目标 Schema**：
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -85,7 +96,20 @@ runs/<run_id>/
     "templateSql": {"type": "string"},
     "parameterMappings": {
       "type": "array",
-      "items": {"type": "object"}
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "dataType": {"type": "string"},
+          "isNullable": {"type": "boolean"}
+        }
+      }
+    },
+    "paramExample": {
+      "type": "object",
+      "description": "⚠️ 设计目标: 基于列类型生成的参数示例",
+      "additionalProperties": true
     },
     "dynamicTags": {
       "type": "array",
@@ -100,7 +124,7 @@ runs/<run_id>/
 }
 ```
 
-**示例**：
+**设计目标示例**：
 ```json
 {
   "sqlKey": "com.example.UserMapper.selectByExample",
@@ -110,9 +134,58 @@ runs/<run_id>/
   "xmlPath": "/path/to/UserMapper.xml",
   "sql": "SELECT * FROM users WHERE status = #{status}",
   "templateSql": "SELECT * FROM users WHERE status = #{status}",
-  "parameterMappings": [{"name": "status", "type": "INTEGER"}],
+  "parameterMappings": [
+    {"name": "status", "type": "INTEGER", "dataType": "int4", "isNullable": true}
+  ],
+  "paramExample": {"status": 1},
   "dynamicTags": ["#{status}"],
   "riskFlags": []
+}
+```
+
+**当前实际输出**（⚠️）：
+```json
+{
+  "sqlKey": "com.example.UserMapper.selectByExample",
+  "parameterMappings": [],
+  "paramExample": {},
+  ...
+}
+```
+
+---
+
+### 4.1.1 paramExample 生成规则
+
+**来源**：Init 阶段 ParameterBinder 生成
+
+**目的**：为 EXPLAIN 执行提供真实参数值
+
+**生成规则**：
+
+| 参数名 (从 SQL 提取) | 数据库列名 (匹配后) | 列类型 | paramExample 值 |
+|---------------------|-------------------|--------|----------------|
+| `#{userName}` | `user_name` (varchar) | `example` |
+| `#{userId}` | `user_id` (bigint) | `1` |
+| `#{active}` | `is_active` (boolean) | `true` |
+| `#{createTime}` | `create_time` (timestamp) | `"2024-01-01T00:00:00"` |
+| `#{userName}` | `user_name` (varchar, nullable) | `null` |
+
+**名称匹配优先级**：
+1. 精确匹配 (区分大小写)
+2. camelCase → snake_case 转换后匹配
+3. snake_case → camelCase 转换后匹配
+4. 去重后匹配 (移除下划线/大小写差异)
+
+**示例**：
+
+```json
+// SQL: SELECT * FROM users WHERE user_name = #{userName} AND status = #{status}
+
+// paramExample 生成结果:
+{
+  "userName": "example_user",
+  "status": 1
 }
 ```
 
@@ -502,6 +575,126 @@ validator.validate("sqlunit", sqlunit_data)
 
 ---
 
+### 4.7 init: `schema_metadata.json` (设计目标)
+
+**来源**：Init 阶段收集的数据库元数据缓存
+
+**目的**：避免后续阶段（recognition/optimize）重复查询数据库
+
+**Schema**：
+```json
+{
+  "type": "object",
+  "properties": {
+    "schema": {"type": "string"},
+    "driver": {"type": "string"},
+    "tables": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "indexes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "table": {"type": "string"},
+          "index": {"type": "string"},
+          "definition": {"type": "string"}
+        }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "table": {"type": "string"},
+          "column": {"type": "string"},
+          "dataType": {"type": "string"},
+          "isNullable": {"type": "boolean"}
+        }
+      }
+    },
+    "tableStats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "table": {"type": "string"},
+          "estimatedRows": {"type": "integer"}
+        }
+      }
+    }
+  }
+}
+```
+
+**示例**：
+```json
+{
+  "schema": "public",
+  "driver": "psycopg2",
+  "tables": ["users", "orders", "products"],
+  "indexes": [
+    {"table": "users", "index": "idx_user_name", "definition": "INDEX idx_user_name (name)"},
+    {"table": "users", "index": "idx_user_status", "definition": "INDEX idx_user_status (status)"}
+  ],
+  "columns": [
+    {"table": "users", "column": "id", "dataType": "bigint", "isNullable": false},
+    {"table": "users", "column": "name", "dataType": "varchar", "isNullable": true},
+    {"table": "users", "column": "status", "dataType": "int4", "isNullable": true}
+  ],
+  "tableStats": [
+    {"table": "users", "estimatedRows": 1000000},
+    {"table": "orders", "estimatedRows": 5000000}
+  ]
+}
+```
+
+---
+
+### 4.8 init: `db_connectivity.json` (设计目标)
+
+**来源**：Init 阶段验证数据库连接
+
+**目的**：提前验证数据库可用性，避免后续阶段白跑
+
+**Schema**：
+```json
+{
+  "type": "object",
+  "properties": {
+    "ok": {"type": "boolean"},
+    "platform": {"type": "string"},
+    "schema": {"type": "string"},
+    "driver": {"type": "string"},
+    "error": {"type": "string"},
+    "reason_code": {"type": "string"}
+  }
+}
+```
+
+**示例（成功）**：
+```json
+{
+  "ok": true,
+  "platform": "postgresql",
+  "schema": "public",
+  "driver": "psycopg2"
+}
+```
+
+**示例（失败）**：
+```json
+{
+  "ok": false,
+  "error": "connection refused",
+  "reason_code": "DB_CONNECTION_FAILED"
+}
+```
+
+---
+
 ## 八、变更记录
 
 ### V9 变更 (2026-03-20)
@@ -520,6 +713,23 @@ validator.validate("sqlunit", sqlunit_data)
    - `optimization_proposal` 新增 `validated`, `iterations`, `confidence` 字段
    - 合并 branches 和 risks 到 `parse/` 阶段
 
+### V9 现状分析 (2026-03-21)
+
+**当前实现 vs 设计目标差距**：
+
+| 阶段 | 设计目标 | 当前实现 | 状态 |
+|------|---------|---------|------|
+| Init | 统一收集 DB 元数据、参数示例、连接验证 | 仅 XML 扫描，paramExample 始终为空 | ⚠️ 部分实现 |
+| Parse | 分支推断 + 风险检测 | 简化版分支推断 | ✅ 基本完成 |
+| Recognition | 使用缓存元数据执行 EXPLAIN | 每次单独连库查询 | ⚠️ 需优化 |
+| Optimize | 使用缓存元数据生成优化建议 | 重复查询 DB 元数据 | ⚠️ 需优化 |
+| Patch | 生成可应用 XML 补丁 | 功能完整 | ✅ 完成 |
+
+**待实现功能**：
+- Init 阶段：`schema_metadata.json`, `db_connectivity.json`, `paramExample` 生成
+- Recognition 阶段：使用缓存的 schema_metadata.json
+- Optimize 阶段：使用缓存的 schema_metadata.json
+
 ---
 
-*本文档最后更新：2026-03-20*
+*本文档最后更新：2026-03-21*

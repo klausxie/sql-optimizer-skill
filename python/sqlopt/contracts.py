@@ -40,11 +40,20 @@ class StageBoundary:
 STAGE_BOUNDARIES: dict[str, StageBoundary] = {
     "init": StageBoundary(output_schemas=("sqlunit",)),
     # Parse materializes two artifacts: branched sqlunits and risk reports.
-    "parse": StageBoundary(input_schemas=("sqlunit",), output_schemas=("sqlunit", "risks")),
-    "recognition": StageBoundary(input_schemas=("sqlunit",), output_schemas=("baseline_result",)),
+    "parse": StageBoundary(
+        input_schemas=("sqlunit",), output_schemas=("sqlunit", "risks")
+    ),
+    "recognition": StageBoundary(
+        input_schemas=("sqlunit",), output_schemas=("baseline_result",)
+    ),
     # Optimize owns candidate generation + validation in V9, so patch only consumes optimize output.
-    "optimize": StageBoundary(input_schemas=("baseline_result",), output_schemas=("optimization_proposal",)),
-    "patch": StageBoundary(input_schemas=("optimization_proposal",), output_schemas=("patch_result",)),
+    "optimize": StageBoundary(
+        input_schemas=("baseline_result", "sqlunit"),
+        output_schemas=("optimization_proposal",),
+    ),
+    "patch": StageBoundary(
+        input_schemas=("optimization_proposal",), output_schemas=("patch_result",)
+    ),
 }
 
 STAGE_NAMES = frozenset(STAGE_BOUNDARIES.keys())
@@ -90,7 +99,9 @@ class ContractValidator:
         if io_type not in ("input", "output"):
             raise ContractError(f"io_type must be 'input' or 'output', got: {io_type}")
         boundary = STAGE_BOUNDARIES[stage_name]
-        schema_names = boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        schema_names = (
+            boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        )
         if not schema_names:
             return None
         if len(schema_names) == 1:
@@ -109,7 +120,9 @@ class ContractValidator:
                 f"unknown stage: {stage_name}; valid stages: {sorted(STAGE_NAMES)}"
             )
         boundary = STAGE_BOUNDARIES[stage_name]
-        schema_names = boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        schema_names = (
+            boundary.input_schemas if io_type == "input" else boundary.output_schemas
+        )
         if not schema_names:
             return
         errors: list[str] = []
@@ -130,7 +143,9 @@ class ContractValidator:
             f"stage '{stage_name}' {io_type} validation failed against allowed schemas [{allowed}]: {detail}"
         )
 
-    def _validate_against_schema(self, schema: dict[str, Any], payload: Any, *, label: str) -> None:
+    def _validate_against_schema(
+        self, schema: dict[str, Any], payload: Any, *, label: str
+    ) -> None:
         if jsonschema is not None:
             try:
                 jsonschema.validate(instance=payload, schema=schema)

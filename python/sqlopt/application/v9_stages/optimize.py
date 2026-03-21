@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from ...contracts import ContractValidator
+from ...platforms.sql.optimizer_sql import generate_proposal
+from ...platforms.sql.validator_sql import validate_proposal
+from ...run_paths import canonical_paths
 from .common import merge_validation_into_proposal
 
 
@@ -14,10 +17,6 @@ def run_optimize(
     config: dict[str, Any],
     validator: ContractValidator,
 ) -> dict[str, Any]:
-    from ...platforms.sql.optimizer_sql import generate_proposal
-    from ...platforms.sql.validator_sql import validate_proposal
-    from ...run_paths import canonical_paths
-
     paths = canonical_paths(run_dir)
     baselines_path = paths.recognition_results_path
     if not baselines_path.exists():
@@ -38,6 +37,16 @@ def run_optimize(
     sql_units_map = {unit.get("sqlKey", ""): unit for unit in sql_units_data}
     db_reachable = bool(((config.get("db", {}) or {}).get("dsn")))
 
+    # Load cached schema_metadata from init stage (reuse to avoid redundant DB queries)
+    schema_metadata = None
+    schema_meta_path = paths.init_schema_metadata_path
+    if schema_meta_path.exists():
+        try:
+            with open(schema_meta_path) as f:
+                schema_metadata = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
     proposals = []
     for baseline in baselines:
         sql_key = baseline.get("sql_key") or baseline.get("sqlKey", "")
@@ -47,7 +56,7 @@ def run_optimize(
             continue
 
         try:
-            proposal = generate_proposal(sql_unit, config)
+            proposal = generate_proposal(sql_unit, config, schema_metadata)
             acceptance_result = validate_proposal(
                 sql_unit,
                 proposal,

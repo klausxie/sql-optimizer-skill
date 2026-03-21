@@ -314,23 +314,63 @@ def run_init(
     config: dict[str, Any],
     validator: ContractValidator,
 ) -> dict[str, Any]:
-    """V9 Init stage: scan MyBatis XML mappers and extract SQL units."""
+    """V9 Init stage: scan MyBatis XML mappers and extract SQL units.
+
+    Enhanced workflow:
+    1. Check DB connectivity → write db_connectivity.json
+    2. Scan XML mappers (existing)
+    3. Collect schema metadata → write schema_metadata.json
+    4. Generate paramExamples for each SQL unit
+    5. Write enhanced sql_units.json
+    """
+    from ...platforms.sql.db_connectivity import check_db_connectivity
+    from ...platforms.sql.schema_metadata import collect_schema_metadata
+    from .param_example import generate_param_examples
+
+    paths = canonical_paths(run_dir)
+
+    # 1. DB Connectivity Check
+    db_result = check_db_connectivity(config)
+    db_connectivity_path = paths.init_db_connectivity_path
+    db_connectivity_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(db_connectivity_path, "w") as f:
+        json.dump(db_result, f, indent=2, ensure_ascii=False)
+
+    # 2. SQL Scanning (existing logic)
     scanner = Scanner(config)
     root_path = config.get("project", {}).get("root_path", ".")
-
     result = scanner.scan(root_path)
     sql_units = [normalize_sqlunit(unit) for unit in result.sql_units]
+
+    # 3. Schema Metadata Collection (if DB available)
+    schema_metadata = {"tables": [], "columns": [], "indexes": [], "tableStats": []}
+    if db_result.get("ok"):
+        schema_metadata = collect_schema_metadata(config, sql_units)
+
+    schema_metadata_path = paths.init_schema_metadata_path
+    with open(schema_metadata_path, "w") as f:
+        json.dump(schema_metadata, f, indent=2, ensure_ascii=False)
+
+    # 4. Generate ParamExamples (requires DB connectivity)
+    if db_result.get("ok"):
+        sql_units = generate_param_examples(sql_units, schema_metadata)
+
+    # 5. Validation & Output
     for unit in sql_units:
         validator.validate_stage_output("init", unit)
 
-    output_path = canonical_paths(run_dir).init_sql_units_path
+    output_path = paths.init_sql_units_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
     with open(output_path, "w") as f:
         json.dump(sql_units, f, indent=2, ensure_ascii=False)
 
     return {
         "success": True,
-        "output_file": str(output_path),
+        "output_files": [
+            str(db_connectivity_path),
+            str(schema_metadata_path),
+            str(output_path),
+        ],
         "sql_units_count": len(sql_units),
+        "db_connectivity_ok": db_result.get("ok", False),
     }
