@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: mybatis-test
+  datasource:
+    url: jdbc:mysql://localhost:3306/sqlopt_test?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+  sql:
+      init:
+        mode: never
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.test.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    cache-enabled: false
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.test: DEBUG
+    org.mybatis: DEBUG
