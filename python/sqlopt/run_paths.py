@@ -123,57 +123,6 @@ class RunPaths:
     def verification_summary_path(self) -> Path:
         return self.verification_dir / "summary.json"
 
-    # Legacy stage registry artifacts (JSONL), colocated with V9 stage dirs
-
-    @property
-    def scan_units_path(self) -> Path:
-        """Same file as V9 init output (JSON array)."""
-        return self.init_sql_units_path
-
-    @property
-    def branching_dir(self) -> Path:
-        return self.parse_dir
-
-    @property
-    def branches_path(self) -> Path:
-        return self.parse_dir / "branch.results.jsonl"
-
-    @property
-    def pruning_dir(self) -> Path:
-        return self.parse_dir
-
-    @property
-    def pruning_risks_path(self) -> Path:
-        return self.parse_dir / "pruning.risks.jsonl"
-
-    @property
-    def baseline_dir(self) -> Path:
-        return self.recognition_dir
-
-    @property
-    def baseline_results_path(self) -> Path:
-        return self.recognition_dir / "baseline.results.jsonl"
-
-    @property
-    def optimize_dir(self) -> Path:
-        return self.v9_optimize_dir
-
-    @property
-    def proposals_path(self) -> Path:
-        return self.v9_optimize_dir / "optimization.proposals.jsonl"
-
-    @property
-    def validate_dir(self) -> Path:
-        return self.v9_optimize_dir / "validation"
-
-    @property
-    def acceptance_path(self) -> Path:
-        return self.validate_dir / "acceptance.results.jsonl"
-
-    @property
-    def apply_dir(self) -> Path:
-        return self.v9_patch_dir
-
     @property
     def patches_path(self) -> Path:
         return self.v9_patch_dir / "legacy.patch.results.jsonl"
@@ -183,15 +132,13 @@ class RunPaths:
         return self.v9_patch_dir / "legacy_mapper_patches"
 
     def load_sql_units_map(self) -> dict[str, dict[str, Any]]:
-        """Load sqlKey → unit from parse output, branch JSONL, or init JSON (in order)."""
+        """Load sqlKey → unit from parse output or init JSON (V9 only)."""
         rows: list[dict[str, Any]] = []
         parse_path = self.parse_sql_units_with_branches_path
         if parse_path.exists():
             raw = json.loads(parse_path.read_text(encoding="utf-8"))
             if isinstance(raw, list):
                 rows = [x for x in raw if isinstance(x, dict)]
-        elif self.branches_path.exists():
-            rows = [x for x in read_jsonl(self.branches_path) if isinstance(x, dict)]
         elif self.init_sql_units_path.exists():
             raw = json.loads(self.init_sql_units_path.read_text(encoding="utf-8"))
             if isinstance(raw, list):
