@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..stages.patch import apply as apply_stage
+from ..contracts import ContractValidator
 from . import run_index
+from .v9_stages.patch import run_patch
 
 
 def apply_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
-    """Apply generated patch artifacts as a post-processing action outside the V9 workflow."""
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
-    state = apply_stage.apply_from_config(run_dir)
+    validator = ContractValidator(repo_root)
+    state = run_patch(run_dir, validator=validator)
     return {"run_id": run_id, "apply": state}

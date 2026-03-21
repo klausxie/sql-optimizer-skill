@@ -14,7 +14,12 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass  # Fallback to default if reconfigure not available
 
-from sqlopt.application import config_service, post_process_service, run_index, run_service
+from sqlopt.application import (
+    config_service,
+    post_process_service,
+    run_index,
+    run_service,
+)
 from sqlopt.application.run_resolution import resolve_run_id
 from sqlopt.application import workflow_v9
 from sqlopt.config import load_config
@@ -24,6 +29,7 @@ from sqlopt.progress import get_progress_reporter, init_progress_reporter
 from sqlopt.run_paths import canonical_paths
 from sqlopt.v9_pipeline import STAGE_ORDER
 from sqlopt.verification import read_verification_ledger, summarize_records
+
 
 def _get_stage_order() -> list[str]:
     """返回 canonical V9 阶段顺序。"""
@@ -194,9 +200,7 @@ def cmd_resume(args: argparse.Namespace) -> None:
         )
         get_progress_reporter().report_info(f"run_id={resolved_run_id}")
 
-        run_dir = run_index.resolve_run_dir(
-            resolved_run_id, repo_root_fn=_repo_root
-        )
+        run_dir = run_index.resolve_run_dir(resolved_run_id, repo_root_fn=_repo_root)
         paths = canonical_paths(run_dir)
         config = load_config(paths.config_resolved_path)
 
@@ -255,9 +259,7 @@ def cmd_status(args: argparse.Namespace) -> None:
             getattr(args, "run_id", None), getattr(args, "project", ".")
         )
         output_format = getattr(args, "format", "json")
-        run_dir = run_index.resolve_run_dir(
-            resolved_run_id, repo_root_fn=_repo_root
-        )
+        run_dir = run_index.resolve_run_dir(resolved_run_id, repo_root_fn=_repo_root)
         paths = canonical_paths(run_dir)
         config = load_config(paths.config_resolved_path)
 
@@ -282,9 +284,7 @@ def cmd_status(args: argparse.Namespace) -> None:
                 f"Status:    {engine.state.status} {'✓' if engine.state.status == 'completed' else '...'}"
             )
             print(f"Current:   {engine.state.current_stage or 'none'}")
-            print(
-                f"Completed: {', '.join(engine.state.completed_stages) or 'none'}"
-            )
+            print(f"Completed: {', '.join(engine.state.completed_stages) or 'none'}")
         else:
             print(status_result)
     except FileNotFoundError:
@@ -327,33 +327,6 @@ def cmd_apply(args: argparse.Namespace) -> None:
         resolved_run_id = _resolve_requested_run_id(
             getattr(args, "run_id", None), getattr(args, "project", ".")
         )
-
-        if not getattr(args, "force", False):
-            run_dir = run_index.resolve_run_dir(
-                resolved_run_id, repo_root_fn=_repo_root
-            )
-            from sqlopt.stages.patch.apply import _resolved_config
-
-            try:
-                cfg = _resolved_config(run_dir)
-                apply_cfg = (
-                    (cfg.get("apply", {}) or {}) if isinstance(cfg, dict) else {}
-                )
-                mode = str(apply_cfg.get("mode", "PATCH_ONLY")).strip().upper()
-
-                if mode == "APPLY_IN_PLACE":
-                    from sqlopt.stages.patch.apply import _collect_patch_files
-
-                    patch_files = _collect_patch_files(run_dir)
-                    if patch_files:
-                        print(f"\n警告: 即将修改 {len(patch_files)} 个文件!")
-                        print("将使用 git apply 命令应用补丁。")
-                        response = input("\n确认应用补丁? (y/N): ")
-                        if response.lower() not in ("y", "yes"):
-                            print("已取消操作。")
-                            return
-            except Exception:
-                pass
 
         print(post_process_service.apply_run(resolved_run_id, repo_root=_repo_root()))
     except FileNotFoundError:
