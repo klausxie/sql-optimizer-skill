@@ -1,8 +1,20 @@
 """
-Branching Stage - Branch Generation
+Branching Stage - Branch Generation (DEPRECATED)
 
 Generates executable SQL branches from MyBatis dynamic SQL.
+
+.. deprecated::
+    Use `BranchGenerator` from `sqlopt.scripting.branch_generator` instead.
+    This module is retained for CLI compatibility only.
 """
+
+import warnings
+
+warnings.warn(
+    "Brancher is deprecated. Use BranchGenerator from sqlopt.scripting.branch_generator instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from dataclasses import dataclass, field
 from typing import Optional

@@ -773,7 +773,7 @@ class TestStageMethods:
         mock_result.errors = []
         mock_result.warnings = []
 
-        with patch("sqlopt.stages.discovery.Scanner") as mock_scanner_class:
+        with patch("sqlopt.application.v9_stages.init.Scanner") as mock_scanner_class:
             mock_scanner_instance = Mock()
             mock_scanner_instance.scan.return_value = mock_result
             mock_scanner_class.return_value = mock_scanner_instance

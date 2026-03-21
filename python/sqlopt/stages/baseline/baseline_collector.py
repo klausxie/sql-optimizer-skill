@@ -1,5 +1,5 @@
 """
-V8 Baseline Stage - Performance Data Collection
+V8 Baseline Stage - Performance Data Collection (DEPRECATED)
 
 Collects SQL execution performance metrics through EXPLAIN and actual execution.
 Zero coupling with legacy code.
@@ -7,7 +7,19 @@ Zero coupling with legacy code.
 Supports:
 - PostgreSQL: EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON)
 - MySQL: EXPLAIN FORMAT=JSON, EXPLAIN ANALYZE (8.0.18+)
+
+.. deprecated::
+    V9 stages use `collect_baseline_v9` from `sqlopt.application.v9_stages.recognition`.
+    This module is retained for CLI compatibility only.
 """
+
+import warnings
+
+warnings.warn(
+    "baseline_collector is deprecated for V9. V9 stages use inline baseline collection.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from dataclasses import dataclass, field
 from pathlib import Path

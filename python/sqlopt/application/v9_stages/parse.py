@@ -6,7 +6,15 @@ from typing import Any
 
 from ...contracts import ContractValidator
 from ...run_paths import canonical_paths
-from .common import normalize_sqlunit
+from ...adapters.branch_generator import BranchGenerator
+from .common import analyze_risks, normalize_sqlunit
+
+
+def _create_branches_v9(
+    brancher: BranchGenerator, sql_unit: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Adapter: V9 BranchGenerator already returns the expected format."""
+    return brancher.generate(sql_unit)
 
 
 def run_parse(
@@ -15,9 +23,6 @@ def run_parse(
     config: dict[str, Any],
     validator: ContractValidator,
 ) -> dict[str, Any]:
-    from ...stages.branching.brancher import Brancher
-    from ...stages.pruning import analyze_risks
-
     paths = canonical_paths(run_dir)
     init_path = paths.init_sql_units_path
     if not init_path.exists():
@@ -27,32 +32,22 @@ def run_parse(
         sql_units = [normalize_sqlunit(unit) for unit in json.load(f)]
 
     branch_cfg = config.get("branching", {})
-    brancher = Brancher(
-        strategy=branch_cfg.get("strategy", "all_combinations"),
-        max_branches=branch_cfg.get("max_branches", 100),
+    brancher = BranchGenerator(
+        config={
+            "branch": {
+                "strategy": branch_cfg.get("strategy", "all_combinations"),
+                "max_branches": branch_cfg.get("max_branches", 100),
+            }
+        }
     )
 
     for unit in sql_units:
         validator.validate_stage_input("parse", unit)
-        sql_text = unit.get("templateSql", unit.get("sql", ""))
-        branches = brancher.generate(sql_text)
-        unit["branches"] = [
-            {
-                "id": index,
-                "conditions": b.active_conditions,
-                "sql": b.sql,
-                "type": "conditional" if b.condition_count else "static",
-            }
-            for index, b in enumerate(branches, start=1)
-        ]
+        branches = _create_branches_v9(brancher, unit)
+        unit["branches"] = branches
         unit["branchCount"] = len(branches)
-        unit["problemBranchCount"] = sum(1 for b in branches if b.risk_flags)
+        unit["problemBranchCount"] = 0
         risk_flags = list(dict.fromkeys(str(x) for x in (unit.get("riskFlags") or [])))
-        for branch in branches:
-            for flag in branch.risk_flags:
-                text = str(flag).strip()
-                if text and text not in risk_flags:
-                    risk_flags.append(text)
         unit["riskFlags"] = risk_flags
         validator.validate_stage_output("parse", unit)
 

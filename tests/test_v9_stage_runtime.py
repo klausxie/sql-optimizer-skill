@@ -44,11 +44,13 @@ def test_build_stage_registry_exposes_canonical_v9_stage_order(tmp_path: Path) -
     assert list(registry.keys()) == STAGE_ORDER
 
 
-def test_run_stage_dispatches_individual_v9_stage_without_workflow(tmp_path: Path) -> None:
+def test_run_stage_dispatches_individual_v9_stage_without_workflow(
+    tmp_path: Path,
+) -> None:
     run_dir = tmp_path / "run_001"
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("sqlopt.stages.discovery.Scanner") as mock_scanner_class:
+    with patch("sqlopt.application.v9_stages.init.Scanner") as mock_scanner_class:
         mock_result = Mock()
         mock_result.sql_units = [{"sqlKey": "demo.user.find", "sql": "select 1"}]
         mock_scanner_class.return_value.scan.return_value = mock_result
@@ -102,7 +104,7 @@ def test_run_parse_missing_init_returns_error(tmp_path: Path) -> None:
     assert "Init" in str(result.get("error", ""))
 
 
-@patch("sqlopt.stages.baseline.collect_baseline")
+@patch("sqlopt.application.v9_stages.recognition.collect_baseline_v9")
 def test_run_recognition_fixture_writes_baselines(
     mock_collect: Mock, tmp_path: Path
 ) -> None:
@@ -111,7 +113,9 @@ def test_run_recognition_fixture_writes_baselines(
     parse_dir = run_dir / "parse"
     parse_dir.mkdir(parents=True)
     unit = dict(_MIN_SQL_UNIT)
-    unit["branches"] = [{"id": 1, "conditions": [], "sql": "SELECT 1", "type": "static"}]
+    unit["branches"] = [
+        {"id": 1, "conditions": [], "sql": "SELECT 1", "type": "static"}
+    ]
     unit["branchCount"] = 1
     unit["problemBranchCount"] = 0
     (parse_dir / "sql_units_with_branches.json").write_text(
@@ -152,7 +156,9 @@ def test_run_optimize_fixture_writes_proposals(tmp_path: Path) -> None:
     parse_dir = run_dir / "parse"
     parse_dir.mkdir(parents=True)
     unit = dict(_MIN_SQL_UNIT)
-    unit["branches"] = [{"id": 1, "conditions": [], "sql": "SELECT 1", "type": "static"}]
+    unit["branches"] = [
+        {"id": 1, "conditions": [], "sql": "SELECT 1", "type": "static"}
+    ]
     (parse_dir / "sql_units_with_branches.json").write_text(
         json.dumps([unit], ensure_ascii=False, indent=2), encoding="utf-8"
     )
