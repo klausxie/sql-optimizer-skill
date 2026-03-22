@@ -8,8 +8,13 @@
 | 2 | 列名不匹配 (user_type vs type) | MEDIUM | Open | 2026-03-22 |
 | 3 | 动态 SQL 参数展开问题 | MEDIUM | Open | 2026-03-22 |
 | 4 | Recognition 阶段执行过慢 | HIGH | Open | 2026-03-23 |
-| 5 | OpenCode Subprocess 在 Python 中挂起 | HIGH | Open | 2026-03-23 |
 | 6 | Workflow 状态管理问题 | HIGH | Open | 2026-03-23 |
+
+## Resolved Issues
+
+| # | Issue | Severity | Status | Resolved |
+|---|-------|----------|--------|---------|
+| 5 | OpenCode Subprocess 在 Python 中挂起 | HIGH | Resolved | 2026-03-23 |
 
 ---
 
@@ -195,7 +200,20 @@ proc = subprocess.run(cmd, capture_output=True, text=False, timeout=5)  # 挂起
 
 ## Resolved Issues
 
-暂无
+### Issue #5: OpenCode Subprocess 在 Python 中挂起
+
+**解决日期**: 2026-03-23
+
+**解决方案**:
+在 Windows 上，`subprocess.run()` 无法正确执行 .CMD batch 文件。添加了 `_get_opencode_cmd()` 辅助函数：
+- Windows: 返回 `[node_path, opencode_script]` 直接调用 node 执行脚本
+- Unix: 保持原样使用 `opencode` 命令
+
+**涉及文件**:
+- `python/sqlopt/llm/provider.py`
+
+**提交记录**:
+- `3e0ac87` - fix(llm): bypass Windows .CMD batch file for opencode subprocess
 
 ---
 
