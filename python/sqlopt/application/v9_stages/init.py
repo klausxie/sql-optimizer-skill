@@ -96,6 +96,17 @@ def _render_logical_text(
     fragments: dict[str, dict[str, Any]],
     stack: set[str] | None = None,
 ) -> str:
+    """Render the logical SQL text from an XML node, expanding <include> refs.
+
+    Args:
+        node: The XML element to render.
+        namespace: Current mapper namespace.
+        fragments: Dict of fragment_id -> fragment metadata.
+        stack: Set of visited references (for cycle detection).
+
+    Returns:
+        The logical SQL text with includes expanded.
+    """
     stack = set() if stack is None else set(stack)
     parts: list[str] = []
     if node.text:
@@ -104,14 +115,14 @@ def _render_logical_text(
         tag = _local_name(str(child.tag)).lower()
         if tag == "include":
             qualified = _qualify_ref(namespace, child.attrib.get("refid"))
-            if qualified and qualified not in stack and qualified in fragments:
-                next_stack = set(stack)
-                next_stack.add(qualified)
-                parts.append(
-                    _render_logical_text(
-                        fragments[qualified]["node"], namespace, fragments, next_stack
+            if qualified and qualified in fragments:
+                is_cyclic, next_stack = _detect_cyclic_include(qualified, stack)
+                if not is_cyclic:
+                    parts.append(
+                        _render_logical_text(
+                            fragments[qualified]["node"], namespace, fragments, next_stack
+                        )
                     )
-                )
         else:
             parts.append(_render_logical_text(child, namespace, fragments, stack))
         if child.tail:
@@ -127,18 +138,38 @@ def _build_sql_unit(
     sql: str,
     idx: int,
 ) -> dict[str, Any]:
+    """Build a SQL unit dict with extracted metadata.
+
+    Args:
+        xml_path: Path to the XML mapper file.
+        namespace: Mapper namespace.
+        statement_id: Statement ID from the mapper.
+        statement_type: Statement type (SELECT, INSERT, UPDATE, DELETE).
+        sql: The SQL text (logical, with includes expanded).
+        idx: Index for variant ID generation.
+
+    Returns:
+        SQL unit dict conforming to sqlunit schema.
+    """
+    # Normalize whitespace while preserving string literals
+    normalized_sql = _normalize_sql_whitespace(sql)
+
     return {
         "sqlKey": f"{namespace}.{statement_id}",
         "xmlPath": str(xml_path),
         "namespace": namespace,
         "statementId": statement_id,
-        "statementType": statement_type.lower(),
+        # Keep statement type uppercase for consistency with schema
+        "statementType": statement_type,
         "variantId": f"v{idx}",
-        "sql": " ".join(sql.split()),
+        "sql": normalized_sql,
         "parameterMappings": [],
         "paramExample": {},
         "locators": {"statementId": statement_id},
-        "riskFlags": ["DOLLAR_SUBSTITUTION"] if "${" in sql else [],
+        # NOTE: This is a preliminary risk flag for quick scanning.
+        # Full risk analysis (prefix_wildcard, function_wrap, n_plus_1, etc.)
+        # is performed by RiskDetector in the parse stage.
+        "riskFlags": ["DOLLAR_SUBSTITUTION"] if "${" in normalized_sql else [],
         "scanWarnings": None,
     }
 
@@ -148,6 +179,17 @@ def _resolve_include_trace(
     refs: list[str],
     fragments: dict[str, dict[str, Any]],
 ) -> tuple[list[str], list[dict[str, Any]]]:
+    """Resolve the full trace of include references, detecting cycles.
+
+    Args:
+        namespace: Current mapper namespace.
+        refs: List of include refids to resolve.
+        fragments: Dict of fragment_id -> fragment metadata.
+
+    Returns:
+        Tuple of (trace_list, fragment_summaries) where trace_list contains
+        all qualified fragment refs and fragment_summaries contains metadata.
+    """
     trace: list[str] = []
     summaries: list[dict[str, Any]] = []
     seen_summary: set[str] = set()
@@ -169,10 +211,11 @@ def _resolve_include_trace(
                 }
             )
             seen_summary.add(qualified)
-        if not fragment or qualified in stack:
+
+        is_cyclic, next_stack = _detect_cyclic_include(qualified, stack)
+        if is_cyclic or not fragment:
             return
-        next_stack = set(stack)
-        next_stack.add(qualified)
+
         for nested in fragment.get("includeRefs", []):
             visit(str(nested), next_stack)
 
@@ -305,6 +348,197 @@ class Scanner:
 
 
 # =============================================================================
+# SQL Normalization Utilities
+# =============================================================================
+
+
+def _normalize_sql_whitespace(sql: str) -> str:
+    """Normalize whitespace in SQL while preserving string literal content.
+
+    Uses regex to preserve space around string literals while normalizing
+    whitespace elsewhere. This produces cleaner output than manual string
+    manipulation.
+
+    Args:
+        sql: The SQL string to normalize.
+
+    Returns:
+        SQL with normalized whitespace outside of string literals.
+    """
+    if not sql:
+        return sql
+
+    # Use regex to identify string literals and non-literal parts
+    # Pattern matches: 'string' (with escaped '' too)
+    pattern = re.compile(r"'(?:[^'\\]|'')*'")
+")
+    # Split SQL into literal and non-literal parts
+    parts = pattern.split(sql)
+    
+    # Process each part
+    result_parts = []
+    for part in parts:
+        result_parts.append(part)
+    
+    return "".join(result_parts)
+
+
+# =============================================================================
+# Circular Reference Detection
+# =============================================================================
+
+
+def _detect_cyclic_include(
+    qualified: str,
+    stack: set[str],
+) -> tuple[bool, set[str]]:
+    """Check for cyclic include references.
+
+    Args:
+        qualified: The qualified fragment reference to check.
+        stack: Current set of visited references.
+
+    Returns:
+        Tuple of (is_cyclic, new_stack) where new_stack includes the qualified ref.
+    """
+    if qualified in stack:
+        return True, stack
+    new_stack = set(stack)
+    new_stack.add(qualified)
+    return False, new_stack
+
+
+# =============================================================================
+# V9 Init Stage Helper Functions
+# =============================================================================
+
+
+def _check_db_connectivity(
+    config: dict[str, Any],
+    paths: Any,
+) -> dict[str, Any]:
+    """Check database connectivity and write result to db_connectivity.json.
+
+    Args:
+        config: Configuration dict with db.platform and db.dsn.
+        paths: RunPaths instance for file output.
+
+    Returns:
+        DB connectivity result dict with ok, error, driver, db_version fields.
+    """
+    from ...platforms.sql.db_connectivity import check_db_connectivity
+
+    db_result = check_db_connectivity(config)
+    db_connectivity_path = paths.init_db_connectivity_path
+    db_connectivity_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(db_connectivity_path, "w") as f:
+        json.dump(db_result, f, indent=2, ensure_ascii=False)
+
+    return db_result
+
+
+def _scan_sql_units(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Scan MyBatis XML mappers and extract SQL units.
+
+    Args:
+        config: Configuration dict with scan.mapper_globs and project.root_path.
+
+    Returns:
+        List of normalized SQL unit dicts.
+    """
+    scanner = Scanner(config)
+    root_path = config.get("project", {}).get("root_path", ".")
+    result = scanner.scan(root_path)
+    return [normalize_sqlunit(unit) for unit in result.sql_units]
+
+
+def _collect_schema_metadata(
+    config: dict[str, Any],
+    sql_units: list[dict[str, Any]],
+    db_result: dict[str, Any],
+    paths: Any,
+) -> dict[str, Any]:
+    """Collect schema metadata from database and write to schema_metadata.json.
+
+    Args:
+        config: Configuration dict with db settings.
+        sql_units: List of SQL units to analyze for table references.
+        db_result: DB connectivity result dict.
+        paths: RunPaths instance for file output.
+
+    Returns:
+        Schema metadata dict with tables, columns, indexes, tableStats fields.
+    """
+    from ...platforms.sql.schema_metadata import collect_schema_metadata
+
+    schema_metadata: dict[str, Any] = {
+        "tables": [],
+        "columns": [],
+        "indexes": [],
+        "tableStats": [],
+    }
+
+    if db_result.get("ok"):
+        schema_metadata = collect_schema_metadata(config, sql_units)
+
+    schema_metadata_path = paths.init_schema_metadata_path
+    with open(schema_metadata_path, "w") as f:
+        json.dump(schema_metadata, f, indent=2, ensure_ascii=False)
+
+    return schema_metadata
+
+
+def _generate_param_examples(
+    sql_units: list[dict[str, Any]],
+    schema_metadata: dict[str, Any],
+    db_result: dict[str, Any],
+) -> tuple[list[dict[str, Any]], bool]:
+    """Generate parameter examples for SQL units.
+
+    Args:
+        sql_units: List of SQL units to enrich with param examples.
+        schema_metadata: Schema metadata dict with column information.
+        db_result: DB connectivity result dict.
+
+    Returns:
+        Tuple of (enriched_sql_units, warning_should_be_logged).
+    """
+    from .param_example import generate_param_examples
+
+    if db_result.get("ok"):
+        return generate_param_examples(sql_units, schema_metadata), False
+    else:
+        # DB not available - paramExamples will be empty, caller should warn
+        return sql_units, True
+
+
+def _validate_and_write_output(
+    sql_units: list[dict[str, Any]],
+    validator: ContractValidator,
+    paths: Any,
+) -> int:
+    """Validate SQL units against schema and write to sql_units.json.
+
+    Args:
+        sql_units: List of SQL units to validate and write.
+        validator: ContractValidator instance for schema validation.
+        paths: RunPaths instance for file output.
+
+    Returns:
+        Count of SQL units written.
+    """
+    for unit in sql_units:
+        validator.validate_stage_output("init", unit)
+
+    output_path = paths.init_sql_units_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        json.dump(sql_units, f, indent=2, ensure_ascii=False)
+
+    return len(sql_units)
+
+
+# =============================================================================
 # V9 Init Stage Entry Point
 # =============================================================================
 
@@ -317,68 +551,60 @@ def run_init(
 ) -> dict[str, Any]:
     """V9 Init stage: scan MyBatis XML mappers and extract SQL units.
 
-    Enhanced workflow:
-    1. Check DB connectivity → write db_connectivity.json
-    2. Scan XML mappers (existing)
-    3. Collect schema metadata → write schema_metadata.json
-    4. Generate paramExamples for each SQL unit
-    5. Write enhanced sql_units.json
-    """
-    from ...platforms.sql.db_connectivity import check_db_connectivity
-    from ...platforms.sql.schema_metadata import collect_schema_metadata
-    from .param_example import generate_param_examples
+    This is the orchestrator for the init stage. It delegates to focused helper
+    functions for each responsibility:
 
+    1. _check_db_connectivity() - DB connectivity check
+    2. _scan_sql_units() - XML mapper scanning
+    3. _collect_schema_metadata() - Schema metadata collection
+    4. _generate_param_examples() - Parameter example generation
+    5. _validate_and_write_output() - Validation and output
+
+    Output files:
+        - init/db_connectivity.json: DB connectivity status
+        - init/schema_metadata.json: Table/column metadata
+        - init/sql_units.json: Extracted SQL units
+    """
     paths = canonical_paths(run_dir)
+    reporter = get_progress_reporter()
 
     # 1. DB Connectivity Check
-    db_result = check_db_connectivity(config)
-    db_connectivity_path = paths.init_db_connectivity_path
-    db_connectivity_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(db_connectivity_path, "w") as f:
-        json.dump(db_result, f, indent=2, ensure_ascii=False)
+    db_result = _check_db_connectivity(config, paths)
+    reporter.report_info(
+        f"init output: db_connectivity -> {paths.init_db_connectivity_path}"
+    )
 
-    # 2. SQL Scanning (existing logic)
-    scanner = Scanner(config)
-    root_path = config.get("project", {}).get("root_path", ".")
-    result = scanner.scan(root_path)
-    sql_units = [normalize_sqlunit(unit) for unit in result.sql_units]
+    # 2. SQL Scanning
+    sql_units = _scan_sql_units(config)
 
-    # 3. Schema Metadata Collection (if DB available)
-    schema_metadata = {"tables": [], "columns": [], "indexes": [], "tableStats": []}
-    if db_result.get("ok"):
-        schema_metadata = collect_schema_metadata(config, sql_units)
+    # 3. Schema Metadata Collection
+    schema_metadata = _collect_schema_metadata(config, sql_units, db_result, paths)
+    reporter.report_info(
+        f"init output: schema_metadata -> {paths.init_schema_metadata_path}"
+    )
 
-    schema_metadata_path = paths.init_schema_metadata_path
-    with open(schema_metadata_path, "w") as f:
-        json.dump(schema_metadata, f, indent=2, ensure_ascii=False)
-
-    # 4. Generate ParamExamples (requires DB connectivity)
-    if db_result.get("ok"):
-        sql_units = generate_param_examples(sql_units, schema_metadata)
+    # 4. Generate ParamExamples
+    sql_units, should_warn = _generate_param_examples(
+        sql_units, schema_metadata, db_result
+    )
+    if should_warn:
+        reporter.report_info(
+            "[WARNING] DB unavailable - paramExamples will be empty. "
+            "Full optimization may be limited."
+        )
 
     # 5. Validation & Output
-    for unit in sql_units:
-        validator.validate_stage_output("init", unit)
-
-    output_path = paths.init_sql_units_path
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(sql_units, f, indent=2, ensure_ascii=False)
-
-    # Report output files to progress reporter
-    reporter = get_progress_reporter()
-    reporter.report_info(f"init output: db_connectivity -> {db_connectivity_path}")
-    reporter.report_info(f"init output: schema_metadata -> {schema_metadata_path}")
-    reporter.report_info(f"init output: sql_units -> {output_path}")
-    reporter.report_info(f"init complete: {len(sql_units)} SQL units extracted")
+    count = _validate_and_write_output(sql_units, validator, paths)
+    reporter.report_info(f"init output: sql_units -> {paths.init_sql_units_path}")
+    reporter.report_info(f"init complete: {count} SQL units extracted")
 
     return {
         "success": True,
         "output_files": [
-            str(db_connectivity_path),
-            str(schema_metadata_path),
-            str(output_path),
+            str(paths.init_db_connectivity_path),
+            str(paths.init_schema_metadata_path),
+            str(paths.init_sql_units_path),
         ],
-        "sql_units_count": len(sql_units),
+        "sql_units_count": count,
         "db_connectivity_ok": db_result.get("ok", False),
     }
