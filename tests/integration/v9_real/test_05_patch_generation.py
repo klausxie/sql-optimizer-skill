@@ -22,7 +22,7 @@ from conftest import load_patches
 class TestV9Patch:
     """Integration tests for V9 PATCH stage."""
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="function")
     def complete_pipeline_dir(
         self, temp_run_dir: Path, real_mapper_config: dict, validator
     ) -> Path:
