@@ -10,27 +10,27 @@ Usage:
 
 import sys
 from pathlib import Path
+import os
 
 block_cipher = None
 
-# Project root
-ROOT = Path(__file__).resolve().parent
+# Project root - use absolute path
+ROOT = Path("/Users/hzz/workspace/sql-optimizer-skill")
 PYTHON_DIR = ROOT / "python"
 
 a = Analysis(
-    [PYTHON_DIR / "sqlopt" / "cli" / "main.py"],
+    [str(PYTHON_DIR / "sqlopt" / "cli" / "main.py")],
     pathex=[str(PYTHON_DIR)],
     binaries=[],
     datas=[],
     hiddenimports=[
-        # Database drivers
+        # Database drivers (ONLY these)
         "psycopg2",
         "psycopg2.extensions",
         "psycopg2.extras",
         "pymysql",
         "pymysql.connections",
-        "pymysql.cursors",
-        # Core dependencies
+        # Core dependencies (ONLY these)
         "jsonschema",
         "yaml",
         "jsonpath_ng",
@@ -38,12 +38,14 @@ a = Analysis(
         "rich.console",
         "rich.table",
         "rich.progress",
+        "rich.panel",
+        "rich.measure",
+        "rich.table",
         # CLI modules
         "sqlopt.cli.main",
         "sqlopt.cli.data_cli",
         "sqlopt.cli.contracts_cli",
-        # Application modules
-        "sqlopt.application",
+        # Application modules (minimal)
         "sqlopt.application.workflow_v9",
         "sqlopt.application.v9_stages",
         "sqlopt.application.v9_stages.init",
@@ -53,14 +55,36 @@ a = Analysis(
         "sqlopt.application.v9_stages.patch",
         "sqlopt.application.v9_stages.runtime",
         "sqlopt.application.v9_stages.common",
+        "sqlopt.application.v9_stages.param_example",
         # Platform modules
         "sqlopt.platforms.sql.db_connectivity",
         "sqlopt.platforms.sql.schema_metadata",
+        "sqlopt.platforms.sql.optimizer_sql",
+        "sqlopt.platforms.sql.metadata_evidence",
         # Config
         "sqlopt.config",
         "sqlopt.configuration",
+        "sqlopt.configuration.defaults",
+        "sqlopt.configuration.validation",
+        "sqlopt.configuration.versioning",
+        "sqlopt.configuration.common",
+        "sqlopt.configuration.diagnostics",
         # Run paths
         "sqlopt.run_paths",
+        # Shared
+        "sqlopt.shared.xml_utils",
+        "sqlopt.shared",
+        # Stages
+        "sqlopt.stages",
+        # Other
+        "sqlopt.progress",
+        "sqlopt.manifest",
+        "sqlopt.utils",
+        "sqlopt.errors",
+        "sqlopt.reason_codes",
+        "sqlopt.failure_classification",
+        "sqlopt.constants",
+        "sqlopt.install_support",
     ],
     hookspath=[],
     hooksconfig={},
@@ -70,6 +94,26 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    exclude_binaries=[
+        # Exclude unnecessary packages
+        "babel",
+        "matplotlib",
+        "sphinx",
+        "numpy",
+        "pandas",
+        "PIL",
+        "tkinter",
+        "_tkinter",
+        "jedi",
+        "ipython",
+        "notebook",
+        "jupyter",
+        "sphinx",
+        "docutils",
+        "zope",
+        "pkg_resources",
+        "setuptools",
+    ],
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)

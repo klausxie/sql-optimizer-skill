@@ -59,38 +59,27 @@ def build(onefile: bool = False):
     # Check dependencies
     check_dependencies()
 
-    # Build command
-    cmd = [sys.executable, "-m", "PyInstaller"]
-
-    if onefile:
-        cmd.append("--onefile")
-        cmd.append("--name=sqlopt")
-    else:
-        cmd.append("--onedir")
-        cmd.append("--name=sqlopt")
-
-    cmd.append("sqlopt.spec")
+    # Build command - spec file contains all config
+    cmd = [sys.executable, "-m", "PyInstaller", "sqlopt.spec"]
 
     print(f"Running: {' '.join(cmd)}")
     subprocess.check_call(cmd, cwd=str(root))
 
     # Find built executable
-    if onefile:
-        exe_path = root / "dist" / "sqlopt"
-        if sys.platform == "win32":
-            exe_path = root / "dist" / "sqlopt.exe"
-    else:
-        exe_path = root / "dist" / "sqlopt"
-        if sys.platform == "win32":
-            exe_path = root / "dist" / "sqlopt" / "sqlopt.exe"
+    exe_path = root / "dist" / "sqlopt"
+    if sys.platform == "win32":
+        exe_path = root / "dist" / "sqlopt" / "sqlopt.exe"
 
     if exe_path.exists():
         print(f"\n✅ Build successful!")
         print(f"Executable: {exe_path}")
 
-        if onefile:
-            size_mb = exe_path.stat().st_size / (1024 * 1024)
-            print(f"Size: {size_mb:.2f} MB")
+        total_size = sum(
+            f.stat().st_size
+            for f in Path(root / "dist" / "sqlopt").rglob("*")
+            if f.is_file()
+        )
+        print(f"Total size: {total_size / (1024 * 1024):.2f} MB")
     else:
         print(f"\n❌ Build may have failed. Check {root / 'dist'}")
 
