@@ -243,10 +243,14 @@ def analyze_risks(sql_units: list[dict]) -> list[dict]:
         sql_units: List of SQL unit dicts with at least 'sqlKey' and 'sql' fields
 
     Returns:
-        List of risk issues as dicts
+        List of ParseRiskReport dicts matching schema:
+        [{sqlKey, risks: [{riskType, severity, message, location, branchIds}],
+          prunedBranches, recommendedForBaseline, trace}, ...]
     """
     detector = RiskDetector()
-    all_issues = []
+
+    # Group issues by sqlKey
+    issues_by_sql_key: dict[str, list[RiskIssue]] = {}
 
     for unit in sql_units:
         sql_key = unit.get("sqlKey") or unit.get("sql_key")
@@ -256,6 +260,43 @@ def analyze_risks(sql_units: list[dict]) -> list[dict]:
             continue
 
         issues = detector.analyze(sql_content, sql_key)
-        all_issues.extend(issues)
+        if issues:
+            if sql_key not in issues_by_sql_key:
+                issues_by_sql_key[sql_key] = []
+            issues_by_sql_key[sql_key].extend(issues)
 
-    return [issue.to_dict() for issue in all_issues]
+    # Convert to ParseRiskReport format
+    reports = []
+    for sql_key, issues in issues_by_sql_key.items():
+        risks_list = []
+        for issue in issues:
+            location_str = None
+            if issue.location:
+                loc = issue.location
+                if isinstance(loc, dict):
+                    line = loc.get("line", 0)
+                    col = loc.get("column", 0)
+                    location_str = f"line {line}, column {col}"
+                else:
+                    location_str = str(loc)
+
+            risks_list.append(
+                {
+                    "riskType": issue.risk_type,
+                    "severity": issue.severity,
+                    "message": issue.suggestion,
+                    "location": location_str,
+                    "branchIds": [],
+                }
+            )
+
+        reports.append(
+            {
+                "sqlKey": sql_key,
+                "risks": risks_list,
+                "prunedBranches": [],
+                "recommendedForBaseline": True,
+            }
+        )
+
+    return reports
