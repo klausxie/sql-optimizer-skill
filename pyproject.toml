@@ -6,18 +6,33 @@ build-backend = "setuptools.build_meta"
 name = "sql-optimizer"
 version = "1.0.0"
 requires-python = ">=3.9"
+description = "SQL Optimizer for MyBatis XML - Analyze, optimize and patch SQL statements"
+readme = "README.md"
+authors = [{name = "SQL Optimizer Team"}]
+license = {text = "MIT"}
+keywords = ["sql", "optimizer", "mybatis", "postgresql", "mysql"]
+
 dependencies = [
   "jsonschema>=4.0.0",
   "PyYAML>=6.0.0",
   "jsonpath-ng>=1.6.0",
-  "rich>=13.0.0"
+  "rich>=13.0.0",
+  "psycopg2-binary>=2.9.0",
+  "PyMySQL>=1.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0.0",
-  "pytest-cov>=4.0.0"
+  "pytest-cov>=4.0.0",
+  "pyinstaller>=6.0.0",
 ]
+
+[project.scripts]
+sqlopt = "sqlopt.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["python"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
