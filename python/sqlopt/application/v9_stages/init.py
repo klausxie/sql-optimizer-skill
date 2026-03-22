@@ -8,6 +8,7 @@ Self-contained V9 implementation with zero V8 coupling.
 from __future__ import annotations
 
 import json
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path

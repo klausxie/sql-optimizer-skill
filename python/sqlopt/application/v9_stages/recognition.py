@@ -440,17 +440,20 @@ def _get_connection(dsn: str):
     db_info = _parse_dsn(dsn)
     platform = db_info.get("platform", "")
 
+    # Connection timeout in seconds
+    connect_timeout = 10
+
     if platform == "postgresql":
         try:
             import psycopg  # type: ignore
 
-            return psycopg.connect(dsn), platform
+            return psycopg.connect(dsn, connect_timeout=connect_timeout), platform
         except Exception:
             pass
         try:
             import psycopg2  # type: ignore
 
-            return psycopg2.connect(dsn), platform
+            return psycopg2.connect(dsn, connect_timeout=connect_timeout), platform
         except Exception:
             pass
     elif platform == "mysql":
@@ -465,6 +468,7 @@ def _get_connection(dsn: str):
                 password=db_info["password"],
                 database=db_info["database"],
                 charset="utf8mb4",
+                connect_timeout=connect_timeout,
             ), platform
         except Exception:
             pass
@@ -477,6 +481,7 @@ def _get_connection(dsn: str):
                 user=db_info["user"],
                 password=db_info["password"],
                 database=db_info["database"],
+                connection_timeout=connect_timeout,
             ), platform
         except Exception:
             pass
@@ -760,6 +765,11 @@ class BaselineCollector:
                 index_used=plan.index_name,
             )
         except Exception as e:
+            # Rollback transaction to recover from aborted state
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             # Return a "failed" result for this SQL but don't crash the batch
             return BaselineResult(
                 sql_key=sql_key,
@@ -774,7 +784,10 @@ class BaselineCollector:
                 sample_params=params,
             )
         finally:
-            conn.close()
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def collect_batch(
         self, sql_units: list[dict], progress_reporter=None
