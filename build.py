@@ -71,7 +71,7 @@ def build(onefile: bool = False):
         exe_path = root / "dist" / "sqlopt" / "sqlopt.exe"
 
     if exe_path.exists():
-        print(f"\n✅ Build successful!")
+        print(f"\n[OK] Build successful!")
         print(f"Executable: {exe_path}")
 
         total_size = sum(
@@ -81,7 +81,7 @@ def build(onefile: bool = False):
         )
         print(f"Total size: {total_size / (1024 * 1024):.2f} MB")
     else:
-        print(f"\n❌ Build may have failed. Check {root / 'dist'}")
+        print(f"\n[FAIL] Build may have failed. Check {root / 'dist'}")
 
 
 def main():

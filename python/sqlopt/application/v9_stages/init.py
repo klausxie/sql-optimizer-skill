@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ...contracts import ContractValidator
+from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
 from ...shared.xml_utils import _local_name, _qualify_ref
 from .common import normalize_sqlunit
@@ -363,6 +364,13 @@ def run_init(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(sql_units, f, indent=2, ensure_ascii=False)
+
+    # Report output files to progress reporter
+    reporter = get_progress_reporter()
+    reporter.report_info(f"init output: db_connectivity -> {db_connectivity_path}")
+    reporter.report_info(f"init output: schema_metadata -> {schema_metadata_path}")
+    reporter.report_info(f"init output: sql_units -> {output_path}")
+    reporter.report_info(f"init complete: {len(sql_units)} SQL units extracted")
 
     return {
         "success": True,

@@ -14,6 +14,7 @@ import logging
 import sqlite3
 
 from ..contracts import ContractValidator
+from ..progress import get_progress_reporter
 from ..run_paths import canonical_paths
 from ..v9_pipeline import STAGE_ORDER, require_v9_stage
 from .status_resolver import StatusResolver, PhaseExecutionPolicy
@@ -308,6 +309,9 @@ class V9WorkflowEngine:
             self._persist_state()
 
             stage_fn = self.stages[stage_name]
+            get_progress_reporter().report_phase_start(
+                stage_name, description="starting..."
+            )
             try:
                 result = _execute_with_retry(stage_fn, run_dir)
                 results[stage_name] = result
@@ -320,6 +324,10 @@ class V9WorkflowEngine:
 
                 self.state.completed_stages.append(stage_name)
                 self._persist_state()
+                get_progress_reporter().report_phase_complete(stage_name)
+                if isinstance(result, dict) and "output_files" in result:
+                    for f in result["output_files"]:
+                        get_progress_reporter().report_info(f"  output: {f}")
 
             except Exception as e:
                 results[stage_name] = {
@@ -430,6 +438,9 @@ class V9WorkflowEngine:
             }
 
         stage_fn = self.stages[next_stage]
+        get_progress_reporter().report_phase_start(
+            next_stage, description="starting..."
+        )
         try:
             result = _execute_with_retry(stage_fn, run_dir)
             self.state.stage_results[next_stage] = result
@@ -437,6 +448,10 @@ class V9WorkflowEngine:
             if result.get("success", False):
                 self.state.completed_stages.append(next_stage)
                 self._persist_state()
+                get_progress_reporter().report_phase_complete(next_stage)
+                if isinstance(result, dict) and "output_files" in result:
+                    for f in result["output_files"]:
+                        get_progress_reporter().report_info(f"  output: {f}")
             else:
                 self.state.status = "failed"
                 self._persist_state()
@@ -499,6 +514,9 @@ class V9WorkflowEngine:
                 continue
 
             stage_fn = self.stages[stage_name]
+            get_progress_reporter().report_phase_start(
+                stage_name, description="starting..."
+            )
             try:
                 result = _execute_with_retry(stage_fn, run_dir)
                 results[stage_name] = result
@@ -506,6 +524,10 @@ class V9WorkflowEngine:
                 if result.get("success", False):
                     self.state.completed_stages.append(stage_name)
                     self.state.stage_results[stage_name] = result
+                    get_progress_reporter().report_phase_complete(stage_name)
+                    if isinstance(result, dict) and "output_files" in result:
+                        for f in result["output_files"]:
+                            get_progress_reporter().report_info(f"  output: {f}")
                 else:
                     self.state.status = "failed"
                     break

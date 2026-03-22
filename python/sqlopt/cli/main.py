@@ -282,7 +282,7 @@ def cmd_status(args: argparse.Namespace) -> None:
             print(f"=== Run Status Summary (V9) ===")
             print(f"Run ID:    {engine.state.run_id}")
             print(
-                f"Status:    {engine.state.status} {'✓' if engine.state.status == 'completed' else '...'}"
+                f"Status:    {engine.state.status} {'[OK]' if engine.state.status == 'completed' else '...'}"
             )
             print(f"Current:   {engine.state.current_stage or 'none'}")
             print(f"Completed: {', '.join(engine.state.completed_stages) or 'none'}")
@@ -638,6 +638,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="抑制进度消息（仅输出 JSON 结果）",
     )
+    p.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed progress information including output file paths",
+    )
     sub = p.add_subparsers(dest="cmd", required=True, help="可用命令")
 
     p_run = sub.add_parser(
@@ -940,7 +946,9 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    init_progress_reporter(enabled=not getattr(args, "quiet", False))
+    init_progress_reporter(
+        enabled=getattr(args, "verbose", False) or not getattr(args, "quiet", False)
+    )
     try:
         args.func(args)
     except KeyboardInterrupt:

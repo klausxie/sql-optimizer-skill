@@ -471,7 +471,7 @@ class Doctor:
         """Add a diagnostic result and print it."""
         self.results.append(result)
 
-        status = "✓" if result.passed else "✗"
+        status = "[OK]" if result.passed else "[FAIL]"
         color = "\033[92m" if result.passed else "\033[91m"
         reset = "\033[0m"
 
@@ -481,10 +481,10 @@ class Doctor:
             print(f"    {result.message}")
 
         if not result.passed and result.suggestion:
-            print(f"    💡 Suggestion: {result.suggestion}")
+            print(f"    [!] Suggestion: {result.suggestion}")
 
         if not result.passed and result.fixable and self.fix:
-            print(f"    🔧 Attempting auto-fix...")
+            print(f"    [FIX] Attempting auto-fix...")
 
         print()
 
@@ -514,14 +514,14 @@ class Doctor:
             fixable = sum(1 for r in self.results if not r.passed and r.fixable)
             if fixable > 0 and not self.fix:
                 print(
-                    f"💡 {fixable} issue(s) can be auto-fixed. Run with --fix to attempt fixes."
+                    f"[!] {fixable} issue(s) can be auto-fixed. Run with --fix to attempt fixes."
                 )
                 print()
 
         if failed == 0:
-            print("✓ All checks passed! Your environment is ready.")
+            print("[OK] All checks passed! Your environment is ready.")
         else:
-            print("✗ Some checks failed. Please address the issues above.")
+            print("[FAIL] Some checks failed. Please address the issues above.")
 
         print("=" * 70)
 
