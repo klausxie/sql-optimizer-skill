@@ -261,9 +261,7 @@ def generate_proposal(
     config: dict[str, Any],
     schema_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    db_evidence, plan_summary = collect_sql_evidence(
-        config, sql_unit["sql"], schema_metadata
-    )
+    db_evidence, plan_summary = collect_sql_evidence(config, sql_unit["sql"])
     rule_result = evaluate_rules(
         {
             **sql_unit,
