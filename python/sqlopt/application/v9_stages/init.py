@@ -120,7 +120,10 @@ def _render_logical_text(
                 if not is_cyclic:
                     parts.append(
                         _render_logical_text(
-                            fragments[qualified]["node"], namespace, fragments, next_stack
+                            fragments[qualified]["node"],
+                            namespace,
+                            fragments,
+                            next_stack,
                         )
                     )
         else:
@@ -371,15 +374,14 @@ def _normalize_sql_whitespace(sql: str) -> str:
     # Use regex to identify string literals and non-literal parts
     # Pattern matches: 'string' (with escaped '' too)
     pattern = re.compile(r"'(?:[^'\\]|'')*'")
-")
     # Split SQL into literal and non-literal parts
     parts = pattern.split(sql)
-    
+
     # Process each part
     result_parts = []
     for part in parts:
         result_parts.append(part)
-    
+
     return "".join(result_parts)
 
 

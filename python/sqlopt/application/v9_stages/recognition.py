@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ...contracts import ContractValidator
+from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
 
 
@@ -775,15 +776,24 @@ class BaselineCollector:
         finally:
             conn.close()
 
-    def collect_batch(self, sql_units: list[dict]) -> list[BaselineResult]:
+    def collect_batch(
+        self, sql_units: list[dict], progress_reporter=None
+    ) -> list[BaselineResult]:
         results = []
-        for unit in sql_units:
+        total = len(sql_units)
+        for i, unit in enumerate(sql_units):
             result = self.collect(unit)
             results.append(result)
+            if progress_reporter and (i + 1) % 10 == 0:
+                progress_reporter.report_info(
+                    f"  collected baseline {i + 1}/{total}: {unit.get('sqlKey', 'unknown')[:60]}"
+                )
         return results
 
 
-def collect_baseline_v9(config: dict, sql_units: list[dict]) -> list[dict]:
+def collect_baseline_v9(
+    config: dict, sql_units: list[dict], reporter=None
+) -> list[dict]:
     """
     V9 self-contained baseline collection.
 
@@ -793,7 +803,7 @@ def collect_baseline_v9(config: dict, sql_units: list[dict]) -> list[dict]:
     - actualExecutionTimeMs, bufferHitCount, bufferReadCount, indexUsed
     """
     collector = BaselineCollector(config)
-    results = collector.collect_batch(sql_units)
+    results = collector.collect_batch(sql_units, reporter)
     return [
         {
             "sqlKey": r.sql_key,
@@ -826,19 +836,24 @@ def run_recognition(
 ) -> dict[str, Any]:
     """V9 Recognition stage: collect performance baselines for SQL units."""
     paths = canonical_paths(run_dir)
+    reporter = get_progress_reporter()
+
     parse_path = paths.parse_sql_units_with_branches_path
     if not parse_path.exists():
         return {"success": False, "error": "Parse results not found"}
 
     with open(parse_path) as f:
         sql_units = json.load(f)
+
+    reporter.report_info(f"  loaded {len(sql_units)} SQL units from parse stage")
+
     for unit in sql_units:
         validator.validate_stage_input("recognition", unit)
 
     # Use V9 self-contained baseline collection (no V8 import)
-    raw_baselines = collect_baseline_v9(config, sql_units)
+    raw_baselines = collect_baseline_v9(config, sql_units, reporter)
     baselines = []
-    for baseline in raw_baselines:
+    for i, baseline in enumerate(raw_baselines):
         explain_plan = dict(baseline.get("explainPlan") or {})
         normalized = {
             "sql_key": baseline.get("sqlKey", "unknown"),
@@ -868,6 +883,9 @@ def run_recognition(
 
     with open(output_path, "w") as f:
         json.dump(baselines, f, indent=2, ensure_ascii=False)
+
+    reporter.report_info(f"  recognition output: {output_path}")
+    reporter.report_info(f"  collected {len(baselines)} baselines")
 
     return {
         "success": True,
