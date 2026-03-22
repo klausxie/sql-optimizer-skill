@@ -61,10 +61,19 @@ STAGE_NAMES = frozenset(STAGE_BOUNDARIES.keys())
 
 def _resolve_contract_dir(repo_root: Path) -> Path:
     """Resolve contracts directory for both repo-local and installed runtime layouts."""
+    import sys
+
     candidates = [
         repo_root / "contracts",
-        Path(__file__).resolve().parents[2] / "contracts",
     ]
+
+    # PyInstaller bundled path
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / "contracts")
+
+    # Development path relative to this file
+    candidates.append(Path(__file__).resolve().parents[2] / "contracts")
+
     for candidate in candidates:
         if candidate.exists():
             schemas_dir = candidate / "schemas"

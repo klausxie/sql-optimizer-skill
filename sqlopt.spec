@@ -14,15 +14,20 @@ import os
 
 block_cipher = None
 
-# Project root - use absolute path
-ROOT = Path("/Users/hzz/workspace/sql-optimizer-skill")
+# Project root - relative to this spec file (works on both Mac and Windows)
+ROOT = Path(SPECPATH)  # SPECPATH is PyInstaller's built-in variable pointing to spec file directory
 PYTHON_DIR = ROOT / "python"
 
 a = Analysis(
     [str(PYTHON_DIR / "sqlopt" / "cli" / "main.py")],
     pathex=[str(PYTHON_DIR)],
     binaries=[],
-    datas=[],
+    datas=[
+        # Include contracts directory for JSON schemas
+        (str(ROOT / "contracts"), "contracts"),
+        # Include templates directory for example configs
+        (str(ROOT / "templates"), "templates"),
+    ],
     hiddenimports=[
         # Database drivers (ONLY these)
         "psycopg2",

@@ -946,3 +946,7 @@ def main(argv: list[str] | None = None) -> None:
     except KeyboardInterrupt:
         print({"interrupted": True, "message": "Interrupted by user (Ctrl+C)"})
         raise SystemExit(130)
+
+
+if __name__ == "__main__":
+    main()
