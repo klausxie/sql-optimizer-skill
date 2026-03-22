@@ -190,23 +190,57 @@ def _opencode_env() -> dict[str, str]:
     return env
 
 
+def _get_opencode_cmd() -> list[str]:
+    """Get the command to run opencode CLI.
+
+    On Windows, .CMD batch files don't work well with subprocess.run()
+    without shell=True. Instead, we call node directly with the opencode script.
+    """
+    if _is_windows():
+        # On Windows, find node and the opencode script
+        node_path = shutil.which("node")
+        if not node_path:
+            raise RuntimeError("node command not found")
+        opencode_path = shutil.which("opencode")
+        if not opencode_path:
+            raise RuntimeError("opencode command not found")
+        # opencode is a .CMD file that ultimately runs: node <script> <args>
+        # We bypass the batch file and call node directly
+        opencode_script = (
+            Path(opencode_path).parent
+            / "node_modules"
+            / "opencode-ai"
+            / "bin"
+            / "opencode"
+        )
+        if not opencode_script.exists():
+            # Fallback: use the original batch file approach
+            return ["opencode"]
+        return [node_path, str(opencode_script)]
+    else:
+        # On Unix, opencode is a shell script that works directly
+        if not shutil.which("opencode"):
+            raise RuntimeError("opencode command not found")
+        return ["opencode"]
+
+
 def _run_opencode(
     sql_key: str, prompt: dict[str, Any], llm_cfg: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Run opencode CLI to generate SQL optimization candidates."""
-    if not shutil.which("opencode"):
-        raise RuntimeError("opencode command not found")
-    opencode_model = str(llm_cfg.get("opencode_model") or "").strip()
-    timeout_ms = int(llm_cfg.get("timeout_ms", 15000))
-    cmd = ["opencode", "run", "--format", "json"]
+    cmd_parts = _get_opencode_cmd()
+    # Build full command with 'run --format json' suffix
+    cmd = cmd_parts + ["run", "--format", "json"]
     opencode_workdir = str(llm_cfg.get("opencode_workdir") or "").strip()
     if opencode_workdir and not _is_windows():
         cmd.extend(["--dir", opencode_workdir])
+    opencode_model = str(llm_cfg.get("opencode_model") or "").strip()
     if opencode_model:
         cmd.extend(["-m", opencode_model])
     variant = str(llm_cfg.get("variant", "minimal")).strip()
     if variant:
         cmd.extend(["--variant", variant])
+    timeout_ms = int(llm_cfg.get("timeout_ms", 15000))
     user_prompt = _build_llm_user_prompt(prompt)
     cmd.append(user_prompt)
     proc = run_capture_text(
