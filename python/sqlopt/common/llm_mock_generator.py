@@ -698,7 +698,9 @@ Example output:
             return '{"error": "opencode command not found"}'
 
     def _parse_response(self, json_output: str, original_sql: str) -> str:
-        content = None
+        # Find the LAST text event that contains JSON with optimized_sql
+        # OpenCode returns multiple text events - we want the final one with the actual response
+        text_events: list[str] = []
         for line in json_output.strip().split("\n"):
             if not line.strip():
                 continue
@@ -707,17 +709,28 @@ Example output:
                 if data.get("type") == "text":
                     part = data.get("part", {})
                     text = part.get("text", "")
-                    # Handle code blocks with potential extra text
-                    if "```json" in text:
-                        start = text.find("```json") + 7
-                        end = text.rfind("```")
-                        if end > start:
-                            text = text[start:end]
-                    content = json.loads(text.strip())
-                    if content:
-                        break
+                    text_events.append(text)
             except json.JSONDecodeError:
                 continue
+
+        content = None
+        # Search from the end to find the event with optimized_sql
+        for text in reversed(text_events):
+            if "optimized_sql" in text:
+                # Extract JSON from code block
+                if "```json" in text:
+                    start = text.find("```json") + 7
+                    end = text.rfind("```")
+                    if end > start:
+                        text = text[start:end]
+                try:
+                    candidate = json.loads(text.strip())
+                    if isinstance(candidate, dict) and "optimized_sql" in candidate:
+                        content = candidate
+                        break
+                except json.JSONDecodeError:
+                    continue
+
         if content is None:
             return json.dumps(
                 {
