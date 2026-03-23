@@ -12,8 +12,10 @@ venv/
 
 # Build artifacts
 dist/
+build/
 
 # Local runtime data
+runs/
 .opencode-data/
 .sqlopt-run-index.json
 tests/fixtures/project/runs/
