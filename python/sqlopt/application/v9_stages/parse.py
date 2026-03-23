@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from ...contracts import ContractValidator
+from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
 from ...stages.branching import FragmentRegistry, build_fragment_registry
 from ...adapters.branch_generator import BranchGenerator
 from .common import analyze_risks, normalize_sqlunit
+from .overview import ParseOverviewGenerator
 
 
 def _build_fragment_registry(
@@ -84,6 +86,13 @@ def run_parse(
     risks_output_path = paths.parse_risks_path
     with open(risks_output_path, "w") as f:
         json.dump(all_risks, f, indent=2, ensure_ascii=False)
+
+    reporter = get_progress_reporter()
+    overview_gen = ParseOverviewGenerator("parse", run_dir / "parse")
+    overview_path = overview_gen.write(
+        {"sql_units_with_branches": sql_units, "risks": all_risks}, "parse.overview.md"
+    )
+    reporter.report_info(f"parse output: overview -> {overview_path}")
 
     return {
         "success": True,
