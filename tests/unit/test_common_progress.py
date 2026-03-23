@@ -3,7 +3,6 @@
 import json
 
 import pytest
-
 from sqlopt.common.progress import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -71,7 +70,7 @@ class TestProgressTrackerInit:
             callback_called.append((stage_name, progress))
 
         tracker = ProgressTracker(run_id="test-run", callback=callback)
-        assert tracker._callback is callback
+        assert tracker._callback is callback  # noqa: SLF001
 
 
 class TestProgressTrackerRegisterStage:

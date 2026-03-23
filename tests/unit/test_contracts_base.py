@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-
 from sqlopt.contracts.base import (
     dataclass_to_json,
     json_to_dataclass,
@@ -178,7 +177,7 @@ class TestSaveJsonFile:
             data = {"key": "value", "number": 42}
             save_json_file(data, temp_path)
 
-            with open(temp_path, encoding="utf-8") as f:
+            with Path(temp_path).open(encoding="utf-8") as f:
                 loaded = json.load(f)
             assert loaded["key"] == "value"
             assert loaded["number"] == 42
@@ -194,7 +193,7 @@ class TestSaveJsonFile:
             obj = SampleDataclass(name="test", value=99, active=True)
             save_json_file(obj, temp_path)
 
-            with open(temp_path, encoding="utf-8") as f:
+            with Path(temp_path).open(encoding="utf-8") as f:
                 loaded = json.load(f)
             assert loaded["name"] == "test"
             assert loaded["value"] == 99
@@ -211,7 +210,7 @@ class TestSaveJsonFile:
             data = {"nested": {"key": "value"}}
             save_json_file(data, temp_path)
 
-            with open(temp_path, encoding="utf-8") as f:
+            with Path(temp_path).open(encoding="utf-8") as f:
                 content = f.read()
             # Check for indentation (should have newlines/indentation)
             assert "\n" in content or "  " in content
@@ -227,7 +226,7 @@ class TestSaveJsonFile:
         try:
             save_json_file({"new": "data"}, temp_path)
 
-            with open(temp_path, encoding="utf-8") as f:
+            with Path(temp_path).open(encoding="utf-8") as f:
                 loaded = json.load(f)
             assert "old" not in loaded
             assert loaded["new"] == "data"

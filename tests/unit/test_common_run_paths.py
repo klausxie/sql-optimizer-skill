@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from sqlopt.common.run_paths import RunPaths
 
 
@@ -28,8 +27,9 @@ class TestRunPathsInit:
 
     def test_run_dir_is_base_dir_run_id(self):
         """Test run_dir is base_dir / run_id."""
-        paths = RunPaths(run_id="run-456", base_dir="/tmp/runs")
-        assert paths.run_dir == Path("/tmp/runs/run-456")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            paths = RunPaths(run_id="run-456", base_dir=tmpdir)
+            assert paths.run_dir == Path(tmpdir) / "run-456"
 
 
 class TestRunPathsStageDirs:
