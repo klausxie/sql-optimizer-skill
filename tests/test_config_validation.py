@@ -96,6 +96,39 @@ class ValidationModuleTest(unittest.TestCase):
         cfg["db"]["platform"] = "mysql"
         validate_types(cfg)  # Should not raise
 
+    def test_validate_types_accepts_statement_types_array(self) -> None:
+        """Test that statement_types as array is accepted."""
+        cfg = copy.deepcopy(BASE_CONFIG)
+        cfg["scan"]["statement_types"] = ["SELECT"]
+        validate_types(cfg)
+
+        cfg = copy.deepcopy(BASE_CONFIG)
+        cfg["scan"]["statement_types"] = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+        validate_types(cfg)
+
+    def test_validate_types_rejects_statement_types_string(self) -> None:
+        """Test that statement_types as string (not array) is rejected."""
+        cfg = copy.deepcopy(BASE_CONFIG)
+        cfg["scan"]["statement_types"] = "SELECT"
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("statement_types" in err for err in errors))
+
+    def test_validate_types_rejects_invalid_statement_type(self) -> None:
+        """Test that invalid statement type value is rejected."""
+        cfg = copy.deepcopy(BASE_CONFIG)
+        cfg["scan"]["statement_types"] = ["INVALID"]
+        errors = validate_types(cfg)
+        self.assertTrue(len(errors) > 0)
+        self.assertTrue(any("INVALID" in err for err in errors))
+
+    def test_validate_section_keys_accepts_statement_types(self) -> None:
+        """Test that statement_types key is allowed in scan section."""
+        cfg = copy.deepcopy(BASE_CONFIG)
+        cfg["scan"]["statement_types"] = ["SELECT"]
+        errors = validate_section_keys(cfg)
+        self.assertEqual(len(errors), 0)
+
     def test_validate_types_rejects_empty_dsn(self) -> None:
         """Test that empty DSN is still allowed (runs in degraded mode)."""
         cfg = copy.deepcopy(BASE_CONFIG)

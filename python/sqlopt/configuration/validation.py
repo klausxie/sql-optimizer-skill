@@ -21,7 +21,7 @@ from .common import (
 # Allowed keys per section for user-facing configuration
 SECTION_ALLOWED_KEYS = {
     "project": {"root_path"},
-    "scan": {"mapper_globs"},
+    "scan": {"mapper_globs", "statement_types"},
     "db": {"platform", "dsn", "schema"},
     "llm": {
         "enabled",
@@ -178,6 +178,25 @@ def validate_types(cfg: dict[str, Any]) -> list[str]:
         errors.append(
             f"scan.mapper_globs must contain non-empty strings, found: {invalid_items}"
         )
+
+    # Validate scan.statement_types
+    statement_types = scan_cfg.get("statement_types")
+    if statement_types is not None:
+        if not isinstance(statement_types, list):
+            errors.append(
+                f"scan.statement_types must be array, got: {_format_actual_value(statement_types)}"
+            )
+        else:
+            valid_types = {"select", "insert", "update", "delete"}
+            for item in statement_types:
+                if not isinstance(item, str):
+                    errors.append(
+                        f"scan.statement_types elements must be strings, got: {_format_actual_value(item)}"
+                    )
+                elif item.lower().strip() not in valid_types:
+                    errors.append(
+                        f"scan.statement_types value '{item}' is invalid. Must be one of: {sorted(valid_types)}"
+                    )
 
     # Validate db section
     db_cfg = cfg.get("db", {})

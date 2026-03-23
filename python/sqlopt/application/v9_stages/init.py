@@ -292,13 +292,18 @@ class ScanResult:
 
 
 class Scanner:
-    STATEMENT_TAGS = {"select", "insert", "update", "delete"}
+    _DEFAULT_STATEMENT_TAGS = {"select", "insert", "update", "delete"}
 
     def __init__(self, config: Optional[dict] = None):
         self.config = config or {}
         self.mapper_globs = self.config.get("scan", {}).get(
             "mapper_globs", ["**/*.xml"]
         )
+        statement_types_cfg = self.config.get("scan", {}).get("statement_types")
+        if statement_types_cfg is None:
+            self.statement_tags = {"select"}
+        else:
+            self.statement_tags = {str(t).lower().strip() for t in statement_types_cfg}
 
     def scan(self, root_path: str | Path) -> ScanResult:
         root = Path(root_path)
@@ -373,7 +378,7 @@ class Scanner:
 
         for node in root.iter():
             tag = _local_name(str(node.tag)).lower()
-            if tag not in self.STATEMENT_TAGS:
+            if tag not in self.statement_tags:
                 continue
 
             idx += 1
