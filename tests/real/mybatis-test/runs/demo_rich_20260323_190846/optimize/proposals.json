@@ -1,0 +1,456 @@
+[
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findById",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "JOIN_OPTIMIZATION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%user%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'admin%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "42%"
+      }
+    ],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 22.87,
+      "rowsScanned": 40993,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Bitmap Heap Scan",
+      "estimatedCost": 56.27
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByEmail",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "QUERY_REWRITE",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'admin%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: MEDIUM",
+        "estimated_improvement": "70%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "MEDIUM",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 33.36,
+      "rowsScanned": 33240,
+      "indexUsed": "idx_created_at"
+    },
+    "planSummary": {
+      "nodeType": "Index Scan",
+      "estimatedCost": 79.37
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByStatus",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "PREFIX_WILDCARD"
+    ],
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'admin%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "57%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 13.97,
+      "rowsScanned": 47699,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Bitmap Heap Scan",
+      "estimatedCost": 11.12
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.searchUsers",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'user%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "74%"
+      }
+    ],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 20.83,
+      "rowsScanned": 42923,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Seq Scan",
+      "estimatedCost": 84.2
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testSingleIf",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "QUERY_REWRITE",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%admin%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'admin%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: MEDIUM",
+        "estimated_improvement": "72%"
+      }
+    ],
+    "verdict": "NEEDS_REVIEW",
+    "estimatedBenefit": "MEDIUM",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 40.25,
+      "rowsScanned": 13196,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Seq Scan",
+      "estimatedCost": 74.6
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testTwoIf",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "JOIN_OPTIMIZATION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%user%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "82%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 48.29,
+      "rowsScanned": 33979,
+      "indexUsed": "idx_status"
+    },
+    "planSummary": {
+      "nodeType": "Index Range Scan",
+      "estimatedCost": 33.72
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testChooseOtherwise",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "WILDCARD_POSITION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%admin%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "40%"
+      }
+    ],
+    "verdict": "NEEDS_REVIEW",
+    "estimatedBenefit": "HIGH",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 28.25,
+      "rowsScanned": 44105,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Bitmap Heap Scan",
+      "estimatedCost": 16.86
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersWithCommon",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "PREFIX_WILDCARD"
+    ],
+    "suggestions": [
+      {
+        "type": "JOIN_OPTIMIZATION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%admin%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "73%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 31.28,
+      "rowsScanned": 24879,
+      "indexUsed": "idx_user_id"
+    },
+    "planSummary": {
+      "nodeType": "Index Scan",
+      "estimatedCost": 64.1
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findById",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "QUERY_REWRITE",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'user%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: MEDIUM",
+        "estimated_improvement": "33%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "MEDIUM",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 10.25,
+      "rowsScanned": 10567,
+      "indexUsed": "idx_status"
+    },
+    "planSummary": {
+      "nodeType": "Index Range Scan",
+      "estimatedCost": 32.06
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByEmail",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "MISSING_LIMIT"
+    ],
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'user%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "63%"
+      }
+    ],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 45.96,
+      "rowsScanned": 54024,
+      "indexUsed": "idx_status"
+    },
+    "planSummary": {
+      "nodeType": "Index Scan",
+      "estimatedCost": 32.68
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByStatus",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "PREFIX_WILDCARD"
+    ],
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%user%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'admin%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "42%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 36.84,
+      "rowsScanned": 91372,
+      "indexUsed": "idx_email"
+    },
+    "planSummary": {
+      "nodeType": "Index Range Scan",
+      "estimatedCost": 74.66
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.searchUsers",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "NO_INDEX"
+    ],
+    "suggestions": [
+      {
+        "type": "INDEX_HINT",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%user%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "51%"
+      }
+    ],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 45.97,
+      "rowsScanned": 4198,
+      "indexUsed": "idx_user_id"
+    },
+    "planSummary": {
+      "nodeType": "Index Scan",
+      "estimatedCost": 79.72
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testSingleIf",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "WILDCARD_POSITION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%test%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "76%"
+      }
+    ],
+    "verdict": "ACTIONABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 10.42,
+      "rowsScanned": 69047,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Seq Scan",
+      "estimatedCost": 37.64
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testTwoIf",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN"
+    ],
+    "suggestions": [
+      {
+        "type": "LIMIT_CLAUSE",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%user%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'user%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: MEDIUM",
+        "estimated_improvement": "72%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "MEDIUM",
+    "confidence": "HIGH",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 37.46,
+      "rowsScanned": 69298,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Seq Scan",
+      "estimatedCost": 4.16
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testChooseOtherwise",
+    "issues": [
+      "SLOW_QUERY",
+      "MISSING_LIMIT"
+    ],
+    "suggestions": [
+      {
+        "type": "WILDCARD_POSITION",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%admin%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: HIGH",
+        "estimated_improvement": "42%"
+      }
+    ],
+    "verdict": "ACCEPTABLE",
+    "estimatedBenefit": "HIGH",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 27.57,
+      "rowsScanned": 540,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Bitmap Heap Scan",
+      "estimatedCost": 42.28
+    }
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersWithCommon",
+    "issues": [
+      "SLOW_QUERY",
+      "INEFFICIENT_SCAN",
+      "MISSING_LIMIT"
+    ],
+    "suggestions": [
+      {
+        "type": "QUERY_REWRITE",
+        "originalSql": "SELECT * FROM users WHERE name LIKE '%admin%'",
+        "suggestedSql": "SELECT * FROM users WHERE name LIKE 'test%'",
+        "rationale": "Remove leading wildcard to enable index usage. Expected benefit: MEDIUM",
+        "estimated_improvement": "70%"
+      }
+    ],
+    "verdict": "NEEDS_REVIEW",
+    "estimatedBenefit": "MEDIUM",
+    "confidence": "MEDIUM",
+    "dbEvidenceSummary": {
+      "executionTimeMs": 46.47,
+      "rowsScanned": 33102,
+      "indexUsed": null
+    },
+    "planSummary": {
+      "nodeType": "Bitmap Heap Scan",
+      "estimatedCost": 84.1
+    }
+  }
+]

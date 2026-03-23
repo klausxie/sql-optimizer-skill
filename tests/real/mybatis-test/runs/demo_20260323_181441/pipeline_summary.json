@@ -1,0 +1,67 @@
+{
+  "run_id": "demo_20260323_181441",
+  "timestamp": "2026-03-23T18:14:44.303926",
+  "config": {
+    "db_platform": "h2",
+    "llm_enabled": false,
+    "optimizer_provider": "heuristic"
+  },
+  "stages": {
+    "init": {
+      "success": true,
+      "elapsed": 0.4705648422241211
+    },
+    "parse": {
+      "success": true,
+      "elapsed": 1.3664970397949219
+    },
+    "recognition": {
+      "success": false,
+      "elapsed": 0.4777836799621582
+    },
+    "optimize": {
+      "success": false,
+      "elapsed": 2.288818359375e-05
+    },
+    "patch": {
+      "success": false,
+      "elapsed": 1.0013580322265625e-05
+    }
+  },
+  "results": {
+    "init": {
+      "success": true,
+      "output_files": [
+        "/Users/hzz/workspace/sql-optimizer-skill/tests/real/mybatis-test/runs/demo_20260323_181441/init/db_connectivity.json",
+        "/Users/hzz/workspace/sql-optimizer-skill/tests/real/mybatis-test/runs/demo_20260323_181441/init/schema_metadata.json",
+        "/Users/hzz/workspace/sql-optimizer-skill/tests/real/mybatis-test/runs/demo_20260323_181441/init/sql_units.json"
+      ],
+      "sql_units_count": 110,
+      "db_connectivity_ok": false,
+      "elapsed_seconds": 0.4705648422241211
+    },
+    "parse": {
+      "success": true,
+      "sql_units_file": "/Users/hzz/workspace/sql-optimizer-skill/tests/real/mybatis-test/runs/demo_20260323_181441/parse/sql_units_with_branches.json",
+      "risks_file": "/Users/hzz/workspace/sql-optimizer-skill/tests/real/mybatis-test/runs/demo_20260323_181441/parse/risks.json",
+      "sql_units_count": 110,
+      "risks_count": 65,
+      "elapsed_seconds": 1.3664970397949219
+    },
+    "recognition": {
+      "success": false,
+      "error": "Object of type BaselineResult is not JSON serializable",
+      "elapsed_seconds": 0.4777836799621582
+    },
+    "optimize": {
+      "success": false,
+      "error": "Recognition results not found",
+      "elapsed_seconds": 2.288818359375e-05
+    },
+    "patch": {
+      "success": false,
+      "error": "Optimize results not found",
+      "elapsed_seconds": 1.0013580322265625e-05
+    }
+  }
+}

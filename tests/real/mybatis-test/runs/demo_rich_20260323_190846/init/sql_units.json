@@ -1,0 +1,574 @@
+[
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findById",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findById",
+    "statementType": "UPDATE",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findById"
+    },
+    "riskFlags": [
+      "NO_INDEX"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "CHOOSE",
+      "FOREACH"
+    ],
+    "branchCount": 1,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByEmail",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findByEmail",
+    "statementType": "SELECT",
+    "variantId": "v2",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findByEmail"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT",
+      "NO_INDEX"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "CHOOSE"
+    ],
+    "branchCount": 1,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByStatus",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findByStatus",
+    "statementType": "INSERT",
+    "variantId": "v3",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findByStatus"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT",
+      "PREFIX_WILDCARD"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "IF"
+    ],
+    "branchCount": 5,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.searchUsers",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "searchUsers",
+    "statementType": "UPDATE",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "searchUsers"
+    },
+    "riskFlags": [],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "SET"
+    ],
+    "branchCount": 3,
+    "crossFileRefs": 1
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testSingleIf",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testSingleIf",
+    "statementType": "SELECT",
+    "variantId": "v2",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testSingleIf"
+    },
+    "riskFlags": [
+      "PREFIX_WILDCARD",
+      "MISSING_LIMIT"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "FOREACH",
+      "WHERE"
+    ],
+    "branchCount": 1,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testTwoIf",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testTwoIf",
+    "statementType": "SELECT",
+    "variantId": "v3",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testTwoIf"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT",
+      "NO_INDEX"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "CHOOSE"
+    ],
+    "branchCount": 2,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testChooseOtherwise",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testChooseOtherwise",
+    "statementType": "INSERT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testChooseOtherwise"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT",
+      "PREFIX_WILDCARD"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "FOREACH",
+      "SET",
+      "WHERE"
+    ],
+    "branchCount": 3,
+    "crossFileRefs": 3
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersWithCommon",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findOrdersWithCommon",
+    "statementType": "SELECT",
+    "variantId": "v2",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findOrdersWithCommon"
+    },
+    "riskFlags": [],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "FOREACH",
+      "SET"
+    ],
+    "branchCount": 6,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findById",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findById",
+    "statementType": "SELECT",
+    "variantId": "v3",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findById"
+    },
+    "riskFlags": [
+      "PREFIX_WILDCARD"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "WHERE",
+      "CHOOSE",
+      "FOREACH"
+    ],
+    "branchCount": 6,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByEmail",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findByEmail",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findByEmail"
+    },
+    "riskFlags": [],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "WHERE",
+      "SET",
+      "IF"
+    ],
+    "branchCount": 6,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.findByStatus",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findByStatus",
+    "statementType": "UPDATE",
+    "variantId": "v2",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findByStatus"
+    },
+    "riskFlags": [
+      "NO_INDEX",
+      "MISSING_LIMIT"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "WHERE",
+      "IF"
+    ],
+    "branchCount": 7,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.searchUsers",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "searchUsers",
+    "statementType": "SELECT",
+    "variantId": "v3",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "searchUsers"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT",
+      "PREFIX_WILDCARD"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "WHERE"
+    ],
+    "branchCount": 6,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testSingleIf",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testSingleIf",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testSingleIf"
+    },
+    "riskFlags": [],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "IF",
+      "CHOOSE"
+    ],
+    "branchCount": 1,
+    "crossFileRefs": 3
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testTwoIf",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testTwoIf",
+    "statementType": "SELECT",
+    "variantId": "v2",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testTwoIf"
+    },
+    "riskFlags": [],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "FOREACH"
+    ],
+    "branchCount": 8,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.UserMapper.testChooseOtherwise",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "testChooseOtherwise",
+    "statementType": "SELECT",
+    "variantId": "v3",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "testChooseOtherwise"
+    },
+    "riskFlags": [
+      "MISSING_LIMIT"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "CHOOSE",
+      "IF",
+      "FOREACH"
+    ],
+    "branchCount": 2,
+    "crossFileRefs": 0
+  },
+  {
+    "sqlKey": "com.test.mapper.OrderMapper.findOrdersWithCommon",
+    "xmlPath": "src/main/resources/mapper/mapper.xml",
+    "namespace": "com.test.mapper",
+    "statementId": "findOrdersWithCommon",
+    "statementType": "SELECT",
+    "variantId": "v1",
+    "sql": "SELECT * FROM users WHERE id = #{id} AND status = #{status}",
+    "parameterMappings": [
+      {
+        "name": "id",
+        "type": "Integer"
+      },
+      {
+        "name": "status",
+        "type": "String"
+      }
+    ],
+    "paramExample": {
+      "id": 1,
+      "status": "active"
+    },
+    "locators": {
+      "statementId": "findOrdersWithCommon"
+    },
+    "riskFlags": [
+      "PREFIX_WILDCARD"
+    ],
+    "templateSql": "SELECT * FROM users WHERE <if test=\"id != null\">id = #{id}</if>",
+    "dynamicFeatures": [
+      "IF",
+      "WHERE",
+      "CHOOSE"
+    ],
+    "branchCount": 8,
+    "crossFileRefs": 0
+  }
+]

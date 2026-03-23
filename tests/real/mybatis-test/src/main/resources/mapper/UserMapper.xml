@@ -1,0 +1,1116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.test.mapper.UserMapper">
+    
+    <!-- ========== SQL 片段定义 (sql/include) ========== -->
+    
+    <!-- 基础列片段 -->
+    <sql id="baseColumns">id, name, email, status, type, created_at</sql>
+    
+    <!-- 条件片段: 基础状态过滤 -->
+    <sql id="statusCondition">
+        <if test="status != null">AND status = #{status}</if>
+    </sql>
+    
+    <!-- 条件片段: 用户类型过滤 -->
+    <sql id="typeCondition">
+        <if test="type != null">AND type = #{type}</if>
+    </sql>
+    
+    <!-- 条件片段: 复合条件 -->
+    <sql id="commonWhere">
+        <if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if>
+        <if test="email != null">AND email LIKE CONCAT('%', #{email}, '%')</if>
+    </sql>
+    
+    <!-- 条件片段: 带嵌套的复杂片段 -->
+    <sql id="complexCondition">
+        <choose>
+            <when test="status != null and status == '1'">
+                AND status = '1'
+                <if test="type != null">AND type = #{type}</if>
+            </when>
+            <otherwise>AND status IN ('1', '2')</otherwise>
+        </choose>
+    </sql>
+
+    <!-- ========== 场景1-10: 基础场景测试 ========== -->
+    
+    <select id="testSingleIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name = #{name}</if>
+        </where>
+    </select>
+    
+    <select id="testTwoIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name = #{name}</if>
+            <if test="email != null">AND email = #{email}</if>
+        </where>
+    </select>
+    
+    <select id="testThreeIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name = #{name}</if>
+            <if test="email != null">AND email = #{email}</if>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+    </select>
+    
+    <select id="testFourIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name = #{name}</if>
+            <if test="email != null">AND email = #{email}</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="type != null">AND type = #{type}</if>
+        </where>
+    </select>
+    
+    <select id="testChooseWhen" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="type == 'VIP'">AND type = 'VIP'</when>
+                <when test="type == 'NORMAL'">AND type = 'NORMAL'</when>
+            </choose>
+        </where>
+    </select>
+    
+    <select id="testChooseOtherwise" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="type == 'VIP'">AND type = 'VIP'</when>
+                <when test="type == 'NORMAL'">AND type = 'NORMAL'</when>
+                <otherwise>AND type = 'PREMIUM'</otherwise>
+            </choose>
+        </where>
+    </select>
+    
+    <select id="testWhereIf" resultType="User">
+        SELECT * FROM users
+        <where><if test="status != null">status = #{status}</if></where>
+    </select>
+    
+    <update id="testSetIf">
+        UPDATE users
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="email != null">email = #{email},</if>
+        </set>
+        <where>
+            <if test="id != null">AND id = #{id}</if>
+        </where>
+    </update>
+    
+    <select id="testForeachIn" resultType="User">
+        SELECT * FROM users WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+    
+    <select id="testTrim" resultType="User">
+        SELECT * FROM users
+        <trim prefix="WHERE " suffixOverrides="AND|OR">
+            <if test="name != null">name = #{name} AND</if>
+            <if test="status != null">status = #{status}</if>
+        </trim>
+    </select>
+    
+    <!-- ========== 场景11-20: 组合场景测试 ========== -->
+    
+    <select id="testIfChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="status != null">
+                <choose>
+                    <when test="status == '1'">AND status = '1'</when>
+                    <when test="status == '2'">AND status = '2'</when>
+                </choose>
+            </if>
+            <if test="type != null">AND type = #{type}</if>
+        </where>
+    </select>
+    
+    <!-- SQL Optimized: 明确字段 + LIMIT 防止全表扫描返回大量数据 -->
+    <select id="testWhereMultipleIf" resultType="User">
+        SELECT id, name, email, status, type, created_at
+        FROM users
+        <where>
+            <if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="email != null">AND email LIKE CONCAT('%', #{email}, '%')</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="type != null">AND type = #{type}</if>
+        </where>
+        LIMIT 1000
+    </select>
+    
+    <select id="testChooseMultipleIf" resultType="User">
+        SELECT * FROM users
+        <choose>
+            <when test="type == 'VIP'">
+                <where><if test="status != null">AND status = #{status}</if>AND type = 'VIP'</where>
+            </when>
+            <when test="type == 'NORMAL'">
+                <where><if test="status != null">AND status = #{status}</if>AND type = 'NORMAL'</where>
+            </when>
+            <otherwise>
+                <where><if test="status != null">AND status = #{status}</if></where>
+            </otherwise>
+        </choose>
+    </select>
+    
+    <select id="testIfForeach" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="ids != null and ids.size() > 0">AND id IN <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach></if>
+        </where>
+    </select>
+    
+    <select id="testWhereChooseWhen" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="status != null and status == '1'">AND status = '1'</when>
+                <when test="type != null">AND type = #{type}</when>
+                <otherwise>AND status = '1'</otherwise>
+            </choose>
+        </where>
+    </select>
+    
+    <select id="testChooseWithMultipleIf" resultType="User">
+        SELECT * FROM users
+        <choose>
+            <when test="type == 'VIP'"><where><if test="status != null">AND status = #{status}</if>AND type = 'VIP'</where></when>
+            <when test="type == 'NORMAL'"><where><if test="status != null">AND status = #{status}</if>AND type = 'NORMAL'</where></when>
+            <otherwise><where><if test="status != null">AND status = #{status}</if></where></otherwise>
+        </choose>
+    </select>
+    
+    <!-- ========== 场景21-30: 高级场景测试 ========== -->
+    
+    <select id="testFiveIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="email != null">AND email LIKE CONCAT('%', #{email}, '%')</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="type != null">AND type = #{type}</if>
+        </where>
+    </select>
+    
+    <select id="testChooseNestedChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="status != null and status == '1'">
+                    <choose>
+                        <when test="type == 'VIP'">AND status = '1' AND type = 'VIP'</when>
+                        <when test="type == 'NORMAL'">AND status = '1' AND type = 'NORMAL'</when>
+                        <otherwise>AND status = '1'</otherwise>
+                    </choose>
+                </when>
+                <otherwise>AND status IN ('1', '2')</otherwise>
+            </choose>
+        </where>
+    </select>
+    
+    <select id="testComplexConditions" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="email != null">AND email LIKE CONCAT('%', #{email}, '%')</if>
+            <choose>
+                <when test="status != null and status == '1'">AND status = '1'</when>
+                <when test="type == 'VIP'">AND type = 'VIP'</when>
+            </choose>
+        </where>
+    </select>
+    
+    <select id="testDynamicOrderBy" resultType="User">
+        SELECT * FROM users
+        <where><if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if></where>
+        <if test="orderField != null and orderType != null">ORDER BY ${orderField} ${orderType}</if>
+    </select>
+    
+    <select id="testBindIf" resultType="User">
+        <bind name="namePattern" value="'%' + name + '%'"/>
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name LIKE #{namePattern}</if>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+    </select>
+
+    <select id="testTrimPrefixSuffix" resultType="User">
+        SELECT * FROM users
+        <trim prefix="WHERE " prefixOverrides="AND|OR" suffix=" LIMIT 100" suffixOverrides=",">
+            <if test="name != null">AND name = #{name}</if>
+            <if test="email != null">OR email = #{email}</if>
+        </trim>
+    </select>
+
+    <insert id="testForeachInsert">
+        INSERT INTO users (name, email, status, type) VALUES
+        <foreach collection="users" item="user" separator=",">
+            (#{user.name}, #{user.email}, #{user.status}, #{user.type})
+        </foreach>
+    </insert>
+
+    <select id="testDynamicColumns" resultType="User">
+        SELECT
+        <if test="includeName">name,</if>
+        <if test="includeEmail">email,</if>
+        <if test="includeStatus">status,</if>
+        <if test="includeType">type</if>
+        id
+        FROM users
+        <where><if test="name != null">AND name = #{name}</if></where>
+    </select>
+
+    <select id="testChooseTripleNested" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="status != null">
+                    <choose>
+                        <when test="type != null">
+                            <choose>
+                                <when test="name != null">AND status = #{status} AND type = #{type} AND name = #{name}</when>
+                                <otherwise>AND status = #{status} AND type = #{type}</otherwise>
+                            </choose>
+                        </when>
+                        <otherwise>AND status = #{status}</otherwise>
+                    </choose>
+                </when>
+                <when test="type != null">
+                    <choose>
+                        <when test="name != null">AND type = #{type} AND name = #{name}</when>
+                        <otherwise>AND type = #{type}</otherwise>
+                    </choose>
+                </when>
+                <otherwise>1=1</otherwise>
+            </choose>
+        </where>
+    </select>
+
+    <update id="testSetMultipleIf">
+        UPDATE users
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="type != null">type = #{type},</if>
+        </set>
+        <where>
+            <if test="id != null">AND id = #{id}</if>
+        </where>
+    </update>
+
+    <select id="testIfMultiCondition" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null and email != null and status != null">AND name = #{name} AND email = #{email} AND status = #{status}</if>
+            <if test="name != null and email != null and status == null">AND name = #{name} AND email = #{email}</if>
+            <if test="name != null and email == null">AND name = #{name}</if>
+        </where>
+    </select>
+
+    <select id="testForeachChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="ids != null and ids.size() > 0">id IN <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach></when>
+                <when test="status != null">status = #{status}</when>
+                <otherwise>1=1</otherwise>
+            </choose>
+        </where>
+    </select>
+
+    <update id="testTrimUpdate">
+        UPDATE users
+        <trim prefix="SET " suffixOverrides=",">
+            <if test="name != null">name = #{name},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="status != null">status = #{status},</if>
+        </trim>
+        <where>
+            <if test="id != null">AND id = #{id}</if>
+        </where>
+    </update>
+
+    <select id="testIfForeachComplex" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+                <if test="types != null and types.size() > 0">AND type IN <foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach></if>
+            </if>
+            <if test="name != null">
+                AND name LIKE CONCAT('%', #{name}, '%')
+                <if test="ids != null and ids.size() > 0">AND id NOT IN <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach></if>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== 场景31-36: SQL 片段引用测试 ========== -->
+    
+    <select id="testIncludeBaseColumns" resultType="User">
+        SELECT <include refid="baseColumns"/> FROM users WHERE id = #{id}
+    </select>
+    
+    <select id="testIncludeCondition" resultType="User">
+        SELECT * FROM users
+        <where>
+            <include refid="statusCondition"/>
+            <include refid="typeCondition"/>
+        </where>
+    </select>
+    
+    <select id="testMultipleInclude" resultType="User">
+        SELECT <include refid="baseColumns"/> FROM users
+        <where>
+            <include refid="commonWhere"/>
+            <include refid="statusCondition"/>
+        </where>
+    </select>
+    
+    <select id="testIncludeComplex" resultType="User">
+        SELECT * FROM users
+        <where>
+            <include refid="complexCondition"/>
+            <if test="name != null">AND name = #{name}</if>
+        </where>
+    </select>
+    
+    <select id="testIncludeInIf" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="useStatusFilter"><include refid="statusCondition"/></if>
+            <if test="useTypeFilter"><include refid="typeCondition"/></if>
+        </where>
+    </select>
+    
+    <select id="testIncludeInChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="filterMode == 'status'"><include refid="statusCondition"/></when>
+                <when test="filterMode == 'type'"><include refid="typeCondition"/></when>
+                <otherwise><include refid="commonWhere"/></otherwise>
+            </choose>
+        </where>
+    </select>
+
+    <!-- ========== 场景37-38: 高级 bind 测试 ========== -->
+    
+    <select id="testMultipleBind" resultType="User">
+        <bind name="namePattern" value="'%' + name + '%'"/>
+        <bind name="emailPattern" value="'%' + email + '%'"/>
+        <bind name="effectiveStatus" value="status != null ? status : '1'"/>
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name LIKE #{namePattern}</if>
+            <if test="email != null">AND email LIKE #{emailPattern}</if>
+            AND status = #{effectiveStatus}
+        </where>
+    </select>
+    
+    <select id="testBindWithInclude" resultType="User">
+        <bind name="defaultStatus" value="'1'"/>
+        SELECT * FROM users
+        <where>
+            <include refid="statusCondition"/>
+            AND status = #{defaultStatus}
+        </where>
+    </select>
+
+    <!-- ========== 场景39-45: 边界情况测试 ========== -->
+    
+    <select id="testEmptyIf" resultType="User">
+        SELECT * FROM users
+        <where><if test="false">AND 1=0</if></where>
+    </select>
+    
+    <select id="testOnlyOtherwise" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose><otherwise>AND status = '1'</otherwise></choose>
+        </where>
+    </select>
+    
+    <select id="testNestedTrim" resultType="User">
+        SELECT * FROM users
+        <trim prefix="WHERE " prefixOverrides="AND|OR">
+            <trim prefix="(" suffix=") " suffixOverrides="AND">
+                <if test="name != null">name = #{name} AND</if>
+                <if test="email != null">email = #{email} AND</if>
+            </trim>
+        </trim>
+    </select>
+    
+    <select id="testNestedForeach" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="statusList != null and statusList.size() > 0">
+                status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    <choose>
+                        <when test="s == 'active'">'1'</when>
+                        <when test="s == 'inactive'">'0'</when>
+                        <otherwise>#{s}</otherwise>
+                    </choose>
+                </foreach>
+            </if>
+        </where>
+    </select>
+    
+    <select id="testIncludeWithProperty" resultType="User">
+        SELECT * FROM users
+        <where><include refid="statusCondition"/></where>
+    </select>
+    
+    <select id="testLongConditions" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="name != null">AND name = #{name}</if>
+            <if test="email != null">AND email = #{email}</if>
+            <if test="c3 != null">AND 1=0</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="c5 != null">AND 1=0</if>
+            <if test="c6 != null">AND 1=0</if>
+            <if test="type != null">AND type = #{type}</if>
+            <if test="c8 != null">AND 1=0</if>
+        </where>
+    </select>
+    
+    <insert id="testInsertWithSelectKey">
+        INSERT INTO users (name, email, status, type) VALUES
+        <foreach collection="users" item="u" separator=",">
+            (#{u.name}, #{u.email}, 
+            <choose><when test="u.status != null">#{u.status}</when><otherwise>'1'</otherwise></choose>,
+            <choose><when test="u.type != null">#{u.type}</when><otherwise>'NORMAL'</otherwise></choose>)
+        </foreach>
+    </insert>
+    
+    <!-- ========== 多表关联测试 (场景46-55) ========== -->
+    
+    <!-- 场景46: 内连接 - 用户与订单 -->
+    <select id="testInnerJoin" resultType="com.test.dto.UserOrderDTO">
+        SELECT u.id as userId, u.name as userName, u.email as userEmail,
+               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
+               o.amount, o.created_at as createdAt
+        FROM users u
+        INNER JOIN orders o ON u.id = o.user_id
+        LIMIT 10
+    </select>
+    
+    <!-- 场景47: 左外连接 - 用户与订单 -->
+    <select id="testLeftJoin" resultType="com.test.dto.UserOrderDTO">
+        SELECT u.id as userId, u.name as userName, u.email as userEmail,
+               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
+               o.amount, o.created_at as createdAt
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LIMIT 10
+    </select>
+    
+    <!-- 场景48: 多表连接 - 用户、订单、订单明细 -->
+    <select id="testMultiTableJoin" resultType="com.test.dto.UserOrderItemDTO">
+        SELECT u.id as userId, u.name as userName,
+               o.id as orderId, o.order_no as orderNo,
+               oi.id as itemId, oi.product_id as productId,
+               p.name as productName, oi.quantity, oi.price
+        FROM users u
+        INNER JOIN orders o ON u.id = o.user_id
+        INNER JOIN order_items oi ON o.id = oi.order_id
+        INNER JOIN products p ON oi.product_id = p.id
+        WHERE u.id = #{userId}
+    </select>
+    
+    <!-- 场景49: 动态 join 条件 -->
+    <select id="testDynamicJoin" resultType="com.test.dto.UserOrderDTO">
+        SELECT u.id as userId, u.name as userName, u.email as userEmail,
+               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
+               o.amount, o.created_at as createdAt
+        FROM users u
+        INNER JOIN orders o ON u.id = o.user_id
+        <where>
+            <if test="userId != null">AND u.id = #{userId}</if>
+            <if test="status != null">AND o.status = #{status}</if>
+        </where>
+        LIMIT 10
+    </select>
+    
+    <!-- 场景50: 子查询 - IN 查询用户订单 -->
+    <select id="testSubqueryIn" resultType="com.test.entity.User">
+        SELECT * FROM users
+        WHERE id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+    
+    <!-- 场景51: 子查询 - EXISTS 检查用户是否有订单 -->
+    <select id="testSubqueryExists" resultType="com.test.entity.User">
+        SELECT * FROM users u
+        WHERE EXISTS (
+            SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = #{status}
+        )
+        LIMIT 10
+    </select>
+    
+    <!-- 场景52: 标量子查询 - 获取用户订单总数 -->
+    <select id="testScalarSubquery" resultType="com.test.dto.UserOrderCountDTO">
+        SELECT u.id as userId, u.name as userName,
+               (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) as orderCount
+        FROM users u
+        WHERE u.id IN (SELECT DISTINCT user_id FROM orders)
+        LIMIT 10
+    </select>
+    
+    <!-- 场景53: 动态多表关联 -->
+    <select id="testDynamicMultiTableJoin" resultType="com.test.dto.UserOrderDTO">
+        SELECT u.id as userId, u.name as userName, u.email as userEmail,
+               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
+               o.amount, o.created_at as createdAt
+        FROM users u
+        <if test="userId != null">
+        INNER JOIN orders o ON u.id = o.user_id
+        </if>
+        <if test="userId == null">
+        LEFT JOIN orders o ON u.id = o.user_id
+        </if>
+        <where>
+            <if test="userId != null">AND u.id = #{userId}</if>
+            <if test="orderStatus != null">AND o.status = #{orderStatus}</if>
+        </where>
+        LIMIT 10
+    </select>
+    
+    <!-- 场景54: UNION 查询 -->
+    <select id="testUnion" resultType="com.test.entity.User">
+        SELECT * FROM users WHERE type = #{type}
+        UNION
+        SELECT * FROM users WHERE status = '1'
+    </select>
+    
+    <!-- 场景55: 多层嵌套子查询 -->
+    <select id="testNestedSubquery" resultType="com.test.dto.UserOrderDTO">
+        SELECT u.id as userId, u.name as userName, u.email as userEmail,
+               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
+               o.amount, o.created_at as createdAt
+        FROM users u
+        INNER JOIN orders o ON u.id = o.user_id
+        WHERE o.amount &gt;= #{minAmount}
+        AND o.user_id IN (
+            SELECT user_id FROM orders 
+            WHERE amount &gt; (SELECT AVG(amount) FROM orders)
+        )
+        LIMIT 10
+    </select>
+    
+    <!-- ========== 函数/聚合测试 (场景56-70) ========== -->
+    
+    <!-- 场景56: COUNT 聚合 -->
+    <select id="testCountAll" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM users
+    </select>
+    
+    <!-- 场景57: COUNT 条件聚合 -->
+    <select id="testCountByStatus" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM users WHERE status = #{status}
+    </select>
+    
+    <!-- 场景58: SUM 聚合 -->
+    <select id="testSumAmount" resultType="java.lang.Double">
+        SELECT COALESCE(SUM(amount), 0) FROM orders
+    </select>
+    
+    <!-- 场景59: AVG 聚合 -->
+    <select id="testAvgAmount" resultType="java.lang.Double">
+        SELECT COALESCE(AVG(amount), 0) FROM orders
+    </select>
+    
+    <!-- 场景60: MAX/MIN 聚合 -->
+    <select id="testMaxMinAmount" resultType="com.test.dto.OrderAmountDTO">
+        SELECT MAX(amount) as maxAmount, MIN(amount) as minAmount FROM orders
+    </select>
+    
+    <!-- 场景61: 分组聚合 - GROUP BY -->
+    <select id="testGroupBy" resultType="com.test.dto.OrderStatusCountDTO">
+        SELECT status, COUNT(*) as count FROM orders GROUP BY status
+    </select>
+    
+    <!-- 场景62: 分组聚合 - 多字段分组 -->
+    <select id="testMultiGroupBy" resultType="com.test.dto.OrderUserStatusDTO">
+        SELECT user_id as userId, status, COUNT(*) as count 
+        FROM orders 
+        WHERE user_id = #{userId}
+        GROUP BY user_id, status
+    </select>
+    
+    <!-- 场景63: HAVING 过滤 -->
+    <select id="testGroupByHaving" resultType="com.test.dto.OrderStatusCountDTO">
+        SELECT status, COUNT(*) as count 
+        FROM orders 
+        GROUP BY status
+        HAVING COUNT(*) &gt;= #{minCount}
+    </select>
+    
+    <!-- 场景64: CASE WHEN 条件表达式 -->
+    <select id="testCaseWhen" resultType="com.test.dto.OrderCaseDTO">
+        SELECT id as orderId, order_no as orderNo, status, amount,
+               CASE status
+                   WHEN 'completed' THEN '已完成'
+                   WHEN 'pending' THEN '待处理'
+                   WHEN 'processing' THEN '处理中'
+                   WHEN 'cancelled' THEN '已取消'
+                   ELSE '未知'
+               END as statusLabel
+        FROM orders
+        LIMIT 10
+    </select>
+    
+    <!-- 场景65: DATE 函数 -->
+    <select id="testDateFunction" resultType="com.test.dto.OrderDateDTO">
+        SELECT id as orderId, order_no as orderNo, created_at as createdAt,
+               YEAR(created_at) as year,
+               MONTH(created_at) as month,
+               DAY(created_at) as day
+        FROM orders
+        WHERE YEAR(created_at) = #{year}
+        LIMIT 10
+    </select>
+    
+    <!-- 场景66: 字符串函数 - CONCAT -->
+    <select id="testStringConcat" resultType="com.test.entity.User">
+        SELECT * FROM users
+        WHERE CONCAT(name, '-', email) LIKE CONCAT(#{prefix}, '%')
+    </select>
+    
+    <!-- 场景67: 字符串函数 - SUBSTRING -->
+    <select id="testStringSubstring" resultType="com.test.entity.User">
+        SELECT * FROM users
+        WHERE SUBSTRING(email, 1, 3) = #{pattern}
+    </select>
+    
+    <!-- 场景68: 条件聚合 - SUM CASE WHEN -->
+    <select id="testConditionalSum" resultType="java.lang.Double">
+        SELECT COALESCE(SUM(CASE WHEN status = #{status} THEN amount ELSE 0 END), 0) 
+        FROM orders
+    </select>
+    
+    <!-- 场景69: 多函数组合 -->
+    <select id="testMultiAggFunction" resultType="com.test.dto.OrderAggDTO">
+        SELECT status, COUNT(*) as count,
+               SUM(amount) as sum,
+               AVG(amount) as avg,
+               MAX(amount) as max,
+               MIN(amount) as min
+        FROM orders
+        GROUP BY status
+    </select>
+    
+    <!-- 场景70: 窗口函数模拟 - 订单排名 -->
+    <select id="testOrderRank" resultType="com.test.dto.OrderRankDTO">
+        SELECT id as orderId, order_no as orderNo, amount,
+               (SELECT COUNT(*) FROM orders o2 WHERE o2.amount > orders.amount) + 1 as `rank`
+        FROM orders
+        ORDER BY `rank`
+        LIMIT 10
+    </select>
+    
+    <!-- ========== 分页测试 (场景71-75) ========== -->
+    
+    <!-- 场景71: LIMIT 分页 -->
+    <select id="testLimit" resultType="com.test.entity.Order">
+        SELECT * FROM orders ORDER BY id LIMIT #{limit}
+    </select>
+    
+    <!-- 场景72: LIMIT + OFFSET 分页 -->
+    <select id="testLimitOffset" resultType="com.test.entity.Order">
+        SELECT * FROM orders ORDER BY id LIMIT #{limit} OFFSET #{offset}
+    </select>
+    
+    <!-- 场景73: 动态分页 -->
+    <select id="testDynamicPagination" resultType="com.test.entity.Order">
+        SELECT * FROM orders ORDER BY id
+        <if test="offset != null and pageSize != null">
+            LIMIT #{pageSize} OFFSET #{offset}
+        </if>
+    </select>
+    
+    <!-- ========== DISTINCT 测试 (场景76-78) ========== -->
+    
+    <!-- 场景76: DISTINCT 去重 -->
+    <select id="testDistinctStatus" resultType="java.lang.String">
+        SELECT DISTINCT status FROM orders
+    </select>
+    
+    <!-- 场景77: DISTINCT 多字段 -->
+    <select id="testDistinctMultipleFields" resultType="com.test.entity.User">
+        SELECT DISTINCT name, email FROM users WHERE status IS NOT NULL
+    </select>
+    
+    <!-- ========== 数据库特有语法 (场景79-85) ========== -->
+    
+    <!-- 场景79: MySQL INSERT...ON DUPLICATE KEY UPDATE -->
+    <insert id="testInsertOnDuplicateKeyUpdate" parameterType="com.test.entity.User">
+        INSERT INTO users (id, name, email, status, type)
+        VALUES (#{id}, #{name}, #{email}, #{status}, #{type})
+        ON DUPLICATE KEY UPDATE
+        name = VALUES(name), email = VALUES(email), status = VALUES(status), type = VALUES(type)
+    </insert>
+    
+    <!-- 场景80: PostgreSQL RETURNING (模拟) -->
+    <select id="testReturningSyntax" resultType="com.test.entity.Order">
+        SELECT * FROM orders WHERE id = 1
+    </select>
+    
+    <!-- 场景81: 动态条件 + DISTINCT + 分页组合 -->
+    <select id="testDistinctWithCondition" resultType="java.lang.String">
+        SELECT DISTINCT status FROM orders
+        <where>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+        LIMIT 10
+    </select>
+    
+    <!-- 场景82: 聚合 + DISTINCT -->
+    <select id="testCountDistinct" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT user_id) FROM orders
+        <where>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+    </select>
+    
+    <!-- 场景83: 多字段排序 + 分页 -->
+    <select id="testOrderByMultipleWithPagination" resultType="com.test.entity.Order">
+        SELECT * FROM orders ORDER BY status, amount DESC
+        <if test="offset != null and pageSize != null">
+            LIMIT #{pageSize} OFFSET #{offset}
+        </if>
+    </select>
+    
+    <!-- 场景84: 复杂 WHERE + GROUP BY + HAVING + ORDER BY + LIMIT -->
+    <select id="testComplexAggregation" resultType="com.test.dto.OrderStatusCountDTO">
+        SELECT status, COUNT(*) as count FROM orders
+        WHERE amount &gt; #{minAmount}
+        GROUP BY status
+        HAVING COUNT(*) &gt; 0
+        ORDER BY count DESC
+        LIMIT 10
+    </select>
+    
+    <!-- 场景85: UNION + LIMIT -->
+    <select id="testUnionWithLimit" resultType="com.test.entity.User">
+        SELECT * FROM users WHERE type = #{type}
+        UNION
+        SELECT * FROM users WHERE status = '1'
+        LIMIT #{limit}
+    </select>
+    
+    <!-- ========== 场景86-95: 跨文件 SQL 片段引用测试 ========== -->
+    
+    <!-- 场景86: 直接跨文件引用 CommonMapper 片段 -->
+    <select id="testCrossFileInclude" resultType="User">
+        SELECT <include refid="com.test.mapper.CommonMapper.userBaseColumns"/>
+        FROM users
+        <where>
+            <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+        </where>
+    </select>
+    
+    <!-- 场景87: 跨文件引用 + 本地 if 条件 -->
+    <select id="testCrossFileIncludeWithIf" resultType="User">
+        SELECT <include refid="com.test.mapper.CommonMapper.userBaseColumns"/>,
+               <include refid="com.test.mapper.CommonMapper.auditColumns"/>
+        FROM users
+        <where>
+            <if test="name != null">AND name LIKE CONCAT('%', #{name}, '%')</if>
+            <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+        </where>
+    </select>
+    
+    <!-- 场景88: 本地 SQL 片段引用跨文件片段 -->
+    <sql id="userSearchWithCommon">
+        <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+        <include refid="com.test.mapper.CommonMapper.dateRangeCondition"/>
+        <if test="type != null">AND type = #{type}</if>
+    </sql>
+    
+    <select id="testLocalFragmentWithCrossFile" resultType="User">
+        SELECT * FROM users
+        <where>
+            <include refid="userSearchWithCommon"/>
+        </where>
+    </select>
+    
+    <!-- 场景89: choose 内跨文件引用 -->
+    <select id="testCrossFileInChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <choose>
+                <when test="filterMode == 'active'">
+                    <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+                </when>
+                <when test="filterMode == 'complex'">
+                    <include refid="com.test.mapper.CommonMapper.complexCommonCondition"/>
+                </when>
+                <otherwise>
+                    <include refid="com.test.mapper.CommonMapper.dateRangeCondition"/>
+                </otherwise>
+            </choose>
+        </where>
+    </select>
+    
+    <!-- 场景90: foreach + 跨文件引用组合 -->
+    <select id="testCrossFileWithForeach" resultType="User">
+        SELECT <include refid="com.test.mapper.CommonMapper.userBaseColumns"/>
+        FROM users
+        <where>
+            <if test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </if>
+            <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+        </where>
+        <include refid="com.test.mapper.CommonMapper.paginationCondition"/>
+    </select>
+    
+    <!-- 场景91: 多次跨文件引用同一片段 -->
+    <select id="testMultipleCrossFileInclude" resultType="User">
+        SELECT u1.id, u1.name, u1.email, u1.status, u1.type
+        FROM users u1
+        INNER JOIN users u2 ON u1.type = u2.type
+        <where>
+            u1.status = #{status}
+            AND u2.status = u1.status
+        </where>
+    </select>
+    
+    <!-- 场景92: 跨文件引用带嵌套 choose 的片段 -->
+    <select id="testCrossFileNestedChoose" resultType="User">
+        SELECT * FROM users
+        <where>
+            <if test="useComplex">
+                <include refid="com.test.mapper.CommonMapper.complexCommonCondition"/>
+            </if>
+        </where>
+    </select>
+    
+    <!-- 场景93: trim 内跨文件引用 -->
+    <select id="testCrossFileInTrim" resultType="User">
+        SELECT * FROM users
+        <trim prefix="WHERE " prefixOverrides="AND|OR">
+            <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+            <if test="type != null">AND type = #{type}</if>
+        </trim>
+    </select>
+    
+    <!-- 场景94: set 内跨文件引用 -->
+    <update id="testCrossFileInSet">
+        UPDATE users
+        <set>
+            <if test="status != null">status = #{status},</if>
+            updated_at = NOW()
+        </set>
+        <where>
+            <include refid="com.test.mapper.CommonMapper.activeStatusCondition"/>
+        </where>
+    </update>
+    
+    <!-- 场景95: 三层引用链 - UserMapper -> 本地片段 -> CommonMapper -->
+    <sql id="chainedCondition">
+        <include refid="com.test.mapper.CommonMapper.complexCommonCondition"/>
+        AND type IS NOT NULL
+    </sql>
+    
+    <select id="testChainedCrossFileInclude" resultType="User">
+        SELECT * FROM users
+        <where>
+            <include refid="chainedCondition"/>
+        </where>
+    </select>
+    <!-- ========== selectKey 测试场景 (S1-S4) ========== -->
+    
+    <!-- 场景 S1: Oracle Sequence (order="BEFORE") -->
+    <insert id="testSelectKeyOracle" parameterType="User">
+        <selectKey keyProperty="id" resultType="integer" order="BEFORE">
+            SELECT COALESCE(MAX(id), 0) + 1 FROM users
+        </selectKey>
+        INSERT INTO users (id, name, email, status) 
+        VALUES (#{id}, #{name}, #{email}, '1')
+    </insert>
+
+    <!-- 场景 S2: PostgreSQL Sequence 风格 -->
+    <insert id="testSelectKeyPostgres" parameterType="User">
+        <selectKey keyProperty="id" resultType="integer" order="BEFORE">
+            SELECT COALESCE(MAX(id), 0) + 1 FROM users
+        </selectKey>
+        INSERT INTO users (id, name, email, status) 
+        VALUES (#{id}, #{name}, #{email}, '1')
+    </insert>
+
+    <!-- 场景 S3: MySQL AUTO_INCREMENT 风格 (order="AFTER") -->
+    <insert id="testSelectKeyMysql" parameterType="User">
+        <selectKey keyProperty="id" resultType="integer" order="AFTER">
+            SELECT MAX(id) FROM users
+        </selectKey>
+        INSERT INTO users (name, email, status) 
+        VALUES (#{name}, #{email}, '1')
+    </insert>
+
+    <!-- 场景 S4: UUID/随机数生成 -->
+    <insert id="testSelectKeyUuid" parameterType="User">
+        <selectKey keyProperty="id" resultType="integer" order="BEFORE">
+            SELECT FLOOR(RAND() * 1000000)
+        </selectKey>
+        INSERT INTO users (id, name, email, status) 
+        VALUES (#{id}, #{name}, #{email}, '1')
+    </insert>
+    <!-- ========== resultMap 嵌套测试场景 (R1-R6) ========== -->
+    
+    <!-- 场景 R1: resultMap + association (一对一) -->
+    <resultMap id="userOrderNestedMap" type="com.test.dto.UserOrderNestedDTO">
+        <id property="userId" column="u_id"/>
+        <result property="userName" column="u_name"/>
+        <result property="userEmail" column="u_email"/>
+        <association property="order" javaType="com.test.entity.Order">
+            <id property="id" column="o_id"/>
+            <result property="orderNo" column="o_no"/>
+            <result property="amount" column="o_amount"/>
+        </association>
+    </resultMap>
+
+    <select id="testResultMapAssociation" resultMap="userOrderNestedMap">
+        SELECT u.id as u_id, u.name as u_name, u.email as u_email,
+               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LIMIT 10
+    </select>
+
+    <!-- 场景 R2: resultMap + collection (一对多) -->
+    <resultMap id="userWithOrdersMap" type="com.test.dto.UserWithOrdersDTO">
+        <id property="userId" column="u_id"/>
+        <result property="userName" column="u_name"/>
+        <collection property="orders" ofType="com.test.entity.Order">
+            <id property="id" column="o_id"/>
+            <result property="orderNo" column="o_no"/>
+            <result property="amount" column="o_amount"/>
+        </collection>
+    </resultMap>
+
+    <select id="testResultMapCollection" resultMap="userWithOrdersMap">
+        SELECT u.id as u_id, u.name as u_name,
+               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.id = 1
+    </select>
+
+    <!-- 场景 R3: resultMap 缺少 id (诊断场景) -->
+    <resultMap id="badResultMapNoId" type="com.test.entity.User">
+        <result property="name" column="name"/>
+        <result property="email" column="email"/>
+    </resultMap>
+
+    <select id="testResultMapNoId" resultMap="badResultMapNoId">
+        SELECT name, email FROM users LIMIT 5
+    </select>
+
+    <!-- 场景 R4: Nested Select 模式 (N+1 问题诊断) -->
+    <resultMap id="nestedSelectMap" type="com.test.dto.UserWithOrdersDTO">
+        <id property="userId" column="id"/>
+        <result property="userName" column="name"/>
+        <collection property="orders" column="id" 
+                    select="getOrdersByUserId"/>
+    </resultMap>
+
+    <select id="getOrdersByUserId" resultType="com.test.entity.Order">
+        SELECT id, order_no as orderNo, amount, user_id as userId
+        FROM orders WHERE user_id = #{userId}
+    </select>
+
+    <select id="testNestedSelectN1" resultMap="nestedSelectMap">
+        SELECT id, name FROM users LIMIT 5
+    </select>
+
+    <!-- 场景 R5: Nested Result 模式 (正确方式) -->
+    <resultMap id="nestedResultMap" type="com.test.dto.UserWithOrdersDTO">
+        <id property="userId" column="u_id"/>
+        <result property="userName" column="u_name"/>
+        <collection property="orders" ofType="com.test.entity.Order">
+            <id property="id" column="o_id"/>
+            <result property="orderNo" column="o_no"/>
+            <result property="amount" column="o_amount"/>
+        </collection>
+    </resultMap>
+
+    <select id="testNestedResult" resultMap="nestedResultMap">
+        SELECT u.id as u_id, u.name as u_name,
+               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.id = 1
+    </select>
+
+    <!-- 场景 R6: discriminator 动态映射 -->
+    <resultMap id="userTypeMap" type="com.test.entity.User">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <discriminator javaType="string" column="type">
+            <case value="VIP" resultMap="vipUserMap"/>
+            <case value="NORMAL" resultMap="normalUserMap"/>
+        </discriminator>
+    </resultMap>
+    <resultMap id="vipUserMap" type="com.test.entity.User">
+        <result property="status" column="status"/>
+    </resultMap>
+    <resultMap id="normalUserMap" type="com.test.entity.User">
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <select id="testDiscriminator" resultMap="userTypeMap">
+        SELECT * FROM users
+    </select>
+    
+    <!-- ========== 子查询诊断测试场景 (Q1-Q3) ========== -->
+    
+    <!-- 场景 Q1: 关联子查询 (Correlated Subquery) - 性能问题诊断 -->
+    <select id="testCorrelatedSubquery" resultType="User">
+        SELECT * FROM users u
+        WHERE u.id IN (
+            SELECT o.user_id FROM orders o 
+            WHERE o.amount > 1000
+        )
+        LIMIT 10
+    </select>
+
+    <!-- 场景 Q2: 标量子查询 (Scalar Subquery) -->
+    <select id="testScalarSubqueryNew" resultType="com.test.dto.UserOrderCountDTO">
+        SELECT u.id as userId, u.name as userName,
+               (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) as orderCount
+        FROM users u
+        LIMIT 10
+    </select>
+
+    <!-- 场景 Q3: 多层嵌套子查询 -->
+    <select id="testNestedSubqueryComplex" resultType="User">
+        SELECT * FROM users WHERE id IN (
+            SELECT user_id FROM orders WHERE amount > (
+                SELECT AVG(amount) FROM orders
+            )
+        )
+        LIMIT 10
+    </select>
+    
+</mapper>

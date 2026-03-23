@@ -1,0 +1,6 @@
+{
+  "ok": false,
+  "error": "unsupported platform: h2",
+  "driver": null,
+  "db_version": null
+}
