@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Any, cast
 
 from sqlopt.common import save_json_file
 from sqlopt.common.config import SQLOptConfig, load_config
@@ -94,7 +95,7 @@ class StageRunner:
 
     def _run_recognition_stage(self) -> None:
         from sqlopt.common.db_connector import create_connector
-        from sqlopt.common.llm_mock_generator import OpenAILLMProvider
+        from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.recognition import RecognitionStage
 
         db_connector = None
@@ -108,8 +109,11 @@ class StageRunner:
                 user=self.config.db_user or "",
                 password=self.config.db_password or "",
             )
-        if self.config.llm_enabled and self.config.llm_provider == "openai":
-            llm_provider = OpenAILLMProvider(db_connector=db_connector)
+        if self.config.llm_enabled:
+            if self.config.llm_provider == "openai":
+                llm_provider = OpenAILLMProvider(db_connector=db_connector)
+            elif self.config.llm_provider == "opencode_run":
+                llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
         stage = RecognitionStage(self.run_id, llm_provider=llm_provider)
         result = stage.run(run_id=self.run_id)
@@ -117,7 +121,7 @@ class StageRunner:
 
     def _run_optimize_stage(self) -> None:
         from sqlopt.common.db_connector import create_connector
-        from sqlopt.common.llm_mock_generator import OpenAILLMProvider
+        from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.optimize import OptimizeStage
 
         db_connector = None
@@ -131,8 +135,11 @@ class StageRunner:
                 user=self.config.db_user or "",
                 password=self.config.db_password or "",
             )
-        if self.config.llm_enabled and self.config.llm_provider == "openai":
-            llm_provider = OpenAILLMProvider(db_connector=db_connector)
+        if self.config.llm_enabled:
+            if self.config.llm_provider == "openai":
+                llm_provider = OpenAILLMProvider(db_connector=db_connector)
+            elif self.config.llm_provider == "opencode_run":
+                llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
         stage = OptimizeStage(self.run_id, llm_provider=llm_provider)
         result = stage.run(run_id=self.run_id)
@@ -145,8 +152,8 @@ class StageRunner:
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.result_report)
 
-    def get_status(self) -> dict:
-        return self.progress.get_status()
+    def get_status(self) -> dict[str, Any]:
+        return cast("dict[str, Any]", self.progress.get_status())
 
     def is_complete(self) -> bool:
         return all(

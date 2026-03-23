@@ -153,9 +153,12 @@ class ProgressTracker:
         Returns:
             Dictionary containing run_id and all stage progress.
         """
+        stages_data: dict[str, Any] = {
+            name: asdict(progress) for name, progress in self.stages.items()
+        }
         return {
             "run_id": self.run_id,
-            "stages": {name: asdict(progress) for name, progress in self.stages.items()},
+            "stages": stages_data,
         }
 
     def to_json(self) -> str:

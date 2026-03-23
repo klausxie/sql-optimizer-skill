@@ -564,7 +564,8 @@ Example output:
         if not plan:
             return 100.0
         if "Plan" in plan:
-            return plan["Plan"].get("Total Cost", 100.0)
+            total_cost = plan["Plan"].get("Total Cost", 100.0)
+            return float(total_cost) if total_cost is not None else 100.0
         if "cost" in plan:
             return float(plan["cost"])
         return 100.0
@@ -595,11 +596,12 @@ Example: [{{"sql_unit_id": "u1", "risk_type": "SELECT_STAR", "severity": "MEDIUM
         )
         content = response.choices[0].message.content or "[]"
         try:
-            risks = json.loads(content)
-            if isinstance(risks, dict) and "risks" in risks:
-                risks = risks["risks"]
-            if not isinstance(risks, list):
-                risks = [risks]
+            risks_raw = json.loads(content)
+            if isinstance(risks_raw, dict) and "risks" in risks_raw:
+                risks_raw = risks_raw["risks"]
+            if not isinstance(risks_raw, list):
+                risks_raw = [risks_raw]
+            risks: list[dict[str, Any]] = [r for r in risks_raw if isinstance(r, dict)]
             sql_unit_id = f"unit_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}"
             for r in risks:
                 r.setdefault("sql_unit_id", sql_unit_id)
@@ -613,3 +615,170 @@ Example: [{{"sql_unit_id": "u1", "risk_type": "SELECT_STAR", "severity": "MEDIUM
                     "message": "Failed to parse LLM risk analysis",
                 }
             ]
+
+
+class OpenCodeRunLLMProvider(LLMProviderBase):
+    """OpenCode run-based LLM provider for SQL optimization.
+
+    Uses the `opencode run` command to leverage LLM capabilities for generating
+    optimization proposals. Falls back to MockLLMProvider for baseline generation
+    if database connector is not available.
+
+    Example:
+        >>> provider = OpenCodeRunLLMProvider(
+        ...     db_connector=PostgreSQLConnector(host="localhost", dbname="test")
+        ... )
+        >>> baseline = provider.generate_baseline("SELECT * FROM users", "postgresql")
+        >>> proposal_json = provider.generate_optimization("SELECT * FROM users", "Add index hint")
+    """
+
+    def __init__(
+        self,
+        db_connector: Any = None,
+        model: str = "zhipuai-coding-plan/glm-5",
+    ) -> None:
+        """Initialize OpenCodeRun LLM provider.
+
+        Args:
+            db_connector: Database connector for EXPLAIN plans (DBConnector instance)
+            model: Model to use in provider/model format
+        """
+        self.db_connector = db_connector
+        self.model = model
+        self._mock = MockLLMProvider()
+
+    def generate_optimization(self, sql: str, description: str = "") -> str:
+        prompt = self._build_optimization_prompt(sql, description)
+        json_output = self._call_opencode(prompt)
+        return self._parse_response(json_output, sql)
+
+    def _build_optimization_prompt(self, sql: str, description: str) -> str:
+        return f"""Analyze this SQL query and suggest an optimized version.
+
+Original SQL:
+{sql}
+
+{"Optimization hint: " + description if description else ""}
+
+Return a JSON object with these fields:
+- sql_unit_id: a short unique identifier
+- path_id: a path identifier
+- optimized_sql: the optimized SQL query
+- rationale: explanation of why this optimization helps
+- confidence: confidence score between 0.0 and 1.0
+
+Example output:
+{{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
+
+    def _call_opencode(self, prompt: str) -> str:
+        import subprocess
+
+        cmd = [
+            "opencode",
+            "run",
+            prompt,
+            "--format",
+            "json",
+            "--model",
+            self.model,
+        ]
+        try:
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                return f'{{"error": "opencode run failed: {result.stderr}"}}'
+            return result.stdout
+        except subprocess.TimeoutExpired:
+            return '{"error": "opencode run timed out"}'
+        except FileNotFoundError:
+            return '{"error": "opencode command not found"}'
+
+    def _parse_response(self, json_output: str, original_sql: str) -> str:
+        content = None
+        for line in json_output.strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+                if data.get("type") == "text":
+                    part = data.get("part", {})
+                    text = part.get("text", "")
+                    # Handle code blocks with potential extra text
+                    if "```json" in text:
+                        start = text.find("```json") + 7
+                        end = text.rfind("```")
+                        if end > start:
+                            text = text[start:end]
+                    content = json.loads(text.strip())
+                    if content:
+                        break
+            except json.JSONDecodeError:
+                continue
+        if content is None:
+            return json.dumps(
+                {
+                    "sql_unit_id": f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "path_id": f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "original_sql": original_sql,
+                    "optimized_sql": original_sql,
+                    "rationale": "No valid JSON content found in OpenCodeRun response",
+                    "confidence": 0.0,
+                }
+            )
+        if "error" in content:
+            return json.dumps(
+                {
+                    "sql_unit_id": f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "path_id": f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "original_sql": original_sql,
+                    "optimized_sql": original_sql,
+                    "rationale": f"OpenCodeRun error: {content['error']}",
+                    "confidence": 0.0,
+                }
+            )
+        return json.dumps(
+            {
+                "sql_unit_id": content.get(
+                    "sql_unit_id",
+                    f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                ),
+                "path_id": content.get(
+                    "path_id",
+                    f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                ),
+                "original_sql": original_sql,
+                "optimized_sql": content.get("optimized_sql", original_sql),
+                "rationale": content.get("rationale", "OpenCodeRun optimization"),
+                "confidence": content.get("confidence", 0.8),
+            }
+        )
+
+    def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict[str, Any]:
+        if self.db_connector is None:
+            return self._mock.generate_baseline(sql, platform)
+        explain_plan = self.db_connector.execute_explain(sql)
+        estimated_cost = self._estimate_cost_from_plan(explain_plan)
+        return {
+            "sql_unit_id": f"unit_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+            "path_id": f"path_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+            "plan": explain_plan,
+            "estimated_cost": estimated_cost,
+            "actual_time_ms": None,
+        }
+
+    def _estimate_cost_from_plan(self, plan: dict[str, Any]) -> float:
+        if not plan:
+            return 100.0
+        if "Plan" in plan:
+            total_cost = plan["Plan"].get("Total Cost", 100.0)
+            return float(total_cost) if total_cost is not None else 100.0
+        if "cost" in plan:
+            return float(plan["cost"])
+        return 100.0
+
+    def generate_risks(self, sql: str) -> list[dict[str, Any]]:
+        return self._mock.generate_risks(sql)

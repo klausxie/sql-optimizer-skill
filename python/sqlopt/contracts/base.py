@@ -20,9 +20,9 @@ def json_to_dataclass(cls: Type[T], data: dict | str) -> T:
     return cls(**data)
 
 
-def load_json_file(file_path: str | Path) -> dict:
+def load_json_file(file_path: str | Path) -> dict[str, Any]:
     with Path(file_path).open(encoding="utf-8") as f:
-        return json.load(f)
+        return dict(json.load(f))
 
 
 def save_json_file(data: Any, file_path: str | Path) -> None:

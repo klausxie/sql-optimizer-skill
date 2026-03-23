@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
+
+logger = logging.getLogger(__name__)
 
 
 class RecognitionStage(Stage[None, RecognitionOutput]):
@@ -50,7 +53,12 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                         actual_time_ms=baseline_data.get("actual_time_ms"),
                     )
                     baselines.append(baseline)
-                except Exception:
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(
+                        "Failed to generate baseline for %s: %s",
+                        sql_unit.sql_unit_id,
+                        str(e),
+                    )
                     continue
 
         output = RecognitionOutput(baselines=baselines)

@@ -43,14 +43,16 @@ def _replace_cdata(raw_text: str) -> str:
     pattern = re.compile(cdata_regex)
 
     def escape_cdata(match: re.Match) -> str:
-        content = match.group(2).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        content = (
+            str(match.group(2)).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
         return content
 
     return pattern.sub(escape_cdata, raw_text)
 
 
 def parse_mapper_file(xml_path: Path) -> list[ParsedStatement]:
-    statements = []
+    statements: list[ParsedStatement] = []
     try:
         raw_text = Path(xml_path).read_text(encoding="utf-8")
         clean_text = _replace_cdata(raw_text)

@@ -146,7 +146,7 @@ class PostgreSQLConnector(DBConnector):
             if result and "QUERY PLAN" in result:
                 query_plan = result["QUERY PLAN"]
                 if isinstance(query_plan, list) and len(query_plan) > 0:
-                    return query_plan[0]
+                    return dict(query_plan[0])
                 return {}
             return {}
 
