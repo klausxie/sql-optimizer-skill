@@ -1,6 +1,9 @@
-# SQL Optimizer V8 故障排查
+# SQL Optimizer V8/V9 故障排查
 
-本文档提供 V8 七阶段流水线常见问题的诊断与解决方案。
+本文档提供 V8/V9 流水线常见问题的诊断与解决方案。
+
+> **注意**: V9 是当前默认架构。V8 (7阶段) 和 V9 (5阶段) 的故障排查基本兼容。
+> 阶段名称映射: Init=Discovery, Parse=Branching+Pruning, Recognition=Baseline, Optimize=Optimize+Validate, Patch=Patch
 
 ## 通用诊断命令
 

@@ -56,35 +56,28 @@ llm:
 | `db.dsn` | 数据库连接串 |
 | `llm.provider` | LLM 提供者：`opencode_run`（推荐）或 `opencode_builtin`（离线） |
 
-## 4. V8 七阶段流水线
+## 4. V9 五阶段流水线
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    V8 优化流程                                    │
-│                                                                  │
-│  [1.Discovery] → [2.Branching] → [3.Pruning] → [4.Baseline]   │
-│       ↓                ↓                ↓               ↓        │
-│   连接数据库        分支展开         风险标记         EXPLAIN    │
-│   采集表结构       if/foreach/      prefix_wildcard   性能基线  │
-│   解析 XML         choose           suffix_wildcard               │
-│                                    function_wrap                  │
-│                                                                  │
-│  → [5.Optimize] → [6.Validate] → [7.Patch]                    │
-│       ↓               ↓              ↓                           │
-│   规则引擎         语义验证        生成补丁                     │
-│   LLM 建议         性能对比        应用确认                     │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         V9 优化流程                                      │
+│                                                                         │
+│   [1.Init] ──▶ [2.Parse] ──▶ [3.Recognition] ──▶ [4.Optimize] ──▶ [5.Patch]   │
+│       │            │              │                 │              │         │
+│       ▼            ▼              ▼                 ▼              ▼         │
+│   连接数据库     分支展开       EXPLAIN          规则引擎       生成补丁    │
+│   采集表结构   if/foreach/     性能基线         LLM 建议       应用确认    │
+│   解析 XML     choose          风险标记         迭代验证                    │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 | 阶段 | 名称 | 耗时 | 说明 |
 |------|------|------|------|
-| 1 | Discovery | DB | 连接数据库、采集表结构、解析 XML |
-| 2 | Branching | CPU | 分支展开（if/foreach/choose） |
-| 3 | Pruning | CPU | 风险标记（prefix_wildcard, suffix_wildcard, function_wrap） |
-| 4 | Baseline | DB | EXPLAIN 分析、性能采集 |
-| 5 | Optimize | LLM | 规则引擎 + LLM 优化建议 |
-| 6 | Validate | DB | 语义验证、性能对比 |
-| 7 | Patch | FS | 生成补丁、用户确认、应用 |
+| 1 | Init | DB | 连接数据库、采集表结构、解析 XML、提取 SQL 单元 |
+| 2 | Parse | CPU | 分支展开（if/foreach/choose）、风险检测 |
+| 3 | Recognition | DB | EXPLAIN 分析、性能基线采集 |
+| 4 | Optimize | LLM | 规则引擎 + LLM 优化建议、迭代验证 |
+| 5 | Patch | FS | 生成补丁、用户确认、应用变更 |
 
 ## 5. 完整使用流程
 

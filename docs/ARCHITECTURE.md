@@ -4,6 +4,9 @@
 
 This document describes the V8 architecture and execution flow of SQL Optimizer.
 
+> **Note**: V9 is the current default architecture. V8 (7-stage) has been superseded.
+> See [V9 Architecture Overview](./v9-design/V9_ARCHITECTURE_OVERVIEW.md) for details.
+
 ---
 
 ## 1. V8 System Architecture
@@ -412,6 +415,22 @@ sqlopt-cli apply --run-id <run-id>
 1. MySQL 5.6 does not support `MAX_EXECUTION_TIME`
 2. PostgreSQL dialects (e.g., `ILIKE`) are not automatically converted for MySQL
 3. Template-level patches require `rewriteMaterialization.replayVerified=true`
+
+---
+
+## 15. V9 Architecture (Current)
+
+V9 simplifies the 7-stage V8 pipeline into 5 stages:
+
+| V9 Stage | V8 Equivalent | Description |
+|----------|---------------|-------------|
+| Init | Discovery | XML parsing, SQL extraction |
+| Parse | Branching + Pruning | Branch expansion, risk detection |
+| Recognition | Baseline | EXPLAIN collection, performance baseline |
+| Optimize | Optimize + Validate | Rule engine + LLM (iterative) |
+| Patch | Patch | XML patch generation |
+
+See [V9 Architecture Overview](./v9-design/V9_ARCHITECTURE_OVERVIEW.md) for details.
 
 ---
 
