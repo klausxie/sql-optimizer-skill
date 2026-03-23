@@ -1,0 +1,35 @@
+# MySQL 配置模板
+# 使用方法: 复制此文件为 sqlopt.yml 并修改相应配置
+
+config_version: v1
+
+project:
+  root_path: .  # 指向 MyBatis 项目根目录
+
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml  # MyBatis XML mapper 文件路径
+  statement_types:  # 可选: 默认只扫描 SELECT
+    - SELECT
+    # - INSERT
+    # - UPDATE
+    # - DELETE
+
+db:
+  platform: mysql
+  dsn: mysql://user:password@localhost:3306/database?charset=utf8mb4
+
+llm:
+  enabled: false  # true 启用 LLM 优化建议
+  provider: heuristic  # 或 opencode_run
+
+validate:
+  db_reachable: true
+  validation_profile: balanced  # minimal / balanced / thorough
+  allow_db_unreachable_fallback: false
+
+runtime:
+  profile: balanced  # minimal / balanced / thorough
+
+report:
+  enabled: true
