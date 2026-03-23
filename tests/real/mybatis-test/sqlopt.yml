@@ -1,0 +1,10 @@
+config_version: v1
+project_root_path: /tmp/test-project
+scan_mapper_globs:
+  - src/main/resources/**/*.xml
+  - mapper/**/*.xml
+db_platform: mysql
+db_dsn: "mysql://localhost:3306/test"
+llm_enabled: true
+llm_provider: openai
+contracts_version: current
