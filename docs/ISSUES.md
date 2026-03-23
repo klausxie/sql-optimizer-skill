@@ -10,20 +10,7 @@
   - MyBatis XML 中使用的列名与数据库实际列名不一致
   - 示例: XML 使用 `type`， 数据库列名是 `user_type`
   - 影响: `UserMapper.xml` 中的某些 SQL 可能失败
-
-- [ ] **#3 动态 SQL 参数展开问题** `[MEDIUM]` `2026-03-22`
-  - 含有 `${}` 动态表达式的 SQL 在 EXPLAIN 时会失败
-  - 示例: `ORDER BY ${sortColumn} ${sortOrder}`
-  - 影响: recognition 阶段的 EXPLAIN 执行会报错
-
-- [ ] **#4 Recognition 阶段执行过慢** `[HIGH]` `2026-03-23`
-  - 处理 110 个 SQL 单元时速度极慢，  - 根因: 串行处理、无并行化、无断点恢复
-  - 涉及文件: `python/sqlopt/application/v9_stages/recognition.py`
-
-- [ ] **#6 Workflow 状态管理问题** `[HIGH]` `2026-03-23`
-  - `--to-stage optimize` 时，即使存在 baselines.json 也会重新运行 recognition
-  - 根因: 超时后没有写入 state.json，workflow 引擎从上一完成阶段重新开始
-  - 涉及文件: `python/sqlopt/application/workflow_v9.py`, `status_resolver.py`
+  - **注意**: 需要外部 UserMapper.xml 修复，非本项目范畴
 
 ---
 
@@ -37,7 +24,24 @@
     2. `_parse_mapper()` 接受 `global_fragments` 参数
     3. 所有 include 引用从全局注册表解析
   - **涉及文件**: `python/sqlopt/application/v9_stages/init.py`
-  - **提交**: (pending)
+  - **提交**: `aa562e9`
+
+- [x] **#3 动态 SQL 参数展开问题** `[MEDIUM]` `2026-03-23`
+  - **问题**: `${}` 占位符在 EXPLAIN 时导致空 SQL 或未替换的占位符
+  - **解决方案**: 在 `_run_explain()` 添加 guard
+    1. 空 SQL 返回 `scan_type="EMPTY_SQL_GUARD"`
+    2. 未替换的 `${}` 返回 `scan_type="DYNAMIC_SQL_UNSUBSTITUTED"`
+  - **涉及文件**: `python/sqlopt/application/v9_stages/recognition.py`
+  - **提交**: `5104bfc`
+
+- [x] **#4 Recognition 阶段执行过慢** `[HIGH]` `2026-03-23`
+  - **问题**: 处理 110 个 SQL 单元时速度极慢
+  - **解决方案**:
+    1. `ThreadPoolExecutor` 并行处理 (max_workers=4)
+    2. 线程本地连接池复用
+    3. 增量 checkpoint 每 10 条保存一次
+  - **涉及文件**: `python/sqlopt/application/v9_stages/recognition.py`
+  - **提交**: `5104bfc`
 
 - [x] **#5 OpenCode Subprocess 在 Python 中挂起** `[HIGH]` `2026-03-23`
   - **问题**: `opencode run` 在 Python subprocess 中挂起
@@ -51,38 +55,26 @@
 
 ## Issue Details
 
-### Issue #4: Recognition 阶段执行过慢
+### Issue #4: Recognition 阶段执行过慢 (已修复)
 
 **问题描述**:
 Recognition 阶段处理 110 个 SQL 单元时速度极慢，每个 SQL 单元需要数秒到数十秒。
 
-**根因分析**:
-1. 每个 SQL 单元可能有多个分支（动态 SQL 展开）
-2. 每个分支执行 EXPLAIN 需要 10 秒超时
-3. 串行处理，没有并行化
-4. 超时时会话被终止，没有 state 保存
-
-**修复方向**:
-1. 增加并行处理（多进程/多线程）
-2. 优化单个 EXPLAIN 的执行时间
-3. 实现增量 state 保存，支持断点恢复
+**解决方案** (提交 `5104bfc`):
+1. `ThreadPoolExecutor` 并行处理 (max_workers=4)
+2. 线程本地连接池复用
+3. 增量 checkpoint 每 10 条保存一次
 
 ---
 
-### Issue #6: Workflow 状态管理问题
+### Issue #6: Workflow 状态管理问题 (已修复)
 
 **问题描述**:
-使用 `--to-stage optimize` 时，即使 recognition 阶段已有 baselines.json，workflow 仍会重新运行 recognition。
+使用 `--to-stage optimize` 时，即使 recognition 阶段已有 baselines.json，workflow仍会重新运行 recognition。
 
-**根因分析**:
-1. recognition 超时后进程被杀死，没有写入 state.json
-2. workflow 引擎检查 state 发现没有完成记录
-3. 引擎从上一个完成的阶段重新开始（而非从 checkpoint 恢复）
-
-**修复方向**:
-1. 确保 recognition 阶段在超时前保存 state
-2. 修改 workflow 引擎，在发现 baselines.json 存在时跳过 recognition
-3. 实现 supervisor 的 checkpoint 机制
+**解决方案** (提交 `5104bfc`):
+1. 在 `get_next_action()` 中检查 `baselines.json` 是否存在且完整
+2. recognition 完成或跳过时更新 `completed_stages` 并保存 state
 
 ---
 
