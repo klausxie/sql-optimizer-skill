@@ -1,7 +1,12 @@
 """Result stage - generates optimization reports and patches."""
 
+from __future__ import annotations
+
+import difflib
 from pathlib import Path
 
+from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.result import Patch, Report, ResultOutput
 from sqlopt.stages.base import Stage
 
@@ -9,24 +14,181 @@ from sqlopt.stages.base import Stage
 class ResultStage(Stage[None, ResultOutput]):
     """Result stage: generates optimization reports and patches.
 
-    Input: None (stub - will be ResultInput later)
+    Input: None (reads from optimize and init stage outputs)
     Output: ResultOutput with report and patches
     """
 
-    def __init__(self) -> None:
-        """Initialize the result stage."""
-        super().__init__("result")
+    def __init__(self, run_id: str | None = None) -> None:
+        """Initialize the result stage.
 
-    def run(self, _input_data: None = None) -> ResultOutput:
+        Args:
+            run_id: Optional run identifier. If not provided, uses stub data.
+        """
+        super().__init__("result")
+        self.run_id = run_id
+
+    def run(self, _input_data: None = None, run_id: str | None = None) -> ResultOutput:
         """Execute result stage.
 
         Args:
-            input_data: None (stub - ResultInput not defined yet).
+            input_data: None (not used, reads from previous stages)
+            run_id: Optional run identifier override
 
         Returns:
-            ResultOutput with mock report and patches for development.
+            ResultOutput with report and patches from real data
         """
-        # Stub: create mock report
+        rid = run_id or self.run_id
+
+        if rid is None:
+            return self._create_stub_output()
+
+        # Read optimize proposals
+        optimize_file = Path("runs") / rid / "optimize" / "proposals.json"
+        if not optimize_file.exists():
+            return self._create_stub_output()
+
+        optimize_data = OptimizeOutput.from_json(optimize_file.read_text(encoding="utf-8"))
+
+        # Read init SQL units
+        init_file = Path("runs") / rid / "init" / "sql_units.json"
+        if not init_file.exists():
+            return self._create_stub_output()
+
+        init_data = InitOutput.from_json(init_file.read_text(encoding="utf-8"))
+
+        # Build SQL unit lookup
+        sql_unit_map = {unit.id: unit for unit in init_data.sql_units}
+
+        # Filter proposals with confidence > 0.7
+        high_confidence_proposals = [p for p in optimize_data.proposals if p.confidence > 0.7]
+
+        # Generate patches for high-confidence proposals
+        patches: list[Patch] = []
+        for proposal in high_confidence_proposals:
+            sql_unit = sql_unit_map.get(proposal.sql_unit_id)
+            if sql_unit is None:
+                continue
+
+            patch = self._create_patch(proposal, sql_unit.sql_text)
+            patches.append(patch)
+
+        # Generate report
+        report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches)
+
+        output = ResultOutput(
+            can_patch=len(patches) > 0,
+            report=report,
+            patches=patches,
+        )
+
+        self._write_output(output, rid)
+
+        return output
+
+    def _create_patch(self, proposal: OptimizationProposal, original_xml: str) -> Patch:
+        """Create a Patch from an optimization proposal.
+
+        Args:
+            proposal: The optimization proposal
+            original_xml: Original SQL XML content
+
+        Returns:
+            Patch with diff
+        """
+        # Generate unified diff between original and optimized SQL
+        original_lines = original_xml.splitlines(keepends=True)
+        optimized_lines = proposal.optimized_sql.splitlines(keepends=True)
+
+        diff_lines = list(
+            difflib.unified_diff(
+                original_lines,
+                optimized_lines,
+                fromfile="original",
+                tofile="optimized",
+                lineterm="",
+            )
+        )
+        diff = "\n".join(diff_lines) if diff_lines else ""
+
+        return Patch(
+            sql_unit_id=proposal.sql_unit_id,
+            original_xml=original_xml,
+            patched_xml=proposal.optimized_sql,
+            diff=diff,
+        )
+
+    def _create_report(
+        self,
+        all_proposals: list[OptimizationProposal],
+        high_confidence: list[OptimizationProposal],
+        patches: list[Patch],
+    ) -> Report:
+        """Create a Report from optimization analysis.
+
+        Args:
+            all_proposals: All optimization proposals
+            high_confidence: Proposals with confidence > 0.7
+            patches: Generated patches
+
+        Returns:
+            Report with summary and recommendations
+        """
+        total_proposals = len(all_proposals)
+        high_conf_count = len(high_confidence)
+
+        # Build summary
+        if high_conf_count == 0:
+            summary = "No high-confidence optimizations found (confidence > 0.7)"
+        else:
+            summary = f"Found {high_conf_count} high-confidence optimization(s) out of {total_proposals} total proposals"
+
+        # Build details
+        details_lines = [f"Total proposals analyzed: {total_proposals}"]
+        details_lines.append(f"High-confidence proposals (confidence > 0.7): {high_conf_count}")
+        details_lines.append(f"Patches generated: {len(patches)}")
+
+        if high_confidence:
+            details_lines.append("\nHigh-confidence optimizations:")
+            details_lines.extend(
+                f"  - [{p.sql_unit_id}] {p.rationale} (confidence: {p.confidence:.2f})"
+                for p in high_confidence
+            )
+
+        details = "\n".join(details_lines)
+
+        # Identify risks
+        risks: list[str] = [
+            f"Medium confidence ({p.confidence:.2f}) for {p.sql_unit_id} - verify before applying"
+            for p in high_confidence
+            if p.confidence < 0.8
+        ]
+
+        if not risks:
+            risks.append("Low risk - all changes are straightforward optimizations")
+
+        # Build recommendations
+        recommendations: list[str] = []
+        if high_confidence:
+            recommendations.append(
+                f"Apply {len(patches)} patch(es) to implement high-confidence optimizations"
+            )
+        else:
+            recommendations.append("Review SQL patterns manually for potential optimizations")
+            recommendations.append("Consider adjusting confidence threshold if too restrictive")
+
+        return Report(
+            summary=summary,
+            details=details,
+            risks=risks,
+            recommendations=recommendations,
+        )
+
+    def _create_stub_output(self) -> ResultOutput:
+        """Create stub output when no run_id is available.
+
+        Returns:
+            Stub ResultOutput for development/testing
+        """
         report = Report(
             summary="Optimization analysis complete",
             details="Found 1 optimization opportunity",
@@ -39,25 +201,22 @@ class ResultStage(Stage[None, ResultOutput]):
             patched_xml='<select id="findUser">SELECT id, name FROM users</select>',
             diff="--- old\n+++ new\n-SELECT *\n+SELECT id, name",
         )
-        output = ResultOutput(
+        return ResultOutput(
             can_patch=True,
             report=report,
             patches=[patch],
         )
 
-        # Write output to runs directory
-        self._write_output(output)
-
-        return output
-
-    def _write_output(self, output: ResultOutput) -> None:
+    def _write_output(self, output: ResultOutput, run_id: str | None = None) -> None:
         """Write stage output to runs directory.
 
         Args:
             output: The result stage output to persist.
+            run_id: Optional run identifier (uses self.run_id if not provided)
         """
-        output_dir = Path("runs") / "stub-run" / "result"
+        rid = run_id or self.run_id or "stub-run"
+        output_dir = Path("runs") / rid / "result"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        output_file = output_dir / "result.json"
+        output_file = output_dir / "report.json"
         output_file.write_text(output.to_json())

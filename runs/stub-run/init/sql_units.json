@@ -1,1 +1,0 @@
-{"sql_units": [{"id": "stub-1", "mapper_file": "UserMapper.xml", "sql_id": "findUser", "sql_text": "SELECT * FROM users WHERE id = #{id}", "statement_type": "SELECT"}], "run_id": "stub-run", "timestamp": "2026-03-23T17:10:16.724536"}
