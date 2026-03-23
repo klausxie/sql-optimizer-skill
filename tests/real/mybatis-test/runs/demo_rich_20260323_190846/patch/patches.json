@@ -1,0 +1,65 @@
+{
+  "patches": [
+    {
+      "patch_id": "PATCH_0001",
+      "sql_key": "com.test.mapper.UserMapper.testSingleIf#0",
+      "status": "pending",
+      "original_sql": "SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}",
+      "optimized_sql": "SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}",
+      "optimization_type": "WILDCARD_POSITION",
+      "estimated_improvement": "49%",
+      "applied_at": null,
+      "verified": false
+    },
+    {
+      "patch_id": "PATCH_0002",
+      "sql_key": "com.test.mapper.UserMapper.testSingleIf#1",
+      "status": "pending",
+      "original_sql": "SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}",
+      "optimized_sql": "SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}",
+      "optimization_type": "WILDCARD_POSITION",
+      "estimated_improvement": "34%",
+      "applied_at": null,
+      "verified": true
+    },
+    {
+      "patch_id": "PATCH_0003",
+      "sql_key": "com.test.mapper.UserMapper.testSingleIf#2",
+      "status": "applied",
+      "original_sql": "SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}",
+      "optimized_sql": "SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}",
+      "optimization_type": "WILDCARD_POSITION",
+      "estimated_improvement": "60%",
+      "applied_at": null,
+      "verified": true
+    },
+    {
+      "patch_id": "PATCH_0004",
+      "sql_key": "com.test.mapper.UserMapper.testSingleIf#3",
+      "status": "pending",
+      "original_sql": "SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}",
+      "optimized_sql": "SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}",
+      "optimization_type": "WILDCARD_POSITION",
+      "estimated_improvement": "55%",
+      "applied_at": null,
+      "verified": true
+    },
+    {
+      "patch_id": "PATCH_0005",
+      "sql_key": "com.test.mapper.UserMapper.testSingleIf#4",
+      "status": "applied",
+      "original_sql": "SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}",
+      "optimized_sql": "SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}",
+      "optimization_type": "WILDCARD_POSITION",
+      "estimated_improvement": "82%",
+      "applied_at": null,
+      "verified": true
+    }
+  ],
+  "total": 5,
+  "by_status": {
+    "pending": 3,
+    "confirmed": 0,
+    "applied": 2
+  }
+}
