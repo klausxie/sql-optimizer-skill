@@ -8,8 +8,7 @@ def find_mapper_files(project_root: str, globs: list[str]) -> list[Path]:
     found: list[Path] = []
 
     for pattern in globs:
-        full_pattern = root / pattern
-        for path in full_pattern.parent.glob(full_pattern.name):
+        for path in root.glob(pattern):
             if path.suffix.lower() == ".xml" and path.is_file() and path not in found:
                 found.append(path)
 
