@@ -596,6 +596,27 @@ class V9WorkflowEngine:
             if stage_name not in self.state.completed_stages and self._is_stage_enabled(
                 stage_name
             ):
+                # For recognition stage, check if baselines.json exists and is complete
+                if stage_name == "recognition":
+                    paths = canonical_paths(run_dir)
+                    baselines_path = paths.recognition_results_path
+                    if baselines_path.exists() and baselines_path.stat().st_size > 0:
+                        # Check if baselines file has content
+                        try:
+                            with open(baselines_path) as f:
+                                baselines_data = json.load(f)
+                            if baselines_data and len(baselines_data) > 0:
+                                # Baselines exist and have content - skip recognition
+                                self.state.completed_stages.append("recognition")
+                                self._save_state(run_dir)
+                                return NextAction(
+                                    action="skip",
+                                    stage=stage_name,
+                                    reason="baselines.json exists and is complete",
+                                )
+                        except Exception:
+                            pass  # If can't read, don't skip
+
                 return NextAction(
                     action="resume",
                     stage=stage_name,

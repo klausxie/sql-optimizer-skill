@@ -14,7 +14,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -489,6 +491,26 @@ def _get_connection(dsn: str):
     return None, None
 
 
+_thread_local = threading.local()
+
+
+def _get_connection_cached(dsn: str):
+    """Get thread-local cached connection or create new one."""
+    if not hasattr(_thread_local, "conn") or _thread_local.conn is None:
+        _thread_local.conn, _thread_local.platform = _get_connection(dsn)
+    return _thread_local.conn, _thread_local.platform
+
+
+def _close_thread_local_conn():
+    """Close thread-local connection if exists."""
+    if hasattr(_thread_local, "conn") and _thread_local.conn:
+        try:
+            _thread_local.conn.close()
+        except Exception:
+            pass
+        _thread_local.conn = None
+
+
 # =============================================================================
 # EXPLAIN Execution
 # =============================================================================
@@ -503,6 +525,20 @@ def _run_explain(conn, platform: str, sql: str, params: dict) -> ExplainParseRes
 
     Returns ExplainParseResult with parsed plan and warnings.
     """
+    # Guard against empty SQL
+    if not sql or sql.strip() == "":
+        return ExplainParseResult(
+            plan=ExplainPlan(plan_text="", scan_type="EMPTY_SQL_GUARD"),
+            warnings=["Skipped EXPLAIN - empty SQL after parameter substitution"],
+        )
+
+    # Guard against unsubstituted ${} placeholders
+    if re.search(r"\$\{[^}]*\}", sql):
+        return ExplainParseResult(
+            plan=ExplainPlan(plan_text=sql, scan_type="DYNAMIC_SQL_UNSUBSTITUTED"),
+            warnings=["Skipped EXPLAIN - unsubstituted ${} placeholders in SQL"],
+        )
+
     bound_sql = _substitute_bind_params(sql, params)
 
     if platform == "mysql":
@@ -713,7 +749,7 @@ class BaselineCollector:
         sql_key = sql_unit.get("sqlKey", "unknown")
         params = sql_unit.get("paramExample", {})
 
-        conn, platform = _get_connection(self.db_dsn)
+        conn, platform = _get_connection_cached(self.db_dsn)
         if conn is None:
             return BaselineResult(
                 sql_key=sql_key,
@@ -790,22 +826,42 @@ class BaselineCollector:
                 pass
 
     def collect_batch(
-        self, sql_units: list[dict], progress_reporter=None
+        self,
+        sql_units: list[dict],
+        progress_reporter=None,
+        max_workers: int = 4,
+        run_dir: Path = None,
     ) -> list[BaselineResult]:
         results = []
         total = len(sql_units)
-        for i, unit in enumerate(sql_units):
-            result = self.collect(unit)
-            results.append(result)
-            if progress_reporter and (i + 1) % 10 == 0:
-                progress_reporter.report_info(
-                    f"  collected baseline {i + 1}/{total}: {unit.get('sqlKey', 'unknown')[:60]}"
-                )
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_unit = {
+                executor.submit(self.collect, unit): unit for unit in sql_units
+            }
+            for i, future in enumerate(as_completed(future_to_unit)):
+                try:
+                    result = future.result()
+                except Exception as e:
+                    unit = future_to_unit[future]
+                    raise RuntimeError(
+                        f"Failed to collect baseline for {unit.get('sqlKey', 'unknown')}: {e}"
+                    ) from e
+                results.append(result)
+                if progress_reporter and (i + 1) % 10 == 0:
+                    progress_reporter.report_info(
+                        f"  collected baseline {i + 1}/{total}"
+                    )
+                if run_dir is not None and (i + 1) % 10 == 0:
+                    processed_keys = {
+                        r.get("sqlKey", r.get("sql", {}).get("sqlKey", "unknown"))
+                        for r in results
+                    }
+                    _save_checkpoint(results, run_dir, processed_keys)
         return results
 
 
 def collect_baseline_v9(
-    config: dict, sql_units: list[dict], reporter=None
+    config: dict, sql_units: list[dict], reporter=None, run_dir: Path = None
 ) -> list[dict]:
     """
     V9 self-contained baseline collection.
@@ -816,7 +872,7 @@ def collect_baseline_v9(
     - actualExecutionTimeMs, bufferHitCount, bufferReadCount, indexUsed
     """
     collector = BaselineCollector(config)
-    results = collector.collect_batch(sql_units, reporter)
+    results = collector.collect_batch(sql_units, reporter, run_dir=run_dir)
     return [
         {
             "sqlKey": r.sql_key,
@@ -834,6 +890,36 @@ def collect_baseline_v9(
         }
         for r in results
     ]
+
+
+# =============================================================================
+# Checkpoint Support for Incremental Progress
+# =============================================================================
+
+
+def _save_checkpoint(baselines: list, run_dir: Path, sql_keys_processed: set):
+    """Save incremental checkpoint for resume support."""
+    checkpoint_path = run_dir / "recognition" / ".baselines.checkpoint.json"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_data = {
+        "baselines": baselines,
+        "processed_keys": list(sql_keys_processed),
+    }
+    with open(checkpoint_path, "w") as f:
+        json.dump(checkpoint_data, f, indent=2)
+
+
+def _load_checkpoint(run_dir: Path) -> tuple[list, set] | None:
+    """Load checkpoint if exists. Returns (baselines, processed_keys) or None."""
+    checkpoint_path = run_dir / "recognition" / ".baselines.checkpoint.json"
+    if not checkpoint_path.exists():
+        return None
+    try:
+        with open(checkpoint_path) as f:
+            data = json.load(f)
+        return data.get("baselines", []), set(data.get("processed_keys", []))
+    except Exception:
+        return None
 
 
 # =============================================================================
@@ -860,11 +946,37 @@ def run_recognition(
 
     reporter.report_info(f"  loaded {len(sql_units)} SQL units from parse stage")
 
+    checkpoint = _load_checkpoint(run_dir)
+    if checkpoint:
+        existing_baselines, processed_keys = checkpoint
+        if existing_baselines and processed_keys:
+            processed = sum(
+                1
+                for u in sql_units
+                if u.get("sqlKey", u.get("sql", {}).get("sqlKey", "unknown"))
+                in processed_keys
+            )
+            reporter.report_info(
+                f"  checkpoint found: {processed} already processed, {len(sql_units) - processed} remaining"
+            )
+            sql_units = [
+                u
+                for u in sql_units
+                if u.get("sqlKey", u.get("sql", {}).get("sqlKey", "unknown"))
+                not in processed_keys
+            ]
+            if not sql_units:
+                return {
+                    "success": True,
+                    "baselines_count": len(existing_baselines),
+                    "from_checkpoint": True,
+                }
+
     for unit in sql_units:
         validator.validate_stage_input("recognition", unit)
 
     # Use V9 self-contained baseline collection (no V8 import)
-    raw_baselines = collect_baseline_v9(config, sql_units, reporter)
+    raw_baselines = collect_baseline_v9(config, sql_units, reporter, run_dir)
     baselines = []
     for i, baseline in enumerate(raw_baselines):
         explain_plan = dict(baseline.get("explainPlan") or {})
