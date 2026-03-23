@@ -1,0 +1,114 @@
+# SQL Optimizer - Lint Rule Index
+# This file provides AI-readable rule overview for code review
+
+[[rules]]
+id = "NAMING-001"
+category = "naming"
+severity = "error"
+languages = ["python"]
+description = "Use snake_case for functions and variables"
+
+[[rules]]
+id = "NAMING-002"
+category = "naming"
+severity = "error"
+languages = ["python"]
+description = "Use PascalCase for classes and exceptions"
+
+[[rules]]
+id = "NAMING-003"
+category = "naming"
+severity = "error"
+languages = ["python"]
+description = "Use UPPER_CASE for constants"
+
+[[rules]]
+id = "NAMING-004"
+category = "naming"
+severity = "warn"
+languages = ["python"]
+description = "Avoid single-letter variables (except loop indices)"
+
+[[rules]]
+id = "ERROR-001"
+category = "error-handling"
+severity = "error"
+languages = ["python"]
+description = "No bare try-except (must catch specific exceptions)"
+
+[[rules]]
+id = "ERROR-002"
+category = "error-handling"
+severity = "error"
+languages = ["python"]
+description = "No empty catch blocks"
+
+[[rules]]
+id = "ERROR-003"
+category = "error-handling"
+severity = "warn"
+languages = ["python"]
+description = "Use specific exception types, not bare Exception"
+
+[[rules]]
+id = "ERROR-004"
+category = "error-handling"
+severity = "error"
+languages = ["python"]
+description = "Errors must be logged or propagated"
+
+[[rules]]
+id = "IMPORT-001"
+category = "imports"
+severity = "error"
+languages = ["python"]
+description = "No wildcard imports (from X import *)"
+
+[[rules]]
+id = "IMPORT-002"
+category = "imports"
+severity = "error"
+languages = ["python"]
+description = "No circular dependencies"
+
+[[rules]]
+id = "IMPORT-003"
+category = "imports"
+severity = "warn"
+languages = ["python"]
+description = "Sort imports with isort"
+
+[[rules]]
+id = "IMPORT-004"
+category = "imports"
+severity = "warn"
+languages = ["python"]
+description = "No unused imports"
+
+[[rules]]
+id = "SECURITY-001"
+category = "security"
+severity = "error"
+languages = ["python"]
+description = "No hardcoded credentials or secrets"
+
+[[rules]]
+id = "SECURITY-002"
+category = "security"
+severity = "error"
+languages = ["python"]
+description = "Use parameterized queries (no SQL string concatenation)"
+
+[[rules]]
+id = "SECURITY-003"
+category = "security"
+severity = "error"
+languages = ["python"]
+description = "No eval() with user input"
+
+[[rules]]
+id = "SECURITY-004"
+category = "security"
+severity = "warn"
+languages = ["python"]
+description = "Validate external input"

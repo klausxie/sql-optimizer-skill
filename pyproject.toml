@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sql-optimizer"
+version = "1.0.0"
+requires-python = ">=3.9"
+description = "SQL Optimizer for MyBatis XML - Analyze, optimize and patch SQL statements"
+readme = "README.md"
+authors = [{name = "SQL Optimizer Team"}]
+license = {text = "MIT"}
+keywords = ["sql", "optimizer", "mybatis", "postgresql", "mysql"]
+
+dependencies = [
+  "jsonschema>=4.0.0",
+  "PyYAML>=6.0.0",
+  "jsonpath-ng>=1.6.0",
+  "rich>=13.0.0",
+  "psycopg2-binary>=2.9.0",
+  "PyMySQL>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0.0",
+  "pytest-cov>=4.0.0",
+  "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+sqlopt = "sqlopt.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["python"]
+addopts = "-q --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "B", "C4", "S",
+    "YTT", "ASYNC", "BLE", "FA", "ISC", "PIE",
+    "T20", "PYI", "RSE", "RET", "SLF", "SIM",
+    "TCH", "ARG", "PTH", "PERF", "RUF",
+]
+ignore = [
+    "E501",
+    "S101",
+    "PLR0913",
+    "PLR2004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F811"]
+"tests/*" = ["S101", "F401", "F811"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

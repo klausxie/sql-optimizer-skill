@@ -1,0 +1,44 @@
+# Python/ruff adapter configuration for SQL Optimizer
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "S",      # flake8-bandit (security)
+    "YTT",    # flake8-2020
+    "ASYNC",  # flake8-async
+    "BLE",    # flake8-blind-except
+    "FA",     # flake8-future-annotations
+    "ISC",    # flake8-implicit-str-concat
+    "PIE",    # flake8-pie
+    "T20",    # flake8-print
+    "PYI",    # flake8-pyi
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SLF",    # flake8-self
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "ARG",    # flake8-arguments
+    "PTH",    # flake8-use-pathlib
+    "PERF",   # perflint
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line-too-long (handled by formatter)
+    "S101",   # assert (allowed in tests)
+    "PLR0913", # too-many-arguments (allow for dataclasses)
+    "PLR2004", # magic-value-comparison (allow for status codes)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F811"]
+"tests/*" = ["S101", "F401", "F811"]

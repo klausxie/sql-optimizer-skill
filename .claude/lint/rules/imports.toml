@@ -1,0 +1,33 @@
+# Import Conventions for Python
+
+[[rules]]
+id = "IMPORT-001"
+name = "no wildcard imports"
+pattern = "from \\w+ import \\*"
+languages = ["python"]
+severity = "error"
+description = "No wildcard imports (from X import *). Explicitly list what you import."
+
+[[rules]]
+id = "IMPORT-002"
+name = "no circular dependencies"
+pattern = "from \\.(?:\\w+_\\w+)+\\. import"
+languages = ["python"]
+severity = "error"
+description = "Avoid circular imports. Use lazy imports or restructure modules."
+
+[[rules]]
+id = "IMPORT-003"
+name = "sort imports"
+pattern = "^import |^from "
+languages = ["python"]
+severity = "warn"
+description = "Use isort to sort imports: stdlib → third-party → local"
+
+[[rules]]
+id = "IMPORT-004"
+name = "no unused imports"
+pattern = "^import |^from "
+languages = ["python"]
+severity = "warn"
+description = "Remove unused imports. Use ruff I001 check."

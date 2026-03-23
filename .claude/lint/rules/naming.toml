@@ -1,0 +1,41 @@
+# Naming Conventions for Python
+
+[[rules]]
+id = "NAMING-001"
+name = "snake_case for functions/variables"
+pattern = "^[a-z][a-z0-9_]*$"
+languages = ["python"]
+severity = "error"
+description = "Use snake_case for function names, variable names, and module names"
+
+[[rules]]
+id = "NAMING-002"
+name = "PascalCase for classes"
+pattern = "^[A-Z][a-zA-Z0-9]*$"
+languages = ["python"]
+severity = "error"
+description = "Use PascalCase for class names and custom exception classes"
+
+[[rules]]
+id = "NAMING-003"
+name = "UPPER_CASE for constants"
+pattern = "^[A-Z][A-Z0-9_]*$"
+languages = ["python"]
+severity = "error"
+description = "Use UPPER_CASE with underscores for constant names"
+
+[[rules]]
+id = "NAMING-004"
+name = "avoid single-letter variables"
+pattern = "^.{1,2}$"
+languages = ["python"]
+severity = "warn"
+description = "Avoid single-letter or double-letter variable names (except i, j, k for loop indices)"
+
+[[rules]]
+id = "NAMING-005"
+name = "no hungarian notation"
+pattern = "^(str|int|bool|flt|lst|dct)[A-Z]"
+languages = ["python"]
+severity = "error"
+description = "Don't use Hungarian notation (str_name, int_count). Use type hints instead."

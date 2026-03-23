@@ -1,0 +1,33 @@
+# Security Conventions for Python
+
+[[rules]]
+id = "SECURITY-001"
+name = "no hardcoded credentials"
+pattern = "(password|secret|api_key|token)\\s*=\\s*['\"][^'\"]{8,}['\"]"
+languages = ["python"]
+severity = "error"
+description = "No hardcoded credentials. Use os.environ or config.secrets instead."
+
+[[rules]]
+id = "SECURITY-002"
+name = "parameterized SQL queries"
+pattern = "(SELECT|INSERT|UPDATE|DELETE).*\\+"
+languages = ["python"]
+severity = "error"
+description = "Use parameterized queries. Never concatenate SQL strings with user input."
+
+[[rules]]
+id = "SECURITY-003"
+name = "no eval with user input"
+pattern = "eval\\s*\\("
+languages = ["python"]
+severity = "error"
+description = "Never use eval(). Use ast.literal_eval() or json.loads() instead."
+
+[[rules]]
+id = "SECURITY-004"
+name = "validate external input"
+pattern = "def \\w+\\([^)]*\\):"
+languages = ["python"]
+severity = "warn"
+description = "Functions accepting external input should validate types and ranges."

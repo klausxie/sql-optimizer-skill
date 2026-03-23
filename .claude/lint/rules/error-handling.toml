@@ -1,0 +1,41 @@
+# Error Handling Conventions for Python
+
+[[rules]]
+id = "ERROR-001"
+name = "no bare try-except"
+pattern = "^except:$"
+languages = ["python"]
+severity = "error"
+description = "Never use bare try-except. Must catch specific exception type."
+
+[[rules]]
+id = "ERROR-002"
+name = "no empty catch blocks"
+pattern = "except.*:\\s*pass"
+languages = ["python"]
+severity = "error"
+description = "Empty catch blocks hide errors. Log the error or propagate it."
+
+[[rules]]
+id = "ERROR-003"
+name = "specific exception types"
+pattern = "except Exception:"
+languages = ["python"]
+severity = "warn"
+description = "Use specific exception types (ValueError, TypeError, etc.) instead of bare Exception"
+
+[[rules]]
+id = "ERROR-004"
+name = "errors must be logged or propagated"
+pattern = "except.*:\\s*(?:pass|\\.)"
+languages = ["python"]
+severity = "error"
+description = "Caught errors must either be logged (logger.error/warning) or propagated (raise)"
+
+[[rules]]
+id = "ERROR-005"
+name = "no swallowed exceptions"
+pattern = "except.*:\\s*(?:\\n\\s*)+[\\w\\.]+\\s*\\("
+languages = ["python"]
+severity = "warn"
+description = "Don't silently swallow exceptions without logging"
