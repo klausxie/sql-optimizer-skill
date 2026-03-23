@@ -37,21 +37,23 @@ TRANSIENT_ERROR_TYPES: Tuple[Type[Exception], ...] = (
     sqlite3.InterfaceError,
 )
 
-TRANSIENT_ERROR_PATTERNS = [
-    "timeout",
-    "timed out",
-    "connection",
-    "network",
-    "transient",
-    "temporarily",
-    "unavailable",
-    "refused",
-    "reset",
-    "lost connection",
-    "deadlock",
-    "retry",
-    "temporary failure",
-]
+TRANSIENT_ERROR_PATTERNS: frozenset[str] = frozenset(
+    {
+        "timeout",
+        "timed out",
+        "connection",
+        "network",
+        "transient",
+        "temporarily",
+        "unavailable",
+        "refused",
+        "reset",
+        "lost connection",
+        "deadlock",
+        "retry",
+        "temporary failure",
+    }
+)
 
 
 def _is_transient_error(error: Exception) -> bool:
@@ -709,46 +711,6 @@ class V9WorkflowEngine:
                 f,
                 indent=2,
             )
-
-    def _run_init(self, run_dir: Path) -> dict[str, Any]:
-        return run_stage(
-            "init",
-            run_dir,
-            config=self.config,
-            validator=self._validator,
-        )
-
-    def _run_parse(self, run_dir: Path) -> dict[str, Any]:
-        return run_stage(
-            "parse",
-            run_dir,
-            config=self.config,
-            validator=self._validator,
-        )
-
-    def _run_recognition(self, run_dir: Path) -> dict[str, Any]:
-        return run_stage(
-            "recognition",
-            run_dir,
-            config=self.config,
-            validator=self._validator,
-        )
-
-    def _run_optimize(self, run_dir: Path) -> dict[str, Any]:
-        return run_stage(
-            "optimize",
-            run_dir,
-            config=self.config,
-            validator=self._validator,
-        )
-
-    def _run_patch(self, run_dir: Path) -> dict[str, Any]:
-        return run_stage(
-            "patch",
-            run_dir,
-            config=self.config,
-            validator=self._validator,
-        )
 
 
 def run_v9_workflow(config: dict, run_dir: Path, to_stage: str = "patch") -> dict:

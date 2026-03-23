@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from sqlopt.stages.branching.dynamic_context import DynamicContext
 
 
+_LOGICAL_KEYWORDS: tuple[str, ...] = ("AND ", "OR ")
+
+
 def _can_follow_without_logical_operator(prev: str, curr: str) -> bool:
     """Return True when two fragments should be concatenated directly."""
     prev_stripped = prev.rstrip()
@@ -39,6 +42,23 @@ def _can_follow_without_logical_operator(prev: str, curr: str) -> bool:
         return True
 
     return False
+
+
+def _strip_logical_prefix_if_needed(prev: str, curr: str) -> str | None:
+    """Strip leading AND/OR from curr if prev ends with alnum.
+
+    Returns the corrected curr string, or None if no stripping needed.
+    """
+    if not prev or not curr:
+        return None
+    prev_last = prev.strip()[-1:] if prev.strip() else ""
+    if not prev_last.isalnum():
+        return None
+    curr_upper = curr.upper()
+    for keyword in _LOGICAL_KEYWORDS:
+        if curr_upper.startswith(keyword.upper()):
+            return curr[len(keyword) :]
+    return None
 
 
 class SqlNode(ABC):
@@ -174,15 +194,9 @@ class MixedSqlNode(SqlNode):
                 if len(context.sql_fragments) >= 2:
                     prev = context.sql_fragments[-2]
                     curr = context.sql_fragments[-1]
-                    if prev and curr:
-                        prev_last = prev.strip()[-1:] if prev.strip() else ""
-                        for keyword in ["AND ", "OR "]:
-                            if (
-                                curr.upper().startswith(keyword.upper())
-                                and prev_last.isalnum()
-                            ):
-                                context.sql_fragments[-1] = curr[len(keyword) :]
-                                break
+                    stripped = _strip_logical_prefix_if_needed(prev, curr)
+                    if stripped is not None:
+                        context.sql_fragments[-1] = stripped
         return result
 
 
@@ -351,97 +365,104 @@ class TrimSqlNode(SqlNode):
         self.suffix_overrides = suffix_overrides or []
 
     def apply(self, context: DynamicContext) -> bool:
-        # Create temporary context to collect child node output
-        # This mirrors MyBatis FilteredDynamicContext behavior
+        """Apply this TrimSqlNode by processing child nodes and wrapping with prefix/suffix."""
         from sqlopt.stages.branching.dynamic_context import DynamicContext as DC
 
         temp_context = DC()
-        temp_context.bindings = context.bindings  # Share bindings
-        temp_context.sql_fragments = []  # Start fresh for child output
+        temp_context.bindings = context.bindings
+        temp_context.sql_fragments = []
 
-        # Apply child nodes to temporary context
         if not self.contents.apply(temp_context):
             return False
 
-        # Collect all fragments from child nodes
-        sql = "".join(temp_context.sql_fragments)
+        sql = self._join_fragments(temp_context.sql_fragments)
+        sql = self._apply_prefix_overrides(sql)
+        sql = self._apply_suffix_overrides(sql)
+        sql = self._wrap_with_prefix_suffix(sql)
 
-        # Add spaces between fragments - handle "name=xANDy" -> "name=x AND y"
-        if len(temp_context.sql_fragments) > 1:
-            fixed_fragments = [temp_context.sql_fragments[0]]
-            for i in range(1, len(temp_context.sql_fragments)):
-                curr = temp_context.sql_fragments[i]
-                prev = fixed_fragments[-1]
-                if prev and curr:
-                    prev_last = prev.strip()[-1:] if prev.strip() else ""
-                    needs_and = prev_last.isalnum() or prev_last == "}"
-                    curr_starts_logical = (
-                        curr.strip().upper().startswith(("AND ", "OR "))
-                    )
-                    prev_starts_logical = (
-                        prev.strip().upper().startswith(("AND ", "OR "))
-                    )
-                    prev_ends_logical = (
-                        prev.strip().upper().endswith(("AND", "OR", "AND ", "OR "))
-                    )
-
-                    # If prev ends with AND/OR, add space before curr
-                    if prev_ends_logical:
-                        curr = " " + curr
-                    # If curr starts with AND/OR and prev needs connection, add space
-                    elif curr_starts_logical and needs_and:
-                        curr = " " + curr
-                    # If prev starts with AND/OR (was first condition), add AND + curr
-                    elif (
-                        prev_starts_logical
-                        and needs_and
-                        and not _can_follow_without_logical_operator(prev, curr)
-                    ):
-                        curr = " AND " + curr
-                    # If neither starts with AND/OR but needs connection
-                    elif needs_and and not curr_starts_logical:
-                        curr_first = curr.strip()[:1] if curr.strip() else ""
-                        if _can_follow_without_logical_operator(prev, curr):
-                            if curr_first.isalnum() and not prev.endswith(
-                                (" ", "\t", "\n")
-                            ):
-                                curr = " " + curr
-                        elif curr_first.isalnum() or curr_first in "#(":
-                            curr = " AND " + curr
-                fixed_fragments.append(curr)
-            sql = "".join(fixed_fragments)
-        sql = sql.strip()
-
-        # Apply prefix overrides (remove ONLY the first leading AND/OR)
-        for override in self.prefix_overrides:
-            if sql.upper().startswith(override.upper()):
-                sql = sql[len(override) :]
-                break
-
-        # Apply suffix overrides (remove trailing commas, etc.)
-        for override in self.suffix_overrides:
-            if sql.upper().endswith(override.upper()):
-                sql = sql[: -len(override)]
-                break
-
-        # Only add prefix/suffix if there's content
         if sql.strip():
-            prefix = self.prefix
-            suffix = self.suffix
-
-            # Add leading space if prefix starts with SQL keyword character
-            if prefix and prefix[0].isalpha():
-                prefix = " " + prefix
-
-            # Add trailing space if suffix starts with SQL keyword character
-            if suffix and suffix[-1].isalpha():
-                suffix = suffix + " "
-
-            sql = prefix + sql + suffix
             context.append_sql(sql)
             return True
-
         return False
+
+    def _join_fragments(self, fragments: list[str]) -> str:
+        """Join SQL fragments with proper AND/OR spacing."""
+        if len(fragments) <= 1:
+            return "".join(fragments).strip()
+
+        fixed_fragments = [fragments[0]]
+        for i in range(1, len(fragments)):
+            curr = fragments[i]
+            prev = fixed_fragments[-1]
+            curr = self._maybe_insert_logical_operator(prev, curr)
+            fixed_fragments.append(curr)
+        return "".join(fixed_fragments).strip()
+
+    def _maybe_insert_logical_operator(self, prev: str, curr: str) -> str:
+        """Determine if and what logical operator to insert between two fragments."""
+        if not prev or not curr:
+            return curr
+
+        needs_and = self._needs_logical_connection(prev)
+        curr_starts_logical = curr.strip().upper().startswith(_LOGICAL_KEYWORDS)
+        prev_starts_logical = prev.strip().upper().startswith(_LOGICAL_KEYWORDS)
+
+        if prev.strip().upper().endswith(("AND", "OR", "AND ", "OR ")):
+            return " " + curr
+        if curr_starts_logical and needs_and:
+            return " " + curr
+        if (
+            prev_starts_logical
+            and needs_and
+            and not _can_follow_without_logical_operator(prev, curr)
+        ):
+            return " AND " + curr
+        return self._handle_needs_and_case(prev, curr, needs_and, curr_starts_logical)
+
+    def _needs_logical_connection(self, fragment: str) -> bool:
+        """Return True if fragment ends with a character that needs logical connection."""
+        last_char = fragment.strip()[-1:] if fragment.strip() else ""
+        return last_char.isalnum() or last_char == "}"
+
+    def _handle_needs_and_case(
+        self, prev: str, curr: str, needs_and: bool, curr_starts_logical: bool
+    ) -> str:
+        """Handle the case where prev fragment needs AND connection to curr."""
+        if not needs_and or curr_starts_logical:
+            return curr
+        curr_first = curr.strip()[:1] if curr.strip() else ""
+        if _can_follow_without_logical_operator(prev, curr):
+            if curr_first.isalnum() and not prev.endswith((" ", "\t", "\n")):
+                return " " + curr
+        elif curr_first.isalnum() or curr_first in "#(":
+            return " AND " + curr
+        return curr
+
+    def _apply_prefix_overrides(self, sql: str) -> str:
+        """Remove leading AND/OR based on prefix_overrides."""
+        for override in self.prefix_overrides:
+            if sql.upper().startswith(override.upper()):
+                return sql[len(override) :]
+        return sql
+
+    def _apply_suffix_overrides(self, sql: str) -> str:
+        """Remove trailing content based on suffix_overrides."""
+        for override in self.suffix_overrides:
+            if sql.upper().endswith(override.upper()):
+                return sql[: -len(override)]
+        return sql
+
+    def _wrap_with_prefix_suffix(self, sql: str) -> str:
+        """Apply prefix and suffix wrapping with proper spacing."""
+        if not sql.strip():
+            return sql
+        prefix = self.prefix
+        suffix = self.suffix
+        if prefix and prefix[0].isalpha():
+            prefix = " " + prefix
+        if suffix and suffix[-1].isalpha():
+            suffix = suffix + " "
+        return prefix + sql + suffix
 
 
 class WhereSqlNode(TrimSqlNode):

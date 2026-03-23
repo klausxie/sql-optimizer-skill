@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
+
+try:
+    import yaml
+except Exception:  # pragma: no cover
+    yaml = None  # type: ignore
 
 # Windows UTF-8 encoding fix
 if sys.platform == "win32":
@@ -316,8 +322,18 @@ def cmd_validate_config(args: argparse.Namespace) -> None:
         print(results)
         raise SystemExit(0 if results["valid"] else 1)
 
-    except Exception as exc:
+    except (
+        FileNotFoundError,
+        ValueError,
+        OSError,
+        json.JSONDecodeError,
+        ConfigError,
+    ) as exc:
         error_info = format_error_message("CONFIG_INVALID", str(exc))
+        print({"error": error_info})
+        raise SystemExit(2)
+    except yaml.YAMLError as exc:
+        error_info = format_error_message("CONFIG_INVALID", f"YAML parse error: {exc}")
         print({"error": error_info})
         raise SystemExit(2)
 
