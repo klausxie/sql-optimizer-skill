@@ -38,15 +38,20 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             for branch in sql_unit.branches:
                 if not branch.is_valid:
                     continue
-                baseline_data = self.llm_provider.generate_baseline(branch.expanded_sql, platform)
-                baseline = PerformanceBaseline(
-                    sql_unit_id=sql_unit.sql_unit_id,
-                    path_id=branch.path_id,
-                    plan=baseline_data["plan"],
-                    estimated_cost=baseline_data["estimated_cost"],
-                    actual_time_ms=baseline_data.get("actual_time_ms"),
-                )
-                baselines.append(baseline)
+                try:
+                    baseline_data = self.llm_provider.generate_baseline(
+                        branch.expanded_sql, platform
+                    )
+                    baseline = PerformanceBaseline(
+                        sql_unit_id=sql_unit.sql_unit_id,
+                        path_id=branch.path_id,
+                        plan=baseline_data["plan"],
+                        estimated_cost=baseline_data["estimated_cost"],
+                        actual_time_ms=baseline_data.get("actual_time_ms"),
+                    )
+                    baselines.append(baseline)
+                except (ValueError, RuntimeError):
+                    continue
 
         output = RecognitionOutput(baselines=baselines)
         self._write_output(rid, output)
