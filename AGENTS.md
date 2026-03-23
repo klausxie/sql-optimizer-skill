@@ -243,6 +243,39 @@ MyBatis XML (含动态标签)
 - Fixtures: `tests/fixtures/`
 - 验收脚本: `scripts/ci/*_acceptance.py`
 
+### 真实 MyBatis XML 测试要求（强制）
+
+**所有阶段必须使用真实 MyBatis XML 文件进行集成测试，不可仅依赖 mock 数据。**
+
+真实测试文件位于: `tests/real/mybatis-test/src/main/resources/mapper/`
+
+| 文件 | 内容 | SQL Units |
+|------|------|-----------|
+| `UserMapper.xml` | 106 个 SQL 语句，含动态标签 (if/choose/foreach) | 106 |
+| `OrderMapper.xml` | 4 个 SQL 语句，跨文件引用 CommonMapper | 4 |
+| `CommonMapper.xml` | 仅 SQL fragments，无 statements | 0 |
+
+**测试要求**:
+1. **集成测试**: `tests/integration/v9_real/test_01_init_real_xml.py` - Init 阶段真实 XML 测试
+2. **覆盖率**: 每个阶段必须有对应的 `test_XX_{stage}_real_xml.py` 集成测试
+3. **验证项**:
+   - SQL 单元正确提取（namespace, statementId, statementType）
+   - 动态标签正确识别（if/choose/foreach）
+   - 跨文件 include 解析（OrderMapper → CommonMapper）
+   - sqlKey 唯一性
+   - SQL 内容非空
+
+**运行真实集成测试**:
+```bash
+# 运行 Init 阶段真实 XML 测试
+python3 -m pytest tests/integration/v9_real/test_01_init_real_xml.py -v
+
+# 运行所有 V9 真实集成测试
+python3 -m pytest tests/integration/v9_real/ -v
+```
+
+**违反后果**: 未经过真实 MyBatis XML 测试的阶段实现，可能在实际用户环境中失败。
+
 ---
 
 ## 反模式 (禁止)

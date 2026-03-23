@@ -422,9 +422,8 @@ class Scanner:
 def _normalize_sql_whitespace(sql: str) -> str:
     """Normalize whitespace in SQL while preserving string literal content.
 
-    Uses regex to preserve space around string literals while normalizing
-    whitespace elsewhere. This produces cleaner output than manual string
-    manipulation.
+    Uses regex to find string literals and normalize whitespace only in
+    non-literal parts.
 
     Args:
         sql: The SQL string to normalize.
@@ -433,20 +432,22 @@ def _normalize_sql_whitespace(sql: str) -> str:
         SQL with normalized whitespace outside of string literals.
     """
     if not sql:
-        return sql
+        return "" if sql is None else sql
 
-    # Use regex to identify string literals and non-literal parts
-    # Pattern matches: 'string' (with escaped '' too)
     pattern = re.compile(r"'(?:[^'\\]|'')*'")
-    # Split SQL into literal and non-literal parts
-    parts = pattern.split(sql)
 
-    # Process each part
-    result_parts = []
-    for part in parts:
-        result_parts.append(part)
+    result = []
+    last_end = 0
 
-    return "".join(result_parts)
+    for match in pattern.finditer(sql):
+        before = sql[last_end : match.start()]
+        result.append(re.sub(r"\s+", " ", before))
+        result.append(match.group(0))
+        last_end = match.end()
+
+    result.append(re.sub(r"\s+", " ", sql[last_end:]))
+
+    return "".join(result)
 
 
 # =============================================================================
