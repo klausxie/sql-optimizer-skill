@@ -9,7 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import sys
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 import openai
@@ -670,11 +673,47 @@ Return a JSON object with these fields:
 Example output:
 {{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
 
+    def _is_windows(self) -> bool:
+        """Check if running on Windows."""
+        return sys.platform == "win32" or os.name == "nt"
+
+    def _get_opencode_cmd(self) -> list[str]:
+        """Get the command to run opencode CLI.
+
+        On Windows, .CMD batch files don't work well with subprocess.run()
+        without shell=True. Instead, we call node directly with the opencode script.
+        """
+        if self._is_windows():
+            # On Windows, find node and the opencode script
+            node_path = shutil.which("node")
+            if not node_path:
+                raise RuntimeError("node command not found")
+            opencode_path = shutil.which("opencode")
+            if not opencode_path:
+                raise RuntimeError("opencode command not found")
+            # opencode is a .CMD file that ultimately runs: node <script> <args>
+            # We bypass the batch file and call node directly
+            opencode_script = (
+                Path(opencode_path).parent
+                / "node_modules"
+                / "opencode-ai"
+                / "bin"
+                / "opencode"
+            )
+            if not opencode_script.exists():
+                # Fallback: use the original batch file approach
+                return ["opencode"]
+            return [node_path, str(opencode_script)]
+        # On Unix, opencode is a shell script that works directly
+        if not shutil.which("opencode"):
+            raise RuntimeError("opencode command not found")
+        return ["opencode"]
+
     def _call_opencode(self, prompt: str) -> str:
         import subprocess
 
         cmd = [
-            "opencode",
+            *self._get_opencode_cmd(),
             "run",
             prompt,
             "--format",
