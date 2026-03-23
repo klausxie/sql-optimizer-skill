@@ -19,6 +19,7 @@ from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
 from ...shared.xml_utils import _local_name, _qualify_ref
 from .common import normalize_sqlunit
+from .overview import InitOverviewGenerator
 
 
 # =============================================================================
@@ -663,6 +664,12 @@ def run_init(
     # 5. Validation & Output
     count = _validate_and_write_output(sql_units, validator, paths)
     reporter.report_info(f"init output: sql_units -> {paths.init_sql_units_path}")
+
+    # 6. Generate Overview Report
+    overview_gen = InitOverviewGenerator("init", run_dir / "init")
+    overview_path = overview_gen.write({"sql_units": sql_units}, "init.overview.md")
+    reporter.report_info(f"init output: overview -> {overview_path}")
+
     reporter.report_info(f"init complete: {count} SQL units extracted")
 
     return {
