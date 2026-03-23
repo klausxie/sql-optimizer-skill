@@ -6,8 +6,25 @@ from typing import Any
 
 from ...contracts import ContractValidator
 from ...run_paths import canonical_paths
+from ...stages.branching import FragmentRegistry, build_fragment_registry
 from ...adapters.branch_generator import BranchGenerator
 from .common import analyze_risks, normalize_sqlunit
+
+
+def _build_fragment_registry(
+    config: dict[str, Any], sql_units: list[dict[str, Any]]
+) -> FragmentRegistry:
+    """Build FragmentRegistry from all XML files referenced by SQL units."""
+    xml_paths = set()
+    for unit in sql_units:
+        xml_path = unit.get("xmlPath")
+        if xml_path:
+            xml_paths.add(Path(xml_path))
+
+    if not xml_paths:
+        return FragmentRegistry()
+
+    return build_fragment_registry(sorted(xml_paths))
 
 
 def _create_branches_v9(
@@ -31,6 +48,8 @@ def run_parse(
     with open(init_path) as f:
         sql_units = [normalize_sqlunit(unit) for unit in json.load(f)]
 
+    fragment_registry = _build_fragment_registry(config, sql_units)
+
     branch_cfg = config.get("branching", {})
     brancher = BranchGenerator(
         config={
@@ -38,7 +57,8 @@ def run_parse(
                 "strategy": branch_cfg.get("strategy", "all_combinations"),
                 "max_branches": branch_cfg.get("max_branches", 100),
             }
-        }
+        },
+        fragment_registry=fragment_registry,
     )
 
     for unit in sql_units:
