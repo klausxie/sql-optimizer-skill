@@ -95,22 +95,22 @@ class StageRunner:
     def _run_recognition_stage(self) -> None:
         from sqlopt.stages.recognition import RecognitionStage
 
-        stage = RecognitionStage()
-        result = stage.run()
+        stage = RecognitionStage(self.run_id)
+        result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.recognition_baselines)
 
     def _run_optimize_stage(self) -> None:
         from sqlopt.stages.optimize import OptimizeStage
 
-        stage = OptimizeStage()
-        result = stage.run()
+        stage = OptimizeStage(self.run_id)
+        result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.optimize_proposals)
 
     def _run_result_stage(self) -> None:
         from sqlopt.stages.result import ResultStage
 
-        stage = ResultStage()
-        result = stage.run()
+        stage = ResultStage(self.run_id)
+        result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.result_report)
 
     def get_status(self) -> dict:

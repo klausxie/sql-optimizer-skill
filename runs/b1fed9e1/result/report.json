@@ -1,0 +1,49 @@
+{
+  "can_patch": true,
+  "report": {
+    "summary": "Found 5 high-confidence optimization(s) out of 5 total proposals",
+    "details": "Total proposals analyzed: 5\nHigh-confidence proposals (confidence > 0.7): 5\nPatches generated: 5\n\nHigh-confidence optimizations:\n  - [com.example.UserMapper.selectByEmail] General query optimization applied (confidence: 0.75)\n  - [com.example.UserMapper.search] General query optimization applied (confidence: 0.75)\n  - [com.example.UserMapper.search] General query optimization applied (confidence: 0.75)\n  - [com.example.UserMapper.search] General query optimization applied (confidence: 0.75)\n  - [com.example.UserMapper.insert] General query optimization applied (confidence: 0.75)",
+    "risks": [
+      "Medium confidence (0.75) for com.example.UserMapper.selectByEmail - verify before applying",
+      "Medium confidence (0.75) for com.example.UserMapper.search - verify before applying",
+      "Medium confidence (0.75) for com.example.UserMapper.search - verify before applying",
+      "Medium confidence (0.75) for com.example.UserMapper.search - verify before applying",
+      "Medium confidence (0.75) for com.example.UserMapper.insert - verify before applying"
+    ],
+    "recommendations": [
+      "Apply 5 patch(es) to implement high-confidence optimizations"
+    ]
+  },
+  "patches": [
+    {
+      "sql_unit_id": "com.example.UserMapper.selectByEmail",
+      "original_xml": "<select id=\"selectByEmail\" resultType=\"User\">\n    SELECT * FROM users WHERE email = #{email}\n  </select>\n  \n  ",
+      "patched_xml": "/* optimized */ SELECT * FROM users WHERE email = #{email}",
+      "diff": "--- original\n+++ optimized\n@@ -1,5 +1 @@\n-<select id=\"selectByEmail\" resultType=\"User\">\n\n-    SELECT * FROM users WHERE email = #{email}\n\n-  </select>\n\n-  \n\n-  \n+/* optimized */ SELECT * FROM users WHERE email = #{email}"
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "original_xml": "<select id=\"search\" resultType=\"User\">\n    SELECT * FROM users WHERE 1=1\n    <if test=\"name != null\">\n      AND name = #{name}\n    </if>\n    <if test=\"status != null\">\n      AND status = #{status}\n    </if>\n  </select>\n  \n  ",
+      "patched_xml": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "diff": "--- original\n+++ optimized\n@@ -1,11 +1 @@\n-<select id=\"search\" resultType=\"User\">\n\n-    SELECT * FROM users WHERE 1=1\n\n-    <if test=\"name != null\">\n\n-      AND name = #{name}\n\n-    </if>\n\n-    <if test=\"status != null\">\n\n-      AND status = #{status}\n\n-    </if>\n\n-  </select>\n\n-  \n\n-  \n+/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}"
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "original_xml": "<select id=\"search\" resultType=\"User\">\n    SELECT * FROM users WHERE 1=1\n    <if test=\"name != null\">\n      AND name = #{name}\n    </if>\n    <if test=\"status != null\">\n      AND status = #{status}\n    </if>\n  </select>\n  \n  ",
+      "patched_xml": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "diff": "--- original\n+++ optimized\n@@ -1,11 +1 @@\n-<select id=\"search\" resultType=\"User\">\n\n-    SELECT * FROM users WHERE 1=1\n\n-    <if test=\"name != null\">\n\n-      AND name = #{name}\n\n-    </if>\n\n-    <if test=\"status != null\">\n\n-      AND status = #{status}\n\n-    </if>\n\n-  </select>\n\n-  \n\n-  \n+/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}"
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "original_xml": "<select id=\"search\" resultType=\"User\">\n    SELECT * FROM users WHERE 1=1\n    <if test=\"name != null\">\n      AND name = #{name}\n    </if>\n    <if test=\"status != null\">\n      AND status = #{status}\n    </if>\n  </select>\n  \n  ",
+      "patched_xml": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "diff": "--- original\n+++ optimized\n@@ -1,11 +1 @@\n-<select id=\"search\" resultType=\"User\">\n\n-    SELECT * FROM users WHERE 1=1\n\n-    <if test=\"name != null\">\n\n-      AND name = #{name}\n\n-    </if>\n\n-    <if test=\"status != null\">\n\n-      AND status = #{status}\n\n-    </if>\n\n-  </select>\n\n-  \n\n-  \n+/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}"
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.insert",
+      "original_xml": "<insert id=\"insert\">\n    INSERT INTO users (username, email) VALUES (#{username}, #{email})\n  </insert>\n  \n",
+      "patched_xml": "/* optimized */ INSERT INTO users (username, email) VALUES (#{username}, #{email})",
+      "diff": "--- original\n+++ optimized\n@@ -1,4 +1 @@\n-<insert id=\"insert\">\n\n-    INSERT INTO users (username, email) VALUES (#{username}, #{email})\n\n-  </insert>\n\n-  \n\n+/* optimized */ INSERT INTO users (username, email) VALUES (#{username}, #{email})"
+    }
+  ]
+}

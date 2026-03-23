@@ -1,0 +1,44 @@
+{
+  "proposals": [
+    {
+      "sql_unit_id": "com.example.UserMapper.selectByEmail",
+      "path_id": "default",
+      "original_sql": "SELECT * FROM users WHERE email = #{email}",
+      "optimized_sql": "/* optimized */ SELECT * FROM users WHERE email = #{email}",
+      "rationale": "General query optimization applied",
+      "confidence": 0.75
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "path_id": "if_0",
+      "original_sql": "SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "optimized_sql": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "rationale": "General query optimization applied",
+      "confidence": 0.75
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "path_id": "if_1",
+      "original_sql": "SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "optimized_sql": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "rationale": "General query optimization applied",
+      "confidence": 0.75
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.search",
+      "path_id": "default",
+      "original_sql": "SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "optimized_sql": "/* optimized */ SELECT * FROM users WHERE 1=1 AND name = #{name} AND status = #{status}",
+      "rationale": "General query optimization applied",
+      "confidence": 0.75
+    },
+    {
+      "sql_unit_id": "com.example.UserMapper.insert",
+      "path_id": "default",
+      "original_sql": "INSERT INTO users (username, email) VALUES (#{username}, #{email})",
+      "optimized_sql": "/* optimized */ INSERT INTO users (username, email) VALUES (#{username}, #{email})",
+      "rationale": "General query optimization applied",
+      "confidence": 0.75
+    }
+  ]
+}
