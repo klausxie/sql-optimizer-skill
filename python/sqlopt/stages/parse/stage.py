@@ -1,38 +1,52 @@
-"""Parse stage - expands SQL branches from conditional logic."""
+from __future__ import annotations
 
+from pathlib import Path
+
+from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
 
+from .expander import expand_branches
+
 
 class ParseStage(Stage[None, ParseOutput]):
-    """Parse stage: expands SQL branches from conditional logic.
-
-    Input: None (stub - will be ParseInput later)
-    Output: ParseOutput with SQL units and their branches
-    """
-
-    def __init__(self) -> None:
-        """Initialize the parse stage."""
+    def __init__(self, run_id: str | None = None) -> None:
         super().__init__("parse")
+        self.run_id = run_id
 
-    def run(self, _input_data: None = None) -> ParseOutput:
-        """Execute parse stage.
+    def run(self, _input_data: None = None, run_id: str | None = None) -> ParseOutput:
+        rid = run_id or self.run_id
+        if rid is None:
+            branch = SQLBranch(
+                path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True
+            )
+            unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
+            return ParseOutput(sql_units_with_branches=[unit_with_branches])
 
-        Args:
-            input_data: None (stub - ParseInput not defined yet).
+        init_file = Path("runs") / rid / "init" / "sql_units.json"
+        if not init_file.exists():
+            branch = SQLBranch(
+                path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True
+            )
+            unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
+            return ParseOutput(sql_units_with_branches=[unit_with_branches])
 
-        Returns:
-            ParseOutput with mock branches for development.
-        """
-        # Stub: create mock branches
-        branch = SQLBranch(
-            path_id="p1",
-            condition=None,
-            expanded_sql="SELECT * FROM users WHERE active = 1",
-            is_valid=True,
-        )
-        unit_with_branches = SQLUnitWithBranches(
-            sql_unit_id="stub-1",
-            branches=[branch],
-        )
-        return ParseOutput(sql_units_with_branches=[unit_with_branches])
+        init_data = InitOutput.from_json(init_file.read_text(encoding="utf-8"))
+
+        units_with_branches: list[SQLUnitWithBranches] = [
+            SQLUnitWithBranches(
+                sql_unit_id=sql_unit.id,
+                branches=[
+                    SQLBranch(
+                        path_id=exp.path_id,
+                        condition=exp.condition,
+                        expanded_sql=exp.expanded_sql,
+                        is_valid=exp.is_valid,
+                    )
+                    for exp in expand_branches(sql_unit.sql_text)
+                ],
+            )
+            for sql_unit in init_data.sql_units
+        ]
+
+        return ParseOutput(sql_units_with_branches=units_with_branches)

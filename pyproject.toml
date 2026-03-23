@@ -58,6 +58,9 @@ ignore = [
     "S101",
     "PLR0913",
     "PLR2004",
+    "S314",   # XML parsing - we parse trusted mapper files
+    "TC002",  # Type-checking import - runtime type usage
+    "RET504", # Unnecessary assignment - minor style
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass, field
 
 from sqlopt.common import save_json_file
 from sqlopt.common.config import SQLOptConfig, load_config
@@ -10,6 +11,23 @@ from sqlopt.common.progress import STATUS_COMPLETED, STATUS_FAILED, ProgressTrac
 from sqlopt.common.run_paths import RunPaths
 
 STAGE_ORDER = ["init", "parse", "recognition", "optimize", "result"]
+
+
+@dataclass
+class StageResult:
+    """Result from a single stage."""
+
+    stage_name: str
+    output: dict | None = None
+    error: str | None = None
+
+
+@dataclass
+class PipelineResult:
+    """Result from running the full pipeline."""
+
+    success: bool
+    stage_results: dict[str, StageResult] = field(default_factory=dict)
 
 
 class StageRunner:
@@ -24,6 +42,7 @@ class StageRunner:
     def run_stage(self, stage_name: str) -> None:
         if stage_name not in STAGE_ORDER:
             raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {STAGE_ORDER}")
+        self.paths.ensure_dirs()
         self.progress.start_stage(stage_name)
         try:
             if stage_name == "init":
@@ -41,22 +60,35 @@ class StageRunner:
             self.progress.fail_stage(stage_name, str(e))
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
-    def run_all(self) -> None:
+    def run_all(self) -> PipelineResult:
         self.paths.ensure_dirs()
-        for stage in STAGE_ORDER:
-            self.run_stage(stage)
+        stage_results: dict[str, StageResult] = {}
+        try:
+            for stage in STAGE_ORDER:
+                self.run_stage(stage)
+                stage_results[stage] = StageResult(stage_name=stage, output={"status": "completed"})
+            return PipelineResult(success=True, stage_results=stage_results)
+        except RuntimeError as e:
+            failed_stage = None
+            for s in STAGE_ORDER:
+                if self.progress.stages.get(s).status != STATUS_COMPLETED:
+                    failed_stage = s
+                    break
+            if failed_stage:
+                stage_results[failed_stage] = StageResult(stage_name=failed_stage, error=str(e))
+            return PipelineResult(success=False, stage_results=stage_results)
 
     def _run_init_stage(self) -> None:
         from sqlopt.stages.init import InitStage
 
-        stage = InitStage()
+        stage = InitStage(self.config, self.run_id)
         result = stage.run()
         save_json_file(result, self.paths.init_sql_units)
 
     def _run_parse_stage(self) -> None:
         from sqlopt.stages.parse import ParseStage
 
-        stage = ParseStage()
+        stage = ParseStage(self.run_id)
         result = stage.run()
         save_json_file(result, self.paths.parse_sql_units_with_branches)
 

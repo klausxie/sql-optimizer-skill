@@ -1,0 +1,21 @@
+{
+  "can_patch": true,
+  "report": {
+    "summary": "Optimization analysis complete",
+    "details": "Found 1 optimization opportunity",
+    "risks": [
+      "Low risk"
+    ],
+    "recommendations": [
+      "Consider adding index on user_id"
+    ]
+  },
+  "patches": [
+    {
+      "sql_unit_id": "stub-1",
+      "original_xml": "<select id=\"findUser\">SELECT * FROM users</select>",
+      "patched_xml": "<select id=\"findUser\">SELECT id, name FROM users</select>",
+      "diff": "--- old\n+++ new\n-SELECT *\n+SELECT id, name"
+    }
+  ]
+}
