@@ -159,3 +159,65 @@ class StageOverviewGenerator:
             lines.append("")
 
         return "\n".join(lines) + "\n"
+
+
+class InitOverviewGenerator(StageOverviewGenerator):
+    """Overview generator for the Init stage.
+
+    Generates markdown report summarizing SQL unit extraction results.
+    """
+
+    def generate(self, data: dict[str, Any]) -> str:
+        """Generate Init stage overview markdown report.
+
+        Args:
+            data: Dictionary containing sql_units list from init stage.
+
+        Returns:
+            Markdown string of the overview report.
+        """
+        sql_units = data.get("sql_units", [])
+        total_count = len(sql_units)
+
+        # Statement type distribution
+        type_counts: dict[str, int] = {}
+        for unit in sql_units:
+            stype = unit.get("statementType", "UNKNOWN")
+            type_counts[stype] = type_counts.get(stype, 0) + 1
+
+        # Dynamic SQL count (has if/choose/foreach)
+        dynamic_count = sum(1 for unit in sql_units if unit.get("dynamicFeatures"))
+
+        # Cross-file reference count
+        cross_file_count = sum(1 for unit in sql_units if unit.get("includeTrace"))
+
+        # Build summary
+        summary_parts = [f"扫描完成，共提取 {total_count} 个 SQL 语句"]
+        if dynamic_count > 0:
+            summary_parts.append(f"检测到 {dynamic_count} 个动态 SQL")
+        if cross_file_count > 0:
+            summary_parts.append(f"发现 {cross_file_count} 个跨文件引用")
+        summary = "，".join(summary_parts) + "。"
+
+        # Build header
+        lines = [self._render_header("init", summary)]
+
+        # Build table
+        headers = ["指标", "数值"]
+        rows = [
+            ["SQL 总数", total_count],
+            ["SELECT", type_counts.get("SELECT", 0)],
+            ["INSERT", type_counts.get("INSERT", 0)],
+            ["UPDATE", type_counts.get("UPDATE", 0)],
+            ["DELETE", type_counts.get("DELETE", 0)],
+            ["动态 SQL", dynamic_count],
+            ["跨文件引用", cross_file_count],
+        ]
+        lines.append(self._render_table(headers, rows))
+
+        # Build detail section
+        lines.append("## 详情")
+        lines.append("- 数据来源: `init/sql_units.json`")
+        lines.append("- 扫描配置文件: `sqlopt.yml`")
+
+        return "\n".join(lines) + "\n"
