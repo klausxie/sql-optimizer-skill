@@ -50,7 +50,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                         actual_time_ms=baseline_data.get("actual_time_ms"),
                     )
                     baselines.append(baseline)
-                except (ValueError, RuntimeError):
+                except Exception:
                     continue
 
         output = RecognitionOutput(baselines=baselines)
