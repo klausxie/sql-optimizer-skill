@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sqlopt.common.llm_mock_generator import MockLLMProvider
+from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
@@ -15,10 +15,12 @@ from sqlopt.stages.base import Stage
 class OptimizeStage(Stage[None, OptimizeOutput]):
     """Optimize stage generates optimization proposals for SQL queries."""
 
-    def __init__(self, run_id: str | None = None) -> None:
+    def __init__(
+        self, run_id: str | None = None, llm_provider: LLMProviderBase | None = None
+    ) -> None:
         super().__init__("optimize")
         self.run_id = run_id
-        self.mock_llm = MockLLMProvider()
+        self.llm_provider = llm_provider or MockLLMProvider()
 
     def run(self, _input_data: None = None, run_id: str | None = None) -> OptimizeOutput:
         rid = run_id or self.run_id
@@ -47,8 +49,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             if not sql:
                 continue
 
-            # Generate optimization proposal using mock LLM
-            proposal_json = self.mock_llm.generate_optimization(sql, "")
+            proposal_json = self.llm_provider.generate_optimization(sql, "")
             proposal_data = json.loads(proposal_json)
 
             proposal = OptimizationProposal(

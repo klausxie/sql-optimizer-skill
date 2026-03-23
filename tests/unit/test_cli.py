@@ -1,5 +1,4 @@
 from click.testing import CliRunner
-
 from sqlopt.cli.main import cli
 
 

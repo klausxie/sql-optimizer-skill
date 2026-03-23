@@ -1,19 +1,17 @@
 """Unit tests for all pipeline stages."""
 
 import pytest
-
-from sqlopt.stages.base import Stage
-from sqlopt.stages.init.stage import InitStage
-from sqlopt.stages.parse.stage import ParseStage
-from sqlopt.stages.recognition.stage import RecognitionStage
-from sqlopt.stages.optimize.stage import OptimizeStage
-from sqlopt.stages.result.stage import ResultStage
-
 from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
-from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.result import ResultOutput
+from sqlopt.stages.base import Stage
+from sqlopt.stages.init.stage import InitStage
+from sqlopt.stages.optimize.stage import OptimizeStage
+from sqlopt.stages.parse.stage import ParseStage
+from sqlopt.stages.recognition.stage import RecognitionStage
+from sqlopt.stages.result.stage import ResultStage
 
 
 class TestStageBase:

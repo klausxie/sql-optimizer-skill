@@ -1,7 +1,6 @@
 """Tests for error hierarchy."""
 
 import pytest
-
 from sqlopt.common.errors import (
     ConfigError,
     ContractError,

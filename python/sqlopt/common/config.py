@@ -1,5 +1,7 @@
 """Configuration management for SQL Optimizer."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
@@ -16,7 +18,12 @@ class SQLOptConfig:
         project_root_path: Root path of the project being analyzed.
         scan_mapper_globs: Glob patterns to find MyBatis mapper XML files.
         db_platform: Target database platform (postgresql, mysql).
-        db_dsn: Database connection string for validation.
+        db_host: Database host address.
+        db_port: Database port number.
+        db_name: Database name.
+        db_user: Database user.
+        db_password: Database password.
+        db_dsn: Database connection string (legacy/backward compatibility).
         llm_enabled: Whether to enable LLM-based optimization.
         llm_provider: LLM provider to use (opencode_run, openai, anthropic).
         contracts_version: Version of contracts schema to use.
@@ -26,6 +33,11 @@ class SQLOptConfig:
     project_root_path: str = "."
     scan_mapper_globs: List[str] = field(default_factory=lambda: ["src/main/resources/**/*.xml"])
     db_platform: str = "postgresql"
+    db_host: str | None = None
+    db_port: int | None = None
+    db_name: str | None = None
+    db_user: str | None = None
+    db_password: str | None = None
     db_dsn: str = ""
     llm_enabled: bool = True
     llm_provider: str = "opencode_run"
@@ -60,6 +72,11 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         project_root_path=data.get("project_root_path", "."),
         scan_mapper_globs=data.get("scan_mapper_globs", ["src/main/resources/**/*.xml"]),
         db_platform=data.get("db_platform", "postgresql"),
+        db_host=data.get("db_host"),
+        db_port=data.get("db_port"),
+        db_name=data.get("db_name"),
+        db_user=data.get("db_user"),
+        db_password=data.get("db_password"),
         db_dsn=data.get("db_dsn", ""),
         llm_enabled=data.get("llm_enabled", True),
         llm_provider=data.get("llm_provider", "opencode_run"),

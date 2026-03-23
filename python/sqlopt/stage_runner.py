@@ -93,16 +93,48 @@ class StageRunner:
         save_json_file(result, self.paths.parse_sql_units_with_branches)
 
     def _run_recognition_stage(self) -> None:
+        from sqlopt.common.db_connector import create_connector
+        from sqlopt.common.llm_mock_generator import OpenAILLMProvider
         from sqlopt.stages.recognition import RecognitionStage
 
-        stage = RecognitionStage(self.run_id)
+        db_connector = None
+        llm_provider = None
+        if self.config.db_host and self.config.db_port and self.config.db_name:
+            db_connector = create_connector(
+                platform=self.config.db_platform,
+                host=self.config.db_host,
+                port=self.config.db_port,
+                db=self.config.db_name,
+                user=self.config.db_user or "",
+                password=self.config.db_password or "",
+            )
+        if self.config.llm_enabled and self.config.llm_provider == "openai":
+            llm_provider = OpenAILLMProvider(db_connector=db_connector)
+
+        stage = RecognitionStage(self.run_id, llm_provider=llm_provider)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.recognition_baselines)
 
     def _run_optimize_stage(self) -> None:
+        from sqlopt.common.db_connector import create_connector
+        from sqlopt.common.llm_mock_generator import OpenAILLMProvider
         from sqlopt.stages.optimize import OptimizeStage
 
-        stage = OptimizeStage(self.run_id)
+        db_connector = None
+        llm_provider = None
+        if self.config.db_host and self.config.db_port and self.config.db_name:
+            db_connector = create_connector(
+                platform=self.config.db_platform,
+                host=self.config.db_host,
+                port=self.config.db_port,
+                db=self.config.db_name,
+                user=self.config.db_user or "",
+                password=self.config.db_password or "",
+            )
+        if self.config.llm_enabled and self.config.llm_provider == "openai":
+            llm_provider = OpenAILLMProvider(db_connector=db_connector)
+
+        stage = OptimizeStage(self.run_id, llm_provider=llm_provider)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.optimize_proposals)
 

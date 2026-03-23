@@ -4,7 +4,11 @@ scan_mapper_globs:
   - src/main/resources/**/*.xml
   - mapper/**/*.xml
 db_platform: mysql
-db_dsn: "mysql://localhost:3306/test"
+db_host: "100.101.41.123"
+db_port: 3306
+db_name: "sqlopt_test"
+db_user: "root"
+db_password: "root"
 llm_enabled: true
 llm_provider: openai
 contracts_version: current

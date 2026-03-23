@@ -1,17 +1,60 @@
-"""Mock LLM provider for generating test data.
+"""LLM providers for SQL optimization.
 
-This module provides mock implementations of LLM responses for testing
-the SQL optimizer without requiring actual LLM API calls.
+This module provides LLM implementations for generating optimization proposals
+and performance baselines for SQL queries.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
+from abc import ABC, abstractmethod
 from typing import Any
 
+import openai
 
-class MockLLMProvider:
+
+class LLMProviderBase(ABC):
+    """Abstract base class for LLM providers."""
+
+    @abstractmethod
+    def generate_optimization(self, sql: str, description: str = "") -> str:
+        """Generate optimization proposal for SQL.
+
+        Args:
+            sql: Original SQL query
+            description: Description of desired optimization
+
+        Returns:
+            JSON string matching OptimizationProposal schema
+        """
+
+    @abstractmethod
+    def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict[str, Any]:
+        """Generate baseline performance data for SQL.
+
+        Args:
+            sql: SQL query to analyze
+            platform: Database platform (postgresql, mysql, etc.)
+
+        Returns:
+            Dict matching PerformanceBaseline schema
+        """
+
+    @abstractmethod
+    def generate_risks(self, sql: str) -> list[dict[str, Any]]:
+        """Generate risks for SQL.
+
+        Args:
+            sql: SQL query to analyze
+
+        Returns:
+            List of dicts matching Risk schema
+        """
+
+
+class MockLLMProvider(LLMProviderBase):
     """Mock LLM provider for generating test data.
 
     Generates deterministic mock responses based on input SQL and
@@ -392,3 +435,181 @@ class MockLLMProvider:
             )
 
         return risks
+
+
+class OpenAILLMProvider(LLMProviderBase):
+    """OpenAI LLM provider for SQL optimization.
+
+    Uses real database EXPLAIN for baseline generation and OpenAI API
+    for optimization proposal generation.
+
+    Example:
+        >>> provider = OpenAILLMProvider(
+        ...     db_connector=PostgreSQLConnector(host="localhost", dbname="test"),
+        ...     api_key="sk-..."
+        ... )
+        >>> baseline = provider.generate_baseline("SELECT * FROM users", "postgresql")
+        >>> proposal_json = provider.generate_optimization("SELECT * FROM users", "Add index hint")
+    """
+
+    def __init__(
+        self,
+        db_connector: Any = None,
+        api_key: str | None = None,
+        model: str = "gpt-4o-mini",
+    ) -> None:
+        """Initialize OpenAI LLM provider.
+
+        Args:
+            db_connector: Database connector for EXPLAIN plans (DBConnector instance)
+            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
+            model: OpenAI model to use
+        """
+        self.db_connector = db_connector
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+        self.model = model
+        self._client: openai.OpenAI | None = None
+
+    def _get_client(self) -> openai.OpenAI:
+        if self._client is None:
+            if not self.api_key:
+                raise ValueError(
+                    "OpenAI API key not provided. Set OPENAI_API_KEY environment variable "
+                    "or pass api_key to constructor."
+                )
+            self._client = openai.OpenAI(api_key=self.api_key)
+        return self._client
+
+    def generate_optimization(self, sql: str, description: str = "") -> str:
+        prompt = self._build_optimization_prompt(sql, description)
+        response = self._get_client().chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a SQL optimization expert. Return ONLY valid JSON with no markdown formatting.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content or "{}"
+        return self._parse_optimization_response(content, sql)
+
+    def _build_optimization_prompt(self, sql: str, description: str) -> str:
+        return f"""Analyze this SQL query and suggest an optimized version.
+
+Original SQL:
+{sql}
+
+{"Optimization hint: " + description if description else ""}
+
+Return a JSON object with these fields:
+- sql_unit_id: a short unique identifier
+- path_id: a path identifier
+- optimized_sql: the optimized SQL query
+- rationale: explanation of why this optimization helps
+- confidence: confidence score between 0.0 and 1.0
+
+Example output:
+{{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
+
+    def _parse_optimization_response(self, content: str, original_sql: str) -> str:
+        try:
+            data = json.loads(content)
+            return json.dumps(
+                {
+                    "sql_unit_id": data.get(
+                        "sql_unit_id",
+                        f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    ),
+                    "path_id": data.get(
+                        "path_id",
+                        f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    ),
+                    "original_sql": original_sql,
+                    "optimized_sql": data.get("optimized_sql", original_sql),
+                    "rationale": data.get("rationale", "LLM optimization"),
+                    "confidence": data.get("confidence", 0.8),
+                }
+            )
+        except json.JSONDecodeError:
+            return json.dumps(
+                {
+                    "sql_unit_id": f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "path_id": f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "original_sql": original_sql,
+                    "optimized_sql": original_sql,
+                    "rationale": "Failed to parse LLM response",
+                    "confidence": 0.0,
+                }
+            )
+
+    def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict[str, Any]:
+        _ = platform  # Platform is determined from db_connector configuration
+        if self.db_connector is None:
+            raise ValueError("DBConnector required for baseline generation")
+        explain_plan = self.db_connector.execute_explain(sql)
+        estimated_cost = self._estimate_cost_from_plan(explain_plan)
+        return {
+            "sql_unit_id": f"unit_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+            "path_id": f"path_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+            "plan": explain_plan,
+            "estimated_cost": estimated_cost,
+            "actual_time_ms": None,
+        }
+
+    def _estimate_cost_from_plan(self, plan: dict[str, Any]) -> float:
+        if not plan:
+            return 100.0
+        if "Plan" in plan:
+            return plan["Plan"].get("Total Cost", 100.0)
+        if "cost" in plan:
+            return float(plan["cost"])
+        return 100.0
+
+    def generate_risks(self, sql: str) -> list[dict[str, Any]]:
+        prompt = f"""Analyze this SQL query for potential risks:
+
+{sql}
+
+Return a JSON array of risk objects with fields:
+- sql_unit_id: a short unique identifier
+- risk_type: uppercase risk type (e.g., SELECT_STAR, MISSING_WHERE)
+- severity: HIGH, MEDIUM, or LOW
+- message: description of the risk
+
+Example: [{{"sql_unit_id": "u1", "risk_type": "SELECT_STAR", "severity": "MEDIUM", "message": "Avoid SELECT *"}}]"""
+        response = self._get_client().chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a SQL security expert. Return ONLY valid JSON array.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content or "[]"
+        try:
+            risks = json.loads(content)
+            if isinstance(risks, dict) and "risks" in risks:
+                risks = risks["risks"]
+            if not isinstance(risks, list):
+                risks = [risks]
+            sql_unit_id = f"unit_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}"
+            for r in risks:
+                r.setdefault("sql_unit_id", sql_unit_id)
+            return risks
+        except json.JSONDecodeError:
+            return [
+                {
+                    "sql_unit_id": f"unit_{hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    "risk_type": "PARSE_ERROR",
+                    "severity": "LOW",
+                    "message": "Failed to parse LLM risk analysis",
+                }
+            ]

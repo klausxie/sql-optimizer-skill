@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from sqlopt.common.config import SQLOptConfig, load_config
 
 

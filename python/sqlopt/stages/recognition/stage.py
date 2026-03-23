@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlopt.common.llm_mock_generator import MockLLMProvider
+from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
@@ -13,10 +13,12 @@ from sqlopt.stages.base import Stage
 class RecognitionStage(Stage[None, RecognitionOutput]):
     """Recognition stage identifies performance baselines for SQL units."""
 
-    def __init__(self, run_id: str | None = None, mock_llm: MockLLMProvider | None = None) -> None:
+    def __init__(
+        self, run_id: str | None = None, llm_provider: LLMProviderBase | None = None
+    ) -> None:
         super().__init__("recognition")
         self.run_id = run_id
-        self.mock_llm = mock_llm or MockLLMProvider()
+        self.llm_provider = llm_provider or MockLLMProvider()
 
     def run(self, _input_data: None = None, run_id: str | None = None) -> RecognitionOutput:
         rid = run_id or self.run_id
@@ -36,7 +38,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             for branch in sql_unit.branches:
                 if not branch.is_valid:
                     continue
-                baseline_data = self.mock_llm.generate_baseline(branch.expanded_sql, platform)
+                baseline_data = self.llm_provider.generate_baseline(branch.expanded_sql, platform)
                 baseline = PerformanceBaseline(
                     sql_unit_id=sql_unit.sql_unit_id,
                     path_id=branch.path_id,

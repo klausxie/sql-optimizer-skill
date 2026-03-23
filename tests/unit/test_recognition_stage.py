@@ -450,7 +450,7 @@ class TestRecognitionStageWithMockLLM:
             original_cwd = Path.cwd()
             try:
                 os.chdir(tmpdir)
-                stage = RecognitionStage(run_id=run_id, mock_llm=mock_provider)
+                stage = RecognitionStage(run_id=run_id, llm_provider=mock_provider)
                 output = stage.run()
 
                 assert isinstance(output, RecognitionOutput)

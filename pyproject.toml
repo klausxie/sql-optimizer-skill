@@ -19,6 +19,7 @@ dependencies = [
   "rich>=13.0.0",
   "psycopg2-binary>=2.9.0",
   "PyMySQL>=1.1.0",
+  "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -59,6 +60,7 @@ ignore = [
     "PLR0913",
     "PLR2004",
     "S314",   # XML parsing - we parse trusted mapper files
+    "S608",   # SQL in LLM prompt - not actual SQL execution
     "TC002",  # Type-checking import - runtime type usage
     "RET504", # Unnecessary assignment - minor style
 ]
