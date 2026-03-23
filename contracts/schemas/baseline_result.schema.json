@@ -45,7 +45,7 @@
     },
     "database_platform": {
       "type": "string",
-      "enum": ["postgresql", "mysql"]
+      "enum": ["postgresql", "mysql", "unknown"]
     },
     "sample_params": {
       "type": "object"

@@ -853,10 +853,7 @@ class BaselineCollector:
                         f"  collected baseline {i + 1}/{total}"
                     )
                 if run_dir is not None and (i + 1) % 10 == 0:
-                    processed_keys = {
-                        r.get("sqlKey", r.get("sql", {}).get("sqlKey", "unknown"))
-                        for r in results
-                    }
+                    processed_keys = {r.sql_key for r in results}
                     _save_checkpoint(results, run_dir, processed_keys)
         return results
 
@@ -902,8 +899,24 @@ def _save_checkpoint(baselines: list, run_dir: Path, sql_keys_processed: set):
     """Save incremental checkpoint for resume support."""
     checkpoint_path = run_dir / "recognition" / ".baselines.checkpoint.json"
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_dicts = []
+    for b in baselines:
+        if hasattr(b, "sql_key"):
+            baseline_dicts.append(
+                {
+                    "sql_key": b.sql_key,
+                    "execution_time_ms": b.execution_time_ms,
+                    "rows_examined": b.rows_examined,
+                    "rows_returned": b.rows_returned,
+                    "explain_plan": b.explain_plan,
+                    "database_platform": b.database_platform,
+                    "sample_params": b.sample_params,
+                }
+            )
+        else:
+            baseline_dicts.append(b)
     checkpoint_data = {
-        "baselines": baselines,
+        "baselines": baseline_dicts,
         "processed_keys": list(sql_keys_processed),
     }
     with open(checkpoint_path, "w") as f:
