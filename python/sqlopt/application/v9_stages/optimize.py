@@ -7,8 +7,10 @@ from typing import Any
 from ...contracts import ContractValidator
 from ...platforms.sql.optimizer_sql import generate_proposal
 from ...platforms.sql.validator_sql import validate_proposal
+from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
 from .common import merge_validation_into_proposal
+from .overview import OptimizeOverviewGenerator
 
 
 def run_optimize(
@@ -113,6 +115,11 @@ def run_optimize(
     actionable_count = sum(
         1 for p in proposals if str(p.get("verdict") or "").upper() == "ACTIONABLE"
     )
+
+    reporter = get_progress_reporter()
+    overview_gen = OptimizeOverviewGenerator("optimize", run_dir / "optimize")
+    overview_path = overview_gen.write({"proposals": proposals}, "optimize.overview.md")
+    reporter.report_info(f"optimize output: overview -> {overview_path}")
 
     return {
         "success": True,

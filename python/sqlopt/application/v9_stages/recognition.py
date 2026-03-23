@@ -24,6 +24,7 @@ from typing import Any, Optional
 from ...contracts import ContractValidator
 from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
+from .overview import RecognitionOverviewGenerator
 
 
 # =============================================================================
@@ -1011,6 +1012,12 @@ def run_recognition(
 
     reporter.report_info(f"  recognition output: {output_path}")
     reporter.report_info(f"  collected {len(baselines)} baselines")
+
+    overview_gen = RecognitionOverviewGenerator("recognition", run_dir / "recognition")
+    overview_path = overview_gen.write(
+        {"baselines": baselines}, "recognition.overview.md"
+    )
+    reporter.report_info(f"  recognition output: overview -> {overview_path}")
 
     return {
         "success": True,

@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from ...contracts import ContractValidator
+from ...progress import get_progress_reporter
 from ...run_paths import canonical_paths
+from .overview import PatchOverviewGenerator
 
 
 def run_patch(
@@ -69,6 +71,11 @@ def run_patch(
 
     with open(output_path, "w") as f:
         json.dump(patches, f, indent=2, ensure_ascii=False)
+
+    reporter = get_progress_reporter()
+    overview_gen = PatchOverviewGenerator("patch", run_dir / "patch")
+    overview_path = overview_gen.write({"patches": patches}, "patch.overview.md")
+    reporter.report_info(f"patch output: overview -> {overview_path}")
 
     return {
         "success": True,
