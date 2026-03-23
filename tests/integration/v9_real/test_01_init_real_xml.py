@@ -111,20 +111,24 @@ class TestV9InitRealXML:
             "No units found for com.test.mapper.UserMapper namespace"
         )
 
-        # Verify CommonMapper namespace
-        common_mapper_units = [
-            u for u in sql_units if u.get("namespace") == "com.test.mapper.CommonMapper"
-        ]
-        assert len(common_mapper_units) > 0, (
-            "No units found for com.test.mapper.CommonMapper namespace"
-        )
-
         # Verify OrderMapper namespace
         order_mapper_units = [
             u for u in sql_units if u.get("namespace") == "com.test.mapper.OrderMapper"
         ]
         assert len(order_mapper_units) > 0, (
             "No units found for com.test.mapper.OrderMapper namespace"
+        )
+
+        # Verify cross-file include resolution: OrderMapper uses CommonMapper fragments
+        # CommonMapper.xml only contains <sql> fragments, no statements
+        order_with_common = [
+            u
+            for u in sql_units
+            if u.get("namespace") == "com.test.mapper.OrderMapper"
+            and "CommonMapper" in str(u.get("includeTrace", []))
+        ]
+        assert len(order_with_common) > 0, (
+            "Cross-file include not resolved: OrderMapper should reference CommonMapper fragments"
         )
 
     def test_init_detects_dynamic_tags(
@@ -171,10 +175,9 @@ class TestV9InitRealXML:
 
         if two_if_unit is not None:
             dynamic_features = two_if_unit.get("dynamicFeatures", [])
-            # Should detect multiple IF tags
-            if_features = [f for f in dynamic_features if "IF" in f.upper()]
-            assert len(if_features) >= 2, (
-                f"testTwoIf should have at least 2 IF features, got: {dynamic_features}"
+            # Should detect IF tag (unique types, not occurrence count)
+            assert "IF" in dynamic_features, (
+                f"testTwoIf should have IF feature, got: {dynamic_features}"
             )
 
         # Find a unit with foreach

@@ -74,6 +74,15 @@ def _extract_include_refs(node: ET.Element, namespace: str) -> list[str]:
 def _collect_fragment_meta(
     root: ET.Element, namespace: str
 ) -> dict[str, dict[str, Any]]:
+    """Collect fragment metadata from a single XML file.
+
+    Args:
+        root: XML root element.
+        namespace: Mapper namespace.
+
+    Returns:
+        Dict of qualified_ref -> fragment metadata.
+    """
     fragments: dict[str, dict[str, Any]] = {}
     for node in root:
         if _local_name(str(node.tag)).lower() != "sql":
@@ -89,6 +98,47 @@ def _collect_fragment_meta(
             "includeRefs": _extract_include_refs(node, namespace),
         }
     return fragments
+
+
+def _build_global_fragment_registry(
+    xml_files: list[Path],
+) -> dict[str, dict[str, Any]]:
+    """Build a global fragment registry from ALL mapper XML files.
+
+    This is the KEY function for cross-file include resolution.
+    It scans all XML files first, collects all <sql> fragments
+    into a shared registry. This registry is then used when
+    processing individual statements to resolve cross-file <include> refs.
+
+    Args:
+        xml_files: List of XML mapper file paths.
+
+    Returns:
+        Dict mapping qualified fragment ref -> fragment metadata.
+    """
+    global_registry: dict[str, dict[str, Any]] = {}
+
+    for xml_file in xml_files:
+        try:
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+        except Exception:
+            continue
+
+        if not _is_mybatis_mapper_root(root):
+            continue
+
+        file_namespace = root.attrib.get("namespace", "unknown")
+
+        # Collect fragments from this file
+        file_fragments = _collect_fragment_meta(root, file_namespace)
+
+        # Merge into global registry
+        for qualified, fragment_meta in file_fragments.items():
+            if qualified not in global_registry:
+                global_registry[qualified] = fragment_meta
+
+    return global_registry
 
 
 def _render_logical_text(
@@ -270,9 +320,12 @@ class Scanner:
                 sql_units=[], total_count=0, errors=errors, warnings=warnings
             )
 
+        # Build global fragment registry for cross-file include resolution
+        global_fragments = _build_global_fragment_registry(files)
+
         for xml_file in files:
             try:
-                units = self._parse_mapper(xml_file)
+                units = self._parse_mapper(xml_file, global_fragments)
                 sql_units.extend(units)
             except Exception as e:
                 errors.append(f"{xml_file}: {e}")
@@ -300,7 +353,9 @@ class Scanner:
                     files.append(f)
         return sorted(set(files))
 
-    def _parse_mapper(self, xml_path: Path) -> list[dict]:
+    def _parse_mapper(
+        self, xml_path: Path, global_fragments: dict[str, dict[str, Any]] | None = None
+    ) -> list[dict]:
         tree = ET.parse(xml_path)
         root = tree.getroot()
 
@@ -308,7 +363,10 @@ class Scanner:
             return []
 
         namespace = root.attrib.get("namespace", "unknown")
-        fragments = _collect_fragment_meta(root, namespace)
+        local_fragments = _collect_fragment_meta(root, namespace)
+        fragments = (
+            global_fragments if global_fragments is not None else local_fragments
+        )
 
         units: list[dict] = []
         idx = 0
