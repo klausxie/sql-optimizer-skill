@@ -64,11 +64,12 @@ class DBConnector(ABC):
         """
 
     @abstractmethod
-    def execute_query(self, sql: str) -> list[dict[str, Any]]:
+    def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
 
         Args:
             sql: SQL query to execute
+            params: Optional tuple of parameters for parameterized query
 
         Returns:
             List[dict]: Query results as list of row dicts
@@ -166,11 +167,12 @@ class PostgreSQLConnector(DBConnector):
                 return {}
             return {}
 
-    def execute_query(self, sql: str) -> list[dict[str, Any]]:
+    def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
 
         Args:
             sql: SQL query to execute
+            params: Optional tuple of parameters for parameterized query
 
         Returns:
             List[dict]: Query results as list of row dicts
@@ -180,7 +182,7 @@ class PostgreSQLConnector(DBConnector):
             return []
 
         with self._conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(sql)
+            cursor.execute(sql, params)
             if cursor.description is None:
                 return []
             return [dict(row) for row in cursor.fetchall()]
@@ -263,11 +265,12 @@ class MySQLConnector(DBConnector):
                 return dict(result)
             return {}
 
-    def execute_query(self, sql: str) -> list[dict[str, Any]]:
+    def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
 
         Args:
             sql: SQL query to execute
+            params: Optional tuple of parameters for parameterized query
 
         Returns:
             List[dict]: Query results as list of row dicts
@@ -277,7 +280,7 @@ class MySQLConnector(DBConnector):
             return []
 
         with self._conn.cursor() as cursor:
-            cursor.execute(sql)
+            cursor.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
 
     def __repr__(self) -> str:
