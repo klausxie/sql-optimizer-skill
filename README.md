@@ -103,17 +103,19 @@ sqlopt run init --config sqlopt.yml
 pip install -e ".[dev]"
 
 # 执行构建
-python installer/build.py
+python scripts/build.py
 ```
 
-构建完成后，可执行文件位于 `installer/dist/` 目录。
+构建完成后，可执行文件位于 `dist/` 目录。
 
 ### 分发
 
-将 `installer/` 目录完整提供给用户即可，包含：
-- 可执行文件（`sqlopt.exe` 或 `sqlopt`）
-- 配置模板
-- 初始化脚本
+```
+dist/                 # 可执行文件
+templates/            # 配置模板
+```
+
+用户只需提供这两个目录。
 
 ---
 

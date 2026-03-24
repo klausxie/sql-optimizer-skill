@@ -1,0 +1,14 @@
+# SQL Optimizer 配置模板 - 示例（mock 模式）
+
+config_version: v1
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: your_database_name
+db_user: your_username
+db_password: your_password
+llm_provider: mock
+llm_enabled: true
+project_root_path: .
+scan_mapper_globs:
+  - "src/main/resources/**/*.xml"

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
 SQL Optimizer 构建脚本
-
-使用方法:
-    python build.py
 """
 
 import os
@@ -36,19 +33,17 @@ def main() -> None:
     print("PyInstaller 已安装")
     print()
 
-    root = Path(__file__).parent.resolve()
-    dist = root / "dist"
-    config_src = root / "config"
-    config_dest = dist / "config"
+    root = Path(__file__).parent.parent.resolve()
+    dist_dir = root / "dist"
+    templates_dir = root / "templates"
 
-    dist.mkdir(exist_ok=True)
-    (dist / "config" / "templates").mkdir(parents=True, exist_ok=True)
+    dist_dir.mkdir(exist_ok=True)
     print("创建输出目录...")
     print()
 
     print("清理旧构建...")
     build_dir = root / "build"
-    old_exe = dist / ("sqlopt.exe" if sys.platform == "win32" else "sqlopt")
+    old_exe = dist_dir / ("sqlopt.exe" if sys.platform == "win32" else "sqlopt")
 
     for path in [build_dir, old_exe]:
         if path.exists():
@@ -60,7 +55,7 @@ def main() -> None:
     print()
 
     print("开始构建...")
-    src_file = root / ".." / "python" / "sqlopt" / "cli" / "main.py"
+    src_file = root / "python" / "sqlopt" / "cli" / "main.py"
 
     if not src_file.exists():
         print(f"错误: 源码文件不存在: {src_file}")
@@ -74,7 +69,7 @@ def main() -> None:
         "--name",
         "sqlopt",
         "--add-data",
-        f"{config_src}{os.pathsep}templates",
+        f"{templates_dir}{os.pathsep}templates",
         "--console",
         str(src_file),
     ]
@@ -83,29 +78,19 @@ def main() -> None:
     print()
 
     try:
-        subprocess.run(cmd, check=True, cwd=str(root.parent))
+        subprocess.run(cmd, check=True, cwd=str(root))
     except subprocess.CalledProcessError as e:
         print(f"错误: PyInstaller 构建失败 (退出码: {e.returncode})")
         sys.exit(1)
 
     print()
-    print("复制配置文件...")
-    if config_src.exists():
-        if config_dest.exists():
-            shutil.rmtree(config_dest)
-        shutil.copytree(config_src, config_dest)
-        print(f"  已复制: {config_dest}")
-    print()
-
     print("=" * 50)
     print("构建完成!")
     print("=" * 50)
     print()
     exe_name = "sqlopt.exe" if sys.platform == "win32" else "sqlopt"
-    print(f"输出目录: {dist}")
-    print(f"可执行文件: {dist / exe_name}")
-    print()
-    print("分发时，请将 dist/ 目录完整提供即可")
+    print(f"输出目录: {dist_dir}")
+    print(f"可执行文件: {dist_dir / exe_name}")
 
 
 if __name__ == "__main__":
