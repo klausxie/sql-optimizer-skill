@@ -59,10 +59,10 @@ ignore = [
     "S101",
     "PLR0913",
     "PLR2004",
-    "S314",   # XML parsing - we parse trusted mapper files
-    "S608",   # SQL in LLM prompt - not actual SQL execution
-    "TC002",  # Type-checking import - runtime type usage
-    "RET504", # Unnecessary assignment - minor style
+    "S314",
+    "S608",
+    "TC002",
+    "RET504",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -74,3 +74,4 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+strict_return = true

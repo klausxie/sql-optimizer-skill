@@ -112,3 +112,45 @@ category = "security"
 severity = "warn"
 languages = ["python"]
 description = "Validate external input"
+
+[[rules]]
+id = "RET-001"
+category = "return-consistency"
+severity = "error"
+languages = ["python"]
+description = "Function return types must be consistent across all branches"
+
+[[rules]]
+id = "RET-002"
+category = "return-consistency"
+severity = "warn"
+languages = ["python"]
+description = "Multiple return statements may indicate inconsistent return types"
+
+[[rules]]
+id = "LOG-001"
+category = "logging"
+severity = "warn"
+languages = ["python"]
+description = "Use logging module instead of print() for application logs"
+
+[[rules]]
+id = "LOG-002"
+category = "logging"
+severity = "error"
+languages = ["python"]
+description = "Must use a proper logger instance"
+
+[[rules]]
+id = "LOG-003"
+category = "logging"
+severity = "error"
+languages = ["python"]
+description = "Use logger.error() instead of print() in except blocks"
+
+[[rules]]
+id = "LOG-004"
+category = "logging"
+severity = "warn"
+languages = ["python"]
+description = "Use f-strings or % formatting for log messages"

@@ -1,0 +1,33 @@
+[[rules]]
+
+[[rules]]
+id = "LOG-001"
+name = "use logging module"
+pattern = "print\\("
+languages = ["python"]
+severity = "warn"
+description = "Use logging module instead of print() for application logs"
+
+[[rules]]
+id = "LOG-002"
+name = "logging requires logger instance"
+pattern = "logger\\.(debug|info|warning|error|critical)"
+languages = ["python"]
+severity = "error"
+description = "Must use a proper logger instance (e.g., logger = logging.getLogger(__name__))"
+
+[[rules]]
+id = "LOG-003"
+name = "no print in except blocks"
+pattern = "except.*:\\s*print"
+languages = ["python"]
+severity = "error"
+description = "Use logger.error() or logger.exception() instead of print() in except blocks"
+
+[[rules]]
+id = "LOG-004"
+name = "log format strings"
+pattern = "logger\\.(debug|info|warning|error)\\(.*\\+"
+languages = ["python"]
+severity = "warn"
+description = "Use f-strings or % formatting for log messages, not string concatenation"

@@ -1,0 +1,15 @@
+[[rules]]
+id = "RET-001"
+name = "consistent return types"
+pattern = "def.*->.*:"
+languages = ["python"]
+severity = "error"
+description = "Function return types must be consistent across all branches"
+
+[[rules]]
+id = "RET-002"
+name = "no inconsistent return"
+pattern = "return.*\\n.*return"
+languages = ["python"]
+severity = "warn"
+description = "Multiple return statements with different types indicate inconsistent return"
