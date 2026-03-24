@@ -27,6 +27,8 @@ class SQLOptConfig:
         llm_enabled: Whether to enable LLM-based optimization.
         llm_provider: LLM provider to use (opencode_run, openai, anthropic).
         contracts_version: Version of contracts schema to use.
+        parse_strategy: Strategy for parsing dynamic SQL (ladder, pairwise).
+        parse_max_branches: Maximum number of branches to generate per SQL.
     """
 
     config_version: str = "v1"
@@ -42,6 +44,8 @@ class SQLOptConfig:
     llm_enabled: bool = True
     llm_provider: str = "opencode_run"
     contracts_version: str = "current"
+    parse_strategy: str = "ladder"
+    parse_max_branches: int = 50
 
 
 def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
@@ -81,4 +85,6 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         llm_enabled=data.get("llm_enabled", True),
         llm_provider=data.get("llm_provider", "opencode_run"),
         contracts_version=data.get("contracts_version", "current"),
+        parse_strategy=data.get("parse_strategy", "ladder"),
+        parse_max_branches=data.get("parse_max_branches", 50),
     )

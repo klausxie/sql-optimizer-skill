@@ -11,8 +11,9 @@ Strategies:
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, ClassVar, List
 
 if TYPE_CHECKING:
     from sqlopt.stages.branching.sql_node import IfSqlNode
@@ -208,16 +209,102 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
     """
 
     # Default risk weights based on SQL text features
-    DEFAULT_WEIGHTS = {
-        "large_table": 3,  # Involves large table (users/orders/logs)
-        "join": 2,  # JOIN is expensive
-        "select_star": 2,  # SELECT * causes extra columns
-        "subquery": 2,  # Subquery amplifies data
-        "like_prefix": 2,  # LIKE '%xxx' can't use index
-        "or_condition": 1,  # OR is hard to index
-        "order_by": 1,  # Sorting cost
-        "group_by": 1,  # Grouping cost
+    DEFAULT_WEIGHTS: ClassVar[dict[str, float]] = {
+        "large_table": 3,
+        "join": 2,
+        "select_star": 2,
+        "subquery": 2,
+        "like_prefix": 2,
+        "or_condition": 1,
+        "order_by": 1,
+        "group_by": 1,
     }
+
+    FUNCTION_WRAPPER_PATTERNS: ClassVar[dict[str, float]] = {
+        "year(": 3,
+        "month(": 3,
+        "day(": 3,
+        "date_format(": 3,
+        "dateadd(": 2,
+        "datediff(": 2,
+        "extract(": 3,
+        "dayofyear(": 2,
+        "weekday(": 2,
+        "concat(": 3,
+        "upper(": 3,
+        "lower(": 3,
+        "substring(": 3,
+        "substr(": 3,
+        "trim(": 2,
+        "ltrim(": 2,
+        "rtrim(": 2,
+        "lpad(": 2,
+        "rpad(": 2,
+        "replace(": 2,
+        "reverse(": 2,
+        "cast(": 3,
+        "convert(": 3,
+        "coalesce(": 2,
+        "ifnull(": 2,
+        "nvl(": 2,
+        "isnull(": 2,
+        "abs(": 2,
+        "round(": 2,
+        "floor(": 2,
+        "ceil(": 2,
+        "ceiling(": 2,
+        "mod(": 1,
+        "sqrt(": 1,
+        "pow(": 1,
+        "power(": 1,
+        "length(": 2,
+        "char_length(": 2,
+        "character_length(": 2,
+        "octet_length(": 1,
+        "bit_length(": 1,
+    }
+
+    FIELD_TYPE_PATTERNS: ClassVar[dict[str, float]] = {
+        "text": 3,
+        "blob": 3,
+        "clob": 3,
+        "json": 2,
+        "xml": 2,
+        "geometry": 2,
+        "geography": 2,
+        "varchar(1000)": 2,
+        "varchar(2000)": 2,
+    }
+
+    RISK_PATTERNS: ClassVar[dict[str, float]] = {
+        r"like\s+['\"]%": 3,
+        r"not\s+like": 2,
+        r"not\s+in": 2,
+        r"not\s+exists": 2,
+        r"is\s+not\s+null": 1,
+        r"offset\s+\d+": 2,
+        r"limit\s+\d+.*offset": 2,
+        r"in\s*\(\s*\d+\s*(,\s*\d+){10,}": 2,
+        r"=\s*['\"]\d+['\"]": 2,
+        r"like\s+['\"]\d+['\"]": 2,
+        r"where\s+\w+\s*\*\s*[]<>=]": 3,
+        r"where\s+\w+\s*[+-]\s*\d+\s*[<>]": 2,
+        r"where\s+abs\(": 2,
+        r"where\s+year\(": 3,
+        r"where\s+month\(": 3,
+        r"union\s+(?!all)": 2,
+        r"distinct\s+": 2,
+        r"having\s+\w+\s*[<>]": 2,
+        r"where\s+\w+\s+in\s*\(\s*select": 3,
+        r"exists\s*\(\s*select": 2,
+    }
+
+    NON_SARGABLE_PREFIXES: ClassVar[list[str]] = [
+        r"^%",
+        r"^not\s+",
+        r"^\w+\s*\(",
+        r"^\d+\s*[<>]",
+    ]
 
     def __init__(
         self,
@@ -344,34 +431,104 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
         Returns:
             Risk weight (0-10+).
         """
-        # Use provided weight if available
         if condition in self.condition_weights:
             return self.condition_weights[condition]
 
-        # Default weight based on pattern matching
-        weight = 1.0  # Base weight
+        weight = 1.0
+        cond_lower = condition.lower()
 
-        condition_lower = condition.lower()
+        # Table size from metadata (existing patterns)
+        if any(kw in cond_lower for kw in ["users", "orders", "logs"]):
+            weight += 3
+        if "join" in cond_lower:
+            weight += 2
+        if "select" in cond_lower and "*" in condition:
+            weight += 2
+        if "subquery" in cond_lower or "in (" in cond_lower:
+            weight += 2
+        if "%" in condition:
+            weight += 2
+        if " or " in cond_lower:
+            weight += 1
+        if "order by" in cond_lower:
+            weight += 1
+        if "group by" in cond_lower:
+            weight += 1
 
-        # Check for high-risk patterns
-        if any(kw in condition_lower for kw in ["users", "orders", "logs"]):
-            weight += 3  # Large table
-        if "join" in condition_lower:
-            weight += 2
-        if "select" in condition_lower and "*" in condition_lower:
-            weight += 2
-        if "subquery" in condition_lower or "in (" in condition_lower:
-            weight += 2
-        if "%" in condition:  # LIKE with wildcard
-            weight += 2
-        if " or " in condition_lower:
-            weight += 1
-        if "order by" in condition_lower:
-            weight += 1
-        if "group by" in condition_lower:
-            weight += 1
+        # Function wrappers (index killers!)
+        for func_pattern, risk in self.FUNCTION_WRAPPER_PATTERNS.items():
+            if func_pattern in cond_lower:
+                weight += risk
+
+        # Field type risks
+        for type_pattern, risk in self.FIELD_TYPE_PATTERNS.items():
+            if type_pattern in cond_lower:
+                weight += risk
+
+        # Other risk patterns
+        for pattern, risk in self.RISK_PATTERNS.items():
+            if re.search(pattern, condition, re.IGNORECASE):
+                weight += risk
+
+        # Non-SARGable detection
+        stripped = condition.strip()
+        for non_sarg in self.NON_SARGABLE_PREFIXES:
+            if re.match(non_sarg, stripped, re.IGNORECASE):
+                weight += 2
+                break
+
+        if self.table_metadata:
+            weight = self._enhance_weight_with_metadata(condition, cond_lower, weight)
 
         return weight
+
+    def _enhance_weight_with_metadata(self, condition: str, condition_lower: str, weight: float) -> float:
+        """Enhance weight based on table_metadata."""
+        column_names = self._extract_column_names(condition)
+
+        for table_name, meta in self.table_metadata.items():
+            if not self._condition_references_table(condition_lower, table_name):
+                continue
+
+            size = meta.get("size", "small")
+            if size == "large":
+                weight += 2
+            elif size == "medium":
+                weight += 1
+
+            indexes = meta.get("indexes", [])
+            for col in column_names:
+                if col not in indexes:
+                    weight += 2
+
+        return weight
+
+    def _extract_column_names(self, condition: str) -> set[str]:
+        """Extract column names from OGNL condition string."""
+        cleaned = re.sub(r"#\{[^}]+\}", "", condition)
+        cleaned = re.sub(r"\$\{[^}]+\}", "", cleaned)
+
+        parts = re.split(r"[=<>!\s.]+", cleaned.lower())
+
+        column_names = set()
+        for part in parts:
+            part = part.strip("()\"',")
+            if part and part not in ["and", "or", "not", "in", "is", "null", "true", "false"]:
+                column_names.add(part)
+
+        return column_names
+
+    def _condition_references_table(self, condition_lower: str, table_name: str) -> bool:
+        """Check if condition references a table."""
+        if table_name in condition_lower:
+            return True
+
+        if len(table_name) > 0:
+            alias = table_name[0]
+            if f"{alias}." in condition_lower:
+                return True
+
+        return False
 
 
 def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenerationStrategy:

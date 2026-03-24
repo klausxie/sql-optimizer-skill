@@ -11,6 +11,8 @@ class SQLBranch:
     condition: str | None
     expanded_sql: str
     is_valid: bool
+    risk_flags: list[str] = field(default_factory=list)
+    active_conditions: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(
@@ -19,6 +21,8 @@ class SQLBranch:
                 "condition": self.condition,
                 "expanded_sql": self.expanded_sql,
                 "is_valid": self.is_valid,
+                "risk_flags": self.risk_flags,
+                "active_conditions": self.active_conditions,
             }
         )
 
@@ -30,6 +34,8 @@ class SQLBranch:
             condition=data.get("condition"),
             expanded_sql=data["expanded_sql"],
             is_valid=data["is_valid"],
+            risk_flags=data.get("risk_flags", []),
+            active_conditions=data.get("active_conditions", []),
         )
 
 
@@ -64,21 +70,14 @@ class ParseOutput:
     sql_units_with_branches: List[SQLUnitWithBranches] = field(default_factory=list)
 
     def to_json(self) -> str:
-        return json.dumps(
-            {
-                "sql_units_with_branches": [
-                    json.loads(u.to_json()) for u in self.sql_units_with_branches
-                ]
-            }
-        )
+        return json.dumps({"sql_units_with_branches": [json.loads(u.to_json()) for u in self.sql_units_with_branches]})
 
     @classmethod
     def from_json(cls, json_str: str) -> "ParseOutput":
         data = json.loads(json_str)
         return cls(
             sql_units_with_branches=[
-                SQLUnitWithBranches.from_json(json.dumps(u))
-                for u in data["sql_units_with_branches"]
+                SQLUnitWithBranches.from_json(json.dumps(u)) for u in data["sql_units_with_branches"]
             ]
         )
 

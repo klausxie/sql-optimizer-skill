@@ -11,6 +11,7 @@ from sqlopt.stages.branching.branch_strategy import (
     AllCombinationsStrategy,
     PairwiseStrategy,
     BoundaryStrategy,
+    LadderSamplingStrategy,
     create_strategy,
 )
 from sqlopt.stages.branching.dynamic_context import DynamicContext
@@ -45,6 +46,7 @@ __all__ = [
     "AllCombinationsStrategy",
     "PairwiseStrategy",
     "BoundaryStrategy",
+    "LadderSamplingStrategy",
     "create_strategy",
     "DynamicContext",
     "ExpressionEvaluator",
