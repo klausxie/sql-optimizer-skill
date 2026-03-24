@@ -121,7 +121,7 @@ templates/            # 配置模板
 
 ## 直接调试
 
-在业务项目目录（包含 MyBatis XML 的项目）下，直接运行单个阶段文件进行调试：
+在业务项目目录（包含 MyBatis XML 的项目）下，使用 `sqlopt run` 命令运行单个阶段：
 
 ```bash
 # 切换到业务项目目录（假设你的 MyBatis 项目）
@@ -133,12 +133,12 @@ cp /path/to/sql-optimizer-skill/templates/sqlopt.example.yml.template sqlopt.yml
 # 编辑 sqlopt.yml，填入数据库连接和 MyBatis XML 路径
 # scan_mapper_globs: ["src/main/resources/**/*.xml"]
 
-# 直接运行单个阶段
-python -m sqlopt.stages.init.stage --config sqlopt.yml
-python -m sqlopt.stages.parse.stage --config sqlopt.yml
-python -m sqlopt.stages.recognition.stage --config sqlopt.yml
-python -m sqlopt.stages.optimize.stage --config sqlopt.yml
-python -m sqlopt.stages.result.stage --config sqlopt.yml
+# 运行单个阶段
+sqlopt run init --config sqlopt.yml
+sqlopt run parse --config sqlopt.yml
+sqlopt run recognition --config sqlopt.yml
+sqlopt run optimize --config sqlopt.yml
+sqlopt run result --config sqlopt.yml
 ```
 
 ### Mock 数据调试
@@ -158,19 +158,29 @@ runs/<run_id>/
     └── ...
 ```
 
-**使用方式**：将 mock 文件放到对应目录，阶段运行时会自动优先读取 mock 数据。
+**使用方式**：将 mock 文件放到对应目录，阶段运行时会自动优先读取 mock 数据（默认启用）。
 
-**生成 mock 数据**：从 sql-optimizer-skill 复制模板：
+**禁用 mock**：使用 `--no-mock` flag 禁用 mock 数据：
+```bash
+sqlopt run parse --config sqlopt.yml --no-mock
+```
+
+**复制 mock 模板**：使用 `sqlopt mock` 命令：
+```bash
+# 查看可用的 mock 模板
+sqlopt mock
+
+# 复制 mock 模板到 run 目录
+sqlopt mock <run_id>
+
+# 从指定目录复制 mock 数据
+sqlopt mock <run_id> --source /path/to/mock/data
+```
+
+或者手动复制：
 ```bash
 cp -r /path/to/sql-optimizer-skill/templates/mock/ runs/<run_id>/mock/
 ```
-
-或者手动创建 mock 文件，参考模板：
-- `templates/mock/sql_units.json` - Init 阶段输出
-- `templates/mock/sql_units_with_branches.json` - Parse 阶段输出
-- `templates/mock/baselines.json` - Recognition 阶段输出
-- `templates/mock/proposals.json` - Optimize 阶段输出
-- `templates/mock/report.json` - Result 阶段输出
 
 ---
 
@@ -183,9 +193,6 @@ cp -r /path/to/sql-optimizer-skill/templates/mock/ runs/<run_id>/mock/
 ```bash
 # 运行
 sqlopt run init --config sqlopt.yml
-
-# 直接运行
-python -m sqlopt.stages.init.stage --config sqlopt.yml
 
 # Mock 模式（无需数据库）
 # 在 sqlopt.yml 中设置：
@@ -207,9 +214,6 @@ python -m pytest tests/unit/test_init_stage.py -v
 # 运行（依赖 Init 阶段输出）
 sqlopt run parse --config sqlopt.yml
 
-# 直接运行
-python -m sqlopt.stages.parse.stage --config sqlopt.yml
-
 # Mock 模式（无需数据库）
 # 在 sqlopt.yml 中设置：
 # llm_provider: mock
@@ -229,9 +233,6 @@ python -m pytest tests/unit/test_parse_stage.py -v
 ```bash
 # 运行（依赖 Parse 阶段输出）
 sqlopt run recognition --config sqlopt.yml
-
-# 直接运行
-python -m sqlopt.stages.recognition.stage --config sqlopt.yml
 
 # Mock 模式（无需真实数据库，用 Mock 执行计划）
 # 在 sqlopt.yml 中设置：
@@ -253,9 +254,6 @@ python -m pytest tests/unit/test_recognition_stage.py -v
 # 运行（依赖 Recognition + Parse 阶段输出）
 sqlopt run optimize --config sqlopt.yml
 
-# 直接运行
-python -m sqlopt.stages.optimize.stage --config sqlopt.yml
-
 # Mock 模式（无需 LLM API）
 # 在 sqlopt.yml 中设置：
 # llm_provider: mock
@@ -275,8 +273,6 @@ python -m pytest tests/unit/test_optimize_stage.py -v
 ```bash
 # 运行（依赖 Optimize 阶段输出）
 sqlopt run result --config sqlopt.yml
-
-# 直接运行
 python -m sqlopt.stages.result.stage --config sqlopt.yml
 
 # Mock 模式（生成模拟报告）
