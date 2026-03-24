@@ -154,3 +154,17 @@ category = "logging"
 severity = "warn"
 languages = ["python"]
 description = "Use f-strings or % formatting for log messages"
+
+[[rules]]
+id = "EXIT-001"
+category = "exit-conventions"
+severity = "error"
+languages = ["python"]
+description = "sys.exit() should only be used in main entry points"
+
+[[rules]]
+id = "EXIT-002"
+category = "exit-conventions"
+severity = "error"
+languages = ["python"]
+description = "SystemExit should only be raised in main entry points"

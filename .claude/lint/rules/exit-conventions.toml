@@ -1,0 +1,15 @@
+[[rules]]
+id = "EXIT-001"
+name = "no sys.exit in library code"
+pattern = "sys\\.exit\\("
+languages = ["python"]
+severity = "error"
+description = "sys.exit() should only be used in main entry points"
+
+[[rules]]
+id = "EXIT-002"
+name = "no SystemExit in library code"
+pattern = "raise SystemExit"
+languages = ["python"]
+severity = "error"
+description = "SystemExit should only be raised in main entry points"
