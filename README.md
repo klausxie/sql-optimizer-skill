@@ -66,10 +66,10 @@ pip install -e ".[dev]"
 
 ```bash
 # PostgreSQL
-cp installer/config/templates/sqlopt.postgresql.yml.template sqlopt.yml
+cp templates/sqlopt.postgresql.yml.template sqlopt.yml
 
 # MySQL
-cp installer/config/templates/sqlopt.mysql.yml.template sqlopt.yml
+cp templates/sqlopt.mysql.yml.template sqlopt.yml
 ```
 
 编辑 `sqlopt.yml`，填入数据库连接信息。
@@ -116,6 +116,31 @@ templates/            # 配置模板
 ```
 
 用户只需提供这两个目录。
+
+---
+
+## 直接调试
+
+可以直接运行单个阶段文件进行调试：
+
+```bash
+# 直接运行 Init 阶段
+python -m sqlopt.stages.init.stage --config sqlopt.yml
+
+# 直接运行 Parse 阶段
+python -m sqlopt.stages.parse.stage --config sqlopt.yml
+
+# 直接运行 Recognition 阶段
+python -m sqlopt.stages.recognition.stage --config sqlopt.yml
+
+# 直接运行 Optimize 阶段
+python -m sqlopt.stages.optimize.stage --config sqlopt.yml
+
+# 直接运行 Result 阶段
+python -m sqlopt.stages.result.stage --config sqlopt.yml
+```
+
+每个阶段会读取 `runs/<run_id>/` 下的前置阶段输出，无需完整流水线即可调试单个阶段。
 
 ---
 
