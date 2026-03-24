@@ -638,13 +638,13 @@ class OpenCodeRunLLMProvider(LLMProviderBase):
     def __init__(
         self,
         db_connector: Any = None,
-        model: str = "zhipuai-coding-plan/glm-5",
+        model: str | None = None,
     ) -> None:
         """Initialize OpenCodeRun LLM provider.
 
         Args:
             db_connector: Database connector for EXPLAIN plans (DBConnector instance)
-            model: Model to use in provider/model format
+            model: Model to use in provider/model format. If None, uses user's opencode default.
         """
         self.db_connector = db_connector
         self.model = model
@@ -694,11 +694,7 @@ Example output:
             # opencode is a .CMD file that ultimately runs: node <script> <args>
             # We bypass the batch file and call node directly
             opencode_script = (
-                Path(opencode_path).parent
-                / "node_modules"
-                / "opencode-ai"
-                / "bin"
-                / "opencode"
+                Path(opencode_path).parent / "node_modules" / "opencode-ai" / "bin" / "opencode"
             )
             if not opencode_script.exists():
                 # Fallback: use the original batch file approach
@@ -718,9 +714,9 @@ Example output:
             prompt,
             "--format",
             "json",
-            "--model",
-            self.model,
         ]
+        if self.model:
+            cmd.extend(["--model", self.model])
         try:
             result = subprocess.run(  # noqa: S603
                 cmd,
