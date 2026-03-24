@@ -1,0 +1,13 @@
+#!/bin/bash
+# sqlopt - SQL Optimizer CLI wrapper
+# 复制到业务项目根目录使用
+#
+# 用法:
+#   ./sqlopt run init --config sqlopt.yml
+#   ./sqlopt mock <run_id>
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SQLOPT_DIR="${SQLOPT_DIR:-$(dirname "$SCRIPT_DIR")/sql-optimizer-skill}"
+
+export PYTHONPATH="$SQLOPT_DIR/python"
+exec python -m sqlopt.cli.main "$@"

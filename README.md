@@ -92,6 +92,29 @@ sqlopt run init --config sqlopt.yml
 
 结果保存在 `runs/<run_id>/` 目录下。
 
+### 不安装直接运行
+
+如需在不安装的情况下直接运行，可以复制便捷脚本到业务项目：
+
+```bash
+# 1. 复制便捷脚本到业务项目根目录
+cp /path/to/sql-optimizer-skill/scripts/sqlopt /path/to/your/mybatis-project/
+chmod +x /path/to/your/mybatis-project/sqlopt
+
+# 2. 在业务项目目录运行
+cd /path/to/your/mybatis-project
+./sqlopt run init --config sqlopt.yml
+./sqlopt mock <run_id>   # 复制 mock 模板
+```
+
+或者手动设置 PYTHONPATH：
+
+```bash
+cd /path/to/your/mybatis-project
+PYTHONPATH=/path/to/sql-optimizer-skill/python \
+python -m sqlopt.cli.main run init --config sqlopt.yml
+```
+
 ---
 
 ## 构建
