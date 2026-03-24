@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
@@ -12,6 +13,28 @@ from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_mybatis_params_for_explain(sql: str) -> str:
+    """Replace MyBatis #{} params with sample values for EXPLAIN execution.
+
+    Database EXPLAIN requires actual parameter values, not placeholders.
+    This function replaces #{} with sample values suitable for EXPLAIN.
+    """
+
+    def get_sample_value(match: re.Match) -> str:
+        param_name = match.group(1).lower()
+        if any(k in param_name for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
+            return "1"
+        if any(k in param_name for k in ["status", "type", "mode", "state"]):
+            return "'active'"
+        if any(k in param_name for k in ["name", "email", "title", "desc", "keyword"]):
+            return "'test'"
+        if any(k in param_name for k in ["date", "time", "start", "end"]):
+            return "'2024-01-01'"
+        return "1"
+
+    return re.sub(r"#\{([^}]+)\}", get_sample_value, sql)
 
 
 class RecognitionStage(Stage[None, RecognitionOutput]):
@@ -56,7 +79,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 if not branch.is_valid:
                     continue
                 try:
-                    baseline_data = self.llm_provider.generate_baseline(branch.expanded_sql, platform)
+                    sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql)
+                    baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
                     baseline = PerformanceBaseline(
                         sql_unit_id=sql_unit.sql_unit_id,
                         path_id=branch.path_id,
@@ -66,7 +90,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     )
                     baselines.append(baseline)
                 except Exception as e:  # noqa: BLE001
-                    logger.debug(
+                    logger.warning(
                         "Failed to generate baseline for %s: %s",
                         sql_unit.sql_unit_id,
                         str(e),

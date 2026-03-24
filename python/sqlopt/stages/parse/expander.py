@@ -46,12 +46,7 @@ def expand_branches(sql_text: str) -> list[ExpandedBranch]:
 def _strip_xml_tags(sql: str) -> str:
     result = re.sub(r"<[^>]+>", "", sql)
     result = re.sub(r"\s+", " ", result)
-    result = _resolve_mybatis_params(result)
     return result.strip()
-
-
-def _resolve_mybatis_params(sql: str) -> str:
-    return re.sub(r"#\{([^}]+)\}", _get_sample_value, sql)
 
 
 def _get_sample_value(match: re.Match) -> str:
@@ -76,9 +71,7 @@ def _expand_if_tags(sql_text: str) -> list[ExpandedBranch]:
 
     if not matches:
         clean_sql = _strip_xml_tags(sql_text)
-        branches.append(
-            ExpandedBranch(path_id="default", condition=None, expanded_sql=clean_sql, is_valid=True)
-        )
+        branches.append(ExpandedBranch(path_id="default", condition=None, expanded_sql=clean_sql, is_valid=True))
         return branches
 
     for idx, match in enumerate(matches):
