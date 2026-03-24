@@ -1,6 +1,12 @@
+# Build artifacts
+build/
+dist/
+*.spec
+
 # Generated run outputs
 python/runs/
 tests/real/mybatis-test/runs/
+tests/integration/
 
 # Python
 __pycache__/
