@@ -81,15 +81,22 @@ cp templates/sqlopt.mysql.yml.template sqlopt.yml
 ### 3. 运行
 
 ```bash
-# 完整流程
+# 完整流程（可混用数字别名：1=init, 2=parse, 3=recognition, 4=optimize, 5=result）
+sqlopt run 1
+sqlopt run 2
+sqlopt run 3
+sqlopt run 4
+sqlopt run 5
+
+# 或使用原始名称
 sqlopt run init
 sqlopt run parse
 sqlopt run recognition
 sqlopt run optimize
 sqlopt run result
 
-# 或分阶段运行
-sqlopt run init --config sqlopt.yml
+# 分阶段运行
+sqlopt run 1 --config sqlopt.yml
 ```
 
 ### 4. 查看结果
@@ -172,11 +179,11 @@ cp /path/to/sql-optimizer-skill/templates/sqlopt.example.yml.template sqlopt.yml
 # scan_mapper_globs: ["src/main/resources/**/*.xml"]
 
 # 运行（init 创建时间戳目录，后续命令自动使用最新目录）
-sqlopt run init --config sqlopt.yml        # 创建 run-20260324-143052
-sqlopt run parse --config sqlopt.yml       # 自动使用 run-20260324-143052
-sqlopt run recognition --config sqlopt.yml
-sqlopt run optimize --config sqlopt.yml
-sqlopt run result --config sqlopt.yml
+sqlopt run 1 --config sqlopt.yml        # 创建 run-20260324-143052
+sqlopt run 2 --config sqlopt.yml       # 自动使用 run-20260324-143052
+sqlopt run 3 --config sqlopt.yml
+sqlopt run 4 --config sqlopt.yml
+sqlopt run 5 --config sqlopt.yml
 
 # 指定 run-id（复用特定 pipeline）
 sqlopt run init --config sqlopt.yml --run-id my-run-1
@@ -204,7 +211,7 @@ runs/<run_id>/
 
 **禁用 mock**：使用 `--no-mock` flag 禁用 mock 数据：
 ```bash
-sqlopt run parse --config sqlopt.yml --no-mock
+sqlopt run 2 --config sqlopt.yml --no-mock
 ```
 
 **复制 mock 模板**：使用 `sqlopt mock` 命令：
@@ -228,13 +235,13 @@ cp -r /path/to/sql-optimizer-skill/templates/mock/ runs/<run_id>/mock/
 
 ## 阶段调测
 
-### Init 阶段
+### Init 阶段（1）
 
 扫描 MyBatis XML 文件，提取 SQL 单元。
 
 ```bash
 # 运行
-sqlopt run init --config sqlopt.yml
+sqlopt run 1 --config sqlopt.yml
 
 # Mock 模式（无需数据库）
 # 在 sqlopt.yml 中设置：
@@ -248,13 +255,13 @@ cat runs/<run_id>/init/sql_units.json
 python -m pytest tests/unit/test_init_stage.py -v
 ```
 
-### Parse 阶段
+### Parse 阶段（2）
 
 展开动态 SQL 标签，生成执行分支。
 
 ```bash
 # 运行（依赖 Init 阶段输出）
-sqlopt run parse --config sqlopt.yml
+sqlopt run 2 --config sqlopt.yml
 
 # Mock 模式（无需数据库）
 # 在 sqlopt.yml 中设置：
@@ -268,13 +275,13 @@ cat runs/<run_id>/parse/sql_units_with_branches.json
 python -m pytest tests/unit/test_parse_stage.py -v
 ```
 
-### Recognition 阶段
+### Recognition 阶段（3）
 
 采集 SQL 执行计划，生成性能基线。
 
 ```bash
 # 运行（依赖 Parse 阶段输出）
-sqlopt run recognition --config sqlopt.yml
+sqlopt run 3 --config sqlopt.yml
 
 # Mock 模式（无需真实数据库，用 Mock 执行计划）
 # 在 sqlopt.yml 中设置：
@@ -288,13 +295,13 @@ cat runs/<run_id>/recognition/baselines.json
 python -m pytest tests/unit/test_recognition_stage.py -v
 ```
 
-### Optimize 阶段
+### Optimize 阶段（4）
 
 基于规则和 LLM 生成优化建议。
 
 ```bash
 # 运行（依赖 Recognition + Parse 阶段输出）
-sqlopt run optimize --config sqlopt.yml
+sqlopt run 4 --config sqlopt.yml
 
 # Mock 模式（无需 LLM API）
 # 在 sqlopt.yml 中设置：
@@ -308,13 +315,13 @@ cat runs/<run_id>/optimize/proposals.json
 python -m pytest tests/unit/test_optimize_stage.py -v
 ```
 
-### Result 阶段
+### Result 阶段（5）
 
 汇总输出补丁或报告。
 
 ```bash
 # 运行（依赖 Optimize 阶段输出）
-sqlopt run result --config sqlopt.yml
+sqlopt run 5 --config sqlopt.yml
 python -m sqlopt.stages.result.stage --config sqlopt.yml
 
 # Mock 模式（生成模拟报告）
