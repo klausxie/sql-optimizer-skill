@@ -2,13 +2,43 @@
 
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generator
 
-import psycopg2
-import pymysql
-from psycopg2.extras import RealDictCursor
+# Lazy imports for optional dependencies - allows running without psycopg2/pymysql installed
+_psycopg2 = None
+_pymysql = None
+_RealDictCursor = None
+
+
+def _ensure_psycopg2():
+    """Lazy import psycopg2, return None if not available."""
+    global _psycopg2, _RealDictCursor
+    if _psycopg2 is None:
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+
+            _psycopg2 = psycopg2
+            _RealDictCursor = RealDictCursor
+        except ImportError:
+            _psycopg2 = None
+    return _psycopg2, _RealDictCursor
+
+
+def _ensure_pymysql():
+    """Lazy import pymysql, return None if not available."""
+    global _pymysql
+    if _pymysql is None:
+        try:
+            import pymysql
+
+            _pymysql = pymysql
+        except ImportError:
+            _pymysql = None
+    return _pymysql
 
 
 class DBConnector(ABC):
@@ -81,25 +111,18 @@ class PostgreSQLConnector(DBConnector):
         user: str = "postgres",
         password: str = "",
     ) -> None:
-        """Initialize PostgreSQL connector.
-
-        Args:
-            host: Database host address
-            port: Database port
-            dbname: Database name
-            user: Database user
-            password: Database password
-        """
         self.host = host
         self.port = port
         self.dbname = dbname
         self.user = user
         self.password = password
-        self._conn: psycopg2.connection | None = None
+        self._conn = None
 
     def connect(self) -> None:
-        """Establish database connection."""
         if self._conn is None or self._conn.closed:
+            psycopg2, RealDictCursor = _ensure_psycopg2()
+            if psycopg2 is None:
+                raise ImportError("psycopg2 is not installed. Install with: pip install psycopg2-binary")
             self._conn = psycopg2.connect(
                 host=self.host,
                 port=self.port,
@@ -126,18 +149,11 @@ class PostgreSQLConnector(DBConnector):
             self._conn.rollback()
 
     def execute_explain(self, sql: str) -> dict[str, Any]:
-        """Execute EXPLAIN ANALYZE and return plan as JSON.
-
-        Args:
-            sql: SQL query to explain
-
-        Returns:
-            dict: EXPLAIN ANALYZE output as dictionary
-        """
         self.connect()
         if self._conn is None:
             return {}
 
+        _, RealDictCursor = _ensure_psycopg2()
         explain_sql = f"EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) {sql}"
 
         with self._conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -185,27 +201,19 @@ class MySQLConnector(DBConnector):
         password: str = "",
         charset: str = "utf8mb4",
     ) -> None:
-        """Initialize MySQL connector.
-
-        Args:
-            host: Database host address
-            port: Database port
-            db: Database name
-            user: Database user
-            password: Database password
-            charset: Character set
-        """
         self.host = host
         self.port = port
         self.db = db
         self.user = user
         self.password = password
         self.charset = charset
-        self._conn: pymysql.Connection | None = None
+        self._conn = None
 
     def connect(self) -> None:
-        """Establish database connection."""
         if self._conn is None or not self._conn.open:
+            pymysql = _ensure_pymysql()
+            if pymysql is None:
+                raise ImportError("pymysql is not installed. Install with: pip install pymysql")
             self._conn = pymysql.connect(
                 host=self.host,
                 port=self.port,
@@ -284,23 +292,12 @@ def create_connector(
     user: str,
     password: str,
 ) -> DBConnector:
-    """Factory function to create connector by platform.
-
-    Args:
-        platform: 'postgresql' or 'mysql'
-        host: Database host address
-        port: Database port
-        db: Database name
-        user: Database user
-        password: Database password
-
-    Returns:
-        DBConnector instance
-
-    Raises:
-        ValueError: If platform is not supported
-    """
     if platform == "postgresql":
+        psycopg2 = _ensure_psycopg2()[0]
+        if psycopg2 is None:
+            raise ImportError(
+                "psycopg2 is required for PostgreSQL but not installed. Install with: pip install psycopg2-binary"
+            )
         return PostgreSQLConnector(
             host=host,
             port=port,
@@ -309,6 +306,9 @@ def create_connector(
             password=password,
         )
     if platform == "mysql":
+        pymysql = _ensure_pymysql()
+        if pymysql is None:
+            raise ImportError("pymysql is required for MySQL but not installed. Install with: pip install pymysql")
         return MySQLConnector(
             host=host,
             port=port,
