@@ -1,5 +1,6 @@
 # Generated run outputs
 python/runs/
+tests/real/mybatis-test/runs/
 
 # Python
 __pycache__/
