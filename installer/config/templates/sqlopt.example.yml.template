@@ -1,0 +1,32 @@
+# SQL Optimizer 配置模板 - 通用示例
+# ==================================
+#
+# 使用说明：
+# 1. 复制此文件到项目根目录，重命名为 sqlopt.yml
+# 2. 此配置使用 mock LLM（模拟模式），无需配置数据库和 API
+# 3. 适用于快速测试和开发调试
+#
+# 正式使用时，请根据您的数据库类型选择对应模板：
+#   - PostgreSQL: sqlopt.postgresql.yml.template
+#   - MySQL: sqlopt.mysql.yml.template
+
+config_version: v1
+# 数据库配置
+db_platform: postgresql      # 数据库平台：postgresql 或 mysql
+db_host: localhost          # 数据库主机地址
+db_port: 5432               # 端口：PostgreSQL 默认 5432，MySQL 默认 3306
+db_name: your_database_name # 数据库名称
+db_user: your_username      # 数据库用户名
+db_password: your_password  # 数据库密码
+
+# LLM 配置
+# mock 模式：使用模拟数据，无需真实 LLM API
+# opencode_run: 使用本地 opencode（推荐，需要安装 opencode）
+# openai: 使用 OpenAI API（需设置 OPENAI_API_KEY 环境变量）
+llm_provider: mock           # 此处使用 mock 模式用于测试
+llm_enabled: true           # 是否启用 LLM 优化
+
+# 项目配置
+project_root_path: .         # 项目根目录路径
+scan_mapper_globs:          # MyBatis Mapper XML 文件匹配模式
+  - "src/main/resources/**/*.xml"
