@@ -10,5 +10,5 @@ db_name: "sqlopt_test"
 db_user: "root"
 db_password: "root"
 llm_enabled: true
-llm_provider: openai
+llm_provider: opencode_run
 contracts_version: current

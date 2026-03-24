@@ -1,6 +1,0 @@
-{
-  "ok": true,
-  "platform": "postgresql",
-  "db_version": "PostgreSQL 15.3",
-  "driver": "psycopg2"
-}

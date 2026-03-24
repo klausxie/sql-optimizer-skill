@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<patch>
-    <id>PATCH_0002</id>
-    <sql_key>com.test.mapper.UserMapper.testSingleIf#1</sql_key>
-    <original_sql><![CDATA[SELECT * FROM users WHERE name LIKE '%test%' AND status = #{status}]]></original_sql>
-    <optimized_sql><![CDATA[SELECT * FROM users WHERE name LIKE 'test%' AND status = #{status}]]></optimized_sql>
-    <optimization_type>WILDCARD_POSITION</optimization_type>
-    <estimated_improvement>34%</estimated_improvement>
-</patch>
