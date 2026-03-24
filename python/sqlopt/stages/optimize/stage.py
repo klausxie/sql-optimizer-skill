@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
+from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
@@ -16,25 +17,37 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
     """Optimize stage generates optimization proposals for SQL queries."""
 
     def __init__(
-        self, run_id: str | None = None, llm_provider: LLMProviderBase | None = None
+        self,
+        run_id: str | None = None,
+        llm_provider: LLMProviderBase | None = None,
+        use_mock: bool = True,
     ) -> None:
         super().__init__("optimize")
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
+        self.use_mock = use_mock
 
-    def run(self, _input_data: None = None, run_id: str | None = None) -> OptimizeOutput:
+    def run(
+        self,
+        _input_data: None = None,
+        run_id: str | None = None,
+        use_mock: bool | None = None,
+    ) -> OptimizeOutput:
         rid = run_id or self.run_id
+        mock = use_mock if use_mock is not None else self.use_mock
+
         if rid is None:
             return self._create_stub_output()
 
-        baselines_file = Path("runs") / rid / "recognition" / "baselines.json"
+        loader = MockDataLoader(rid, use_mock=mock)
+        baselines_file = loader.get_recognition_baselines_path()
+
         if not baselines_file.exists():
             return self._create_stub_output()
 
         baselines_data = RecognitionOutput.from_json(baselines_file.read_text(encoding="utf-8"))
 
-        # Re-read parse output to get original SQL (expanded_sql) for each baseline
-        parse_file = Path("runs") / rid / "parse" / "sql_units_with_branches.json"
+        parse_file = loader.get_parse_sql_units_with_branches_path()
         parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
 
         # Build a lookup from (sql_unit_id, path_id) -> expanded_sql

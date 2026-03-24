@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
+from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
@@ -17,18 +18,31 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
     """Recognition stage identifies performance baselines for SQL units."""
 
     def __init__(
-        self, run_id: str | None = None, llm_provider: LLMProviderBase | None = None
+        self,
+        run_id: str | None = None,
+        llm_provider: LLMProviderBase | None = None,
+        use_mock: bool = True,
     ) -> None:
         super().__init__("recognition")
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
+        self.use_mock = use_mock
 
-    def run(self, _input_data: None = None, run_id: str | None = None) -> RecognitionOutput:
+    def run(
+        self,
+        _input_data: None = None,
+        run_id: str | None = None,
+        use_mock: bool | None = None,
+    ) -> RecognitionOutput:
         rid = run_id or self.run_id
+        mock = use_mock if use_mock is not None else self.use_mock
+
         if rid is None:
             return self._create_stub_output()
 
-        parse_file = Path("runs") / rid / "parse" / "sql_units_with_branches.json"
+        loader = MockDataLoader(rid, use_mock=mock)
+        parse_file = loader.get_parse_sql_units_with_branches_path()
+
         if not parse_file.exists():
             return self._create_stub_output()
 
@@ -42,9 +56,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 if not branch.is_valid:
                     continue
                 try:
-                    baseline_data = self.llm_provider.generate_baseline(
-                        branch.expanded_sql, platform
-                    )
+                    baseline_data = self.llm_provider.generate_baseline(branch.expanded_sql, platform)
                     baseline = PerformanceBaseline(
                         sql_unit_id=sql_unit.sql_unit_id,
                         path_id=branch.path_id,

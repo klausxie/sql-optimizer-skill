@@ -1,0 +1,20 @@
+{
+  "sql_units": [
+    {
+      "id": "mock-unit-1",
+      "mapper_file": "UserMapper.xml",
+      "sql_id": "findUser",
+      "sql_text": "SELECT * FROM users WHERE id = #{id}",
+      "statement_type": "SELECT"
+    },
+    {
+      "id": "mock-unit-2",
+      "mapper_file": "UserMapper.xml",
+      "sql_id": "findUsersByName",
+      "sql_text": "SELECT * FROM users WHERE name LIKE #{name}",
+      "statement_type": "SELECT"
+    }
+  ],
+  "run_id": "mock-run",
+  "timestamp": "2024-01-01T00:00:00"
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
+from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.result import Patch, Report, ResultOutput
@@ -18,39 +19,48 @@ class ResultStage(Stage[None, ResultOutput]):
     Output: ResultOutput with report and patches
     """
 
-    def __init__(self, run_id: str | None = None) -> None:
+    def __init__(self, run_id: str | None = None, use_mock: bool = True) -> None:
         """Initialize the result stage.
 
         Args:
             run_id: Optional run identifier. If not provided, uses stub data.
+            use_mock: If True, use mock data for stage inputs when available.
         """
         super().__init__("result")
         self.run_id = run_id
+        self.use_mock = use_mock
 
-    def run(self, _input_data: None = None, run_id: str | None = None) -> ResultOutput:
+    def run(
+        self,
+        _input_data: None = None,
+        run_id: str | None = None,
+        use_mock: bool | None = None,
+    ) -> ResultOutput:
         """Execute result stage.
 
         Args:
             input_data: None (not used, reads from previous stages)
             run_id: Optional run identifier override
+            use_mock: Override for mock data usage
 
         Returns:
             ResultOutput with report and patches from real data
         """
         rid = run_id or self.run_id
+        mock = use_mock if use_mock is not None else self.use_mock
 
         if rid is None:
             return self._create_stub_output()
 
-        # Read optimize proposals
-        optimize_file = Path("runs") / rid / "optimize" / "proposals.json"
+        loader = MockDataLoader(rid, use_mock=mock)
+
+        optimize_file = loader.get_optimize_proposals_path()
         if not optimize_file.exists():
             return self._create_stub_output()
 
         optimize_data = OptimizeOutput.from_json(optimize_file.read_text(encoding="utf-8"))
 
-        # Read init SQL units
-        init_file = Path("runs") / rid / "init" / "sql_units.json"
+        init_file = loader.get_init_sql_units_path()
         if not init_file.exists():
             return self._create_stub_output()
 
@@ -140,7 +150,9 @@ class ResultStage(Stage[None, ResultOutput]):
         if high_conf_count == 0:
             summary = "No high-confidence optimizations found (confidence > 0.7)"
         else:
-            summary = f"Found {high_conf_count} high-confidence optimization(s) out of {total_proposals} total proposals"
+            summary = (
+                f"Found {high_conf_count} high-confidence optimization(s) out of {total_proposals} total proposals"
+            )
 
         # Build details
         details_lines = [f"Total proposals analyzed: {total_proposals}"]
@@ -150,8 +162,7 @@ class ResultStage(Stage[None, ResultOutput]):
         if high_confidence:
             details_lines.append("\nHigh-confidence optimizations:")
             details_lines.extend(
-                f"  - [{p.sql_unit_id}] {p.rationale} (confidence: {p.confidence:.2f})"
-                for p in high_confidence
+                f"  - [{p.sql_unit_id}] {p.rationale} (confidence: {p.confidence:.2f})" for p in high_confidence
             )
 
         details = "\n".join(details_lines)
@@ -169,9 +180,7 @@ class ResultStage(Stage[None, ResultOutput]):
         # Build recommendations
         recommendations: list[str] = []
         if high_confidence:
-            recommendations.append(
-                f"Apply {len(patches)} patch(es) to implement high-confidence optimizations"
-            )
+            recommendations.append(f"Apply {len(patches)} patch(es) to implement high-confidence optimizations")
         else:
             recommendations.append("Review SQL patterns manually for potential optimizations")
             recommendations.append("Consider adjusting confidence threshold if too restrictive")

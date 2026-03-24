@@ -1,0 +1,37 @@
+{
+  "baselines": [
+    {
+      "sql_unit_id": "mock-unit-1",
+      "path_id": "p1",
+      "plan": {
+        "Plan": {
+          "Node Type": "Seq Scan",
+          "Relation Name": "users",
+          "Startup Cost": 0.00,
+          "Total Cost": 100.00,
+          "Plan Rows": 1000,
+          "Plan Width": 100
+        }
+      },
+      "estimated_cost": 100.0,
+      "actual_time_ms": null
+    },
+    {
+      "sql_unit_id": "mock-unit-2",
+      "path_id": "p1",
+      "plan": {
+        "Plan": {
+          "Node Type": "Seq Scan",
+          "Relation Name": "users",
+          "Startup Cost": 0.00,
+          "Total Cost": 150.00,
+          "Plan Rows": 5000,
+          "Plan Width": 100,
+          "Filter": "name ~~ ?"
+        }
+      },
+      "estimated_cost": 150.0,
+      "actual_time_ms": null
+    }
+  ]
+}

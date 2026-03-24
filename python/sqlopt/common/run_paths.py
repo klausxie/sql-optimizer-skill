@@ -58,6 +58,36 @@ class RunPaths:
         return self.run_dir / "result"
 
     @property
+    def mock_dir(self) -> Path:
+        """Directory for mock data (can be used to override any stage input)."""
+        return self.run_dir / "mock"
+
+    @property
+    def mock_init_sql_units(self) -> Path:
+        """Mock path for init stage SQL units."""
+        return self.mock_dir / "init" / "sql_units.json"
+
+    @property
+    def mock_parse_sql_units_with_branches(self) -> Path:
+        """Mock path for parse stage output."""
+        return self.mock_dir / "parse" / "sql_units_with_branches.json"
+
+    @property
+    def mock_recognition_baselines(self) -> Path:
+        """Mock path for recognition stage output."""
+        return self.mock_dir / "recognition" / "baselines.json"
+
+    @property
+    def mock_optimize_proposals(self) -> Path:
+        """Mock path for optimize stage output."""
+        return self.mock_dir / "optimize" / "proposals.json"
+
+    @property
+    def mock_result_report(self) -> Path:
+        """Mock path for result stage output."""
+        return self.mock_dir / "result" / "report.json"
+
+    @property
     def init_sql_units(self) -> Path:
         """Path to SQL units JSON file from init stage."""
         return self.init_dir / "sql_units.json"
@@ -99,5 +129,6 @@ class RunPaths:
             self.recognition_dir,
             self.optimize_dir,
             self.result_dir,
+            self.mock_dir,
         ]:
             stage_dir.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
@@ -10,24 +9,25 @@ from .expander import expand_branches
 
 
 class ParseStage(Stage[None, ParseOutput]):
-    def __init__(self, run_id: str | None = None) -> None:
+    def __init__(self, run_id: str | None = None, use_mock: bool = True) -> None:
         super().__init__("parse")
         self.run_id = run_id
+        self.use_mock = use_mock
 
-    def run(self, _input_data: None = None, run_id: str | None = None) -> ParseOutput:
+    def run(self, _input_data: None = None, run_id: str | None = None, use_mock: bool | None = None) -> ParseOutput:
         rid = run_id or self.run_id
+        mock = use_mock if use_mock is not None else self.use_mock
+
         if rid is None:
-            branch = SQLBranch(
-                path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True
-            )
+            branch = SQLBranch(path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True)
             unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
             return ParseOutput(sql_units_with_branches=[unit_with_branches])
 
-        init_file = Path("runs") / rid / "init" / "sql_units.json"
+        loader = MockDataLoader(rid, use_mock=mock)
+        init_file = loader.get_init_sql_units_path()
+
         if not init_file.exists():
-            branch = SQLBranch(
-                path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True
-            )
+            branch = SQLBranch(path_id="p1", condition=None, expanded_sql="SELECT * FROM users", is_valid=True)
             unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
             return ParseOutput(sql_units_with_branches=[unit_with_branches])
 

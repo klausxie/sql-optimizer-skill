@@ -1,0 +1,20 @@
+{
+  "proposals": [
+    {
+      "sql_unit_id": "mock-unit-1",
+      "path_id": "p1",
+      "original_sql": "SELECT * FROM users WHERE id = ?",
+      "optimized_sql": "SELECT id, name, email FROM users WHERE id = ?",
+      "rationale": "Select only needed columns instead of SELECT *",
+      "confidence": 0.95
+    },
+    {
+      "sql_unit_id": "mock-unit-2",
+      "path_id": "p1",
+      "original_sql": "SELECT * FROM users WHERE name LIKE ?",
+      "optimized_sql": "SELECT id, name, email FROM users WHERE name LIKE ? LIMIT 100",
+      "rationale": "Add LIMIT and select only needed columns",
+      "confidence": 0.85
+    }
+  ]
+}

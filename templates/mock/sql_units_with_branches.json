@@ -1,0 +1,26 @@
+{
+  "sql_units_with_branches": [
+    {
+      "sql_unit_id": "mock-unit-1",
+      "branches": [
+        {
+          "path_id": "p1",
+          "condition": null,
+          "expanded_sql": "SELECT * FROM users WHERE id = ?",
+          "is_valid": true
+        }
+      ]
+    },
+    {
+      "sql_unit_id": "mock-unit-2",
+      "branches": [
+        {
+          "path_id": "p1",
+          "condition": null,
+          "expanded_sql": "SELECT * FROM users WHERE name LIKE ?",
+          "is_valid": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "can_patch": true,
+  "report": {
+    "summary": "Found 2 high-confidence optimization(s) out of 2 total proposals",
+    "details": "Total proposals analyzed: 2\nHigh-confidence proposals (confidence > 0.7): 2\nPatches generated: 2\n\nHigh-confidence optimizations:\n  - [mock-unit-1] Select only needed columns instead of SELECT * (confidence: 0.95)\n  - [mock-unit-2] Add LIMIT and select only needed columns (confidence: 0.85)",
+    "risks": [],
+    "recommendations": [
+      "Apply 2 patch(es) to implement high-confidence optimizations"
+    ]
+  },
+  "patches": [
+    {
+      "sql_unit_id": "mock-unit-1",
+      "original_xml": "<select id=\"findUser\">SELECT * FROM users WHERE id = #{id}</select>",
+      "patched_xml": "<select id=\"findUser\">SELECT id, name, email FROM users WHERE id = #{id}</select>",
+      "diff": "--- original\n+++ new\n-<select id=\"findUser\">SELECT * FROM users WHERE id = #{id}</select>\n+<select id=\"findUser\">SELECT id, name, email FROM users WHERE id = #{id}</select>"
+    }
+  ]
+}

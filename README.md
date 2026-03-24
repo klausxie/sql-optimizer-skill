@@ -141,7 +141,36 @@ python -m sqlopt.stages.optimize.stage --config sqlopt.yml
 python -m sqlopt.stages.result.stage --config sqlopt.yml
 ```
 
-每个阶段会读取 `runs/<run_id>/` 下的前置阶段输出，无需完整流水线即可调试单个阶段。
+### Mock 数据调试
+
+每个阶段会读取 `runs/<run_id>/` 下的前置阶段输出。如需单独调试某个阶段，可以将 mock 数据放到 `mock/` 子目录下：
+
+```
+runs/<run_id>/
+├── init/sql_units.json
+├── parse/sql_units_with_branches.json
+├── recognition/baselines.json
+├── optimize/proposals.json
+├── result/report.json
+└── mock/                    # Mock 数据（可替换任意阶段）
+    ├── init/sql_units.json
+    ├── parse/sql_units_with_branches.json
+    └── ...
+```
+
+**使用方式**：将 mock 文件放到对应目录，阶段运行时会自动优先读取 mock 数据。
+
+**生成 mock 数据**：从 sql-optimizer-skill 复制模板：
+```bash
+cp -r /path/to/sql-optimizer-skill/templates/mock/ runs/<run_id>/mock/
+```
+
+或者手动创建 mock 文件，参考模板：
+- `templates/mock/sql_units.json` - Init 阶段输出
+- `templates/mock/sql_units_with_branches.json` - Parse 阶段输出
+- `templates/mock/baselines.json` - Recognition 阶段输出
+- `templates/mock/proposals.json` - Optimize 阶段输出
+- `templates/mock/report.json` - Result 阶段输出
 
 ---
 
@@ -154,6 +183,14 @@ python -m sqlopt.stages.result.stage --config sqlopt.yml
 ```bash
 # 运行
 sqlopt run init --config sqlopt.yml
+
+# 直接运行
+python -m sqlopt.stages.init.stage --config sqlopt.yml
+
+# Mock 模式（无需数据库）
+# 在 sqlopt.yml 中设置：
+# llm_provider: mock
+# llm_enabled: true
 
 # 查看输出
 cat runs/<run_id>/init/sql_units.json
@@ -170,6 +207,14 @@ python -m pytest tests/unit/test_init_stage.py -v
 # 运行（依赖 Init 阶段输出）
 sqlopt run parse --config sqlopt.yml
 
+# 直接运行
+python -m sqlopt.stages.parse.stage --config sqlopt.yml
+
+# Mock 模式（无需数据库）
+# 在 sqlopt.yml 中设置：
+# llm_provider: mock
+# llm_enabled: true
+
 # 查看输出
 cat runs/<run_id>/parse/sql_units_with_branches.json
 
@@ -184,6 +229,14 @@ python -m pytest tests/unit/test_parse_stage.py -v
 ```bash
 # 运行（依赖 Parse 阶段输出）
 sqlopt run recognition --config sqlopt.yml
+
+# 直接运行
+python -m sqlopt.stages.recognition.stage --config sqlopt.yml
+
+# Mock 模式（无需真实数据库，用 Mock 执行计划）
+# 在 sqlopt.yml 中设置：
+# llm_provider: mock
+# llm_enabled: true
 
 # 查看输出
 cat runs/<run_id>/recognition/baselines.json
@@ -200,6 +253,14 @@ python -m pytest tests/unit/test_recognition_stage.py -v
 # 运行（依赖 Recognition + Parse 阶段输出）
 sqlopt run optimize --config sqlopt.yml
 
+# 直接运行
+python -m sqlopt.stages.optimize.stage --config sqlopt.yml
+
+# Mock 模式（无需 LLM API）
+# 在 sqlopt.yml 中设置：
+# llm_provider: mock
+# llm_enabled: true
+
 # 查看输出
 cat runs/<run_id>/optimize/proposals.json
 
@@ -214,6 +275,14 @@ python -m pytest tests/unit/test_optimize_stage.py -v
 ```bash
 # 运行（依赖 Optimize 阶段输出）
 sqlopt run result --config sqlopt.yml
+
+# 直接运行
+python -m sqlopt.stages.result.stage --config sqlopt.yml
+
+# Mock 模式（生成模拟报告）
+# 在 sqlopt.yml 中设置：
+# llm_provider: mock
+# llm_enabled: true
 
 # 查看输出
 cat runs/<run_id>/result/report.json
