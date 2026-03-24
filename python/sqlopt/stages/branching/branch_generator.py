@@ -6,6 +6,7 @@ SQL branches from MyBatis dynamic SQL nodes (if, choose, etc.).
 
 from __future__ import annotations
 
+import copy
 from itertools import product
 import re
 from typing import TYPE_CHECKING, Any, List, Dict, Optional
@@ -42,6 +43,8 @@ class BranchGenerator:
         strategy: str = "all_combinations",
         max_branches: int = 100,
         strategy_seed: int | None = None,
+        condition_weights: dict[str, float] | None = None,
+        table_metadata: dict[str, dict] | None = None,
     ) -> None:
         """Initialize the branch generator.
 
@@ -54,8 +57,13 @@ class BranchGenerator:
         self.strategy: str = strategy
         self.max_branches: int = max_branches
         self.strategy_seed: int | None = strategy_seed
+        self.condition_weights = condition_weights
+        self.table_metadata = table_metadata
         self._strategy: BranchGenerationStrategy = create_strategy(
-            strategy, seed=strategy_seed
+            strategy,
+            seed=strategy_seed,
+            condition_weights=condition_weights,
+            table_metadata=table_metadata,
         )
         self._mutex_detector: MutexBranchDetector = MutexBranchDetector()
 
@@ -101,7 +109,8 @@ class BranchGenerator:
                 }
             ]
 
-        # Generate foreach boundary branches (0, 1, 2 items)
+        # Generate additional singleton variants for foreach clauses by
+        # re-rendering the full tree, not by string replacement.
         branches = self._generate_foreach_boundary_branches(branches, sql_node)
 
         # Collect risk_flags from bind conditions with pattern detection
@@ -1145,7 +1154,12 @@ class BranchGenerator:
             strategy_name: New strategy name.
         """
         self.strategy = strategy_name
-        self._strategy = create_strategy(strategy_name, self.strategy_seed)
+        self._strategy = create_strategy(
+            strategy_name,
+            self.strategy_seed,
+            condition_weights=self.condition_weights,
+            table_metadata=self.table_metadata,
+        )
 
     def set_max_branches(self, max_branches: int) -> None:
         """Change the maximum number of branches.
@@ -1353,107 +1367,84 @@ class BranchGenerator:
         branches: List[Dict[str, Any]],
         sql_node: SqlNode,
     ) -> List[Dict[str, Any]]:
-        """Generate additional branches for foreach boundary cases (0, 1, 2 items).
+        """Generate additional branches for safe foreach boundary cases.
 
-        For each branch that contains a foreach, create variants with different
-        sample_size values to cover empty, single, and multiple item cases.
+        We keep the base branch render (sample_size=2) as the multi-item case,
+        then add a singleton variant by re-rendering the filtered SqlNode tree.
+        Empty-collection variants are intentionally skipped here because they
+        frequently produce invalid SQL such as ``IN ()`` and are better modeled
+        as the surrounding guard condition being false.
 
         Args:
             branches: Initial branches generated from condition combinations.
             sql_node: The root SqlNode.
 
         Returns:
-            Extended list of branches including foreach boundary variants.
+            Extended list of branches including foreach singleton variants.
         """
-        from sqlopt.stages.branching.sql_node import ForEachSqlNode, MixedSqlNode
-        import copy
-
-        # Find all foreach nodes in the tree
-        foreach_nodes = self._collect_foreach_nodes(sql_node)
-        if not foreach_nodes:
+        if not self._collect_foreach_nodes(sql_node):
             return branches
 
-        # For each foreach node, generate boundary branches
-        boundary_branches = []
+        if_nodes = self._collect_if_nodes(sql_node)
+        boundary_branches: List[Dict[str, Any]] = []
+        seen_signatures = {
+            self._branch_signature(branch["sql"], branch.get("active_conditions", []))
+            for branch in branches
+        }
 
-        for foreach_node in foreach_nodes:
-            # Create variants with different sample_size values
-            for sample_size in [0, 1]:
-                # Create a modified node with the new sample_size
-                modified_node = copy.deepcopy(foreach_node)
-                modified_node.sample_size = sample_size
+        for branch in branches:
+            if len(branches) + len(boundary_branches) >= self.max_branches:
+                break
 
-                # Apply to a fresh context and get SQL
-                modified_context = DynamicContext()
-                modified_node.apply(modified_context)
-                foreach_sql = modified_context.get_sql()
+            active_conditions = list(branch.get("active_conditions", []))
+            filtered_node = self._create_filtered_sql_node(
+                sql_node,
+                if_nodes,
+                set(active_conditions),
+            )
+            filtered_foreach_nodes = self._collect_foreach_nodes(filtered_node)
 
-                # Create a new branch with the foreach boundary variant
-                for branch in branches:
-                    # Create new branch with modified foreach
-                    new_branch = branch.copy()
-                    new_branch["branch_id"] = len(branches) + len(boundary_branches)
+            for foreach_index, foreach_node in enumerate(filtered_foreach_nodes):
+                if len(branches) + len(boundary_branches) >= self.max_branches:
+                    break
+                if getattr(foreach_node, "sample_size", 2) == 1:
+                    continue
 
-                    # Replace the original foreach SQL with the boundary variant
-                    base_sql = branch["sql"]
+                variant_node = copy.deepcopy(filtered_node)
+                variant_foreach_nodes = self._collect_foreach_nodes(variant_node)
+                if foreach_index >= len(variant_foreach_nodes):
+                    continue
 
-                    # Build the expected pattern to find and replace
-                    original_open = (
-                        foreach_node.open if hasattr(foreach_node, "open") else ""
-                    )
-                    original_close = (
-                        foreach_node.close if hasattr(foreach_node, "close") else ""
-                    )
-                    original_sep = (
-                        foreach_node.separator
-                        if hasattr(foreach_node, "separator")
-                        else ","
-                    )
-                    item = getattr(foreach_node, "item", "item")
-                    item_placeholder = f"#{{{item}}}"
+                variant_foreach_nodes[foreach_index].sample_size = 1
+                context = DynamicContext()
+                variant_node.apply(context)
+                variant_sql = self._normalize_sql(context.get_sql())
+                if not variant_sql or self._contains_empty_in_clause(variant_sql):
+                    continue
 
-                    # The original SQL has 2 items (sample_size default = 2)
-                    original_pattern = (
-                        original_open
-                        + item_placeholder
-                        + original_sep
-                        + item_placeholder
-                        + original_close
-                    )
+                variant_conditions = active_conditions + [f"foreach_{foreach_index}_single"]
+                signature = self._branch_signature(variant_sql, variant_conditions)
+                if signature in seen_signatures:
+                    continue
+                seen_signatures.add(signature)
 
-                    # Build the replacement based on sample_size
-                    if sample_size == 0:
-                        # Empty: just open + close
-                        replacement = original_open + original_close
-                    elif sample_size == 1:
-                        # Single item: no separator
-                        replacement = original_open + item_placeholder + original_close
-                    else:
-                        # Multiple items - should not happen as we only loop 0, 1
-                        continue
+                boundary_branches.append(
+                    {
+                        "branch_id": len(branches) + len(boundary_branches),
+                        "active_conditions": variant_conditions,
+                        "sql": variant_sql,
+                        "condition_count": len(variant_conditions),
+                    }
+                )
 
-                    # Replace in the base SQL
-                    new_sql = base_sql.replace(original_pattern, replacement)
-
-                    new_branch["sql"] = new_sql
-                    new_branch["active_conditions"] = branch["active_conditions"] + [
-                        f"foreach_{sample_size}_items"
-                    ]
-                    boundary_branches.append(new_branch)
-
-        # Combine original branches with boundary branches
         return branches + boundary_branches
 
-        if not branches:
-            context = DynamicContext()
-            sql_node.apply(context)
-            branches = [
-                {
-                    "branch_id": 0,
-                    "active_conditions": [],
-                    "sql": context.get_sql().strip(),
-                    "condition_count": 0,
-                }
-            ]
+    def _branch_signature(
+        self,
+        sql: str,
+        active_conditions: List[str],
+    ) -> tuple[str, tuple[str, ...]]:
+        return sql, tuple(active_conditions)
 
-        return branches
+    def _contains_empty_in_clause(self, sql: str) -> bool:
+        return bool(re.search(r"\b(?:NOT\s+)?IN\s*\(\s*\)", sql, re.IGNORECASE))

@@ -10,9 +10,10 @@ from __future__ import annotations
 import logging
 import re
 import xml.etree.ElementTree
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Any, List
 
+from sqlopt.stages.branching.fragment_registry import FragmentRegistry
 
 @dataclass
 class ExpandedBranch:
@@ -29,6 +30,8 @@ class ExpandedBranch:
     condition: str | None
     expanded_sql: str
     is_valid: bool
+    risk_flags: list[str] = field(default_factory=list)
+    active_conditions: list[str] = field(default_factory=list)
 
 
 class BranchExpander:
@@ -42,7 +45,13 @@ class BranchExpander:
         branches = expander.expand(sql_text)
     """
 
-    def __init__(self, strategy: str = "ladder", max_branches: int = 50) -> None:
+    def __init__(
+        self,
+        strategy: str = "ladder",
+        max_branches: int = 50,
+        fragments: FragmentRegistry | None = None,
+        table_metadata: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
         """Initialize with branch generation strategy.
 
         Args:
@@ -52,8 +61,14 @@ class BranchExpander:
         """
         self.strategy = strategy
         self.max_branches = max_branches
+        self.fragments = fragments
+        self.table_metadata = table_metadata or {}
 
-    def expand(self, sql_text: str) -> List[ExpandedBranch]:
+    def expand(
+        self,
+        sql_text: str,
+        default_namespace: str | None = None,
+    ) -> List[ExpandedBranch]:
         """Expand SQL text into branch combinations.
 
         Parses the MyBatis XML SQL using XMLLanguageDriver and generates
@@ -61,6 +76,7 @@ class BranchExpander:
 
         Args:
             sql_text: MyBatis XML SQL string with dynamic tags.
+            default_namespace: Optional mapper namespace for resolving local includes.
 
         Returns:
             List of ExpandedBranch objects representing all possible branches.
@@ -69,15 +85,26 @@ class BranchExpander:
             from sqlopt.stages.branching.branch_generator import BranchGenerator
             from sqlopt.stages.branching.xml_language_driver import XMLLanguageDriver
 
-            sql_node = XMLLanguageDriver.create_sql_source(sql_text)
+            sql_node = XMLLanguageDriver.create_sql_source(
+                sql_text,
+                fragments=self.fragments,
+                default_namespace=default_namespace,
+            )
             generator = BranchGenerator(
                 strategy=self.strategy,
                 max_branches=self.max_branches,
+                table_metadata=self.table_metadata,
             )
             branch_dicts = generator.generate(sql_node)
             return self._map_branches(branch_dicts)
 
-        except (ValueError, RuntimeError, TypeError, xml.etree.ElementTree.ParseError) as e:
+        except (
+            AttributeError,
+            ValueError,
+            RuntimeError,
+            TypeError,
+            xml.etree.ElementTree.ParseError,
+        ) as e:
             logging.warning(f"Branch expansion failed, returning default branch: {e}")
             return [
                 ExpandedBranch(
@@ -112,9 +139,10 @@ class BranchExpander:
             branch_id = branch_dict.get("branch_id", 0)
             active_conditions = branch_dict.get("active_conditions", [])
             sql = branch_dict.get("sql", "")
+            risk_flags = branch_dict.get("risk_flags", [])
 
             path_id = f"branch_{branch_id}"
-            condition = active_conditions[0] if active_conditions else None
+            condition = " AND ".join(active_conditions) if active_conditions else None
 
             branches.append(
                 ExpandedBranch(
@@ -122,6 +150,8 @@ class BranchExpander:
                     condition=condition,
                     expanded_sql=sql,
                     is_valid=True,
+                    risk_flags=risk_flags,
+                    active_conditions=active_conditions,
                 )
             )
 

@@ -531,7 +531,12 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
         return False
 
 
-def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenerationStrategy:
+def create_strategy(
+    strategy_name: str,
+    seed: int | None = None,
+    condition_weights: dict[str, float] | None = None,
+    table_metadata: dict[str, dict] | None = None,
+) -> BranchGenerationStrategy:
     """Factory function to create a branch generation strategy.
 
     Args:
@@ -556,4 +561,9 @@ def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenera
         raise ValueError(f"Unknown strategy: {strategy_name}. Available: {list(strategies.keys())}")
 
     strategy_class = strategies[strategy_name]
+    if strategy_name == "ladder":
+        return strategy_class(
+            condition_weights=condition_weights,
+            table_metadata=table_metadata,
+        )
     return strategy_class()

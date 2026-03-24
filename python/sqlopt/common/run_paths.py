@@ -70,6 +70,21 @@ class RunPaths:
         return self.mock_dir / "init" / "sql_units.json"
 
     @property
+    def mock_init_sql_fragments(self) -> Path:
+        """Mock path for init stage SQL fragments."""
+        return self.mock_dir / "init" / "sql_fragments.json"
+
+    @property
+    def mock_init_table_schemas(self) -> Path:
+        """Mock path for init stage table schemas."""
+        return self.mock_dir / "init" / "table_schemas.json"
+
+    @property
+    def mock_init_xml_mappings(self) -> Path:
+        """Mock path for init stage XML mappings."""
+        return self.mock_dir / "init" / "xml_mappings.json"
+
+    @property
     def mock_parse_sql_units_with_branches(self) -> Path:
         """Mock path for parse stage output."""
         return self.mock_dir / "parse" / "sql_units_with_branches.json"
@@ -93,6 +108,21 @@ class RunPaths:
     def init_sql_units(self) -> Path:
         """Path to SQL units JSON file from init stage."""
         return self.init_dir / "sql_units.json"
+
+    @property
+    def init_sql_fragments(self) -> Path:
+        """Path to SQL fragments JSON file from init stage."""
+        return self.init_dir / "sql_fragments.json"
+
+    @property
+    def init_table_schemas(self) -> Path:
+        """Path to table schemas JSON file from init stage."""
+        return self.init_dir / "table_schemas.json"
+
+    @property
+    def init_xml_mappings(self) -> Path:
+        """Path to XML mappings JSON file from init stage."""
+        return self.init_dir / "xml_mappings.json"
 
     @property
     def parse_sql_units_with_branches(self) -> Path:

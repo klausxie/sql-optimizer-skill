@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -9,6 +9,8 @@ class ExpandedBranch:
     condition: str | None
     expanded_sql: str
     is_valid: bool
+    risk_flags: list[str] = field(default_factory=list)
+    active_conditions: list[str] = field(default_factory=list)
 
 
 def expand_branches(sql_text: str) -> list[ExpandedBranch]:
@@ -26,6 +28,8 @@ def expand_branches(sql_text: str) -> list[ExpandedBranch]:
             condition=b.condition,
             expanded_sql=b.expanded_sql,
             is_valid=b.is_valid,
+            risk_flags=b.risk_flags,
+            active_conditions=b.active_conditions,
         )
         for b in raw_branches
     ]

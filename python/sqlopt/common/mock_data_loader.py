@@ -53,6 +53,27 @@ class MockDataLoader:
             self.paths.parse_sql_units_with_branches,
         )
 
+    def get_init_sql_fragments_path(self) -> Path:
+        """Get path for init stage SQL fragments input."""
+        return self._mock_first(
+            self.paths.mock_init_sql_fragments,
+            self.paths.init_sql_fragments,
+        )
+
+    def get_init_table_schemas_path(self) -> Path:
+        """Get path for init stage table schemas input."""
+        return self._mock_first(
+            self.paths.mock_init_table_schemas,
+            self.paths.init_table_schemas,
+        )
+
+    def get_init_xml_mappings_path(self) -> Path:
+        """Get path for init stage XML mappings input."""
+        return self._mock_first(
+            self.paths.mock_init_xml_mappings,
+            self.paths.init_xml_mappings,
+        )
+
     def get_recognition_baselines_path(self) -> Path:
         """Get path for recognition stage baselines input."""
         return self._mock_first(

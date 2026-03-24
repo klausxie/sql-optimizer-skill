@@ -20,16 +20,22 @@ class XMLLanguageDriver:
 
     @staticmethod
     def create_sql_source(
-        xml_string: str, fragments: FragmentRegistry | None = None
+        xml_string: str,
+        fragments: FragmentRegistry | None = None,
+        default_namespace: str | None = None,
     ) -> SqlNode:
         """Create SqlNode from XML string.
 
         Args:
             xml_string: The XML string representing MyBatis dynamic SQL.
             fragments: Optional FragmentRegistry for resolving <include> tags.
+            default_namespace: Optional namespace for resolving local include refids.
 
         Returns:
             SqlNode tree representing the parsed XML.
         """
-        builder = XMLScriptBuilder(fragment_registry=fragments)
+        builder = XMLScriptBuilder(
+            fragment_registry=fragments,
+            default_namespace=default_namespace,
+        )
         return builder.parse(xml_string)

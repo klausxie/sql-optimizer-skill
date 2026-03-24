@@ -60,6 +60,8 @@ class XMLScriptBuilder:
         "foreach": "_handle_foreach_node",
         "include": "_handle_include_node",
         "bind": "_handle_bind_node",
+        # selectKey belongs to key generation, not the executable statement body.
+        "selectKey": "_handle_ignored_node",
     }
 
     # Pattern to detect ${...} placeholders in text
@@ -346,3 +348,8 @@ class XMLScriptBuilder:
         name = element.get("name", "")
         value = element.get("value", "")
         return VarDeclSqlNode(name, value)
+
+    def _handle_ignored_node(self, element: ET.Element) -> SqlNode:
+        """Ignore statement-adjacent metadata nodes that should not render into SQL."""
+        del element
+        return MixedSqlNode([])
