@@ -99,7 +99,7 @@ sqlopt run init --config sqlopt.yml
 ```bash
 cd /path/to/your/mybatis-project
 
-# 运行阶段（PYTHONPATH 只影响本次命令，不修改用户环境）
+# 请将 /path/to/sql-optimizer-skill 替换为实际路径
 PYTHONPATH=/path/to/sql-optimizer-skill/python \
 python -m sqlopt.cli.main run init --config sqlopt.yml
 
