@@ -96,16 +96,40 @@ sqlopt run init --config sqlopt.yml
 
 在业务项目目录下，使用绝对路径直接运行：
 
+**macOS / Linux**:
+
 ```bash
 cd /path/to/your/mybatis-project
 
 # 请将 /path/to/sql-optimizer-skill 替换为实际路径
+export SQLOPT_HOME=/path/to/sql-optimizer-skill
+./sqlopt run init --config sqlopt.yml
+./sqlopt mock <run_id>
+```
+
+**Windows (PowerShell)**:
+
+```powershell
+cd D:\path\to\your\mybatis-project
+
+# 请将 D:\path\to\sql-optimizer-skill 替换为实际路径
+$env:SQLOPT_HOME = "D:\path\to\sql-optimizer-skill"
+.\sqlopt.bat run init --config sqlopt.yml
+.\sqlopt.bat mock <run_id>
+```
+
+**通用方式（设置 PYTHONPATH）**:
+
+```bash
+# macOS / Linux
+cd /path/to/your/mybatis-project
 PYTHONPATH=/path/to/sql-optimizer-skill/python \
 python -m sqlopt.cli.main run init --config sqlopt.yml
 
-# 复制 mock 模板
-PYTHONPATH=/path/to/sql-optimizer-skill/python \
-python -m sqlopt.cli.main mock <run_id>
+# Windows (CMD)
+cd D:\path\to\your\mybatis-project
+set PYTHONPATH=D:\path\to\sql-optimizer-skill\python
+python -m sqlopt.cli.main run init --config sqlopt.yml
 ```
 
 ---

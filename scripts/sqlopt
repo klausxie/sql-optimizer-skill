@@ -1,13 +1,20 @@
 #!/bin/bash
-# sqlopt - SQL Optimizer CLI wrapper
+# sqlopt - SQL Optimizer CLI wrapper (Unix/Linux/macOS)
 # 复制到业务项目根目录使用
 #
 # 用法:
 #   ./sqlopt run init --config sqlopt.yml
 #   ./sqlopt mock <run_id>
+#
+# 环境变量:
+#   SQLOPT_HOME - sql-optimizer-skill 的安装路径，如 /home/user/tools/sql-optimizer-skill
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SQLOPT_DIR="${SQLOPT_DIR:-$(dirname "$SCRIPT_DIR")/sql-optimizer-skill}"
+if [ -z "$SQLOPT_HOME" ]; then
+    echo "Error: SQLOPT_HOME environment variable is not set" >&2
+    echo "Please set SQLOPT_HOME to your sql-optimizer-skill directory" >&2
+    echo "Example: export SQLOPT_HOME=/home/user/tools/sql-optimizer-skill" >&2
+    exit 1
+fi
 
-export PYTHONPATH="$SQLOPT_DIR/python"
+export PYTHONPATH="$SQLOPT_HOME/python"
 exec python -m sqlopt.cli.main "$@"
