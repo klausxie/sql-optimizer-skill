@@ -1,0 +1,2 @@
+# MySQL driver for MySQL platform support
+PyMySQL>=1.1.0

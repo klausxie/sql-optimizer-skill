@@ -1,0 +1,17 @@
+# Core dependencies (always required)
+jsonschema>=4.0.0
+PyYAML>=6.0.0
+jsonpath-ng>=1.6.0
+rich>=13.0.0
+
+# Optional: PostgreSQL support
+# Install with: pip install -r requirements.txt --extra-index-url .[postgresql]
+psycopg2-binary>=2.9.0
+
+# Optional: MySQL support
+# Install with: pip install -r requirements.txt --extra-index-url .[mysql]
+PyMySQL>=1.1.0
+
+# Optional: OpenAI provider support
+# Install with: pip install -r requirements.txt --extra-index-url .[openai]
+openai>=1.0.0
