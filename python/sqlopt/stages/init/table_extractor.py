@@ -253,10 +253,7 @@ def _execute_safe(
 ) -> List[Dict[str, Any]]:
     """Execute query safely, handling connection errors."""
     try:
-        if params:
-            formatted_sql = sql % tuple(f"'{p}'" for p in params) if "%s" in sql else sql
-            return db_connector.execute_query(formatted_sql)
-        return db_connector.execute_query(sql)
+        return db_connector.execute_query(sql, params)
     except (ConnectionError, RuntimeError) as e:
         logger.warning("Query failed: %s - Error: %s", sql, e)
         return []

@@ -181,8 +181,27 @@ class InitOutput:
 
     @classmethod
     def from_json(cls, json_str: str) -> InitOutput:
-        """Deserialize from JSON string (backward compatible)."""
+        """Deserialize from JSON string (backward compatible).
+
+        Supports two formats:
+        1. Full InitOutput object: {"sql_units": [...], "run_id": "...", ...}
+        2. SQL units list only: [...] (for backward compatibility with sql_units.json files)
+        """
         data = json.loads(json_str)
+
+        # Handle both list format (sql_units.json) and full object format
+        if isinstance(data, list):
+            # sql_units.json contains just the list of SQL units
+            sql_units = [SQLUnit(**unit) for unit in data]
+            return cls(
+                sql_units=sql_units,
+                run_id="unknown",
+                sql_fragments=[],
+                table_schemas={},
+                xml_mappings=None,
+            )
+
+        # Full InitOutput object format
         sql_units = [SQLUnit(**unit) for unit in data["sql_units"]]
         sql_fragments = [SQLFragment(**frag) for frag in data.get("sql_fragments", [])]
         table_schemas = {k: TableSchema(**v) for k, v in data.get("table_schemas", {}).items()}

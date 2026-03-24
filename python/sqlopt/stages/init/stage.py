@@ -1,16 +1,66 @@
 from __future__ import annotations
 
+import json
 import logging
+import re
+from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlopt.common.config import SQLOptConfig
-from sqlopt.contracts.init import InitOutput, SQLFragment, SQLUnit
+from sqlopt.contracts.init import (
+    FileMapping,
+    FragmentMapping,
+    InitOutput,
+    SQLFragment,
+    SQLUnit,
+    StatementMapping,
+    XMLMapping,
+)
 from sqlopt.stages.base import Stage
 
 from .parser import ParsedFragment, ParsedStatement, parse_mapper_file
 from .scanner import find_mapper_files
+from .table_extractor import extract_table_schemas
+
+if TYPE_CHECKING:
+    from sqlopt.common.db_connector import DBConnector
 
 logger = logging.getLogger(__name__)
+
+
+def extract_table_names_from_sql(sql_text: str) -> list[str]:
+    """Extract table names from SQL text by parsing FROM and JOIN clauses.
+
+    Args:
+        sql_text: SQL text to parse.
+
+    Returns:
+        List of table names found in the SQL text.
+    """
+    if not sql_text:
+        return []
+
+    # Pattern to match table names in FROM and JOIN clauses
+    # Handles: FROM table_name, FROM table_name AS alias, JOIN table_name, etc.
+    patterns = [
+        # FROM clause: FROM table_name (with optional AS alias)
+        r"\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+AS\s+[a-zA-Z_][a-zA-Z0-9_]*)?",
+        # JOIN clause: JOIN table_name, INNER JOIN, LEFT JOIN, RIGHT JOIN, etc.
+        r"\b(?:INNER|LEFT|RIGHT|OUTER|CROSS)?\s*JOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+    ]
+
+    table_names: set[str] = set()
+    sql_upper = sql_text.upper()
+
+    for pattern in patterns:
+        matches = re.finditer(pattern, sql_upper, re.IGNORECASE)
+        for match in matches:
+            table_name = match.group(1)
+            if table_name and table_name.upper() not in ("SELECT", "WHERE", "ON", "AND", "OR", "NOT", "IN", "SET"):
+                table_names.add(match.group(1).lower())
+
+    return list(table_names)
 
 
 class InitStage(Stage[None, InitOutput]):
@@ -53,7 +103,8 @@ class InitStage(Stage[None, InitOutput]):
         logger.info(f"[INIT] Found {len(mapper_files)} mapper file(s)")
 
         sql_units: list[SQLUnit] = []
-        sql_fragments: list = []
+        sql_fragments: list[SQLFragment] = []
+        file_mappings: dict[str, FileMapping] = {}
         total_statements = 0
         total_fragments = 0
         for xml_path in mapper_files:
@@ -64,27 +115,118 @@ class InitStage(Stage[None, InitOutput]):
             total_statements += stmt_count
             total_fragments += frag_count
             logger.debug(f"[INIT]   Found {stmt_count} SQL statement(s) in {Path(xml_path).name}")
+
+            file_mapping = FileMapping(xmlPath=str(xml_path))
             for stmt in statements:
                 unit = _parsed_to_sqlunit(stmt)
                 sql_units.append(unit)
+                stmt_xpath = _build_statement_xpath(stmt)
+                stmt_mapping = StatementMapping(
+                    sqlKey=stmt.sql_key,
+                    statementId=stmt.statement_id,
+                    xpath=stmt_xpath,
+                    tagName=stmt.statement_type.lower(),
+                    idAttr=stmt.statement_id,
+                    originalContent=stmt.xml_content,
+                )
+                file_mapping.statements.append(stmt_mapping)
+
             for frag in fragments:
                 sql_fragments.append(_parsed_to_sqlfragment(frag))
+                frag_mapping = FragmentMapping(
+                    fragmentId=frag.fragment_id,
+                    sqlKey=None,
+                    xpath=frag.xpath,
+                    tagName="sql",
+                    idAttr=frag.fragment_id,
+                    originalContent=frag.xml_content,
+                )
+                file_mapping.fragments.append(frag_mapping)
+
+            file_mappings[str(xml_path)] = file_mapping
 
         logger.info(f"[INIT] Extracted {total_statements} SQL unit(s) from {len(mapper_files)} mapper file(s)")
         logger.info(f"[INIT] Extracted {total_fragments} SQL fragment(s) from {len(mapper_files)} mapper file(s)")
         logger.info(f"[INIT] SQL units: {[u.sql_id for u in sql_units]}")
 
-        output = InitOutput(sql_units=sql_units, run_id=rid, sql_fragments=sql_fragments)
+        xml_mappings = XMLMapping(files=list(file_mappings.values()))
+
+        table_schemas: dict = {}
+        all_table_names: set[str] = set()
+        for unit in sql_units:
+            table_names = extract_table_names_from_sql(unit.sql_text)
+            all_table_names.update(table_names)
+
+        if all_table_names:
+            db_connector: "DBConnector | None" = None
+            if cfg.db_host and cfg.db_port and cfg.db_name:
+                from sqlopt.common.db_connector import create_connector
+
+                db_connector = create_connector(
+                    platform=cfg.db_platform,
+                    host=cfg.db_host,
+                    port=cfg.db_port,
+                    db=cfg.db_name,
+                    user=cfg.db_user or "",
+                    password=cfg.db_password or "",
+                )
+                logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
+                table_schemas = extract_table_schemas(
+                    table_names=list(all_table_names),
+                    db_connector=db_connector,
+                    platform=cfg.db_platform,
+                )
+                logger.info(f"[INIT] Extracted schemas for {len(table_schemas)} table(s)")
+            else:
+                logger.info("[INIT] No database config available, skipping table schema extraction")
+        else:
+            logger.info("[INIT] No tables found in SQL units")
+
+        output = InitOutput(
+            sql_units=sql_units,
+            run_id=rid,
+            sql_fragments=sql_fragments,
+            xml_mappings=xml_mappings,
+            table_schemas=table_schemas,
+        )
         self._write_output(output)
-        logger.info(f"[INIT] Output written to: runs/{rid}/init/sql_units.json")
+        logger.info(
+            "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings}}.json".format(
+                rid
+            )
+        )
         logger.info("[INIT] Init stage completed")
         return output
 
     def _write_output(self, output: InitOutput) -> None:
         output_dir = Path("runs") / output.run_id / "init"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / "sql_units.json"
-        output_file.write_text(output.to_json())
+
+        # 1. sql_units.json - List[SQLUnit]
+        sql_units_file = output_dir / "sql_units.json"
+        sql_units_file.write_text(json.dumps([asdict(u) for u in output.sql_units]))
+
+        # 2. sql_fragments.json - List[SQLFragment]
+        sql_fragments_file = output_dir / "sql_fragments.json"
+        sql_fragments_file.write_text(json.dumps([asdict(f) for f in output.sql_fragments]))
+
+        # 3. table_schemas.json - Dict[str, TableSchema]
+        table_schemas_file = output_dir / "table_schemas.json"
+        table_schemas_file.write_text(json.dumps({k: asdict(v) for k, v in output.table_schemas.items()}))
+
+        # 4. xml_mappings.json - XMLMapping
+        xml_mappings_file = output_dir / "xml_mappings.json"
+        if output.xml_mappings:
+            xml_mappings_file.write_text(output.xml_mappings.to_json())
+        else:
+            xml_mappings_file.write_text(json.dumps({"files": []}))
+
+
+def _build_statement_xpath(stmt: ParsedStatement) -> str:
+    tag_name = stmt.statement_type.lower()
+    if stmt.namespace:
+        return f"/mapper/{stmt.namespace}.{tag_name}[@id='{stmt.statement_id}']"
+    return f"/mapper/{tag_name}[@id='{stmt.statement_id}']"
 
 
 def _parsed_to_sqlunit(stmt: ParsedStatement) -> SQLUnit:
