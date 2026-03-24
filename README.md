@@ -94,42 +94,36 @@ sqlopt run init --config sqlopt.yml
 
 ### 不安装直接运行
 
-在业务项目目录下，使用绝对路径直接运行：
+复制脚本到本地，修改脚本里的路径配置，然后直接运行：
 
 **macOS / Linux**:
 
 ```bash
-cd /path/to/your/mybatis-project
+# 1. 复制脚本
+cp /path/to/sql-optimizer-skill/scripts/sqlopt /path/to/mybatis-project/
 
-# 请将 /path/to/sql-optimizer-skill 替换为实际路径
-export SQLOPT_HOME=/path/to/sql-optimizer-skill
+# 2. 编辑脚本中的路径配置
+# SQLOPT_HOME="/path/to/sql-optimizer-skill"
+# WORKDIR="/path/to/your/mybatis-project"
+
+# 3. 运行
+cd /path/to/mybatis-project
 ./sqlopt run init --config sqlopt.yml
 ./sqlopt mock <run_id>
 ```
 
-**Windows (PowerShell)**:
+**Windows**:
 
-```powershell
-cd D:\path\to\your\mybatis-project
+```batch
+# 1. 复制脚本
+copy D:\path\to\sql-optimizer-skill\scripts\sqlopt.bat D:\path\to\mybatis-project\
 
-# 请将 D:\path\to\sql-optimizer-skill 替换为实际路径
-$env:SQLOPT_HOME = "D:\path\to\sql-optimizer-skill"
-.\sqlopt.bat run init --config sqlopt.yml
-.\sqlopt.bat mock <run_id>
-```
+# 2. 编辑脚本中的路径配置
+# set "SQLOPT_HOME=D:\path\to\sql-optimizer-skill"
+# set "WORKDIR=D:\path\to\your\mybatis-project"
 
-**通用方式（设置 PYTHONPATH）**:
-
-```bash
-# macOS / Linux
-cd /path/to/your/mybatis-project
-PYTHONPATH=/path/to/sql-optimizer-skill/python \
-python -m sqlopt.cli.main run init --config sqlopt.yml
-
-# Windows (CMD)
-cd D:\path\to\your\mybatis-project
-set PYTHONPATH=D:\path\to\sql-optimizer-skill\python
-python -m sqlopt.cli.main run init --config sqlopt.yml
+# 3. 运行
+D:\path\to\mybatis-project\sqlopt.bat run init --config sqlopt.yml
 ```
 
 ---

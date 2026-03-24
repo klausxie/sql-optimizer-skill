@@ -1,20 +1,29 @@
 @echo off
 rem sqlopt - SQL Optimizer CLI wrapper (Windows)
-rem 复制到业务项目根目录使用
 rem
-rem 用法:
-rem   sqlopt run init --config sqlopt.yml
-rem   sqlopt mock <run_id>
-rem
-rem 环境变量:
-rem   SQLOPT_HOME - sql-optimizer-skill 的安装路径，如 D:\tools\sql-optimizer-skill
+rem Edit the paths below before running:
+rem   SQLOPT_HOME - path to sql-optimizer-skill
+rem   WORKDIR     - path to your business project (where sqlopt.yml is)
 
-if "%SQLOPT_HOME%"=="" (
-    echo Error: SQLOPT_HOME environment variable is not set >&2
-    echo Please set SQLOPT_HOME to your sql-optimizer-skill directory >&2
-    echo Example: set SQLOPT_HOME=D:\tools\sql-optimizer-skill >&2
+setlocal enabledelayedexpansion
+
+rem ==== CONFIG ====
+set "SQLOPT_HOME=D:\path\to\sql-optimizer-skill"
+set "WORKDIR=D:\path\to\your\mybatis-project"
+rem ==== CONFIG ====
+
+if not exist "%SQLOPT_HOME%" (
+    echo Error: SQLOPT_HOME directory not found: %SQLOPT_HOME%
+    echo Please edit this script and set the correct path
     exit /b 1
 )
 
-set PYTHONPATH=%SQLOPT_HOME%\python
+if not exist "%WORKDIR%" (
+    echo Error: WORKDIR directory not found: %WORKDIR%
+    echo Please edit this script and set the correct path
+    exit /b 1
+)
+
+cd /d "%WORKDIR%"
+set "PYTHONPATH=%SQLOPT_HOME%\python"
 python -m sqlopt.cli.main %*

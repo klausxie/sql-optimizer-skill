@@ -1,20 +1,27 @@
 #!/bin/bash
 # sqlopt - SQL Optimizer CLI wrapper (Unix/Linux/macOS)
-# 复制到业务项目根目录使用
 #
-# 用法:
-#   ./sqlopt run init --config sqlopt.yml
-#   ./sqlopt mock <run_id>
-#
-# 环境变量:
-#   SQLOPT_HOME - sql-optimizer-skill 的安装路径，如 /home/user/tools/sql-optimizer-skill
+# Edit the paths below before running:
+#   SQLOPT_HOME - path to sql-optimizer-skill
+#   WORKDIR     - path to your business project (where sqlopt.yml is)
 
-if [ -z "$SQLOPT_HOME" ]; then
-    echo "Error: SQLOPT_HOME environment variable is not set" >&2
-    echo "Please set SQLOPT_HOME to your sql-optimizer-skill directory" >&2
-    echo "Example: export SQLOPT_HOME=/home/user/tools/sql-optimizer-skill" >&2
+# ==== 配置区域 ====
+SQLOPT_HOME="/path/to/sql-optimizer-skill"   # 请替换为实际路径
+WORKDIR="/path/to/your/mybatis-project"    # 请替换为实际路径
+# ==== 配置区域 ====
+
+if [ ! -d "$SQLOPT_HOME" ]; then
+    echo "Error: SQLOPT_HOME directory not found: $SQLOPT_HOME" >&2
+    echo "Please edit this script and set the correct path" >&2
     exit 1
 fi
 
+if [ ! -d "$WORKDIR" ]; then
+    echo "Error: WORKDIR directory not found: $WORKDIR" >&2
+    echo "Please edit this script and set the correct path" >&2
+    exit 1
+fi
+
+cd "$WORKDIR"
 export PYTHONPATH="$SQLOPT_HOME/python"
 exec python -m sqlopt.cli.main "$@"
