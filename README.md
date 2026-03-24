@@ -59,20 +59,8 @@ python/sqlopt/
 ### 1. 安装
 
 ```bash
-# 核心依赖（不需要数据库和 LLM 时）
+# 安装所有依赖（PostgreSQL + MySQL + OpenAI）
 pip install -r requirements.txt
-
-# 加上 PostgreSQL 支持
-pip install -r requirements-postgresql.txt
-
-# 加上 MySQL 支持
-pip install -r requirements-mysql.txt
-
-# 加上 OpenAI 支持
-pip install -r requirements-openai.txt
-
-# 或一次性安装所有依赖
-pip install -r requirements.txt -r requirements-postgresql.txt -r requirements-mysql.txt -r requirements-openai.txt
 
 # 开发模式（运行测试）
 pip install -e ".[dev]"

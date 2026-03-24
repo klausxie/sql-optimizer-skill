@@ -1,2 +1,0 @@
-# OpenAI provider for LLM optimization
-openai>=1.0.0

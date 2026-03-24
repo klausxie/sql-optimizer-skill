@@ -1,2 +1,0 @@
-# PostgreSQL driver for PostgreSQL platform support
-psycopg2-binary>=2.9.0
