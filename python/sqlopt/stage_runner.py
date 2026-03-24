@@ -40,7 +40,7 @@ class StageRunner:
         for stage in STAGE_ORDER:
             self.progress.register_stage(stage)
 
-    def run_stage(self, stage_name: str) -> None:
+    def run_stage(self, stage_name: str, use_mock: bool = True) -> None:
         if stage_name not in STAGE_ORDER:
             raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {STAGE_ORDER}")
         self.paths.ensure_dirs()
@@ -49,13 +49,13 @@ class StageRunner:
             if stage_name == "init":
                 self._run_init_stage()
             elif stage_name == "parse":
-                self._run_parse_stage()
+                self._run_parse_stage(use_mock=use_mock)
             elif stage_name == "recognition":
-                self._run_recognition_stage()
+                self._run_recognition_stage(use_mock=use_mock)
             elif stage_name == "optimize":
-                self._run_optimize_stage()
+                self._run_optimize_stage(use_mock=use_mock)
             elif stage_name == "result":
-                self._run_result_stage()
+                self._run_result_stage(use_mock=use_mock)
             self.progress.complete_stage(stage_name)
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
@@ -86,14 +86,14 @@ class StageRunner:
         result = stage.run()
         save_json_file(result, self.paths.init_sql_units)
 
-    def _run_parse_stage(self) -> None:
+    def _run_parse_stage(self, use_mock: bool = True) -> None:
         from sqlopt.stages.parse import ParseStage
 
-        stage = ParseStage(self.run_id)
+        stage = ParseStage(self.run_id, use_mock=use_mock)
         result = stage.run()
         save_json_file(result, self.paths.parse_sql_units_with_branches)
 
-    def _run_recognition_stage(self) -> None:
+    def _run_recognition_stage(self, use_mock: bool = True) -> None:
         from sqlopt.common.db_connector import create_connector
         from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.recognition import RecognitionStage
@@ -115,11 +115,11 @@ class StageRunner:
             elif self.config.llm_provider == "opencode_run":
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
-        stage = RecognitionStage(self.run_id, llm_provider=llm_provider)
+        stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.recognition_baselines)
 
-    def _run_optimize_stage(self) -> None:
+    def _run_optimize_stage(self, use_mock: bool = True) -> None:
         from sqlopt.common.db_connector import create_connector
         from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.optimize import OptimizeStage
@@ -141,14 +141,14 @@ class StageRunner:
             elif self.config.llm_provider == "opencode_run":
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
-        stage = OptimizeStage(self.run_id, llm_provider=llm_provider)
+        stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.optimize_proposals)
 
-    def _run_result_stage(self) -> None:
+    def _run_result_stage(self, use_mock: bool = True) -> None:
         from sqlopt.stages.result import ResultStage
 
-        stage = ResultStage(self.run_id)
+        stage = ResultStage(self.run_id, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.result_report)
 
@@ -156,9 +156,7 @@ class StageRunner:
         return cast("dict[str, Any]", self.progress.get_status())
 
     def is_complete(self) -> bool:
-        return all(
-            self.progress.stages.get(stage).status == STATUS_COMPLETED for stage in STAGE_ORDER
-        )
+        return all(self.progress.stages.get(stage).status == STATUS_COMPLETED for stage in STAGE_ORDER)
 
     def has_failures(self) -> bool:
         return any(self.progress.stages.get(stage).status == STATUS_FAILED for stage in STAGE_ORDER)
