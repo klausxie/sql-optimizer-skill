@@ -5,6 +5,7 @@ dist/
 
 # Generated run outputs
 python/runs/
+runs/
 tests/real/mybatis-test/runs/
 tests/integration/
 
