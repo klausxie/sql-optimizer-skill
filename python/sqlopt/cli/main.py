@@ -16,6 +16,15 @@ def cli() -> None:
     """SQL Optimizer CLI - Analyze and optimize SQL queries."""
 
 
+STAGE_ALIASES = {
+    "1": "init",
+    "2": "parse",
+    "3": "recognition",
+    "4": "optimize",
+    "5": "result",
+}
+
+
 @click.command()
 @click.argument("stage", default="init")
 @click.option("--config", default="./sqlopt.yml", help="Config file path")
@@ -26,7 +35,10 @@ def run(stage: str, config: str, run_id: str | None, mock: bool) -> None:
 
     STAGE is the stage name to run (default: init).
     Valid stages: init, parse, recognition, optimize, result.
+    Aliases: 1=init, 2=parse, 3=recognition, 4=optimize, 5=result.
     """
+    stage = STAGE_ALIASES.get(stage, stage)
+
     click.echo(f"Loading config from: {config}")
 
     try:
