@@ -4,6 +4,8 @@ This module provides the RunPaths class for managing directory and file paths
 across different stages of a SQL optimization run.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 
@@ -132,3 +134,24 @@ class RunPaths:
             self.mock_dir,
         ]:
             stage_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def find_latest_run_id(base_dir: str = "./runs") -> str | None:
+        """Find the most recent run directory by modification time.
+
+        Args:
+            base_dir: Base directory for all runs.
+
+        Returns:
+            The run_id of the most recently modified run, or None if no runs exist.
+        """
+        base = Path(base_dir)
+        if not base.exists():
+            return None
+
+        runs = [d for d in base.iterdir() if d.is_dir() and not d.name.startswith(".")]
+        if not runs:
+            return None
+
+        latest = max(runs, key=lambda d: d.stat().st_mtime)
+        return latest.name

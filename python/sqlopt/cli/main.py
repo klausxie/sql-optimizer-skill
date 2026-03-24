@@ -19,8 +19,9 @@ def cli() -> None:
 @click.command()
 @click.argument("stage", default="init")
 @click.option("--config", default="./sqlopt.yml", help="Config file path")
+@click.option("--run-id", default=None, help="Run ID (defaults to latest if not specified)")
 @click.option("--mock/--no-mock", default=True, help="Enable/disable mock data override")
-def run(stage: str, config: str, mock: bool) -> None:
+def run(stage: str, config: str, run_id: str | None, mock: bool) -> None:
     """Run a pipeline stage.
 
     STAGE is the stage name to run (default: init).
@@ -39,12 +40,14 @@ def run(stage: str, config: str, mock: bool) -> None:
 
     click.echo(f"Config loaded: project_root={cfg.project_root_path}")
 
-    runner = StageRunner(config)
+    auto_latest = run_id is None and stage != "init"
+    runner = StageRunner(config, run_id=run_id, auto_latest=auto_latest)
     runner.paths.ensure_dirs()
 
     try:
         runner.run_stage(stage, use_mock=mock)
         click.echo(f"Stage '{stage}' completed successfully.")
+        click.echo(f"Run ID: {runner.run_id}")
     except (ValueError, RuntimeError) as e:
         click.echo(f"Error: Stage '{stage}' failed: {e}", err=True)
         sys.exit(1)

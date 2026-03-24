@@ -167,12 +167,16 @@ cp /path/to/sql-optimizer-skill/templates/sqlopt.example.yml.template sqlopt.yml
 # 编辑 sqlopt.yml，填入数据库连接和 MyBatis XML 路径
 # scan_mapper_globs: ["src/main/resources/**/*.xml"]
 
-# 运行单个阶段
+# 运行单个阶段（后续命令自动使用最新目录）
 sqlopt run init --config sqlopt.yml
 sqlopt run parse --config sqlopt.yml
 sqlopt run recognition --config sqlopt.yml
 sqlopt run optimize --config sqlopt.yml
 sqlopt run result --config sqlopt.yml
+
+# 或指定 run-id（用于复用特定 pipeline）
+sqlopt run init --config sqlopt.yml --run-id my-run-1
+sqlopt run parse --config sqlopt.yml --run-id my-run-1
 ```
 
 ### Mock 数据调试

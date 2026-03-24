@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, cast
 
 from sqlopt.common import save_json_file
@@ -32,9 +32,26 @@ class PipelineResult:
 
 
 class StageRunner:
-    def __init__(self, config_path: str, base_dir: str = "./runs") -> None:
+    def __init__(
+        self,
+        config_path: str,
+        base_dir: str = "./runs",
+        run_id: str | None = None,
+        auto_latest: bool = False,
+    ) -> None:
         self.config: SQLOptConfig = load_config(config_path)
-        self.run_id: str = str(uuid.uuid4())[:8]
+        self.base_dir = base_dir
+
+        if run_id:
+            self.run_id = run_id
+        elif auto_latest:
+            latest = RunPaths.find_latest_run_id(base_dir)
+            if latest is None:
+                raise ValueError("No run directory found. Run 'init' first.")
+            self.run_id = latest
+        else:
+            self.run_id = datetime.now().strftime("run-%Y%m%d-%H%M%S")
+
         self.paths: RunPaths = RunPaths(self.run_id, base_dir)
         self.progress: ProgressTracker = ProgressTracker(self.run_id)
         for stage in STAGE_ORDER:

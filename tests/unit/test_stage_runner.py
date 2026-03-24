@@ -17,14 +17,14 @@ from sqlopt.stage_runner import (
 class TestStageRunnerInit:
     """Tests for StageRunner initialization."""
 
-    def test_run_id_is_8_char_hex_string(self):
-        """Test that run_id is an 8 character hexadecimal string."""
+    def test_run_id_is_timestamp_format(self):
+        """Test that run_id is in timestamp format run-YYYYMMDD-HHMMSS."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "sqlopt.yml"
             config_path.write_text(yaml.dump({"config_version": "v1"}))
             runner = StageRunner(str(config_path), base_dir=tmpdir)
-            assert len(runner.run_id) == 8
-            assert re.fullmatch(r"[0-9a-f]{8}", runner.run_id) is not None
+            assert runner.run_id.startswith("run-")
+            assert re.fullmatch(r"run-\d{8}-\d{6}", runner.run_id) is not None
 
     def test_config_loaded_from_path(self):
         """Test that config is loaded from the provided path."""
