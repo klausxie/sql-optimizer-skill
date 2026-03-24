@@ -17,8 +17,11 @@ from sqlopt.stages.branching.branch_strategy import (
     AllCombinationsStrategy,
 )
 from sqlopt.stages.branching.branch_context import BranchContext
+from sqlopt.stages.branching.dimension_extractor import DimensionExtractor
 from sqlopt.stages.branching.mutex_branch_detector import MutexBranchDetector
 from sqlopt.stages.branching.dynamic_context import DynamicContext
+from sqlopt.stages.branching.planner import DimensionCandidate, LadderBranchPlanner
+from sqlopt.stages.branching.risk_scorer import SQLDeltaRiskScorer
 
 if TYPE_CHECKING:
     from sqlopt.stages.branching.sql_node import SqlNode
@@ -90,11 +93,14 @@ class BranchGenerator:
             - sql: The generated SQL string
         """
         conditions = self._collect_conditions(sql_node)
-        valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
-        selected_combinations = self._select_condition_combinations(
-            valid_combinations,
-            conditions,
-        )
+        if self.strategy == "ladder":
+            selected_combinations = self._plan_ladder_condition_combinations(sql_node)
+        else:
+            valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
+            selected_combinations = self._select_condition_combinations(
+                valid_combinations,
+                conditions,
+            )
 
         branches = self._render_condition_combinations(sql_node, selected_combinations)
         if not branches:
@@ -202,6 +208,41 @@ class BranchGenerator:
                 branch["risk_flags"] = risk_flags
 
         return branches[: self.max_branches]
+
+    def _plan_ladder_condition_combinations(
+        self,
+        sql_node: SqlNode,
+    ) -> List[List[str]]:
+        extractor = DimensionExtractor()
+        dimensions = extractor.extract(sql_node)
+        if not dimensions:
+            return [[]]
+
+        scorer = SQLDeltaRiskScorer(table_metadata=self.table_metadata)
+        candidates = [
+            DimensionCandidate(
+                dimension=dimension,
+                score=scorer.score_dimension(dimension),
+            )
+            for dimension in dimensions
+        ]
+
+        planner = LadderBranchPlanner(max_branches=self.max_branches)
+        selected = planner.generate(candidates)
+        filtered: List[List[str]] = []
+        seen: set[tuple[str, ...]] = set()
+        for combo in selected:
+            if self._is_obviously_mutex_conflict(set(combo)):
+                continue
+            key = tuple(combo)
+            if key in seen:
+                continue
+            seen.add(key)
+            filtered.append(combo)
+            if len(filtered) >= self.max_branches:
+                break
+
+        return filtered or [[]]
 
     def _enumerate_valid_condition_combinations(
         self,
