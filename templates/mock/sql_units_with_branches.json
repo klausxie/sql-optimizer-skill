@@ -4,9 +4,9 @@
       "sql_unit_id": "mock-unit-1",
       "branches": [
         {
-          "path_id": "p1",
+          "path_id": "default",
           "condition": null,
-          "expanded_sql": "SELECT * FROM users WHERE id = ?",
+          "expanded_sql": "SELECT * FROM users WHERE id = 1",
           "is_valid": true
         }
       ]
@@ -15,9 +15,9 @@
       "sql_unit_id": "mock-unit-2",
       "branches": [
         {
-          "path_id": "p1",
+          "path_id": "default",
           "condition": null,
-          "expanded_sql": "SELECT * FROM users WHERE name LIKE ?",
+          "expanded_sql": "SELECT * FROM users WHERE name LIKE 'test'",
           "is_valid": true
         }
       ]

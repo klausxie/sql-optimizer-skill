@@ -65,6 +65,15 @@ def run(stage: str, config: str, run_id: str | None, mock: bool) -> None:
         sys.exit(1)
 
 
+MOCK_FILE_STAGE_MAP = {
+    "sql_units.json": "init",
+    "sql_units_with_branches.json": "parse",
+    "baselines.json": "recognition",
+    "proposals.json": "optimize",
+    "report.json": "result",
+}
+
+
 @click.command()
 @click.argument("run_id", required=False)
 @click.option("--source", default=None, help="Source directory for mock templates")
@@ -81,14 +90,12 @@ def mock(run_id: str | None, source: str | None) -> None:
         click.echo("Available mock templates:")
         if template_mock_dir.exists():
             for f in template_mock_dir.iterdir():
-                click.echo(f"  - {f.name}")
+                stage = MOCK_FILE_STAGE_MAP.get(f.name, "unknown")
+                click.echo(f"  - {f.name} (stage: {stage})")
         else:
             click.echo("  No mock templates found in templates/mock/")
         click.echo("\nUsage: sqlopt mock <run_id> [--source <path>]")
         return
-
-    run_mock_dir = Path("runs") / run_id / "mock"
-    run_mock_dir.mkdir(parents=True, exist_ok=True)
 
     src = Path(source) if source else template_mock_dir
 
@@ -99,14 +106,20 @@ def mock(run_id: str | None, source: str | None) -> None:
     count = 0
     for f in src.iterdir():
         if f.is_file():
-            shutil.copy2(f, run_mock_dir / f.name)
-            click.echo(f"  Copied {f.name} -> {run_mock_dir / f.name}")
+            stage = MOCK_FILE_STAGE_MAP.get(f.name)
+            if stage is None:
+                click.echo(f"  Skipping {f.name} - unknown stage mapping")
+                continue
+            stage_mock_dir = Path("runs") / run_id / "mock" / stage
+            stage_mock_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, stage_mock_dir / f.name)
+            click.echo(f"  Copied {f.name} -> {stage_mock_dir / f.name}")
             count += 1
 
     if count == 0:
         click.echo("No files found to copy.")
     else:
-        click.echo(f"\nCopied {count} mock file(s) to {run_mock_dir}")
+        click.echo(f"\nCopied {count} mock file(s) to runs/{run_id}/mock/")
         click.echo("Run stages with --mock flag to use these mock files.")
 
 
