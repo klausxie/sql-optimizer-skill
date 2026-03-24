@@ -121,22 +121,23 @@ templates/            # 配置模板
 
 ## 直接调试
 
-可以直接运行单个阶段文件进行调试：
+在业务项目目录（包含 MyBatis XML 的项目）下，直接运行单个阶段文件进行调试：
 
 ```bash
-# 直接运行 Init 阶段
+# 切换到业务项目目录（假设你的 MyBatis 项目）
+cd /path/to/your/mybatis-project
+
+# 创建配置文件（从 sql-optimizer-skill 复制模板）
+cp /path/to/sql-optimizer-skill/templates/sqlopt.example.yml.template sqlopt.yml
+
+# 编辑 sqlopt.yml，填入数据库连接和 MyBatis XML 路径
+# scan_mapper_globs: ["src/main/resources/**/*.xml"]
+
+# 直接运行单个阶段
 python -m sqlopt.stages.init.stage --config sqlopt.yml
-
-# 直接运行 Parse 阶段
 python -m sqlopt.stages.parse.stage --config sqlopt.yml
-
-# 直接运行 Recognition 阶段
 python -m sqlopt.stages.recognition.stage --config sqlopt.yml
-
-# 直接运行 Optimize 阶段
 python -m sqlopt.stages.optimize.stage --config sqlopt.yml
-
-# 直接运行 Result 阶段
 python -m sqlopt.stages.result.stage --config sqlopt.yml
 ```
 
