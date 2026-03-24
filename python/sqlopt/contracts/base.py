@@ -28,5 +28,7 @@ def load_json_file(file_path: str | Path) -> dict[str, Any]:
 def save_json_file(data: Any, file_path: str | Path) -> None:
     if is_dataclass(data):
         data = asdict(data)
-    with Path(file_path).open("w", encoding="utf-8") as f:
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
