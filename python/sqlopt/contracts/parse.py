@@ -13,6 +13,8 @@ class SQLBranch:
     is_valid: bool
     risk_flags: list[str] = field(default_factory=list)
     active_conditions: list[str] = field(default_factory=list)
+    risk_score: float | None = None
+    score_reasons: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(
@@ -23,6 +25,8 @@ class SQLBranch:
                 "is_valid": self.is_valid,
                 "risk_flags": self.risk_flags,
                 "active_conditions": self.active_conditions,
+                "risk_score": self.risk_score,
+                "score_reasons": self.score_reasons,
             }
         )
 
@@ -36,6 +40,8 @@ class SQLBranch:
             is_valid=data["is_valid"],
             risk_flags=data.get("risk_flags", []),
             active_conditions=data.get("active_conditions", []),
+            risk_score=data.get("risk_score"),
+            score_reasons=data.get("score_reasons", []),
         )
 
 

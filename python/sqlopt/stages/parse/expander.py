@@ -11,6 +11,8 @@ class ExpandedBranch:
     is_valid: bool
     risk_flags: list[str] = field(default_factory=list)
     active_conditions: list[str] = field(default_factory=list)
+    risk_score: float | None = None
+    score_reasons: list[str] = field(default_factory=list)
 
 
 def expand_branches(sql_text: str) -> list[ExpandedBranch]:
@@ -30,6 +32,8 @@ def expand_branches(sql_text: str) -> list[ExpandedBranch]:
             is_valid=b.is_valid,
             risk_flags=b.risk_flags,
             active_conditions=b.active_conditions,
+            risk_score=b.risk_score,
+            score_reasons=b.score_reasons,
         )
         for b in raw_branches
     ]

@@ -32,6 +32,8 @@ class ExpandedBranch:
     is_valid: bool
     risk_flags: list[str] = field(default_factory=list)
     active_conditions: list[str] = field(default_factory=list)
+    risk_score: float | None = None
+    score_reasons: list[str] = field(default_factory=list)
 
 
 class BranchExpander:
@@ -140,6 +142,8 @@ class BranchExpander:
             active_conditions = branch_dict.get("active_conditions", [])
             sql = branch_dict.get("sql", "")
             risk_flags = branch_dict.get("risk_flags", [])
+            risk_score = branch_dict.get("risk_score")
+            score_reasons = branch_dict.get("score_reasons", [])
 
             path_id = f"branch_{branch_id}"
             condition = " AND ".join(active_conditions) if active_conditions else None
@@ -152,6 +156,8 @@ class BranchExpander:
                     is_valid=True,
                     risk_flags=risk_flags,
                     active_conditions=active_conditions,
+                    risk_score=risk_score,
+                    score_reasons=score_reasons,
                 )
             )
 

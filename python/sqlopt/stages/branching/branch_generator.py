@@ -17,6 +17,7 @@ from sqlopt.stages.branching.branch_strategy import (
     AllCombinationsStrategy,
 )
 from sqlopt.stages.branching.branch_context import BranchContext
+from sqlopt.stages.branching.branch_validator import BranchValidator
 from sqlopt.stages.branching.dimension_extractor import DimensionExtractor
 from sqlopt.stages.branching.mutex_branch_detector import MutexBranchDetector
 from sqlopt.stages.branching.dynamic_context import DynamicContext
@@ -115,8 +116,8 @@ class BranchGenerator:
                 }
             ]
 
-        # Generate additional singleton variants for foreach clauses by
-        # re-rendering the full tree, not by string replacement.
+        # Generate additional cardinality bucket variants for foreach clauses
+        # by re-rendering the full tree, not by string replacement.
         branches = self._generate_foreach_boundary_branches(branches, sql_node)
 
         # Collect risk_flags from bind conditions with pattern detection
@@ -205,9 +206,23 @@ class BranchGenerator:
                                 risk_flags.append("concat_wildcard")
 
             if risk_flags:
-                branch["risk_flags"] = risk_flags
+                branch["risk_flags"] = self._dedupe_list(risk_flags)
+            else:
+                branch["risk_flags"] = []
 
-        return branches[: self.max_branches]
+        scorer = SQLDeltaRiskScorer(table_metadata=self.table_metadata)
+        for branch in branches:
+            risk_score, score_reasons = scorer.score_branch(
+                branch.get("sql", ""),
+                branch.get("active_conditions", []),
+                branch.get("risk_flags", []),
+            )
+            branch["risk_score"] = risk_score
+            branch["score_reasons"] = score_reasons
+
+        validator = BranchValidator()
+        validated = validator.validate_and_deduplicate(branches, self.max_branches)
+        return validated.branches
 
     def _plan_ladder_condition_combinations(
         self,
@@ -1408,20 +1423,20 @@ class BranchGenerator:
         branches: List[Dict[str, Any]],
         sql_node: SqlNode,
     ) -> List[Dict[str, Any]]:
-        """Generate additional branches for safe foreach boundary cases.
+        """Generate additional branches for safe foreach cardinality buckets.
 
-        We keep the base branch render (sample_size=2) as the multi-item case,
-        then add a singleton variant by re-rendering the filtered SqlNode tree.
-        Empty-collection variants are intentionally skipped here because they
-        frequently produce invalid SQL such as ``IN ()`` and are better modeled
-        as the surrounding guard condition being false.
+        We keep the base branch render (sample_size=2) as the small-list case,
+        then add singleton and large-list variants by re-rendering the filtered
+        SqlNode tree. Empty-collection variants are intentionally skipped here
+        because they frequently produce invalid SQL such as ``IN ()`` and are
+        better modeled as the surrounding guard condition being false.
 
         Args:
             branches: Initial branches generated from condition combinations.
             sql_node: The root SqlNode.
 
         Returns:
-            Extended list of branches including foreach singleton variants.
+            Extended list of branches including foreach cardinality variants.
         """
         if not self._collect_foreach_nodes(sql_node):
             return branches
@@ -1448,35 +1463,40 @@ class BranchGenerator:
             for foreach_index, foreach_node in enumerate(filtered_foreach_nodes):
                 if len(branches) + len(boundary_branches) >= self.max_branches:
                     break
-                if getattr(foreach_node, "sample_size", 2) == 1:
-                    continue
+                for sample_size, bucket_name in ((1, "singleton"), (8, "large")):
+                    if len(branches) + len(boundary_branches) >= self.max_branches:
+                        break
+                    if getattr(foreach_node, "sample_size", 2) == sample_size:
+                        continue
 
-                variant_node = copy.deepcopy(filtered_node)
-                variant_foreach_nodes = self._collect_foreach_nodes(variant_node)
-                if foreach_index >= len(variant_foreach_nodes):
-                    continue
+                    variant_node = copy.deepcopy(filtered_node)
+                    variant_foreach_nodes = self._collect_foreach_nodes(variant_node)
+                    if foreach_index >= len(variant_foreach_nodes):
+                        continue
 
-                variant_foreach_nodes[foreach_index].sample_size = 1
-                context = DynamicContext()
-                variant_node.apply(context)
-                variant_sql = self._normalize_sql(context.get_sql())
-                if not variant_sql or self._contains_empty_in_clause(variant_sql):
-                    continue
+                    variant_foreach_nodes[foreach_index].sample_size = sample_size
+                    context = DynamicContext()
+                    variant_node.apply(context)
+                    variant_sql = self._normalize_sql(context.get_sql())
+                    if not variant_sql or self._contains_empty_in_clause(variant_sql):
+                        continue
 
-                variant_conditions = active_conditions + [f"foreach_{foreach_index}_single"]
-                signature = self._branch_signature(variant_sql, variant_conditions)
-                if signature in seen_signatures:
-                    continue
-                seen_signatures.add(signature)
+                    variant_conditions = active_conditions + [
+                        f"foreach_{foreach_index}_{bucket_name}"
+                    ]
+                    signature = self._branch_signature(variant_sql, variant_conditions)
+                    if signature in seen_signatures:
+                        continue
+                    seen_signatures.add(signature)
 
-                boundary_branches.append(
-                    {
-                        "branch_id": len(branches) + len(boundary_branches),
-                        "active_conditions": variant_conditions,
-                        "sql": variant_sql,
-                        "condition_count": len(variant_conditions),
-                    }
-                )
+                    boundary_branches.append(
+                        {
+                            "branch_id": len(branches) + len(boundary_branches),
+                            "active_conditions": variant_conditions,
+                            "sql": variant_sql,
+                            "condition_count": len(variant_conditions),
+                        }
+                    )
 
         return branches + boundary_branches
 
@@ -1489,3 +1509,12 @@ class BranchGenerator:
 
     def _contains_empty_in_clause(self, sql: str) -> bool:
         return bool(re.search(r"\b(?:NOT\s+)?IN\s*\(\s*\)", sql, re.IGNORECASE))
+
+    def _dedupe_list(self, values: List[str]) -> List[str]:
+        deduped: List[str] = []
+        seen: set[str] = set()
+        for value in values:
+            if value not in seen:
+                seen.add(value)
+                deduped.append(value)
+        return deduped

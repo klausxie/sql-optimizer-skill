@@ -99,6 +99,8 @@ class ParseStage(Stage[None, ParseOutput]):
                             is_valid=exp.is_valid,
                             risk_flags=exp.risk_flags,
                             active_conditions=exp.active_conditions,
+                            risk_score=exp.risk_score,
+                            score_reasons=exp.score_reasons,
                         )
                         for exp in expanded
                     ],

@@ -111,9 +111,25 @@ class DimensionExtractor:
                     next_parent_conditions,
                     include_stack,
                 )
-            # We intentionally skip traversing nested conditions under otherwise
-            # here because choosing the default path has no explicit activation
-            # token in the current planner model.
+            if sql_node.default_sql_node is not None:
+                dimensions.append(
+                    BranchDimension(
+                        condition="",
+                        required_conditions=parent_conditions,
+                        sql_fragment=self._collect_sql_fragment(
+                            sql_node.default_sql_node.contents,
+                            include_stack=set(include_stack),
+                        ),
+                        depth=len(parent_conditions),
+                        mutex_group=choose_group,
+                    )
+                )
+                self._extract_recursive(
+                    sql_node.default_sql_node.contents,
+                    dimensions,
+                    parent_conditions,
+                    include_stack,
+                )
             return
 
         if isinstance(sql_node, IncludeSqlNode):

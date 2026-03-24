@@ -162,6 +162,8 @@ class TestSQLBranch:
             condition="y = 1",
             expanded_sql="SELECT * FROM t WHERE y = 1",
             is_valid=True,
+            risk_score=4.5,
+            score_reasons=["like_prefix"],
         )
         json_str = branch.to_json()
         restored = SQLBranch.from_json(json_str)
@@ -169,6 +171,8 @@ class TestSQLBranch:
         assert restored.condition == branch.condition
         assert restored.expanded_sql == branch.expanded_sql
         assert restored.is_valid == branch.is_valid
+        assert restored.risk_score == 4.5
+        assert restored.score_reasons == ["like_prefix"]
 
 
 class TestSQLUnitWithBranches:

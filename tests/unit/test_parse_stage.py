@@ -110,3 +110,5 @@ class TestParseStage:
         assert any("status = #{status}" in branch.expanded_sql for branch in branches)
         assert any(branch.active_conditions for branch in branches)
         assert any("prefix_wildcard" in branch.risk_flags for branch in branches)
+        assert any(branch.risk_score is not None for branch in branches)
+        assert any(branch.score_reasons for branch in branches)
