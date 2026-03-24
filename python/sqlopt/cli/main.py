@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sys
 from pathlib import Path
@@ -9,6 +10,12 @@ from pathlib import Path
 import click
 from sqlopt.common.config import SQLOptConfig, load_config
 from sqlopt.stage_runner import StageRunner
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    force=True,
+)
 
 
 @click.group()

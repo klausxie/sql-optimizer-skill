@@ -59,27 +59,40 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
     ) -> RecognitionOutput:
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
+        logger.info("=" * 60)
+        logger.info("[RECOGNITION] Starting Recognition stage")
+        logger.info(f"[RECOGNITION] Run ID: {rid}, Mock mode: {mock}")
 
         if rid is None:
+            logger.warning("[RECOGNITION] No run_id provided, using stub data")
             return self._create_stub_output()
 
         loader = MockDataLoader(rid, use_mock=mock)
         parse_file = loader.get_parse_sql_units_with_branches_path()
+        logger.info(f"[RECOGNITION] Parse file: {parse_file}")
 
         if not parse_file.exists():
+            logger.warning(f"[RECOGNITION] Parse file not found: {parse_file}, using stub data")
             return self._create_stub_output()
 
         parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
+        logger.info(f"[RECOGNITION] Loaded {len(parse_data.sql_units_with_branches)} SQL unit(s) from parse stage")
 
         baselines: list[PerformanceBaseline] = []
         platform = "postgresql"
+        total_branches = sum(len(su.branches) for su in parse_data.sql_units_with_branches)
+        logger.info(f"[RECOGNITION] Processing {total_branches} branch(es) for baseline generation")
 
         for sql_unit in parse_data.sql_units_with_branches:
             for branch in sql_unit.branches:
                 if not branch.is_valid:
+                    logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
                 try:
                     sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql)
+                    logger.debug(
+                        f"[RECOGNITION]   EXPLAIN for {sql_unit.sql_unit_id}.{branch.path_id}: {sql_for_explain[:60]}..."
+                    )
                     baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
                     baseline = PerformanceBaseline(
                         sql_unit_id=sql_unit.sql_unit_id,
@@ -89,16 +102,23 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                         actual_time_ms=baseline_data.get("actual_time_ms"),
                     )
                     baselines.append(baseline)
+                    logger.info(
+                        f"[RECOGNITION]   ✓ {sql_unit.sql_unit_id}.{branch.path_id}: cost={baseline_data['estimated_cost']}"
+                    )
                 except Exception as e:  # noqa: BLE001
                     logger.warning(
-                        "Failed to generate baseline for %s: %s",
+                        "[RECOGNITION]   ✗ Failed: %s.%s - %s",
                         sql_unit.sql_unit_id,
+                        branch.path_id,
                         str(e),
                     )
                     continue
 
+        logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
         output = RecognitionOutput(baselines=baselines)
         self._write_output(rid, output)
+        logger.info(f"[RECOGNITION] Output written to: runs/{rid}/recognition/baselines.json")
+        logger.info("[RECOGNITION] Recognition stage completed")
         return output
 
     def _create_stub_output(self) -> RecognitionOutput:

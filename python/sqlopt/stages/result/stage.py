@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import logging
 from pathlib import Path
 
 from sqlopt.common.mock_data_loader import MockDataLoader
@@ -10,6 +11,8 @@ from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.result import Patch, Report, ResultOutput
 from sqlopt.stages.base import Stage
+
+logger = logging.getLogger(__name__)
 
 
 class ResultStage(Stage[None, ResultOutput]):
@@ -48,42 +51,52 @@ class ResultStage(Stage[None, ResultOutput]):
         """
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
+        logger.info("=" * 60)
+        logger.info("[RESULT] Starting Result stage")
+        logger.info(f"[RESULT] Run ID: {rid}, Mock mode: {mock}")
 
         if rid is None:
+            logger.warning("[RESULT] No run_id provided, using stub data")
             return self._create_stub_output()
 
         loader = MockDataLoader(rid, use_mock=mock)
 
         optimize_file = loader.get_optimize_proposals_path()
+        logger.info(f"[RESULT] Proposals file: {optimize_file}")
         if not optimize_file.exists():
+            logger.warning(f"[RESULT] Proposals file not found: {optimize_file}, using stub data")
             return self._create_stub_output()
 
         optimize_data = OptimizeOutput.from_json(optimize_file.read_text(encoding="utf-8"))
+        logger.info(f"[RESULT] Loaded {len(optimize_data.proposals)} proposal(s) from optimize stage")
 
         init_file = loader.get_init_sql_units_path()
+        logger.info(f"[RESULT] Init file: {init_file}")
         if not init_file.exists():
+            logger.warning(f"[RESULT] Init file not found: {init_file}, using stub data")
             return self._create_stub_output()
 
         init_data = InitOutput.from_json(init_file.read_text(encoding="utf-8"))
+        logger.info(f"[RESULT] Loaded {len(init_data.sql_units)} SQL unit(s) from init stage")
 
-        # Build SQL unit lookup
         sql_unit_map = {unit.id: unit for unit in init_data.sql_units}
 
-        # Filter proposals with confidence > 0.7
         high_confidence_proposals = [p for p in optimize_data.proposals if p.confidence > 0.7]
+        logger.info(f"[RESULT] High-confidence proposals (confidence > 0.7): {len(high_confidence_proposals)}")
 
-        # Generate patches for high-confidence proposals
         patches: list[Patch] = []
         for proposal in high_confidence_proposals:
             sql_unit = sql_unit_map.get(proposal.sql_unit_id)
             if sql_unit is None:
+                logger.debug(f"[RESULT]   Skipping {proposal.sql_unit_id} - not found in init data")
                 continue
 
             patch = self._create_patch(proposal, sql_unit.sql_text)
             patches.append(patch)
+            logger.info(f"[RESULT]   ✓ {proposal.sql_unit_id}: {proposal.rationale[:50]}...")
 
-        # Generate report
         report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches)
+        logger.info(f"[RESULT] Report summary: {report.summary}")
 
         output = ResultOutput(
             can_patch=len(patches) > 0,
@@ -92,7 +105,9 @@ class ResultStage(Stage[None, ResultOutput]):
         )
 
         self._write_output(output, rid)
-
+        logger.info(f"[RESULT] Output written to: runs/{rid}/result/report.json")
+        logger.info(f"[RESULT] Generated {len(patches)} patch(es)")
+        logger.info("[RESULT] Result stage completed")
         return output
 
     def _create_patch(self, proposal: OptimizationProposal, original_xml: str) -> Patch:

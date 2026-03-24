@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
@@ -10,6 +11,8 @@ from sqlopt.common import save_json_file
 from sqlopt.common.config import SQLOptConfig, load_config
 from sqlopt.common.progress import STATUS_COMPLETED, STATUS_FAILED, ProgressTracker
 from sqlopt.common.run_paths import RunPaths
+
+logger = logging.getLogger(__name__)
 
 STAGE_ORDER = ["init", "parse", "recognition", "optimize", "result"]
 
@@ -58,6 +61,7 @@ class StageRunner:
             self.progress.register_stage(stage)
 
     def run_stage(self, stage_name: str, use_mock: bool = True) -> None:
+        logger.info(f"[RUNNER] Executing stage: {stage_name} (mock={use_mock})")
         if stage_name not in STAGE_ORDER:
             raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {STAGE_ORDER}")
         self.paths.ensure_dirs()
@@ -74,17 +78,22 @@ class StageRunner:
             elif stage_name == "result":
                 self._run_result_stage(use_mock=use_mock)
             self.progress.complete_stage(stage_name)
+            logger.info(f"[RUNNER] Stage '{stage_name}' completed successfully")
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
+            logger.error(f"[RUNNER] Stage '{stage_name}' failed: {e}")
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
     def run_all(self) -> PipelineResult:
+        logger.info("=" * 60)
+        logger.info("[RUNNER] Starting full pipeline execution")
         self.paths.ensure_dirs()
         stage_results: dict[str, StageResult] = {}
         try:
             for stage in STAGE_ORDER:
                 self.run_stage(stage)
                 stage_results[stage] = StageResult(stage_name=stage, output={"status": "completed"})
+            logger.info("[RUNNER] Full pipeline completed successfully")
             return PipelineResult(success=True, stage_results=stage_results)
         except RuntimeError as e:
             failed_stage = None
@@ -94,21 +103,26 @@ class StageRunner:
                     break
             if failed_stage:
                 stage_results[failed_stage] = StageResult(stage_name=failed_stage, error=str(e))
+            logger.error(f"[RUNNER] Full pipeline failed at stage '{failed_stage}': {e}")
             return PipelineResult(success=False, stage_results=stage_results)
 
     def _run_init_stage(self) -> None:
         from sqlopt.stages.init import InitStage
 
+        logger.info("[RUNNER] Initializing InitStage...")
         stage = InitStage(self.config, self.run_id)
         result = stage.run()
         save_json_file(result, self.paths.init_sql_units)
+        logger.info(f"[RUNNER] Init stage output: {self.paths.init_sql_units}")
 
     def _run_parse_stage(self, use_mock: bool = True) -> None:
         from sqlopt.stages.parse import ParseStage
 
+        logger.info("[RUNNER] Initializing ParseStage...")
         stage = ParseStage(self.run_id, use_mock=use_mock)
         result = stage.run()
         save_json_file(result, self.paths.parse_sql_units_with_branches)
+        logger.info(f"[RUNNER] Parse stage output: {self.paths.parse_sql_units_with_branches}")
 
     def _run_recognition_stage(self, use_mock: bool = True) -> None:
         from sqlopt.common.db_connector import create_connector
@@ -126,15 +140,24 @@ class StageRunner:
                 user=self.config.db_user or "",
                 password=self.config.db_password or "",
             )
+            logger.info(
+                f"[RUNNER] DB connector created: {self.config.db_platform}://{self.config.db_host}:{self.config.db_port}/{self.config.db_name}"
+            )
         if self.config.llm_enabled:
             if self.config.llm_provider == "openai":
                 llm_provider = OpenAILLMProvider(db_connector=db_connector)
+                logger.info("[RUNNER] LLM provider: OpenAI")
             elif self.config.llm_provider == "opencode_run":
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
+                logger.info("[RUNNER] LLM provider: OpenCode Run")
+        else:
+            logger.info("[RUNNER] LLM disabled - using mock mode")
 
+        logger.info("[RUNNER] Initializing RecognitionStage...")
         stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.recognition_baselines)
+        logger.info(f"[RUNNER] Recognition stage output: {self.paths.recognition_baselines}")
 
     def _run_optimize_stage(self, use_mock: bool = True) -> None:
         from sqlopt.common.db_connector import create_connector
@@ -158,16 +181,20 @@ class StageRunner:
             elif self.config.llm_provider == "opencode_run":
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
+        logger.info("[RUNNER] Initializing OptimizeStage...")
         stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.optimize_proposals)
+        logger.info(f"[RUNNER] Optimize stage output: {self.paths.optimize_proposals}")
 
     def _run_result_stage(self, use_mock: bool = True) -> None:
         from sqlopt.stages.result import ResultStage
 
+        logger.info("[RUNNER] Initializing ResultStage...")
         stage = ResultStage(self.run_id, use_mock=use_mock)
         result = stage.run(run_id=self.run_id)
         save_json_file(result, self.paths.result_report)
+        logger.info(f"[RUNNER] Result stage output: {self.paths.result_report}")
 
     def get_status(self) -> dict[str, Any]:
         return cast("dict[str, Any]", self.progress.get_status())

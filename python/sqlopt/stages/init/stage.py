@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from sqlopt.common.config import SQLOptConfig
@@ -8,6 +9,8 @@ from sqlopt.stages.base import Stage
 
 from .parser import ParsedStatement, parse_mapper_file
 from .scanner import find_mapper_files
+
+logger = logging.getLogger(__name__)
 
 
 class InitStage(Stage[None, InitOutput]):
@@ -24,7 +27,12 @@ class InitStage(Stage[None, InitOutput]):
     ) -> InitOutput:
         cfg = config or self.config
         rid = run_id or self.run_id
+        logger.info("=" * 60)
+        logger.info("[INIT] Starting Init stage")
+        logger.info(f"[INIT] Run ID: {rid}")
+
         if cfg is None or rid is None:
+            logger.warning("[INIT] No config or run_id provided, using stub data")
             unit = SQLUnit(
                 id="stub-1",
                 mapper_file="UserMapper.xml",
@@ -38,18 +46,31 @@ class InitStage(Stage[None, InitOutput]):
 
         project_root = cfg.project_root_path
         globs = cfg.scan_mapper_globs
+        logger.info(f"[INIT] Project root: {project_root}")
+        logger.info(f"[INIT] Scan globs: {globs}")
 
         mapper_files = find_mapper_files(project_root, globs)
+        logger.info(f"[INIT] Found {len(mapper_files)} mapper file(s)")
 
         sql_units: list[SQLUnit] = []
+        total_statements = 0
         for xml_path in mapper_files:
+            logger.debug(f"[INIT] Parsing: {xml_path}")
             statements = parse_mapper_file(xml_path)
+            stmt_count = len(statements)
+            total_statements += stmt_count
+            logger.debug(f"[INIT]   Found {stmt_count} SQL statement(s) in {Path(xml_path).name}")
             for stmt in statements:
                 unit = _parsed_to_sqlunit(stmt)
                 sql_units.append(unit)
 
+        logger.info(f"[INIT] Extracted {total_statements} SQL unit(s) from {len(mapper_files)} mapper file(s)")
+        logger.info(f"[INIT] SQL units: {[u.sql_id for u in sql_units]}")
+
         output = InitOutput(sql_units=sql_units, run_id=rid)
         self._write_output(output)
+        logger.info(f"[INIT] Output written to: runs/{rid}/init/sql_units.json")
+        logger.info("[INIT] Init stage completed")
         return output
 
     def _write_output(self, output: InitOutput) -> None:
