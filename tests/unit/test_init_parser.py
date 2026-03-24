@@ -73,9 +73,7 @@ class TestExtractParameterMappings:
         """Test extracting multiple parameters."""
         from xml.etree import ElementTree as ET
 
-        elem = ET.fromstring(
-            "<select>SELECT * FROM users WHERE id = #{id} AND name = #{name}</select>"
-        )
+        elem = ET.fromstring("<select>SELECT * FROM users WHERE id = #{id} AND name = #{name}</select>")
         result = extract_parameter_mappings(elem)
         assert len(result) == 2
         names = {r["name"] for r in result}
@@ -85,9 +83,7 @@ class TestExtractParameterMappings:
         """Test that duplicate parameters are deduplicated."""
         from xml.etree import ElementTree as ET
 
-        elem = ET.fromstring(
-            "<select>SELECT * FROM users WHERE id = #{id} AND ref = #{id}</select>"
-        )
+        elem = ET.fromstring("<select>SELECT * FROM users WHERE id = #{id} AND ref = #{id}</select>")
         result = extract_parameter_mappings(elem)
         assert len(result) == 1
         assert result[0]["name"] == "id"
@@ -116,9 +112,7 @@ class TestDetectDynamicFeatures:
         """Test detecting multiple dynamic tags."""
         from xml.etree import ElementTree as ET
 
-        elem = ET.fromstring(
-            "<select><if test='name != null'>AND name = #{name}</if><where>1=1</where></select>"
-        )
+        elem = ET.fromstring("<select><if test='name != null'>AND name = #{name}</if><where>1=1</where></select>")
         result = detect_dynamic_features(elem)
         assert "IF" in result
         assert "WHERE" in result
@@ -127,9 +121,7 @@ class TestDetectDynamicFeatures:
         """Test detecting choose/when tags."""
         from xml.etree import ElementTree as ET
 
-        elem = ET.fromstring(
-            "<select><choose><when test='a'>a</when><otherwise>b</otherwise></choose></select>"
-        )
+        elem = ET.fromstring("<select><choose><when test='a'>a</when><otherwise>b</otherwise></choose></select>")
         result = detect_dynamic_features(elem)
         assert "CHOOSE" in result
         assert "WHEN" in result
@@ -170,7 +162,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 1
             stmt = statements[0]
             assert stmt.statement_id == "findAll"
@@ -195,7 +187,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 4
             types = {s.statement_type for s in statements}
             assert types == {"SELECT", "INSERT", "UPDATE", "DELETE"}
@@ -214,7 +206,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 1
             assert statements[0].sql_key == "findAll"
             assert statements[0].namespace == ""
@@ -235,7 +227,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 1
             assert "SELECT * FROM users" in statements[0].xml_content
         finally:
@@ -253,7 +245,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 1
             mappings = statements[0].parameter_mappings
             assert len(mappings) == 1
@@ -280,7 +272,7 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             assert len(statements) == 1
             features = statements[0].dynamic_features
             assert "IF" in features
@@ -295,12 +287,12 @@ class TestParseMapperFile:
             xml_path = Path(f.name)
 
         try:
-            statements = parse_mapper_file(xml_path)
-            assert statements == []
+            statements, fragments = parse_mapper_file(xml_path)
+            assert statements == [] and fragments == []
         finally:
             xml_path.unlink()
 
     def test_parse_nonexistent_file(self):
         """Test parsing nonexistent file returns empty list."""
-        statements = parse_mapper_file(Path("/nonexistent/file.xml"))
-        assert statements == []
+        statements, fragments = parse_mapper_file(Path("/nonexistent/file.xml"))
+        assert statements == [] and fragments == []

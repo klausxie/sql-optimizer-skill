@@ -4,10 +4,10 @@ import logging
 from pathlib import Path
 
 from sqlopt.common.config import SQLOptConfig
-from sqlopt.contracts.init import InitOutput, SQLUnit
+from sqlopt.contracts.init import InitOutput, SQLFragment, SQLUnit
 from sqlopt.stages.base import Stage
 
-from .parser import ParsedStatement, parse_mapper_file
+from .parser import ParsedFragment, ParsedStatement, parse_mapper_file
 from .scanner import find_mapper_files
 
 logger = logging.getLogger(__name__)
@@ -53,21 +53,28 @@ class InitStage(Stage[None, InitOutput]):
         logger.info(f"[INIT] Found {len(mapper_files)} mapper file(s)")
 
         sql_units: list[SQLUnit] = []
+        sql_fragments: list = []
         total_statements = 0
+        total_fragments = 0
         for xml_path in mapper_files:
             logger.debug(f"[INIT] Parsing: {xml_path}")
-            statements = parse_mapper_file(xml_path)
+            statements, fragments = parse_mapper_file(xml_path)
             stmt_count = len(statements)
+            frag_count = len(fragments)
             total_statements += stmt_count
+            total_fragments += frag_count
             logger.debug(f"[INIT]   Found {stmt_count} SQL statement(s) in {Path(xml_path).name}")
             for stmt in statements:
                 unit = _parsed_to_sqlunit(stmt)
                 sql_units.append(unit)
+            for frag in fragments:
+                sql_fragments.append(_parsed_to_sqlfragment(frag))
 
         logger.info(f"[INIT] Extracted {total_statements} SQL unit(s) from {len(mapper_files)} mapper file(s)")
+        logger.info(f"[INIT] Extracted {total_fragments} SQL fragment(s) from {len(mapper_files)} mapper file(s)")
         logger.info(f"[INIT] SQL units: {[u.sql_id for u in sql_units]}")
 
-        output = InitOutput(sql_units=sql_units, run_id=rid)
+        output = InitOutput(sql_units=sql_units, run_id=rid, sql_fragments=sql_fragments)
         self._write_output(output)
         logger.info(f"[INIT] Output written to: runs/{rid}/init/sql_units.json")
         logger.info("[INIT] Init stage completed")
@@ -87,4 +94,14 @@ def _parsed_to_sqlunit(stmt: ParsedStatement) -> SQLUnit:
         sql_id=stmt.statement_id,
         sql_text=stmt.xml_content,
         statement_type=stmt.statement_type,
+    )
+
+
+def _parsed_to_sqlfragment(frag: ParsedFragment) -> SQLFragment:
+    return SQLFragment(
+        fragmentId=frag.fragment_id,
+        xmlPath=frag.xml_path,
+        startLine=frag.start_line,
+        endLine=frag.end_line,
+        xmlContent=frag.xml_content,
     )
