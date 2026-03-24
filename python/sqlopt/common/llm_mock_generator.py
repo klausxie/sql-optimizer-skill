@@ -15,8 +15,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import openai
-
 
 class LLMProviderBase(ABC):
     """Abstract base class for LLM providers."""
@@ -471,10 +469,17 @@ class OpenAILLMProvider(LLMProviderBase):
         self.db_connector = db_connector
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self.model = model
-        self._client: openai.OpenAI | None = None
+        self._client: Any = None
 
-    def _get_client(self) -> openai.OpenAI:
+    def _get_client(self) -> Any:
         if self._client is None:
+            try:
+                import openai
+            except ImportError:
+                raise ImportError(
+                    "openai package is required for OpenAILLMProvider but not installed. "
+                    "Install with: pip install openai"
+                )
             if not self.api_key:
                 raise ValueError(
                     "OpenAI API key not provided. Set OPENAI_API_KEY environment variable "
@@ -693,9 +698,7 @@ Example output:
                 raise RuntimeError("opencode command not found")
             # opencode is a .CMD file that ultimately runs: node <script> <args>
             # We bypass the batch file and call node directly
-            opencode_script = (
-                Path(opencode_path).parent / "node_modules" / "opencode-ai" / "bin" / "opencode"
-            )
+            opencode_script = Path(opencode_path).parent / "node_modules" / "opencode-ai" / "bin" / "opencode"
             if not opencode_script.exists():
                 # Fallback: use the original batch file approach
                 return ["opencode"]
