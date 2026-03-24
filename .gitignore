@@ -29,5 +29,5 @@ htmlcov/
 # ruff
 .ruff_cache/
 
-# Sisyphus task management (local session data)
+# Sisyphus task management (local use only - not tracked)
 .sisyphus/
