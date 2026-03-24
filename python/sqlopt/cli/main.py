@@ -29,7 +29,7 @@ STAGE_ALIASES = {
 @click.argument("stage", default="init")
 @click.option("--config", default="./sqlopt.yml", help="Config file path")
 @click.option("--run-id", default=None, help="Run ID (defaults to latest if not specified)")
-@click.option("--mock/--no-mock", default=True, help="Enable/disable mock data override")
+@click.option("--mock/--no-mock", default=False, help="Enable/disable mock data override")
 def run(stage: str, config: str, run_id: str | None, mock: bool) -> None:
     """Run a pipeline stage.
 
