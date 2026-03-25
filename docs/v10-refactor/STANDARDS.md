@@ -604,7 +604,85 @@ cd python && ruff check sqlopt/ --show-source
 
 ---
 
-## 14. 参考
+## 14. 阶段报告规范 (Stage Reports)
+
+### 14.1 核心要求
+
+每个阶段执行完成后必须生成 `SUMMARY.md` 报告，包含该阶段的执行情况。
+
+### 14.2 报告内容要求
+
+| 内容 | 说明 |
+|------|------|
+| 阶段名称 | 如 "INIT 阶段报告" |
+| 运行ID | 用于追踪本次执行 |
+| 耗时 | 执行时间（秒） |
+| 统计信息 | SQL单元数、分支数、文件数、文件大小 |
+| 数据契约说明 | 该阶段使用的数据结构解释 |
+| 错误列表 | 如有错误，显示错误信息 |
+| 警告列表 | 如有警告，显示警告信息 |
+
+### 14.3 语言要求
+
+**所有阶段报告必须使用中文**：
+- 标题用中文：如 `# INIT 阶段报告`
+- 标签用中文：如 `| SQL单元数 |` 而不是 `| SQL Units |`
+- 错误提示用中文
+
+### 14.4 生成约束
+
+| 约束 | 说明 |
+|------|------|
+| Best-effort | 报告生成失败不阻塞阶段完成 |
+| 大小限制 | 单个报告不超过 50KB |
+| 原子写入 | 使用 temp+rename 模式 |
+| 位置 | `runs/{run_id}/{stage}/SUMMARY.md` |
+
+### 14.5 功能变化必须更新报告
+
+**强制规则**：任何阶段的功能变化（如新增字段、新增输出文件、流程调整等），必须同步更新该阶段的 `SUMMARY.md` 生成逻辑：
+
+```python
+# ✅ 正确：在修改功能时同时更新报告
+def _generate_summary(self, run_id: str, output: MyOutput) -> None:
+    """生成阶段报告。
+    
+    注意：每次修改阶段功能时，必须同步更新此方法。
+    """
+    try:
+        summary = StageSummary(
+            stage_name=self.stage_name,
+            run_id=run_id,
+            duration_seconds=time.time() - self.start_time,
+            # 新增字段必须同步添加到这里
+            new_field_count=len(output.new_fields),
+            ...
+        )
+        summary_path.write_text(generate_summary_markdown(summary), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"生成阶段报告失败，不影响阶段执行: {e}")
+
+# ❌ 错误：修改功能但不更新报告
+def _generate_summary(self, run_id: str, output: MyOutput) -> None:
+    # 报告内容与实际功能脱节
+    pass
+```
+
+### 14.6 报告生成位置
+
+```
+runs/
+└── {run_id}/
+    ├── init/SUMMARY.md        # Init 阶段报告
+    ├── parse/SUMMARY.md       # Parse 阶段报告
+    ├── recognition/SUMMARY.md # Recognition 阶段报告
+    ├── optimize/SUMMARY.md    # Optimize 阶段报告
+    └── result/SUMMARY.md     # Result 阶段报告
+```
+
+---
+
+## 15. 参考
 
 - [PEP 8](https://pep8.org/)
 - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)

@@ -129,7 +129,7 @@ class TestGenerateSummaryMarkdown:
     """Test generate_summary_markdown function."""
 
     def test_header_contains_stage_name_upper_and_stage_summary(self):
-        """Header should contain stage_name.upper() and 'Stage Summary'."""
+        """Header should contain stage_name.upper() and '阶段报告'."""
         summary = StageSummary(
             stage_name="parse",
             run_id="run-123",
@@ -140,7 +140,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=50000,
         )
         result = generate_summary_markdown(summary)
-        assert "# PARSE Stage Summary" in result
+        assert "# PARSE 阶段报告" in result
 
     def test_run_id_appears_in_output(self):
         """Run ID should appear in output."""
@@ -154,7 +154,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=10000,
         )
         result = generate_summary_markdown(summary)
-        assert "**Run ID:** run-abc-999" in result
+        assert "**运行ID:** run-abc-999" in result
 
     def test_duration_appears_in_output(self):
         """Duration should appear in output with 2 decimal places."""
@@ -168,7 +168,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=80000,
         )
         result = generate_summary_markdown(summary)
-        assert "**Duration:** 3.14 seconds" in result
+        assert "**耗时:** 3.14 秒" in result
 
     def test_statistics_table_has_sql_units(self):
         """Statistics table should have SQL Units metric."""
@@ -182,7 +182,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=0,
         )
         result = generate_summary_markdown(summary)
-        assert "| SQL Units | 42 |" in result
+        assert "| SQL单元数 | 42 |" in result
 
     def test_statistics_table_has_branches(self):
         """Statistics table should have Branches metric."""
@@ -196,7 +196,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=0,
         )
         result = generate_summary_markdown(summary)
-        assert "| Branches | 100 |" in result
+        assert "| 分支数 | 100 |" in result
 
     def test_statistics_table_has_files(self):
         """Statistics table should have Files metric."""
@@ -210,7 +210,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=0,
         )
         result = generate_summary_markdown(summary)
-        assert "| Files | 7 |" in result
+        assert "| 文件数 | 7 |" in result
 
     def test_statistics_table_has_file_size_bytes(self):
         """Statistics table should have File Size metric with formatted bytes."""
@@ -224,7 +224,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=1234567,
         )
         result = generate_summary_markdown(summary)
-        assert "| File Size | 1,234,567 bytes |" in result
+        assert "| 文件大小 | 1,234,567 字节 |" in result
 
     def test_data_contracts_section_present(self):
         """Data Contracts section should be present."""
@@ -238,7 +238,7 @@ class TestGenerateSummaryMarkdown:
             file_size_bytes=0,
         )
         result = generate_summary_markdown(summary)
-        assert "## Data Contracts" in result
+        assert "## 数据契约说明" in result
 
     def test_errors_section_not_present_when_empty(self):
         """Errors section should NOT appear when errors list is empty."""
@@ -253,7 +253,7 @@ class TestGenerateSummaryMarkdown:
             errors=[],
         )
         result = generate_summary_markdown(summary)
-        assert "## Errors" not in result
+        assert "## 错误列表" not in result
 
     def test_errors_section_present_when_non_empty(self):
         """Errors section should appear when errors list is non-empty."""
@@ -268,7 +268,7 @@ class TestGenerateSummaryMarkdown:
             errors=["Something went wrong"],
         )
         result = generate_summary_markdown(summary)
-        assert "## Errors" in result
+        assert "## 错误列表" in result
         assert "Something went wrong" in result
 
     def test_warnings_section_not_present_when_empty(self):
@@ -284,7 +284,7 @@ class TestGenerateSummaryMarkdown:
             warnings=[],
         )
         result = generate_summary_markdown(summary)
-        assert "## Warnings" not in result
+        assert "## 警告列表" not in result
 
     def test_warnings_section_present_when_non_empty(self):
         """Warnings section should appear when warnings list is non-empty."""
@@ -299,7 +299,7 @@ class TestGenerateSummaryMarkdown:
             warnings=["Low disk space"],
         )
         result = generate_summary_markdown(summary)
-        assert "## Warnings" in result
+        assert "## 警告列表" in result
         assert "Low disk space" in result
 
     def test_error_messages_truncated_at_500_chars(self):
