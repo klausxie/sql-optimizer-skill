@@ -54,14 +54,6 @@ sql-optimizer-skill/
 | `MockDataLoader` | Class | `common/mock_data_loader.py` | Mock data loading |
 | `ContractFileManager` | Class | `common/contract_file_manager.py` | Per-unit file I/O |
 
-## CONVENTIONS
-
-- **CLI**: `sqlopt run <1-5|name>` or `sqlopt mock <run_id>`
-- **Stages**: Type-safe contracts between stages (dataclasses with `to_json()`)
-- **Reports**: All SUMMARY.md use Chinese (as of v10)
-- **Mock**: `MockDataLoader` intercepts file reads for debugging
-- **Error handling**: Unified `SQLOptError` hierarchy
-
 ## ANTI-PATTERNS (THIS PROJECT)
 
 | Forbidden | Rule |

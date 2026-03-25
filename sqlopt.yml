@@ -1,0 +1,24 @@
+# SQL Optimizer 配置模板 - PostgreSQL
+
+config_version: v1
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: sqlopt
+db_user: postgres
+db_password: postgres
+llm_provider: opencode_run
+llm_enabled: true
+project_root_path: .
+scan_mapper_globs:
+  - "tests/real/mybatis-test/src/main/resources/mapper/**/*.xml"
+
+# 并发配置
+concurrency:
+  enabled: true
+  max_workers: 4
+  db_pool_size: 4
+  llm_max_concurrent: 4
+  batch_size: 50
+  timeout_per_task: 120
+  retry_count: 3

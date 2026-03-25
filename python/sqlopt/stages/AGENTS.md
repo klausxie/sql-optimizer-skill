@@ -56,14 +56,6 @@ Each stage writes to `runs/{run_id}/{stage}/`:
 
 Per-unit JSON files managed by `ContractFileManager`.
 
-## ANTI-PATTERNS
-
-| Forbidden | Rule |
-|----------|------|
-| `sys.exit()` | EXIT-001 - raise exceptions instead |
-| Bare `except:` | ERROR-001 - catch specific exceptions |
-| `from X import *` | IMPORT-001 - use explicit imports |
-
 ## TESTING
 
 ```bash

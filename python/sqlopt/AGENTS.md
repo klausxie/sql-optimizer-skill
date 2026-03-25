@@ -25,30 +25,6 @@ sqlopt/
 | Pipeline orchestration | `stage_runner.py` - stage sequencing |
 | Package public API | `__init__.py` - re-exports from submodules |
 
-## CLI USAGE
-
-```bash
-# Run pipeline stages
-sqlopt run 1          # init
-sqlopt run 2          # parse
-sqlopt run 3          # recognition
-sqlopt run 4          # optimize
-sqlopt run 5          # result
-
-# Or by name
-sqlopt run init
-sqlopt run parse
-sqlopt run recognition
-sqlopt run optimize
-sqlopt run result
-
-# Mock data
-sqlopt mock <run_id>
-
-# With config
-sqlopt run 1 --config sqlopt.yml
-```
-
 ## PIPELINE FLOW
 
 ```
@@ -72,3 +48,4 @@ InitStage → ParseStage → RecognitionStage → OptimizeStage → ResultStage
 - CLI entry point: `sqlopt = "sqlopt.cli.main:main"` (pyproject.toml)
 - All stage output written to `runs/{run_id}/{stage}/`
 - Mock data intercepted via `MockDataLoader` when `mock/` subdir exists
+- Per-unit files: Parse/Recognition/Optimize write `units/{id}.json` + `_index.json`
