@@ -29,6 +29,8 @@ class SQLOptConfig:
         config_version: Configuration schema version.
         project_root_path: Root path of the project being analyzed.
         scan_mapper_globs: Glob patterns to find MyBatis mapper XML files.
+        statement_types: List of SQL statement types to process (SELECT, INSERT, UPDATE, DELETE).
+            If None or empty, all types are processed. Default: ["SELECT"]
         db_platform: Target database platform (postgresql, mysql).
         db_host: Database host address.
         db_port: Database port number.
@@ -46,6 +48,7 @@ class SQLOptConfig:
     config_version: str = "v1"
     project_root_path: str = "."
     scan_mapper_globs: List[str] = field(default_factory=lambda: ["src/main/resources/**/*.xml"])
+    statement_types: List[str] = field(default_factory=lambda: ["SELECT"])
     db_platform: str = "postgresql"
     db_host: str | None = None
     db_port: int | None = None
@@ -88,6 +91,7 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         config_version=data.get("config_version", "v1"),
         project_root_path=data.get("project_root_path", "."),
         scan_mapper_globs=data.get("scan_mapper_globs", ["src/main/resources/**/*.xml"]),
+        statement_types=data.get("statement_types", ["SELECT"]),
         db_platform=data.get("db_platform", "postgresql"),
         db_host=data.get("db_host"),
         db_port=data.get("db_port"),

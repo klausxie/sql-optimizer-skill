@@ -122,6 +122,9 @@ class InitStage(Stage[None, InitOutput]):
 
             file_mapping = FileMapping(xmlPath=str(xml_path))
             for stmt in statements:
+                if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
+                    logger.debug(f"[INIT]   Skipping {stmt.statement_type} statement: {stmt.statement_id}")
+                    continue
                 unit = _parsed_to_sqlunit(stmt)
                 sql_units.append(unit)
                 stmt_xpath = _build_statement_xpath(stmt)
