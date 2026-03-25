@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from sqlopt.common.config import SQLOptConfig
+from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
@@ -109,7 +111,115 @@ class ParseStage(Stage[None, ParseOutput]):
 
         logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info("[PARSE] Parse stage completed")
-        return ParseOutput(sql_units_with_branches=units_with_branches)
+
+        output = ParseOutput(sql_units_with_branches=units_with_branches)
+        self._write_output(rid, output)
+        self._generate_summary(rid, output, total_branches)
+
+        return output
+
+    def _write_output(self, run_id: str | None, output: ParseOutput) -> None:
+        """Write parse output to per-unit files and backward-compatible single file.
+
+        Creates:
+        - runs/{run_id}/parse/units/{unit_id}.json (per unit)
+        - runs/{run_id}/parse/units/_index.json (unit ID list)
+        - runs/{run_id}/parse/sql_units_with_branches.json (backward compat)
+        """
+        if not run_id:
+            logger.debug("[PARSE] No run_id, skipping file output")
+            return
+
+        if not output.sql_units_with_branches:
+            logger.debug("[PARSE] No units to write, skipping file output")
+            return
+
+        file_manager = ContractFileManager(run_id, "parse")
+        unit_ids: list[str] = []
+        total_bytes = 0
+
+        for unit in output.sql_units_with_branches:
+            unit_data = {
+                "sql_unit_id": unit.sql_unit_id,
+                "branches": [
+                    {
+                        "path_id": b.path_id,
+                        "condition": b.condition,
+                        "expanded_sql": b.expanded_sql,
+                        "is_valid": b.is_valid,
+                        "risk_flags": b.risk_flags,
+                        "active_conditions": b.active_conditions,
+                        "risk_score": b.risk_score,
+                        "score_reasons": b.score_reasons,
+                    }
+                    for b in unit.branches
+                ],
+            }
+            path = file_manager.write_unit_file(unit.sql_unit_id, unit_data)
+            total_bytes += file_manager.get_file_size(path)
+            unit_ids.append(unit.sql_unit_id)
+
+        index_path = file_manager.write_index(unit_ids)
+        total_bytes += file_manager.get_file_size(index_path)
+
+        parse_dir = Path("runs") / run_id / "parse"
+        parse_dir.mkdir(parents=True, exist_ok=True)
+        compat_path = parse_dir / "sql_units_with_branches.json"
+        compat_path.write_text(output.to_json(), encoding="utf-8")
+        compat_bytes = file_manager.get_file_size(compat_path)
+
+        logger.info(
+            f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
+            f"+ index + compat file ({compat_bytes} bytes)"
+        )
+
+    def _generate_summary(self, run_id: str | None, output: ParseOutput, total_branches: int) -> None:
+        """Generate SUMMARY.md for the parse stage.
+
+        Best-effort operation - errors are logged but don't block stage completion.
+        """
+        if not run_id:
+            return
+
+        try:
+            sql_units_count = len(output.sql_units_with_branches)
+            invalid_branches = sum(
+                1 for unit in output.sql_units_with_branches for branch in unit.branches if not branch.is_valid
+            )
+
+            parse_dir = Path("runs") / run_id / "parse"
+            file_size = 0
+            files_count = 0
+
+            units_dir = parse_dir / "units"
+            if units_dir.exists():
+                for f in units_dir.glob("*.json"):
+                    file_size += f.stat().st_size
+                    files_count += 1
+
+            compat_file = parse_dir / "sql_units_with_branches.json"
+            if compat_file.exists():
+                file_size += compat_file.stat().st_size
+                files_count += 1
+
+            summary = StageSummary(
+                stage_name="parse",
+                run_id=run_id,
+                duration_seconds=0.0,  # Duration not tracked in this stage yet
+                sql_units_count=sql_units_count,
+                branches_count=total_branches,
+                files_count=files_count,
+                file_size_bytes=file_size,
+                warnings=[f"Invalid branches: {invalid_branches}"] if invalid_branches > 0 else [],
+            )
+
+            summary_content = generate_summary_markdown(summary)
+            summary_path = parse_dir / "SUMMARY.md"
+            summary_path.write_text(summary_content, encoding="utf-8")
+
+            logger.info(f"[PARSE] Generated SUMMARY.md ({len(summary_content)} bytes)")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[PARSE] Failed to generate SUMMARY.md: {e}")
 
 
 def _load_fragment_registry(fragments_file: Path):
@@ -123,11 +233,7 @@ def _load_fragment_registry(fragments_file: Path):
         return None
 
     xml_paths = sorted(
-        {
-            str(item.get("xmlPath"))
-            for item in fragment_data
-            if isinstance(item, dict) and item.get("xmlPath")
-        }
+        {str(item.get("xmlPath")) for item in fragment_data if isinstance(item, dict) and item.get("xmlPath")}
     )
     if not xml_paths:
         return None

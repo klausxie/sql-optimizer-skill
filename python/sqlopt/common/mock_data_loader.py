@@ -6,10 +6,13 @@ before reading real stage outputs, enabling isolated stage debugging.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Literal
 
 from sqlopt.common.run_paths import RunPaths
+
+logger = logging.getLogger(__name__)
 
 
 class MockDataLoader:
@@ -47,11 +50,23 @@ class MockDataLoader:
         return self._mock_first(self.paths.mock_init_sql_units, self.paths.init_sql_units)
 
     def get_parse_sql_units_with_branches_path(self) -> Path:
-        """Get path for parse stage SQL units with branches input."""
-        return self._mock_first(
-            self.paths.mock_parse_sql_units_with_branches,
-            self.paths.parse_sql_units_with_branches,
-        )
+        """Get path for parse stage SQL units with branches input.
+
+        Checks for new per-unit format first (parse/units/_index.json),
+        falls back to legacy single-file format if not found.
+
+        Returns:
+            Path to units directory (new format) or single JSON file (legacy format)
+        """
+        if self.use_mock and self.paths.mock_parse_sql_units_with_branches.exists():
+            return self.paths.mock_parse_sql_units_with_branches
+
+        units_index_path = self.paths.parse_dir / "units" / "_index.json"
+        if units_index_path.exists():
+            return self.paths.parse_dir / "units"
+
+        logger.warning("Using legacy single-file format")
+        return self.paths.parse_sql_units_with_branches
 
     def get_init_sql_fragments_path(self) -> Path:
         """Get path for init stage SQL fragments input."""
@@ -105,3 +120,24 @@ class MockDataLoader:
             "result": self.paths.mock_result_report,
         }
         return mock_paths[stage].exists()
+
+    def get_parse_units_dir(self) -> Path:
+        """Get directory for parse stage per-unit output files.
+
+        Returns:
+            Path to runs/{run_id}/parse/units directory
+        """
+        return self.paths.parse_dir / "units"
+
+    def get_parse_unit_path(self, sql_unit_id: str) -> Path:
+        """Get path for a specific parse unit output file.
+
+        Args:
+            sql_unit_id: The SQL unit identifier
+
+        Returns:
+            Path to the unit JSON file (mock if available, else real path)
+        """
+        mock_path = self.paths.mock_dir / "parse" / "units" / f"{sql_unit_id}.json"
+        real_path = self.paths.parse_dir / "units" / f"{sql_unit_id}.json"
+        return self._mock_first(mock_path, real_path)
