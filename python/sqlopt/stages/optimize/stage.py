@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 
-from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
+from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
+from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
@@ -40,6 +43,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         run_id: str | None = None,
         use_mock: bool | None = None,
     ) -> OptimizeOutput:
+        start_time = time.time()
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
         logger.info("=" * 60)
@@ -82,6 +86,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         output = OptimizeOutput(proposals=proposals)
         self._write_output(rid, output)
         logger.info(f"[OPTIMIZE] Output written to: runs/{rid}/optimize/proposals.json")
+
+        # Generate SUMMARY.md (best-effort, don't block on failure)
+        self._generate_summary(rid, output, start_time)
+
         logger.info("[OPTIMIZE] Optimize stage completed")
         return output
 
@@ -209,7 +217,119 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         )
 
     def _write_output(self, run_id: str, output: OptimizeOutput) -> None:
+        """Write optimize output to per-unit files and backward-compatible single file.
+
+        Creates:
+        - runs/{run_id}/optimize/units/{unit_id}.json (per unit)
+        - runs/{run_id}/optimize/units/_index.json (unit ID list)
+        - runs/{run_id}/optimize/proposals.json (backward compat)
+        """
         output_dir = Path("runs") / run_id / "optimize"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / "proposals.json"
-        output_file.write_text(output.to_json(), encoding="utf-8")
+
+        # Always write backward-compatible proposals.json
+        compat_path = output_dir / "proposals.json"
+        compat_path.write_text(output.to_json(), encoding="utf-8")
+
+        if not output.proposals:
+            logger.debug("[OPTIMIZE] No proposals to write, wrote empty proposals.json")
+            return
+
+        file_manager = ContractFileManager(run_id, "optimize")
+
+        proposals_by_unit: dict[str, list[dict]] = {}
+        for proposal in output.proposals:
+            if proposal.sql_unit_id not in proposals_by_unit:
+                proposals_by_unit[proposal.sql_unit_id] = []
+            proposals_by_unit[proposal.sql_unit_id].append(
+                {
+                    "sql_unit_id": proposal.sql_unit_id,
+                    "path_id": proposal.path_id,
+                    "original_sql": proposal.original_sql,
+                    "optimized_sql": proposal.optimized_sql,
+                    "rationale": proposal.rationale,
+                    "confidence": proposal.confidence,
+                }
+            )
+
+        unit_ids: list[str] = []
+        total_bytes = 0
+        for unit_id, proposals in proposals_by_unit.items():
+            unit_data = {
+                "sql_unit_id": unit_id,
+                "proposals": proposals,
+            }
+            path = file_manager.write_unit_file(unit_id, unit_data)
+            total_bytes += file_manager.get_file_size(path)
+            unit_ids.append(unit_id)
+
+        # Write index
+        index_path = file_manager.write_index(unit_ids)
+        total_bytes += file_manager.get_file_size(index_path)
+
+        compat_bytes = file_manager.get_file_size(compat_path)
+
+        logger.info(
+            f"[OPTIMIZE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
+            f"+ index + compat file ({compat_bytes} bytes)"
+        )
+
+    def _generate_summary(
+        self,
+        run_id: str,
+        output: OptimizeOutput,
+        start_time: float,
+    ) -> None:
+        """Generate SUMMARY.md for the optimize stage.
+
+        Best-effort operation - errors are logged but don't block stage completion.
+        """
+        try:
+            duration_seconds = time.time() - start_time
+            proposals = output.proposals
+
+            proposals_count = len(proposals)
+            avg_confidence = 0.0
+            high_confidence_count = 0
+            low_confidence_count = 0
+
+            if proposals:
+                confidences = [p.confidence for p in proposals]
+                avg_confidence = sum(confidences) / len(confidences)
+                high_confidence_count = sum(1 for c in confidences if c >= 0.7)
+                low_confidence_count = sum(1 for c in confidences if c < 0.7)
+
+            output_dir = Path("runs") / run_id / "optimize"
+            file_size_bytes = 0
+            files_count = 0
+
+            if output_dir.exists():
+                for file_path in output_dir.rglob("*.json"):
+                    if file_path.is_file():
+                        file_size_bytes += file_path.stat().st_size
+                        files_count += 1
+
+            warnings = [
+                f"High confidence proposals (>=0.7): {high_confidence_count}",
+                f"Low confidence proposals (<0.7): {low_confidence_count}",
+                f"Average confidence: {avg_confidence:.2f}",
+            ]
+
+            summary = StageSummary(
+                stage_name="optimize",
+                run_id=run_id,
+                duration_seconds=duration_seconds,
+                sql_units_count=proposals_count,
+                branches_count=0,  # Optimize stage doesn't produce branches
+                files_count=files_count,
+                file_size_bytes=file_size_bytes,
+                warnings=warnings,
+            )
+
+            markdown = generate_summary_markdown(summary)
+            summary_path = output_dir / "SUMMARY.md"
+            summary_path.write_text(markdown, encoding="utf-8")
+            logger.info(f"[OPTIMIZE] SUMMARY.md written to: {summary_path}")
+
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[OPTIMIZE] Failed to generate SUMMARY.md: {e}")

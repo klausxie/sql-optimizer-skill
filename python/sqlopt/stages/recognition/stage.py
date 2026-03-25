@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
+from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
@@ -142,16 +145,18 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             except Exception:
                 logger.debug("[RECOGNITION] Failed to load table schemas, using heuristics")
 
+        start_time = time.time()
         if self.config and self.config.concurrency.enabled:
             logger.info("[RECOGNITION] Using concurrent execution mode")
             baselines = self._run_concurrent(parse_data, table_schemas)
         else:
             baselines = self._run_sequential(parse_data, table_schemas)
 
+        duration_seconds = time.time() - start_time
         logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
         output = RecognitionOutput(baselines=baselines)
-        self._write_output(rid, output)
-        logger.info(f"[RECOGNITION] Output written to: runs/{rid}/recognition/baselines.json")
+        file_stats = self._write_output(rid, output)
+        self._write_summary(rid, output, duration_seconds, file_stats)
         logger.info("[RECOGNITION] Recognition stage completed")
         return output
 
@@ -264,8 +269,81 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         )
         return RecognitionOutput(baselines=[baseline])
 
-    def _write_output(self, run_id: str, output: RecognitionOutput) -> None:
+    def _write_output(self, run_id: str, output: RecognitionOutput) -> dict:
+        """Write recognition output to per-unit files and backward-compatible single file.
+
+        Creates:
+        - runs/{run_id}/recognition/units/{unit_id}.json (per unit, grouped baselines)
+        - runs/{run_id}/recognition/units/_index.json (unit ID list)
+        - runs/{run_id}/recognition/baselines.json (backward compat)
+
+        Returns:
+            dict with 'unit_count', 'file_size_bytes' keys
+        """
+        if not output.baselines:
+            logger.debug("[RECOGNITION] No baselines to write, skipping file output")
+            return {"unit_count": 0, "file_size_bytes": 0}
+
+        file_manager = ContractFileManager(run_id, "recognition")
+
+        # Group baselines by sql_unit_id
+        baselines_by_unit: dict[str, list[dict]] = {}
+        for baseline in output.baselines:
+            unit_id = baseline.sql_unit_id
+            if unit_id not in baselines_by_unit:
+                baselines_by_unit[unit_id] = []
+            baselines_by_unit[unit_id].append(
+                {
+                    "sql_unit_id": baseline.sql_unit_id,
+                    "path_id": baseline.path_id,
+                    "plan": baseline.plan,
+                    "estimated_cost": baseline.estimated_cost,
+                    "actual_time_ms": baseline.actual_time_ms,
+                }
+            )
+
+        unit_ids: list[str] = []
+        total_bytes = 0
+
+        for unit_id, baselines in baselines_by_unit.items():
+            unit_data = {"sql_unit_id": unit_id, "baselines": baselines}
+            path = file_manager.write_unit_file(unit_id, unit_data)
+            total_bytes += file_manager.get_file_size(path)
+            unit_ids.append(unit_id)
+
+        index_path = file_manager.write_index(unit_ids)
+        total_bytes += file_manager.get_file_size(index_path)
+
+        # Write backward-compatible single file
         output_dir = Path("runs") / run_id / "recognition"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / "baselines.json"
-        output_file.write_text(output.to_json(), encoding="utf-8")
+        compat_path = output_dir / "baselines.json"
+        compat_path.write_text(output.to_json(), encoding="utf-8")
+        compat_bytes = file_manager.get_file_size(compat_path)
+
+        logger.info(
+            f"[RECOGNITION] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
+            f"+ index + compat file ({compat_bytes} bytes)"
+        )
+        return {"unit_count": len(unit_ids), "file_size_bytes": total_bytes + compat_bytes}
+
+    def _write_summary(self, run_id: str, output: RecognitionOutput, duration_seconds: float, file_stats: dict) -> None:
+        try:
+            unique_units = {b.sql_unit_id for b in output.baselines}
+            summary = StageSummary(
+                stage_name="recognition",
+                run_id=run_id,
+                duration_seconds=duration_seconds,
+                sql_units_count=len(unique_units),
+                branches_count=len(output.baselines),
+                files_count=file_stats["unit_count"] + 2,
+                file_size_bytes=file_stats["file_size_bytes"],
+            )
+            content = generate_summary_markdown(summary)
+            output_dir = Path("runs") / run_id / "recognition"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = output_dir / "SUMMARY.md"
+            summary_path.write_text(content, encoding="utf-8")
+            logger.info(f"[RECOGNITION] Wrote SUMMARY.md ({len(content)} chars)")
+        except Exception:  # noqa: BLE001
+            logger.warning("[RECOGNITION] Failed to write SUMMARY.md, continuing")
