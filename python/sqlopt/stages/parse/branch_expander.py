@@ -13,7 +13,9 @@ import xml.etree.ElementTree
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from sqlopt.stages.branching.branch_validator import BranchValidator
 from sqlopt.stages.branching.fragment_registry import FragmentRegistry
+
 
 @dataclass
 class ExpandedBranch:
@@ -153,7 +155,7 @@ class BranchExpander:
                     path_id=path_id,
                     condition=condition,
                     expanded_sql=sql,
-                    is_valid=True,
+                    is_valid=BranchValidator.validate_sql(sql),
                     risk_flags=risk_flags,
                     active_conditions=active_conditions,
                     risk_score=risk_score,

@@ -13,6 +13,28 @@ class BranchValidationResult:
 class BranchValidator:
     """Validate and deduplicate rendered branches."""
 
+    @staticmethod
+    def validate_sql(sql: str) -> bool:
+        sql_upper = sql.upper()
+
+        if re.search(r"\bUPDATE\b", sql_upper):
+            if not re.search(r"\bSET\b", sql_upper):
+                return False
+
+        if re.search(r"\bDELETE\b", sql_upper):
+            if not re.search(r"\b(WHERE|FROM)\b", sql_upper):
+                return False
+
+        if re.search(r"\bINSERT\b", sql_upper):
+            if not re.search(r"\b(VALUES|SELECT)\b", sql_upper):
+                return False
+
+        if re.search(r"\bSELECT\b", sql_upper):
+            if not re.search(r"\bFROM\b", sql_upper):
+                return False
+
+        return True
+
     def validate_and_deduplicate(
         self,
         branches: list[dict[str, Any]],
