@@ -1,0 +1,6 @@
+config_version: v1
+llm_provider: opencode_run
+llm_enabled: true
+project_root_path: .
+scan_mapper_globs:
+  - "src/main/resources/mapper/*.xml"

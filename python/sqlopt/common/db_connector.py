@@ -154,10 +154,10 @@ class PostgreSQLConnector(DBConnector):
         if self._conn is None:
             return {}
 
-        _, RealDictCursor = _ensure_psycopg2()
+        _, RealDictCursorClass = _ensure_psycopg2()
         explain_sql = f"EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) {sql}"
 
-        with self._conn.cursor(cursor_factory=RealDictCursor) as cursor:
+        with self._conn.cursor(cursor_factory=RealDictCursorClass) as cursor:
             cursor.execute(explain_sql)
             result = cursor.fetchone()
             if result and "QUERY PLAN" in result:
@@ -181,7 +181,8 @@ class PostgreSQLConnector(DBConnector):
         if self._conn is None:
             return []
 
-        with self._conn.cursor(cursor_factory=RealDictCursor) as cursor:
+        _, RealDictCursorClass = _ensure_psycopg2()
+        with self._conn.cursor(cursor_factory=RealDictCursorClass) as cursor:
             cursor.execute(sql, params)
             if cursor.description is None:
                 return []
