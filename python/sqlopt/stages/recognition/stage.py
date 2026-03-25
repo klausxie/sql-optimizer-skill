@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
@@ -20,22 +21,64 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _resolve_mybatis_params_for_explain(sql: str) -> str:
+def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, TableSchema] | None = None) -> str:
     """Replace MyBatis #{} params with sample values for EXPLAIN execution.
 
     Database EXPLAIN requires actual parameter values, not placeholders.
     This function replaces #{} with sample values suitable for EXPLAIN.
+    When table_schemas is provided, uses column type information for correct values.
     """
 
+    def camel_to_snake(name: str) -> str:
+        result = []
+        for i, c in enumerate(name):
+            if c.isupper() and i > 0:
+                result.append("_")
+            result.append(c.lower())
+        return "".join(result)
+
+    def get_column_type_from_context(param_name: str, sql_lower: str) -> str | None:
+        if not table_schemas:
+            return None
+        param_lower = param_name.lower()
+        param_snake = camel_to_snake(param_name)
+        for table_name, schema in table_schemas.items():
+            table_lower = table_name.lower()
+            table_pattern = rf"\b{re.escape(table_lower)}\b"
+            if not re.search(table_pattern, sql_lower):
+                continue
+            for col in schema.columns:
+                col_name = col.get("name", "").lower()
+                col_type = col.get("type", "").upper()
+                if col_name == param_lower or col_name == param_snake:
+                    return col_type
+        return None
+
     def get_sample_value(match: re.Match) -> str:
-        param_name = match.group(1).lower()
-        if any(k in param_name for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
-            return "1"
-        if any(k in param_name for k in ["status", "type", "mode", "state"]):
-            return "'active'"
-        if any(k in param_name for k in ["name", "email", "title", "desc", "keyword"]):
+        param_name = match.group(1).split(".")[0]
+        param_lower = param_name.lower()
+        sql_lower = sql.lower()
+        col_type = get_column_type_from_context(param_name, sql_lower)
+        if col_type:
+            if any(
+                t in col_type
+                for t in ["INT", "BIGINT", "SMALLINT", "TINYINT", "DECIMAL", "NUMERIC", "FLOAT", "DOUBLE", "SERIAL"]
+            ):
+                return "1"
+            if any(t in col_type for t in ["BOOL"]):
+                return "true"
+            if any(t in col_type for t in ["DATE"]):
+                return "'2024-01-01'"
+            if any(t in col_type for t in ["TIME", "TIMESTAMP"]):
+                return "'2024-01-01 00:00:00'"
             return "'test'"
-        if any(k in param_name for k in ["date", "time", "start", "end"]):
+        if any(k in param_lower for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
+            return "1"
+        if any(k in param_lower for k in ["status", "type", "mode", "state"]):
+            return "1"
+        if any(k in param_lower for k in ["name", "email", "title", "desc", "keyword"]):
+            return "'test'"
+        if any(k in param_lower for k in ["date", "time", "start", "end"]):
             return "'2024-01-01'"
         return "1"
 
@@ -85,11 +128,25 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
         logger.info(f"[RECOGNITION] Loaded {len(parse_data.sql_units_with_branches)} SQL unit(s) from parse stage")
 
+        table_schemas: dict[str, TableSchema] | None = None
+        table_schemas_file = loader.get_init_table_schemas_path()
+        if table_schemas_file.exists():
+            try:
+                import json
+
+                from sqlopt.contracts.init import TableSchema
+
+                schemas_data = json.loads(table_schemas_file.read_text(encoding="utf-8"))
+                table_schemas = {k: TableSchema(**v) for k, v in schemas_data.items()}
+                logger.info(f"[RECOGNITION] Loaded {len(table_schemas)} table schema(s)")
+            except Exception:
+                logger.debug("[RECOGNITION] Failed to load table schemas, using heuristics")
+
         if self.config and self.config.concurrency.enabled:
             logger.info("[RECOGNITION] Using concurrent execution mode")
-            baselines = self._run_concurrent(parse_data)
+            baselines = self._run_concurrent(parse_data, table_schemas)
         else:
-            baselines = self._run_sequential(parse_data)
+            baselines = self._run_sequential(parse_data, table_schemas)
 
         logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
         output = RecognitionOutput(baselines=baselines)
@@ -98,7 +155,9 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         logger.info("[RECOGNITION] Recognition stage completed")
         return output
 
-    def _run_sequential(self, parse_data: ParseOutput) -> list[PerformanceBaseline]:
+    def _run_sequential(
+        self, parse_data: ParseOutput, table_schemas: dict[str, TableSchema] | None
+    ) -> list[PerformanceBaseline]:
         baselines: list[PerformanceBaseline] = []
         platform = "postgresql"
         total_branches = sum(len(su.branches) for su in parse_data.sql_units_with_branches)
@@ -110,7 +169,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
                 try:
-                    sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql)
+                    sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql, table_schemas)
                     logger.debug(
                         f"[RECOGNITION]   EXPLAIN for {sql_unit.sql_unit_id}.{branch.path_id}: {sql_for_explain[:60]}..."
                     )
@@ -137,7 +196,9 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         return baselines
 
-    def _run_concurrent(self, parse_data: ParseOutput) -> list[PerformanceBaseline]:
+    def _run_concurrent(
+        self, parse_data: ParseOutput, table_schemas: dict[str, TableSchema] | None
+    ) -> list[PerformanceBaseline]:
         tasks: list[tuple[str, str, str]] = [
             (sql_unit.sql_unit_id, branch.path_id, branch.expanded_sql)
             for sql_unit in parse_data.sql_units_with_branches
@@ -157,7 +218,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         def process_task(task: tuple[str, str, str]) -> PerformanceBaseline | None:
             sql_unit_id, path_id, expanded_sql = task
-            sql_for_explain = _resolve_mybatis_params_for_explain(expanded_sql)
+            sql_for_explain = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas)
             baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
             return PerformanceBaseline(
                 sql_unit_id=sql_unit_id,

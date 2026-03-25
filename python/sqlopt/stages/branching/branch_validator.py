@@ -20,6 +20,8 @@ class BranchValidator:
         if re.search(r"\bUPDATE\b", sql_upper):
             if not re.search(r"\bSET\b", sql_upper):
                 return False
+            if not re.search(r"\bWHERE\b", sql_upper):
+                return False
 
         if re.search(r"\bDELETE\b", sql_upper):
             if not re.search(r"\b(WHERE|FROM)\b", sql_upper):
