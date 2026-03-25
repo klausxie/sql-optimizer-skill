@@ -135,6 +135,29 @@ class RunPaths:
         return self.parse_dir / "risks.json"
 
     @property
+    def parse_units_dir(self) -> Path:
+        """Directory for per-unit parse files."""
+        return self.parse_dir / "units"
+
+    def parse_unit_file(self, unit_id: str) -> Path:
+        """Path to a specific unit's parse JSON file.
+
+        Args:
+            unit_id: Unique identifier for the SQL unit.
+
+        Returns:
+            Path to the unit's JSON file with sanitized filename.
+        """
+        # Sanitize unit_id for filesystem safety
+        sanitized = unit_id.replace("/", "_").replace("\\", "_").replace("..", "_")
+        return self.parse_units_dir / f"{sanitized}.json"
+
+    @property
+    def parse_index_file(self) -> Path:
+        """Path to the parse units index file."""
+        return self.parse_units_dir / "_index.json"
+
+    @property
     def recognition_baselines(self) -> Path:
         """Path to baselines JSON file from recognition stage."""
         return self.recognition_dir / "baselines.json"
