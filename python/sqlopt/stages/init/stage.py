@@ -201,6 +201,15 @@ class InitStage(Stage[None, InitOutput]):
                         field_by_table[tbl].update(where_fields)
 
                 for tbl, cols in field_by_table.items():
+                    if tbl not in table_schemas:
+                        logger.debug(f"[INIT] Skipping {tbl} - not in database schema")
+                        continue
+                    schema_cols = {col["name"].lower() for col in table_schemas[tbl].columns}
+                    valid_cols = cols & schema_cols
+                    invalid_cols = cols - schema_cols
+                    if invalid_cols:
+                        logger.debug(f"[INIT] Skipping invalid fields in {tbl}: {invalid_cols}")
+                    cols = valid_cols
                     if cols:
                         dists = extract_field_distributions(
                             table_name=tbl,
