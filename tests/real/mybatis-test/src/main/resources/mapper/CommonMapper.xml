@@ -5,13 +5,13 @@
 <mapper namespace="com.test.mapper.CommonMapper">
     
     <!-- 通用列片段 -->
-    <sql id="auditColumns">created_at, updated_at</sql>
+    <sql id="auditColumns">created_at</sql>
     
     <!-- 用户基础列 -->
-    <sql id="userBaseColumns">id, name, email, status, type</sql>
+    <sql id="userBaseColumns">id, name, email, status</sql>
     
     <!-- 订单基础列 -->
-    <sql id="orderBaseColumns">id, order_no, user_id, status, amount</sql>
+    <sql id="orderBaseColumns">id, user_id, status, total_amount</sql>
     
     <!-- 通用状态条件 -->
     <sql id="activeStatusCondition">
@@ -33,15 +33,14 @@
     <!-- 带嵌套 if 的复杂片段 -->
     <sql id="complexCommonCondition">
         <choose>
-            <when test="status == 'active'">
-                AND status = '1'
-                <if test="type != null">AND type = #{type}</if>
+            <when test="status == 1">
+                AND status = 1
             </when>
-            <when test="status == 'inactive'">
-                AND status = '0'
+            <when test="status == 0">
+                AND status = 0
             </when>
             <otherwise>
-                AND status IN ('0', '1')
+                AND status IN (0, 1)
             </otherwise>
         </choose>
     </sql>

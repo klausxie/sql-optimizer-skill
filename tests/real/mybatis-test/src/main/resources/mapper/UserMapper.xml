@@ -504,8 +504,8 @@
     <!-- 场景46: 内连接 - 用户与订单 -->
     <select id="testInnerJoin" resultType="com.test.dto.UserOrderDTO">
         SELECT u.id as userId, u.name as userName, u.email as userEmail,
-               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
-               o.amount, o.created_at as createdAt
+               o.id as orderId, o.status as orderStatus,
+               o.total_amount, o.created_at as createdAt
         FROM users u
         INNER JOIN orders o ON u.id = o.user_id
         LIMIT 10
@@ -514,8 +514,8 @@
     <!-- 场景47: 左外连接 - 用户与订单 -->
     <select id="testLeftJoin" resultType="com.test.dto.UserOrderDTO">
         SELECT u.id as userId, u.name as userName, u.email as userEmail,
-               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
-               o.amount, o.created_at as createdAt
+               o.id as orderId, o.status as orderStatus,
+               o.total_amount, o.created_at as createdAt
         FROM users u
         LEFT JOIN orders o ON u.id = o.user_id
         LIMIT 10
@@ -524,9 +524,9 @@
     <!-- 场景48: 多表连接 - 用户、订单、订单明细 -->
     <select id="testMultiTableJoin" resultType="com.test.dto.UserOrderItemDTO">
         SELECT u.id as userId, u.name as userName,
-               o.id as orderId, o.order_no as orderNo,
+               o.id as orderId,
                oi.id as itemId, oi.product_id as productId,
-               p.name as productName, oi.quantity, oi.price
+               p.name as productName, oi.quantity, p.price
         FROM users u
         INNER JOIN orders o ON u.id = o.user_id
         INNER JOIN order_items oi ON o.id = oi.order_id
@@ -537,8 +537,8 @@
     <!-- 场景49: 动态 join 条件 -->
     <select id="testDynamicJoin" resultType="com.test.dto.UserOrderDTO">
         SELECT u.id as userId, u.name as userName, u.email as userEmail,
-               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
-               o.amount, o.created_at as createdAt
+               o.id as orderId, o.status as orderStatus,
+               o.total_amount, o.created_at as createdAt
         FROM users u
         INNER JOIN orders o ON u.id = o.user_id
         <where>
@@ -578,8 +578,8 @@
     <!-- 场景53: 动态多表关联 -->
     <select id="testDynamicMultiTableJoin" resultType="com.test.dto.UserOrderDTO">
         SELECT u.id as userId, u.name as userName, u.email as userEmail,
-               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
-               o.amount, o.created_at as createdAt
+               o.id as orderId, o.status as orderStatus,
+               o.total_amount, o.created_at as createdAt
         FROM users u
         <if test="userId != null">
         INNER JOIN orders o ON u.id = o.user_id
@@ -596,7 +596,7 @@
     
     <!-- 场景54: UNION 查询 -->
     <select id="testUnion" resultType="com.test.entity.User">
-        SELECT * FROM users WHERE type = #{type}
+        SELECT * FROM users WHERE status = #{status}
         UNION
         SELECT * FROM users WHERE status = '1'
     </select>
@@ -604,14 +604,14 @@
     <!-- 场景55: 多层嵌套子查询 -->
     <select id="testNestedSubquery" resultType="com.test.dto.UserOrderDTO">
         SELECT u.id as userId, u.name as userName, u.email as userEmail,
-               o.id as orderId, o.order_no as orderNo, o.status as orderStatus,
-               o.amount, o.created_at as createdAt
+               o.id as orderId, o.status as orderStatus,
+               o.total_amount, o.created_at as createdAt
         FROM users u
         INNER JOIN orders o ON u.id = o.user_id
-        WHERE o.amount &gt;= #{minAmount}
+        WHERE o.total_amount &gt;= #{minAmount}
         AND o.user_id IN (
             SELECT user_id FROM orders 
-            WHERE amount &gt; (SELECT AVG(amount) FROM orders)
+            WHERE total_amount &gt; (SELECT AVG(total_amount) FROM orders)
         )
         LIMIT 10
     </select>
@@ -630,17 +630,17 @@
     
     <!-- 场景58: SUM 聚合 -->
     <select id="testSumAmount" resultType="java.lang.Double">
-        SELECT COALESCE(SUM(amount), 0) FROM orders
+        SELECT COALESCE(SUM(total_amount), 0) FROM orders
     </select>
     
     <!-- 场景59: AVG 聚合 -->
     <select id="testAvgAmount" resultType="java.lang.Double">
-        SELECT COALESCE(AVG(amount), 0) FROM orders
+        SELECT COALESCE(AVG(total_amount), 0) FROM orders
     </select>
     
     <!-- 场景60: MAX/MIN 聚合 -->
     <select id="testMaxMinAmount" resultType="com.test.dto.OrderAmountDTO">
-        SELECT MAX(amount) as maxAmount, MIN(amount) as minAmount FROM orders
+        SELECT MAX(total_amount) as maxAmount, MIN(total_amount) as minAmount FROM orders
     </select>
     
     <!-- 场景61: 分组聚合 - GROUP BY -->
@@ -666,12 +666,10 @@
     
     <!-- 场景64: CASE WHEN 条件表达式 -->
     <select id="testCaseWhen" resultType="com.test.dto.OrderCaseDTO">
-        SELECT id as orderId, order_no as orderNo, status, amount,
+        SELECT id as orderId, status, total_amount,
                CASE status
-                   WHEN 'completed' THEN '已完成'
-                   WHEN 'pending' THEN '待处理'
-                   WHEN 'processing' THEN '处理中'
-                   WHEN 'cancelled' THEN '已取消'
+                   WHEN 1 THEN '活跃'
+                   WHEN 0 THEN '非活跃'
                    ELSE '未知'
                END as statusLabel
         FROM orders
@@ -680,12 +678,12 @@
     
     <!-- 场景65: DATE 函数 -->
     <select id="testDateFunction" resultType="com.test.dto.OrderDateDTO">
-        SELECT id as orderId, order_no as orderNo, created_at as createdAt,
-               YEAR(created_at) as year,
-               MONTH(created_at) as month,
-               DAY(created_at) as day
+        SELECT id as orderId, created_at as createdAt,
+               EXTRACT(YEAR FROM created_at) as year,
+               EXTRACT(MONTH FROM created_at) as month,
+               EXTRACT(DAY FROM created_at) as day
         FROM orders
-        WHERE YEAR(created_at) = #{year}
+        WHERE EXTRACT(YEAR FROM created_at) = #{year}
         LIMIT 10
     </select>
     
@@ -703,27 +701,27 @@
     
     <!-- 场景68: 条件聚合 - SUM CASE WHEN -->
     <select id="testConditionalSum" resultType="java.lang.Double">
-        SELECT COALESCE(SUM(CASE WHEN status = #{status} THEN amount ELSE 0 END), 0) 
+        SELECT COALESCE(SUM(CASE WHEN status = #{status} THEN total_amount ELSE 0 END), 0) 
         FROM orders
     </select>
     
     <!-- 场景69: 多函数组合 -->
     <select id="testMultiAggFunction" resultType="com.test.dto.OrderAggDTO">
         SELECT status, COUNT(*) as count,
-               SUM(amount) as sum,
-               AVG(amount) as avg,
-               MAX(amount) as max,
-               MIN(amount) as min
+               SUM(total_amount) as sum,
+               AVG(total_amount) as avg,
+               MAX(total_amount) as max,
+               MIN(total_amount) as min
         FROM orders
         GROUP BY status
     </select>
     
     <!-- 场景70: 窗口函数模拟 - 订单排名 -->
     <select id="testOrderRank" resultType="com.test.dto.OrderRankDTO">
-        SELECT id as orderId, order_no as orderNo, amount,
-               (SELECT COUNT(*) FROM orders o2 WHERE o2.amount > orders.amount) + 1 as `rank`
+        SELECT id as orderId, total_amount,
+               (SELECT COUNT(*) FROM orders o2 WHERE o2.total_amount > orders.total_amount) + 1 as rank
         FROM orders
-        ORDER BY `rank`
+        ORDER BY rank
         LIMIT 10
     </select>
     
@@ -793,7 +791,7 @@
     
     <!-- 场景83: 多字段排序 + 分页 -->
     <select id="testOrderByMultipleWithPagination" resultType="com.test.entity.Order">
-        SELECT * FROM orders ORDER BY status, amount DESC
+        SELECT * FROM orders ORDER BY status, total_amount DESC
         <if test="offset != null and pageSize != null">
             LIMIT #{pageSize} OFFSET #{offset}
         </if>
@@ -802,7 +800,7 @@
     <!-- 场景84: 复杂 WHERE + GROUP BY + HAVING + ORDER BY + LIMIT -->
     <select id="testComplexAggregation" resultType="com.test.dto.OrderStatusCountDTO">
         SELECT status, COUNT(*) as count FROM orders
-        WHERE amount &gt; #{minAmount}
+        WHERE total_amount &gt; #{minAmount}
         GROUP BY status
         HAVING COUNT(*) &gt; 0
         ORDER BY count DESC
@@ -985,14 +983,13 @@
         <result property="userEmail" column="u_email"/>
         <association property="order" javaType="com.test.entity.Order">
             <id property="id" column="o_id"/>
-            <result property="orderNo" column="o_no"/>
-            <result property="amount" column="o_amount"/>
+            <result property="totalAmount" column="o_amount"/>
         </association>
     </resultMap>
 
     <select id="testResultMapAssociation" resultMap="userOrderNestedMap">
         SELECT u.id as u_id, u.name as u_name, u.email as u_email,
-               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+               o.id as o_id, o.total_amount as o_amount
         FROM users u
         LEFT JOIN orders o ON u.id = o.user_id
         LIMIT 10
@@ -1004,14 +1001,13 @@
         <result property="userName" column="u_name"/>
         <collection property="orders" ofType="com.test.entity.Order">
             <id property="id" column="o_id"/>
-            <result property="orderNo" column="o_no"/>
-            <result property="amount" column="o_amount"/>
+            <result property="totalAmount" column="o_amount"/>
         </collection>
     </resultMap>
 
     <select id="testResultMapCollection" resultMap="userWithOrdersMap">
         SELECT u.id as u_id, u.name as u_name,
-               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+               o.id as o_id, o.total_amount as o_amount
         FROM users u
         LEFT JOIN orders o ON u.id = o.user_id
         WHERE u.id = 1
@@ -1036,7 +1032,7 @@
     </resultMap>
 
     <select id="getOrdersByUserId" resultType="com.test.entity.Order">
-        SELECT id, order_no as orderNo, amount, user_id as userId
+        SELECT id, total_amount, user_id as userId
         FROM orders WHERE user_id = #{userId}
     </select>
 
@@ -1050,14 +1046,13 @@
         <result property="userName" column="u_name"/>
         <collection property="orders" ofType="com.test.entity.Order">
             <id property="id" column="o_id"/>
-            <result property="orderNo" column="o_no"/>
-            <result property="amount" column="o_amount"/>
+            <result property="totalAmount" column="o_amount"/>
         </collection>
     </resultMap>
 
     <select id="testNestedResult" resultMap="nestedResultMap">
         SELECT u.id as u_id, u.name as u_name,
-               o.id as o_id, o.order_no as o_no, o.amount as o_amount
+               o.id as o_id, o.total_amount as o_amount
         FROM users u
         LEFT JOIN orders o ON u.id = o.user_id
         WHERE u.id = 1
@@ -1067,9 +1062,9 @@
     <resultMap id="userTypeMap" type="com.test.entity.User">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
-        <discriminator javaType="string" column="type">
-            <case value="VIP" resultMap="vipUserMap"/>
-            <case value="NORMAL" resultMap="normalUserMap"/>
+        <discriminator javaType="int" column="status">
+            <case value="1" resultMap="vipUserMap"/>
+            <case value="0" resultMap="normalUserMap"/>
         </discriminator>
     </resultMap>
     <resultMap id="vipUserMap" type="com.test.entity.User">
@@ -1090,7 +1085,7 @@
         SELECT * FROM users u
         WHERE u.id IN (
             SELECT o.user_id FROM orders o 
-            WHERE o.amount > 1000
+            WHERE o.total_amount > 1000
         )
         LIMIT 10
     </select>
@@ -1106,8 +1101,8 @@
     <!-- 场景 Q3: 多层嵌套子查询 -->
     <select id="testNestedSubqueryComplex" resultType="User">
         SELECT * FROM users WHERE id IN (
-            SELECT user_id FROM orders WHERE amount > (
-                SELECT AVG(amount) FROM orders
+            SELECT user_id FROM orders WHERE total_amount > (
+                SELECT AVG(total_amount) FROM orders
             )
         )
         LIMIT 10
