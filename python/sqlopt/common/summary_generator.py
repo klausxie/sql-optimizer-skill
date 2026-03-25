@@ -6,8 +6,11 @@ from stage execution data. It does NOT perform file I/O - it only generates text
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List, Tuple
+
+from sqlopt.contracts.init import InitOutput
 
 
 def truncate_text(text: str, max_chars: int = 1024) -> str:
@@ -24,6 +27,193 @@ def truncate_text(text: str, max_chars: int = 1024) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "... (truncated)"
+
+
+def extract_table_names_from_sql(sql_text: str) -> List[str]:
+    """Extract table names from SQL text by parsing FROM and JOIN clauses.
+
+    Args:
+        sql_text: SQL text to parse.
+
+    Returns:
+        List of table names found in the SQL text.
+    """
+    import re
+
+    if not sql_text:
+        return []
+
+    patterns = [
+        r"\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+AS\s+[a-zA-Z_][a-zA-Z0-9_]*)?",
+        r"\b(?:INNER|LEFT|RIGHT|OUTER|CROSS)?\s*JOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+    ]
+
+    table_names: set[str] = set()
+    sql_upper = sql_text.upper()
+
+    for pattern in patterns:
+        matches = re.finditer(pattern, sql_upper, re.IGNORECASE)
+        for match in matches:
+            table_name = match.group(1)
+            if table_name and table_name.upper() not in (
+                "SELECT",
+                "WHERE",
+                "ON",
+                "AND",
+                "OR",
+                "NOT",
+                "IN",
+                "SET",
+            ):
+                table_names.add(match.group(1).lower())
+
+    return list(table_names)
+
+
+def generate_init_summary_markdown(
+    output: InitOutput,
+    duration_seconds: float,
+    files_count: int,
+    file_size_bytes: int,
+    schema_extraction_success: bool = True,
+) -> str:
+    """Generate a valuable INIT stage SUMMARY with actual extracted data.
+
+    Args:
+        output: InitOutput containing extracted SQL units, fragments, schemas.
+        duration_seconds: Total execution time in seconds.
+        files_count: Number of mapper files processed.
+        file_size_bytes: Total size of output files in bytes.
+        schema_extraction_success: Whether schema extraction succeeded.
+
+    Returns:
+        Markdown-formatted SUMMARY.md with actionable insights.
+    """
+    lines: List[str] = []
+
+    lines.append("# INIT 阶段报告")
+    lines.append("")
+    lines.append(f"**运行ID:** `{output.run_id}`")
+    lines.append(f"**耗时:** {duration_seconds:.2f} 秒")
+    lines.append("")
+
+    # Statement type breakdown
+    type_counter: Counter = Counter()
+    for unit in output.sql_units:
+        type_counter[unit.statement_type] += 1
+
+    lines.append("## SQL类型分布")
+    lines.append("")
+    type_colors = {
+        "SELECT": "🟢",
+        "INSERT": "🔵",
+        "UPDATE": "🟡",
+        "DELETE": "🔴",
+    }
+    for stmt_type in sorted(type_counter.keys()):
+        icon = type_colors.get(stmt_type, "⚪")
+        lines.append(f"- {icon} **{stmt_type}**: {type_counter[stmt_type]} 条")
+    lines.append("")
+
+    # Mapper file overview
+    if output.xml_mappings:
+        lines.append("## Mapper文件概览")
+        lines.append("")
+        lines.append("| 文件 | 语句数 | 片段数 |")
+        lines.append("|------|---------|--------|")
+        for fm in output.xml_mappings.files:
+            stmt_count = len(fm.statements)
+            frag_count = len(fm.fragments)
+            filename = fm.xmlPath.split("/")[-1]
+            lines.append(f"| `{filename}` | {stmt_count} | {frag_count} |")
+        lines.append("")
+
+    # SQL units grouped by mapper
+    lines.append("## SQL单元列表")
+    lines.append("")
+    units_by_file: Dict[str, List[Tuple[str, str]]] = {}
+    for unit in output.sql_units:
+        if unit.mapper_file not in units_by_file:
+            units_by_file[unit.mapper_file] = []
+        units_by_file[unit.mapper_file].append((unit.sql_id, unit.statement_type))
+
+    for mapper_file, units in sorted(units_by_file.items()):
+        filename = mapper_file.split("/")[-1]
+        lines.append(f"### `{filename}`")
+        lines.append("")
+        for sql_id, stmt_type in units:
+            icon = type_colors.get(stmt_type, "⚪")
+            lines.append(f"- {icon} `{sql_id}`")
+        lines.append("")
+
+    # Table references
+    all_tables: set = set()
+    for unit in output.sql_units:
+        tables = extract_table_names_from_sql(unit.sql_text)
+        all_tables.update(tables)
+
+    if all_tables:
+        lines.append("## 表引用")
+        lines.append("")
+        lines.append(f"共涉及 **{len(all_tables)}** 张表:")
+        lines.append("")
+        for table in sorted(all_tables):
+            lines.append(f"- `{table}`")
+        lines.append("")
+
+    # Fragment usage
+    if output.sql_fragments:
+        lines.append("## SQL片段")
+        lines.append("")
+        lines.append(f"发现 **{len(output.sql_fragments)}** 个可复用片段:")
+        lines.append("")
+        for frag in output.sql_fragments[:10]:
+            filename = frag.xmlPath.split("/")[-1] if frag.xmlPath else "unknown"
+            lines.append(f"- `{frag.fragmentId}` @ `{filename}`:{frag.startLine}")
+        if len(output.sql_fragments) > 10:
+            lines.append(f"- ... 还有 {len(output.sql_fragments) - 10} 个片段")
+        lines.append("")
+
+    # Schema extraction status
+    lines.append("## Schema提取状态")
+    lines.append("")
+    if output.table_schemas:
+        lines.append(f"✅ 成功提取 **{len(output.table_schemas)}** 个表的Schema")
+        for table_name in sorted(list(output.table_schemas.keys())[:5]):
+            cols = len(output.table_schemas[table_name].columns)
+            lines.append(f"  - `{table_name}`: {cols} 列")
+        if len(output.table_schemas) > 5:
+            lines.append(f"  - ... 还有 {len(output.table_schemas) - 5} 张表")
+    else:
+        if schema_extraction_success:
+            lines.append("⚠️ 未提取到表Schema（请检查数据库连接配置）")
+        else:
+            lines.append("ℹ️ 表Schema提取已跳过（无数据库连接）")
+    lines.append("")
+
+    # Statistics summary
+    lines.append("## 统计信息")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| Mapper文件 | {files_count} |")
+    lines.append(f"| SQL单元 | {len(output.sql_units)} |")
+    lines.append(f"| SQL片段 | {len(output.sql_fragments)} |")
+    lines.append(f"| 表引用 | {len(all_tables)} |")
+    lines.append(f"| Schema表 | {len(output.table_schemas)} |")
+    lines.append(f"| 输出大小 | {file_size_bytes:,} 字节 |")
+    lines.append("")
+
+    lines.append("---")
+    lines.append("*由 SQL Optimizer 生成 - INIT 阶段*")
+
+    result = "\n".join(lines)
+
+    max_output_size = 50 * 1024
+    if len(result) > max_output_size:
+        result = result[:max_output_size] + "\n\n... (output truncated to 50KB)"
+
+    return result
 
 
 @dataclass

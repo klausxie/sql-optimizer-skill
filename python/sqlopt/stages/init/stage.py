@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import time
 from dataclasses import asdict
@@ -10,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlopt.common.config import SQLOptConfig
-from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.common.summary_generator import generate_init_summary_markdown
 from sqlopt.contracts.init import (
     FileMapping,
     FragmentMapping,
@@ -158,6 +157,7 @@ class InitStage(Stage[None, InitOutput]):
 
         table_schemas: dict = {}
         all_table_names: set[str] = set()
+        schema_extraction_success = False
         for unit in sql_units:
             table_names = extract_table_names_from_sql(unit.sql_text)
             all_table_names.update(table_names)
@@ -182,6 +182,7 @@ class InitStage(Stage[None, InitOutput]):
                     platform=cfg.db_platform,
                 )
                 logger.info(f"[INIT] Extracted schemas for {len(table_schemas)} table(s)")
+                schema_extraction_success = True
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")
         else:
@@ -204,6 +205,7 @@ class InitStage(Stage[None, InitOutput]):
             output,
             duration_seconds=time.time() - start_time,
             files_count=len(mapper_files),
+            schema_extraction_success=schema_extraction_success,
         )
         logger.info("[INIT] Init stage completed")
         return output
@@ -238,6 +240,7 @@ class InitStage(Stage[None, InitOutput]):
         output: InitOutput,
         duration_seconds: float,
         files_count: int,
+        schema_extraction_success: bool = True,
     ) -> None:
         """Generate SUMMARY.md for the init stage.
 
@@ -247,6 +250,7 @@ class InitStage(Stage[None, InitOutput]):
             output: The InitOutput data to summarize.
             duration_seconds: Total execution time in seconds.
             files_count: Number of mapper files processed.
+            schema_extraction_success: Whether schema extraction succeeded.
         """
         try:
             output_dir = Path("runs") / output.run_id / "init"
@@ -255,19 +259,15 @@ class InitStage(Stage[None, InitOutput]):
             for filename in ["sql_units.json", "sql_fragments.json", "table_schemas.json", "xml_mappings.json"]:
                 filepath = output_dir / filename
                 if filepath.exists():
-                    file_size_bytes += os.path.getsize(filepath)
+                    file_size_bytes += filepath.stat().st_size
 
-            summary = StageSummary(
-                stage_name="init",
-                run_id=output.run_id,
+            summary_content = generate_init_summary_markdown(
+                output=output,
                 duration_seconds=duration_seconds,
-                sql_units_count=len(output.sql_units),
-                branches_count=len(output.sql_fragments),  # For init, use fragments count
                 files_count=files_count,
                 file_size_bytes=file_size_bytes,
+                schema_extraction_success=schema_extraction_success,
             )
-
-            summary_content = generate_summary_markdown(summary)
             summary_file = output_dir / "SUMMARY.md"
             summary_file.write_text(summary_content, encoding="utf-8")
             logger.info(f"[INIT] Summary written to: {summary_file}")
