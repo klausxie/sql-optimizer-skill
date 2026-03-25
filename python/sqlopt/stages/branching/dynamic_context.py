@@ -45,11 +45,18 @@ class DynamicContext:
         """
         self.sql_fragments.append(sql)
 
+    def _last_non_space_char(self, s: str) -> str:
+        """Get the last non-whitespace character of a string."""
+        for c in reversed(s):
+            if c not in " \t\n":
+                return c
+        return ""
+
     def get_sql(self) -> str:
         """Get the complete SQL string.
 
-        Joins all accumulated SQL fragments into a single string with spaces
-        between fragments to prevent concatenation issues.
+        Joins accumulated SQL fragments with smart spacing.
+        Avoids adding spaces around commas to prevent ", ," issues.
 
         Returns:
             The complete SQL string.
@@ -57,7 +64,35 @@ class DynamicContext:
         if not self.sql_fragments:
             return ""
 
-        # Join fragments with space, then normalize whitespace
-        joined = " ".join(self.sql_fragments)
-        # Normalize: collapse multiple spaces to single space
-        return " ".join(joined.split())
+        parts = []
+        for i, frag in enumerate(self.sql_fragments):
+            if not frag:
+                continue
+            if i == 0:
+                parts.append(frag)
+                continue
+
+            prev = parts[-1] if parts else ""
+            curr = frag
+
+            # Use last non-whitespace char for smart spacing
+            prev_last = self._last_non_space_char(prev)
+            curr_first = curr[0] if curr else ""
+
+            if prev_last == ",":
+                # prev ends with comma, don't add space
+                parts.append(curr)
+            elif prev_last.isalnum() and curr_first == ",":
+                # prev ends with alnum, curr starts with comma, don't add space
+                parts.append(curr)
+            elif prev_last.isalnum() and curr_first.isalnum():
+                # Both alphanumeric, add space
+                parts.append(" " + curr)
+            elif prev_last in ("(", "[") and curr_first == " ":
+                # Trim space after parenthesis
+                parts.append(curr.lstrip())
+            else:
+                # Default: add space
+                parts.append(" " + curr if curr else "")
+
+        return "".join(parts)

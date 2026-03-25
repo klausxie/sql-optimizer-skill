@@ -19,15 +19,18 @@ def _local_name(tag: str) -> str:
 
 
 def _inner_xml(node) -> str:
+    """Extract inner XML content of a node.
+
+    Note: ET.tostring() already includes child.tail, so we don't add it again.
+    """
     import xml.etree.ElementTree as ET
 
     parts = []
     if node.text:
         parts.append(node.text)
     for child in list(node):
+        # ET.tostring already includes child.tail, do not append it separately
         parts.append(ET.tostring(child, encoding="unicode"))
-        if child.tail:
-            parts.append(child.tail)
     return "".join(parts).strip()
 
 
