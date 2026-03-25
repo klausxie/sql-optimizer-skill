@@ -10,6 +10,18 @@ import yaml
 
 
 @dataclass
+class ConcurrencyConfig:
+    enabled: bool = True
+    max_workers: int = 4
+    db_pool_size: int = 5
+    llm_max_concurrent: int = 3
+    batch_size: int = 10
+    timeout_per_task: int = 300
+    retry_count: int = 3
+    retry_delay: int = 1
+
+
+@dataclass
 class SQLOptConfig:
     """SQL Optimizer configuration.
 
@@ -46,6 +58,7 @@ class SQLOptConfig:
     contracts_version: str = "current"
     parse_strategy: str = "ladder"
     parse_max_branches: int = 50
+    concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 
 
 def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
@@ -87,4 +100,7 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         contracts_version=data.get("contracts_version", "current"),
         parse_strategy=data.get("parse_strategy", "ladder"),
         parse_max_branches=data.get("parse_max_branches", 50),
+        concurrency=ConcurrencyConfig(
+            **(data.get("concurrency", {}) if isinstance(data.get("concurrency"), dict) else {})
+        ),
     )

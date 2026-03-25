@@ -6,6 +6,8 @@ import json
 import logging
 from pathlib import Path
 
+from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
+from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
@@ -24,15 +26,17 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         run_id: str | None = None,
         llm_provider: LLMProviderBase | None = None,
         use_mock: bool = True,
+        config: SQLOptConfig | None = None,
     ) -> None:
         super().__init__("optimize")
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
         self.use_mock = use_mock
+        self.config = config or SQLOptConfig()
 
     def run(
         self,
-        _input_data: None = None,
+        input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
     ) -> OptimizeOutput:
@@ -69,7 +73,25 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         proposals: list[OptimizationProposal] = []
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
 
-        for baseline in baselines_data.baselines:
+        if self.config.concurrency.enabled:
+            proposals = self._run_concurrent(baselines_data.baselines, sql_lookup)
+        else:
+            proposals = self._run_sequential(baselines_data.baselines, sql_lookup)
+
+        logger.info(f"[OPTIMIZE] Generated {len(proposals)} proposal(s)")
+        output = OptimizeOutput(proposals=proposals)
+        self._write_output(rid, output)
+        logger.info(f"[OPTIMIZE] Output written to: runs/{rid}/optimize/proposals.json")
+        logger.info("[OPTIMIZE] Optimize stage completed")
+        return output
+
+    def _run_sequential(
+        self,
+        baselines: list,
+        sql_lookup: dict[tuple[str, str], str],
+    ) -> list[OptimizationProposal]:
+        proposals: list[OptimizationProposal] = []
+        for baseline in baselines:
             sql = sql_lookup.get((baseline.sql_unit_id, baseline.path_id), "")
             if not sql:
                 logger.debug(f"[OPTIMIZE]   Skipping {baseline.sql_unit_id}.{baseline.path_id} - no SQL found")
@@ -100,13 +122,65 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     str(e),
                 )
                 continue
+        return proposals
 
-        logger.info(f"[OPTIMIZE] Generated {len(proposals)} proposal(s)")
-        output = OptimizeOutput(proposals=proposals)
-        self._write_output(rid, output)
-        logger.info(f"[OPTIMIZE] Output written to: runs/{rid}/optimize/proposals.json")
-        logger.info("[OPTIMIZE] Optimize stage completed")
-        return output
+    def _run_concurrent(
+        self,
+        baselines: list,
+        sql_lookup: dict[tuple[str, str], str],
+    ) -> list[OptimizationProposal]:
+        tasks = []
+        for baseline in baselines:
+            sql = sql_lookup.get((baseline.sql_unit_id, baseline.path_id), "")
+            if sql:
+                tasks.append((baseline, sql))
+
+        if not tasks:
+            return []
+
+        options = BatchOptions(
+            max_workers=self.config.concurrency.max_workers,
+            max_concurrent=self.config.concurrency.llm_max_concurrent,
+            timeout_per_task=self.config.concurrency.timeout_per_task,
+            retry_count=self.config.concurrency.retry_count,
+            retry_delay=float(self.config.concurrency.retry_delay),
+        )
+
+        proposals: list[OptimizationProposal] = []
+        total = len(tasks)
+        completed = 0
+
+        def process_task(task: tuple) -> OptimizationProposal | None:
+            baseline, sql = task
+            proposal_json = self.llm_provider.generate_optimization(sql, "")
+            proposal_data = json.loads(proposal_json)
+            return OptimizationProposal(
+                sql_unit_id=baseline.sql_unit_id,
+                path_id=baseline.path_id,
+                original_sql=sql,
+                optimized_sql=proposal_data["optimized_sql"],
+                rationale=proposal_data["rationale"],
+                confidence=proposal_data["confidence"],
+            )
+
+        with ConcurrentExecutor(options) as executor:
+            results = executor.map(process_task, tasks)
+
+        for result in results:
+            completed += 1
+            if result.success and result.result:
+                proposals.append(result.result)
+                logger.info(
+                    f"[OPTIMIZE]   ✓ {result.result.sql_unit_id}.{result.result.path_id} "
+                    f"({completed}/{total}): confidence={result.result.confidence:.2f}"
+                )
+            else:
+                baseline = result.item[0]
+                logger.warning(
+                    f"[OPTIMIZE]   ✗ {baseline.sql_unit_id}.{baseline.path_id} ({completed}/{total}): {result.error}"
+                )
+
+        return proposals
 
     def _create_stub_output(self) -> OptimizeOutput:
         return OptimizeOutput(
