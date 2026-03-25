@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlopt.common.config import SQLOptConfig
+from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import (
     FileMapping,
     FragmentMapping,
@@ -75,6 +78,7 @@ class InitStage(Stage[None, InitOutput]):
         config: SQLOptConfig | None = None,
         run_id: str | None = None,
     ) -> InitOutput:
+        start_time = time.time()
         cfg = config or self.config
         rid = run_id or self.run_id
         logger.info("=" * 60)
@@ -92,6 +96,7 @@ class InitStage(Stage[None, InitOutput]):
             )
             output = InitOutput(sql_units=[unit], run_id="stub-run")
             self._write_output(output)
+            self._generate_summary(output, duration_seconds=time.time() - start_time, files_count=0)
             return output
 
         project_root = cfg.project_root_path
@@ -195,6 +200,11 @@ class InitStage(Stage[None, InitOutput]):
                 rid
             )
         )
+        self._generate_summary(
+            output,
+            duration_seconds=time.time() - start_time,
+            files_count=len(mapper_files),
+        )
         logger.info("[INIT] Init stage completed")
         return output
 
@@ -222,6 +232,47 @@ class InitStage(Stage[None, InitOutput]):
             xml_mappings_file.write_text(output.xml_mappings.to_json(), encoding="utf-8")
         else:
             xml_mappings_file.write_text(json.dumps({"files": []}), encoding="utf-8")
+
+    def _generate_summary(
+        self,
+        output: InitOutput,
+        duration_seconds: float,
+        files_count: int,
+    ) -> None:
+        """Generate SUMMARY.md for the init stage.
+
+        Best-effort operation - failures are logged but do not block stage completion.
+
+        Args:
+            output: The InitOutput data to summarize.
+            duration_seconds: Total execution time in seconds.
+            files_count: Number of mapper files processed.
+        """
+        try:
+            output_dir = Path("runs") / output.run_id / "init"
+
+            file_size_bytes = 0
+            for filename in ["sql_units.json", "sql_fragments.json", "table_schemas.json", "xml_mappings.json"]:
+                filepath = output_dir / filename
+                if filepath.exists():
+                    file_size_bytes += os.path.getsize(filepath)
+
+            summary = StageSummary(
+                stage_name="init",
+                run_id=output.run_id,
+                duration_seconds=duration_seconds,
+                sql_units_count=len(output.sql_units),
+                branches_count=len(output.sql_fragments),  # For init, use fragments count
+                files_count=files_count,
+                file_size_bytes=file_size_bytes,
+            )
+
+            summary_content = generate_summary_markdown(summary)
+            summary_file = output_dir / "SUMMARY.md"
+            summary_file.write_text(summary_content, encoding="utf-8")
+            logger.info(f"[INIT] Summary written to: {summary_file}")
+        except Exception as e:
+            logger.warning(f"[INIT] Failed to generate SUMMARY.md: {e}")
 
 
 def _build_statement_xpath(stmt: ParsedStatement) -> str:

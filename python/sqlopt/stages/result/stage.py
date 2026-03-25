@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import difflib
 import logging
+import time
 from pathlib import Path
 
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.result import Patch, Report, ResultOutput
@@ -49,6 +51,7 @@ class ResultStage(Stage[None, ResultOutput]):
         Returns:
             ResultOutput with report and patches from real data
         """
+        start_time = time.time()
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
         logger.info("=" * 60)
@@ -107,6 +110,16 @@ class ResultStage(Stage[None, ResultOutput]):
         self._write_output(output, rid)
         logger.info(f"[RESULT] Output written to: runs/{rid}/result/report.json")
         logger.info(f"[RESULT] Generated {len(patches)} patch(es)")
+
+        # Generate SUMMARY.md (best-effort, don't block stage completion)
+        duration_seconds = time.time() - start_time
+        self._write_summary(
+            output=output,
+            run_id=rid,
+            duration_seconds=duration_seconds,
+            high_confidence_count=len(high_confidence_proposals),
+        )
+
         logger.info("[RESULT] Result stage completed")
         return output
 
@@ -244,3 +257,49 @@ class ResultStage(Stage[None, ResultOutput]):
 
         output_file = output_dir / "report.json"
         output_file.write_text(output.to_json())
+
+    def _write_summary(
+        self,
+        output: ResultOutput,
+        run_id: str,
+        duration_seconds: float,
+        high_confidence_count: int,
+    ) -> None:
+        """Generate and write SUMMARY.md for the result stage.
+
+        Best-effort operation - errors are logged but do not block stage completion.
+
+        Args:
+            output: The result stage output.
+            run_id: Run identifier.
+            duration_seconds: Stage execution duration.
+            high_confidence_count: Number of high-confidence proposals.
+        """
+        try:
+            output_dir = Path("runs") / run_id / "result"
+
+            report_size = len(output.report.summary) + len(output.report.details)
+
+            summary = StageSummary(
+                stage_name="result",
+                run_id=run_id,
+                duration_seconds=duration_seconds,
+                sql_units_count=len(output.patches),
+                branches_count=high_confidence_count,
+                files_count=1,
+                file_size_bytes=report_size,
+                errors=[],
+                warnings=output.report.risks[:5],
+            )
+
+            summary_content = generate_summary_markdown(summary)
+
+            report_file = output_dir / "report.json"
+            if report_file.exists():
+                summary_content += f"\n\n## Output Files\n\n| File | Size |\n|------|------|\n| report.json | {report_file.stat().st_size:,} bytes |\n"
+
+            summary_file = output_dir / "SUMMARY.md"
+            summary_file.write_text(summary_content, encoding="utf-8")
+            logger.info(f"[RESULT] Summary written to: runs/{run_id}/result/SUMMARY.md")
+        except OSError as e:
+            logger.warning(f"[RESULT] Failed to generate SUMMARY.md: {e}")
