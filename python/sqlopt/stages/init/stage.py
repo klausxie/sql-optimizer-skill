@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.summary_generator import generate_init_summary_markdown
 from sqlopt.contracts.init import (
+    FieldDistribution,
     FileMapping,
     FragmentMapping,
     InitOutput,
@@ -23,7 +24,7 @@ from sqlopt.stages.base import Stage
 
 from .parser import ParsedFragment, ParsedStatement, parse_mapper_file
 from .scanner import find_mapper_files
-from .table_extractor import extract_table_schemas
+from .table_extractor import extract_field_distributions, extract_table_schemas, extract_where_fields_from_sql
 
 if TYPE_CHECKING:
     from sqlopt.common.db_connector import DBConnector
@@ -161,6 +162,8 @@ class InitStage(Stage[None, InitOutput]):
         table_schemas: dict = {}
         all_table_names: set[str] = set()
         schema_extraction_success = False
+        field_distributions: list[FieldDistribution] = []
+
         for unit in sql_units:
             table_names = extract_table_names_from_sql(unit.sql_text)
             all_table_names.update(table_names)
@@ -186,6 +189,27 @@ class InitStage(Stage[None, InitOutput]):
                 )
                 logger.info(f"[INIT] Extracted schemas for {len(table_schemas)} table(s)")
                 schema_extraction_success = True
+
+                logger.info("[INIT] Extracting WHERE field distributions")
+                field_by_table: dict[str, set[str]] = {}
+                for unit in sql_units:
+                    table_names = extract_table_names_from_sql(unit.sql_text)
+                    where_fields = extract_where_fields_from_sql(unit.sql_text)
+                    for tbl in table_names:
+                        if tbl not in field_by_table:
+                            field_by_table[tbl] = set()
+                        field_by_table[tbl].update(where_fields)
+
+                for tbl, cols in field_by_table.items():
+                    if cols:
+                        dists = extract_field_distributions(
+                            table_name=tbl,
+                            column_names=list(cols),
+                            db_connector=db_connector,
+                            platform=cfg.db_platform,
+                        )
+                        field_distributions.extend(dists)
+                logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")
         else:
@@ -199,8 +223,10 @@ class InitStage(Stage[None, InitOutput]):
             table_schemas=table_schemas,
         )
         self._write_output(output)
+        if field_distributions:
+            self._write_field_distributions(field_distributions, rid)
         logger.info(
-            "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings}}.json".format(
+            "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings,field_distributions}}.json".format(
                 rid
             )
         )
@@ -209,6 +235,7 @@ class InitStage(Stage[None, InitOutput]):
             duration_seconds=time.time() - start_time,
             files_count=len(mapper_files),
             schema_extraction_success=schema_extraction_success,
+            field_distributions_count=len(field_distributions),
         )
         logger.info("[INIT] Init stage completed")
         return output
@@ -238,12 +265,23 @@ class InitStage(Stage[None, InitOutput]):
         else:
             xml_mappings_file.write_text(json.dumps({"files": []}), encoding="utf-8")
 
+    def _write_field_distributions(
+        self,
+        field_distributions: list[FieldDistribution],
+        run_id: str,
+    ) -> None:
+        output_dir = Path("runs") / run_id / "init"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        field_distributions_file = output_dir / "field_distributions.json"
+        field_distributions_file.write_text(json.dumps([asdict(fd) for fd in field_distributions]), encoding="utf-8")
+
     def _generate_summary(
         self,
         output: InitOutput,
         duration_seconds: float,
         files_count: int,
         schema_extraction_success: bool = True,
+        field_distributions_count: int = 0,
     ) -> None:
         """Generate SUMMARY.md for the init stage.
 
@@ -254,12 +292,19 @@ class InitStage(Stage[None, InitOutput]):
             duration_seconds: Total execution time in seconds.
             files_count: Number of mapper files processed.
             schema_extraction_success: Whether schema extraction succeeded.
+            field_distributions_count: Number of field distributions collected.
         """
         try:
             output_dir = Path("runs") / output.run_id / "init"
 
             file_size_bytes = 0
-            for filename in ["sql_units.json", "sql_fragments.json", "table_schemas.json", "xml_mappings.json"]:
+            for filename in [
+                "sql_units.json",
+                "sql_fragments.json",
+                "table_schemas.json",
+                "xml_mappings.json",
+                "field_distributions.json",
+            ]:
                 filepath = output_dir / filename
                 if filepath.exists():
                     file_size_bytes += filepath.stat().st_size
@@ -270,6 +315,7 @@ class InitStage(Stage[None, InitOutput]):
                 files_count=files_count,
                 file_size_bytes=file_size_bytes,
                 schema_extraction_success=schema_extraction_success,
+                field_distributions_count=field_distributions_count,
             )
             summary_file = output_dir / "SUMMARY.md"
             summary_file.write_text(summary_content, encoding="utf-8")

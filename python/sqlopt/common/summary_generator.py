@@ -76,6 +76,7 @@ def generate_init_summary_markdown(
     files_count: int,
     file_size_bytes: int,
     schema_extraction_success: bool = True,
+    field_distributions_count: int = 0,
 ) -> str:
     """Generate a valuable INIT stage SUMMARY with actual extracted data.
 
@@ -85,6 +86,7 @@ def generate_init_summary_markdown(
         files_count: Number of mapper files processed.
         file_size_bytes: Total size of output files in bytes.
         schema_extraction_success: Whether schema extraction succeeded.
+        field_distributions_count: Number of field distributions collected.
 
     Returns:
         Markdown-formatted SUMMARY.md with actionable insights.
@@ -190,6 +192,17 @@ def generate_init_summary_markdown(
         else:
             lines.append("ℹ️ 表Schema提取已跳过（无数据库连接）")
     lines.append("")
+
+    # Field distribution status
+    if field_distributions_count > 0:
+        lines.append("## WHERE字段分布")
+        lines.append("")
+        lines.append(f"✅ 已收集 **{field_distributions_count}** 个WHERE字段的数据分布")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
+        lines.append(f"| WHERE字段分布 | {field_distributions_count} |")
+        lines.append("")
 
     # Statistics summary
     lines.append("## 统计信息")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List
 
-from sqlopt.contracts.init import TableSchema
+from sqlopt.contracts.init import FieldDistribution, TableSchema
 
 if TYPE_CHECKING:
     from sqlopt.common.db_connector import DBConnector
@@ -251,9 +251,245 @@ def _execute_safe(
     sql: str,
     params: tuple | None,
 ) -> List[Dict[str, Any]]:
-    """Execute query safely, handling connection errors."""
+    """Execute query safely, handling connection and operational errors."""
     try:
         return db_connector.execute_query(sql, params)
-    except (ConnectionError, RuntimeError) as e:
+    except (ConnectionError, RuntimeError, Exception) as e:
         logger.warning("Query failed: %s - Error: %s", sql, e)
         return []
+
+
+def extract_where_fields_from_sql(sql_text: str) -> List[str]:
+    """Extract field names from WHERE clause in SQL text.
+
+    Handles MyBatis dynamic SQL tags by filtering them out before parsing.
+
+    Args:
+        sql_text: SQL text to parse (may contain MyBatis tags).
+
+    Returns:
+        List of field/column names found in WHERE conditions.
+    """
+    import re
+
+    if not sql_text:
+        return []
+
+    mybatis_patterns = [
+        r"#{[^}]*}",  # #{field_name}
+        r"\${[^}]*}",  # ${field_name}
+        r"<if[^>]*>.*?</if>",  # <if test="...">...</if>
+        r"<where[^>]*>",  # <where> tags
+        r"<set[^>]*>",  # <set> tags
+        r"<trim[^>]*>.*?</trim>",  # <trim>...</trim>
+        r"<choose[^>]*>.*?</choose>",  # <choose>...</choose>
+        r"<when[^>]*>.*?</when>",  # <when>...</when>
+        r"<otherwise[^>]*>.*?</otherwise>",  # <otherwise>...</otherwise>
+        r"<foreach[^>]*>.*?</foreach>",  # <foreach>...</foreach>
+        r"<bind[^>]*>.*?</bind>",  # <bind>...</bind>
+        r"<include[^>]*>.*?</include>",  # <include...>...</include>
+        r"&lt;if.*?&gt;",  # escaped <if>
+        r"&gt;",  # escaped >
+        r"&lt;",  # escaped <
+    ]
+
+    cleaned_sql = sql_text
+    for pattern in mybatis_patterns:
+        cleaned_sql = re.sub(pattern, " ", cleaned_sql, flags=re.IGNORECASE | re.DOTALL)
+
+    sql_keywords = {
+        "select",
+        "from",
+        "where",
+        "and",
+        "or",
+        "not",
+        "in",
+        "is",
+        "null",
+        "true",
+        "false",
+        "like",
+        "between",
+        "exists",
+        "any",
+        "all",
+        "some",
+        "case",
+        "when",
+        "then",
+        "else",
+        "end",
+        "as",
+        "on",
+        "join",
+        "inner",
+        "left",
+        "right",
+        "outer",
+        "cross",
+        "group",
+        "by",
+        "order",
+        "having",
+        "limit",
+        "offset",
+        "union",
+        "intersect",
+        "except",
+        "insert",
+        "update",
+        "delete",
+        "values",
+        "set",
+        "into",
+        "create",
+        "drop",
+        "alter",
+        "table",
+        "index",
+        "view",
+        "procedure",
+        "function",
+        "trigger",
+        "grant",
+        "revoke",
+        "commit",
+        "rollback",
+        "savepoint",
+        "lock",
+        "unlock",
+        "call",
+        "explain",
+        "describe",
+        "show",
+        "use",
+        "database",
+        "schema",
+    }
+
+    field_names: set[str] = set()
+
+    where_pattern = r"\bWHERE\s+(.+?)(?:\bGROUP BY\b|\bORDER BY\b|\bLIMIT\b|$)"
+    match = re.search(where_pattern, cleaned_sql, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return []
+
+    where_clause = match.group(1)
+
+    condition_pattern = r"(?:AND|OR)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=|<|>|<=|>=|<>|!=|LIKE|IN|BETWEEN|IS)"
+    for m in re.finditer(condition_pattern, where_clause, re.IGNORECASE):
+        field = m.group(1).lower()
+        if field not in sql_keywords:
+            field_names.add(field)
+
+    comparison_pattern = r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=|<|>|<=|>=|<>|!=|LIKE|IN|BETWEEN|IS)\s+"
+    for m in re.finditer(comparison_pattern, where_clause, re.IGNORECASE):
+        field = m.group(1).lower()
+        if field not in sql_keywords:
+            field_names.add(field)
+
+    return list(field_names)
+
+
+def extract_field_distributions(
+    table_name: str,
+    column_names: List[str],
+    db_connector: "DBConnector",
+    platform: str,
+    top_n: int = 10,
+) -> List[FieldDistribution]:
+    """Extract data distribution statistics for specified columns.
+
+    Args:
+        table_name: Name of the table.
+        column_names: List of column names to analyze.
+        db_connector: Database connector instance.
+        platform: Database platform ('postgresql' or 'mysql').
+        top_n: Number of top values to collect (default: 10).
+
+    Returns:
+        List of FieldDistribution for each column.
+    """
+    distributions: List[FieldDistribution] = []
+
+    for col in column_names:
+        try:
+            dist = _extract_single_column_distribution(table_name, col, db_connector, platform, top_n)
+            if dist:
+                distributions.append(dist)
+        except (ConnectionError, RuntimeError) as e:
+            logger.warning("Failed to extract distribution for %s.%s: %s", table_name, col, e)
+
+    return distributions
+
+
+def _extract_single_column_distribution(
+    table_name: str,
+    column_name: str,
+    db_connector: "DBConnector",
+    platform: str,
+    top_n: int,
+) -> FieldDistribution | None:
+    """Extract distribution for a single column."""
+    safe_table = _safe_identifier(table_name, platform)
+    safe_column = _safe_identifier(column_name, platform)
+
+    distinct_query = f"SELECT COUNT(DISTINCT {safe_column}) FROM {safe_table}"
+    distinct_result = _execute_safe(db_connector, distinct_query, None)
+    distinct_count = distinct_result[0].get("count", 0) if distinct_result else 0
+
+    null_query = f"SELECT COUNT(*) FROM {safe_table} WHERE {safe_column} IS NULL"
+    null_result = _execute_safe(db_connector, null_query, None)
+    null_count = null_result[0].get("count", 0) if null_result else 0
+
+    top_values: List[Dict[str, Any]] = []
+    if platform == "postgresql":
+        top_query = f"""
+            SELECT {safe_column} as value, COUNT(*) as count
+            FROM {safe_table}
+            WHERE {safe_column} IS NOT NULL
+            GROUP BY {safe_column}
+            ORDER BY COUNT(*) DESC
+            LIMIT %s
+        """
+        top_result = _execute_safe(db_connector, top_query, (top_n,))
+    else:
+        top_query = f"""
+            SELECT {safe_column} as value, COUNT(*) as count
+            FROM {safe_table}
+            WHERE {safe_column} IS NOT NULL
+            GROUP BY {safe_column}
+            ORDER BY COUNT(*) DESC
+            LIMIT %s
+        """
+        top_result = _execute_safe(db_connector, top_query, (top_n,))
+
+    if top_result:
+        for row in top_result:
+            top_values.append({"value": str(row.get("value", "")), "count": row.get("count", 0)})
+
+    min_max_query = f"SELECT MIN({safe_column}) as min_val, MAX({safe_column}) as max_val FROM {safe_table}"
+    min_max_result = _execute_safe(db_connector, min_max_query, None)
+    min_value = None
+    max_value = None
+    if min_max_result and len(min_max_result) > 0:
+        min_value = str(min_max_result[0].get("min_val", "")) if min_max_result[0].get("min_val") is not None else None
+        max_value = str(min_max_result[0].get("max_val", "")) if min_max_result[0].get("max_val") is not None else None
+
+    return FieldDistribution(
+        table_name=table_name,
+        column_name=column_name,
+        distinct_count=int(distinct_count) if distinct_count else 0,
+        null_count=int(null_count) if null_count else 0,
+        top_values=top_values,
+        min_value=min_value,
+        max_value=max_value,
+    )
+
+
+def _safe_identifier(name: str, platform: str) -> str:
+    """Safely quote an identifier based on platform."""
+    if platform == "postgresql":
+        return f'"{name}"'
+    return f"`{name}`"

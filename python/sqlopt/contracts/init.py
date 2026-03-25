@@ -70,6 +70,29 @@ class TableSchema:
 
 
 @dataclass
+class FieldDistribution:
+    """Represents data distribution statistics for a field used in WHERE conditions."""
+
+    table_name: str
+    column_name: str
+    distinct_count: int
+    null_count: int
+    top_values: List[Dict[str, Any]] = field(default_factory=list)
+    min_value: Optional[str] = None
+    max_value: Optional[str] = None
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, json_str: str) -> FieldDistribution:
+        """Deserialize from JSON string."""
+        data = json.loads(json_str)
+        return cls(**data)
+
+
+@dataclass
 class FragmentMapping:
     """Mapping for a SQL fragment within an XML file."""
 
