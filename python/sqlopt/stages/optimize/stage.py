@@ -112,11 +112,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 )
                 proposals.append(proposal)
                 logger.info(
-                    f"[OPTIMIZE]   ✓ {baseline.sql_unit_id}.{baseline.path_id}: confidence={proposal_data['confidence']:.2f}"
+                    f"[OPTIMIZE]   [OK] %s.%s: confidence=%.2f",
+                    baseline.sql_unit_id,
+                    baseline.path_id,
+                    proposal_data["confidence"],
                 )
             except Exception as e:  # noqa: BLE001
                 logger.warning(
-                    "[OPTIMIZE]   ✗ Failed: %s.%s - %s",
+                    "[OPTIMIZE]   [FAIL] Failed: %s.%s - %s",
                     baseline.sql_unit_id,
                     baseline.path_id,
                     str(e),
@@ -171,13 +174,22 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             if result.success and result.result:
                 proposals.append(result.result)
                 logger.info(
-                    f"[OPTIMIZE]   ✓ {result.result.sql_unit_id}.{result.result.path_id} "
-                    f"({completed}/{total}): confidence={result.result.confidence:.2f}"
+                    "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f",
+                    result.result.sql_unit_id,
+                    result.result.path_id,
+                    completed,
+                    total,
+                    result.result.confidence,
                 )
             else:
                 baseline = result.item[0]
                 logger.warning(
-                    f"[OPTIMIZE]   ✗ {baseline.sql_unit_id}.{baseline.path_id} ({completed}/{total}): {result.error}"
+                    "[OPTIMIZE]   [FAIL] %s.%s (%d/%d): %s",
+                    baseline.sql_unit_id,
+                    baseline.path_id,
+                    completed,
+                    total,
+                    result.error,
                 )
 
         return proposals

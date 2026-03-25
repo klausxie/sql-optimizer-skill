@@ -93,7 +93,7 @@ class ResultStage(Stage[None, ResultOutput]):
 
             patch = self._create_patch(proposal, sql_unit.sql_text)
             patches.append(patch)
-            logger.info(f"[RESULT]   ✓ {proposal.sql_unit_id}: {proposal.rationale[:50]}...")
+            logger.info("[RESULT]   [OK] %s: %s...", proposal.sql_unit_id, proposal.rationale[:50])
 
         report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches)
         logger.info(f"[RESULT] Report summary: {report.summary}")

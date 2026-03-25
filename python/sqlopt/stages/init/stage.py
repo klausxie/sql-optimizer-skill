@@ -204,22 +204,24 @@ class InitStage(Stage[None, InitOutput]):
 
         # 1. sql_units.json - List[SQLUnit]
         sql_units_file = output_dir / "sql_units.json"
-        sql_units_file.write_text(json.dumps([asdict(u) for u in output.sql_units]))
+        sql_units_file.write_text(json.dumps([asdict(u) for u in output.sql_units]), encoding="utf-8")
 
         # 2. sql_fragments.json - List[SQLFragment]
         sql_fragments_file = output_dir / "sql_fragments.json"
-        sql_fragments_file.write_text(json.dumps([asdict(f) for f in output.sql_fragments]))
+        sql_fragments_file.write_text(json.dumps([asdict(f) for f in output.sql_fragments]), encoding="utf-8")
 
         # 3. table_schemas.json - Dict[str, TableSchema]
         table_schemas_file = output_dir / "table_schemas.json"
-        table_schemas_file.write_text(json.dumps({k: asdict(v) for k, v in output.table_schemas.items()}))
+        table_schemas_file.write_text(
+            json.dumps({k: asdict(v) for k, v in output.table_schemas.items()}), encoding="utf-8"
+        )
 
         # 4. xml_mappings.json - XMLMapping
         xml_mappings_file = output_dir / "xml_mappings.json"
         if output.xml_mappings:
-            xml_mappings_file.write_text(output.xml_mappings.to_json())
+            xml_mappings_file.write_text(output.xml_mappings.to_json(), encoding="utf-8")
         else:
-            xml_mappings_file.write_text(json.dumps({"files": []}))
+            xml_mappings_file.write_text(json.dumps({"files": []}), encoding="utf-8")
 
 
 def _build_statement_xpath(stmt: ParsedStatement) -> str:

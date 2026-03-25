@@ -183,11 +183,14 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     )
                     baselines.append(baseline)
                     logger.info(
-                        f"[RECOGNITION]   ✓ {sql_unit.sql_unit_id}.{branch.path_id}: cost={baseline_data['estimated_cost']}"
+                        "[RECOGNITION]   [OK] %s.%s: cost=%s",
+                        sql_unit.sql_unit_id,
+                        branch.path_id,
+                        baseline_data["estimated_cost"],
                     )
                 except Exception as e:  # noqa: BLE001
                     logger.warning(
-                        "[RECOGNITION]   ✗ Failed: %s.%s - %s",
+                        "[RECOGNITION]   [FAIL] Failed: %s.%s - %s",
                         sql_unit.sql_unit_id,
                         branch.path_id,
                         str(e),
@@ -241,11 +244,13 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             if result.success and result.result:
                 baselines.append(result.result)
                 logger.info(
-                    f"[RECOGNITION]   ✓ {result.result.sql_unit_id}.{result.result.path_id}: "
-                    f"cost={result.result.estimated_cost}"
+                    "[RECOGNITION]   [OK] %s.%s: cost=%s",
+                    result.result.sql_unit_id,
+                    result.result.path_id,
+                    result.result.estimated_cost,
                 )
             else:
-                logger.warning(f"[RECOGNITION]   ✗ Failed: {result.error}")
+                logger.warning("[RECOGNITION]   [FAIL] Failed: %s", result.error)
 
         return baselines
 
