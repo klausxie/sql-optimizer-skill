@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +21,11 @@ from .patch_strategy_planner import plan_patch_strategy
 from .semantic_equivalence import build_semantic_equivalence
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
+from .canonicalization_support import SELECT_DIRECT_RE, cleanup_redundant_select_aliases, normalize_sql
 from ...patch_contracts import build_patch_target_contract, semantic_confidence_rank
 from ...patch_families.registry import lookup_patch_family_spec
+
+_QUALIFIED_REFERENCE_RE = re.compile(r"\b[a-z_][a-z0-9_]*\.", flags=re.IGNORECASE)
 
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -100,6 +104,9 @@ def _patch_template_settings(config: dict[str, Any] | None) -> dict[str, bool]:
 
 
 def _derive_patch_target_family(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
     rewrite_facts: dict[str, Any] | None,
     rewrite_materialization: dict[str, Any] | None,
     selected_patch_strategy: dict[str, Any] | None,
@@ -122,9 +129,89 @@ def _derive_patch_target_family(
     if cte_query.get("inlineCandidate"):
         return "STATIC_CTE_INLINE"
 
+    alias_guarded, alias_family = _classify_static_alias_projection_cleanup(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        selected_patch_strategy=selected_patch_strategy,
+    )
+    if alias_guarded:
+        return alias_family
+
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
     return None
+
+
+def _classify_static_alias_projection_cleanup(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    rewrite_facts: dict[str, Any] | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> tuple[bool, str | None]:
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False, None
+
+    dynamic_template = dict((rewrite_facts or {}).get("dynamicTemplate") or {})
+    aggregation_query = dict((rewrite_facts or {}).get("aggregationQuery") or {})
+    cte_query = dict((rewrite_facts or {}).get("cteQuery") or {})
+    if dynamic_template.get("present") or aggregation_query.get("present") or cte_query.get("present"):
+        return False, None
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql or "")
+    original_match = SELECT_DIRECT_RE.match(normalized_original)
+    rewritten_match = SELECT_DIRECT_RE.match(normalized_rewritten)
+    if original_match is None or rewritten_match is None:
+        return False, None
+
+    original_select = normalize_sql(original_match.group("select"))
+    original_from = normalize_sql(original_match.group("from"))
+    rewritten_select = normalize_sql(rewritten_match.group("select"))
+    rewritten_from = normalize_sql(rewritten_match.group("from"))
+    cleaned_select, aliases_changed = cleanup_redundant_select_aliases(original_select)
+    if not aliases_changed:
+        return False, None
+
+    if any(
+        _QUALIFIED_REFERENCE_RE.search(fragment)
+        for fragment in (original_select, original_from, rewritten_select, rewritten_from)
+    ):
+        return True, None
+    if rewritten_from != original_from:
+        return True, None
+    if normalize_sql(cleaned_select) != rewritten_select:
+        return True, None
+    return True, "STATIC_ALIAS_PROJECTION_CLEANUP"
+
+
+def _apply_static_alias_projection_cleanup_guard(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    rewrite_facts: dict[str, Any] | None,
+    patchability: dict[str, Any] | None,
+    selected_patch_strategy: dict[str, Any] | None,
+    rewrite_materialization: dict[str, Any] | None,
+    template_rewrite_ops: list[dict[str, Any]] | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]]]:
+    alias_guarded, alias_family = _classify_static_alias_projection_cleanup(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        selected_patch_strategy=selected_patch_strategy,
+    )
+    if not alias_guarded or alias_family is not None:
+        return patchability, selected_patch_strategy, rewrite_materialization, list(template_rewrite_ops or [])
+
+    guarded_patchability = dict(patchability or {})
+    guarded_patchability["eligible"] = False
+    guarded_patchability["allowedCapabilities"] = []
+    guarded_patchability["blockingReason"] = "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH"
+    guarded_patchability["blockingReasons"] = ["STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH"]
+    return guarded_patchability, None, None, []
 
 
 def _build_patch_target(
@@ -150,7 +237,13 @@ def _build_patch_target(
     replay_contract = dict((rewrite_materialization or {}).get("replayContract") or {})
     if not replay_contract:
         return None
-    family = _derive_patch_target_family(rewrite_facts, rewrite_materialization, selected_patch_strategy)
+    family = _derive_patch_target_family(
+        original_sql=str(sql_unit.get("sql") or ""),
+        rewritten_sql=rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        rewrite_materialization=rewrite_materialization,
+        selected_patch_strategy=selected_patch_strategy,
+    )
     spec = lookup_patch_family_spec(family) if family else None
     if spec is None or spec.status != "FROZEN_AUTO_PATCH":
         return None
@@ -340,6 +433,15 @@ def validate_proposal(
             semantic_equivalence,
             enable_fragment_materialization=template_settings["enable_fragment_materialization"],
         )
+    )
+    patchability, selected_patch_strategy, rewrite_materialization, template_rewrite_ops = _apply_static_alias_projection_cleanup_guard(
+        original_sql=sql,
+        rewritten_sql=selection.rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        patchability=patchability,
+        selected_patch_strategy=selected_patch_strategy,
+        rewrite_materialization=rewrite_materialization,
+        template_rewrite_ops=template_rewrite_ops,
     )
     semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
     semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()

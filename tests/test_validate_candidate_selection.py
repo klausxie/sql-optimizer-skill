@@ -284,6 +284,107 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertTrue(patch_target["targetSqlNormalized"])
         self.assertTrue(patch_target["targetSqlFingerprint"])
 
+    def test_validate_persists_static_alias_projection_cleanup_patch_target_for_ready_alias_only_case(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersProjectedAliases#v20",
+            "sql": "SELECT id AS id, name AS name, email AS email FROM users ORDER BY created_at DESC",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, name, email FROM users ORDER BY created_at DESC",
+                    "rewriteStrategy": "REMOVE_REDUNDANT_PROJECTION_ALIASES",
+                }
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            }
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 8.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_static_alias_cleanup_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        patch_target = result.to_contract()["patchTarget"]
+        self.assertEqual(patch_target["family"], "STATIC_ALIAS_PROJECTION_CLEANUP")
+        self.assertEqual(patch_target["selectedPatchStrategy"]["strategyType"], "EXACT_TEMPLATE_EDIT")
+
+    def test_validate_blocks_qualified_alias_neighbor_from_static_alias_projection_cleanup(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
+            "sql": "SELECT u.id AS id, u.name AS name, u.email AS email FROM users u ORDER BY u.created_at DESC",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT u.id, u.name, u.email FROM users u ORDER BY u.created_at DESC",
+                    "rewriteStrategy": "REMOVE_REDUNDANT_PROJECTION_ALIASES",
+                }
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            }
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 8.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_static_alias_neighbor_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        contract = result.to_contract()
+        self.assertIsNone(contract.get("patchTarget"))
+        self.assertIsNone(contract.get("selectedPatchStrategy"))
+        self.assertEqual((contract.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH")
+
     def test_validate_requires_registered_family_spec_before_persisting_patch_target(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_missing_spec_") as td:
             xml_path = Path(td) / "demo_mapper.xml"

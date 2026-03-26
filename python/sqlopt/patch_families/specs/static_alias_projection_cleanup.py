@@ -14,7 +14,7 @@ from ..models import (
 
 STATIC_ALIAS_PROJECTION_CLEANUP_SPEC = PatchFamilySpec(
     family="STATIC_ALIAS_PROJECTION_CLEANUP",
-    status="REGISTERED_CANDIDATE",
+    status="FROZEN_AUTO_PATCH",
     stage="MVP_TEMPLATE",
     scope=PatchFamilyScope(
         statement_types=("SELECT",),

@@ -24,7 +24,7 @@ def test_registry_exposes_mvp_template_and_new_family() -> None:
 def test_static_alias_projection_cleanup_spec_carries_mvp_contract_sections() -> None:
     spec = lookup_patch_family_spec("STATIC_ALIAS_PROJECTION_CLEANUP")
     assert spec is not None
-    assert spec.status == "REGISTERED_CANDIDATE"
+    assert spec.status == "FROZEN_AUTO_PATCH"
     assert spec.acceptance.semantic_required_status == "PASS"
     assert spec.acceptance.semantic_min_confidence == "HIGH"
     assert spec.scope.statement_types == ("SELECT",)
@@ -51,7 +51,7 @@ def test_patch_contracts_frozen_family_scope_is_registry_derived() -> None:
         if spec.status == "FROZEN_AUTO_PATCH"
     }
     assert FROZEN_AUTO_PATCH_FAMILIES == registry_families
-    assert "STATIC_ALIAS_PROJECTION_CLEANUP" not in FROZEN_AUTO_PATCH_FAMILIES
+    assert "STATIC_ALIAS_PROJECTION_CLEANUP" in FROZEN_AUTO_PATCH_FAMILIES
 
 
 def test_duplicate_family_registration_fails_fast() -> None:

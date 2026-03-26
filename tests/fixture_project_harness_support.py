@@ -86,6 +86,17 @@ def fixture_registered_families(scenarios: list[dict]) -> set[str]:
     return registered_families
 
 
+def fixture_registered_blocked_neighbor_families(scenarios: list[dict]) -> set[str]:
+    blocked_families = set(dynamic_blocked_neighbor_families(scenarios))
+    for row in scenarios:
+        if row.get("targetPatchStrategy"):
+            continue
+        spec = registered_patch_family_spec(row.get("targetRegisteredFamily"))
+        if spec is not None:
+            blocked_families.add(str(spec.family))
+    return blocked_families
+
+
 def patch_meets_registered_fixture_obligations(patch: dict, scenario: dict) -> bool:
     target_registered_family = str(scenario.get("targetRegisteredFamily") or "").strip()
     target_dynamic_family = str(scenario.get("targetDynamicBaselineFamily") or "").strip()

@@ -12,8 +12,8 @@ from .fixture_project_harness_support import (
     SEMANTIC_TARGETS,
     VALIDATE_EVIDENCE_MODES,
     VALIDATE_STATUSES,
-    dynamic_blocked_neighbor_families,
-    fixture_dynamic_registered_families,
+    fixture_registered_blocked_neighbor_families,
+    fixture_registered_families,
     load_fixture_scenarios,
     patchability_bucket,
     primary_blocker,
@@ -25,30 +25,21 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):
-    def test_fixture_current_dynamic_family_surface_stays_backed_by_registry(self) -> None:
+    def test_fixture_current_registered_family_surface_stays_backed_by_registry(self) -> None:
         scenarios = load_fixture_scenarios()
-        dynamic_registered_families = fixture_dynamic_registered_families(scenarios)
-        self.assertTrue(dynamic_registered_families)
-        for family in dynamic_registered_families:
+        registered_families = fixture_registered_families(scenarios)
+        self.assertTrue(registered_families)
+        for family in registered_families:
             spec = registered_patch_family_spec(family)
             self.assertIsNotNone(spec, family)
             self.assertTrue(spec.fixture_obligations.ready_case_required, family)
 
         required_blocked_neighbor_families = {
             family
-            for family in dynamic_registered_families
+            for family in registered_families
             if bool(registered_patch_family_spec(family).fixture_obligations.blocked_neighbor_required)
         }
-        self.assertTrue(required_blocked_neighbor_families <= dynamic_blocked_neighbor_families(scenarios))
-
-    def test_fixture_current_scope_has_no_static_registered_family_targets(self) -> None:
-        scenarios = load_fixture_scenarios()
-        static_registered_families = {
-            str(scenario.get("targetRegisteredFamily") or "").strip()
-            for scenario in scenarios
-            if str(scenario.get("targetRegisteredFamily") or "").strip()
-        }
-        self.assertEqual(static_registered_families, set())
+        self.assertTrue(required_blocked_neighbor_families <= fixture_registered_blocked_neighbor_families(scenarios))
 
     def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
         scenarios = load_fixture_scenarios()
@@ -100,6 +91,12 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(
                     ((result.get("dynamicTemplate") or {}).get("deliveryClass")),
                     scenario["targetDynamicDeliveryClass"],
+                    sql_key,
+                )
+            if scenario.get("targetRegisteredFamily") is not None and scenario.get("targetPatchStrategy") is not None:
+                self.assertEqual(
+                    ((result.get("patchTarget") or {}).get("family")),
+                    scenario["targetRegisteredFamily"],
                     sql_key,
                 )
             self.assertEqual(primary_blocker(result), scenario["targetPrimaryBlocker"], sql_key)
@@ -202,6 +199,13 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(aggregation_query.get("distinctPresent"), True, sql_key)
                 self.assertEqual(capability_profile.get("safeBaselineFamily"), "DISTINCT_FROM_ALIAS_CLEANUP", sql_key)
                 self.assertEqual(capability_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
+            if sql_key == "demo.user.advanced.listUsersProjectedAliases#v20":
+                self.assertEqual((result.get("patchTarget") or {}).get("family"), "STATIC_ALIAS_PROJECTION_CLEANUP", sql_key)
+                self.assertEqual((result.get("selectedPatchStrategy") or {}).get("strategyType"), "EXACT_TEMPLATE_EDIT", sql_key)
+            if sql_key == "demo.user.advanced.listUsersProjectedQualifiedAliases#v21":
+                self.assertIsNone(result.get("patchTarget"), sql_key)
+                self.assertIsNone(result.get("selectedPatchStrategy"), sql_key)
+                self.assertEqual((result.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH", sql_key)
             if sql_key == "demo.order.harness.listOrderAmountWindowRanks#v7":
                 self.assertEqual(aggregation_query.get("windowPresent"), True, sql_key)
                 self.assertEqual(aggregation_query.get("windowFunctions"), ["ROW_NUMBER"], sql_key)
