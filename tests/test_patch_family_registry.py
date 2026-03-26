@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
+import sqlopt.patch_families.registry as registry_module
 from sqlopt.patch_families.registry import (
     _build_patch_family_registry,
     list_registered_patch_families,
@@ -47,3 +50,12 @@ def test_duplicate_family_registration_fails_fast() -> None:
 
     with pytest.raises(ValueError, match="DUPLICATE_PATCH_FAMILY: STATIC_INCLUDE_WRAPPER_COLLAPSE"):
         _build_patch_family_registry((spec, spec))
+
+
+def test_registry_imports_concrete_spec_modules_directly() -> None:
+    source = inspect.getsource(registry_module)
+
+    assert "from .specs import (" not in source
+    assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in source
+    assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in source
+    assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in source

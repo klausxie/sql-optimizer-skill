@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from .models import PatchFamilySpec
-from .specs import (
-    FROZEN_BASELINE_SPECS,
-    STATIC_ALIAS_PROJECTION_CLEANUP_SPEC,
-    STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC,
-)
+from .specs.frozen_baselines import FROZEN_BASELINE_SPECS
+from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC
+from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC
 
 
 def _build_patch_family_registry(
