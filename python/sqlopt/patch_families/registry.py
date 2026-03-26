@@ -1,9 +1,31 @@
 from __future__ import annotations
 
 from .models import PatchFamilySpec
-from .specs import REGISTERED_PATCH_FAMILY_SPECS
+from .specs import (
+    FROZEN_BASELINE_SPECS,
+    STATIC_ALIAS_PROJECTION_CLEANUP_SPEC,
+    STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC,
+)
 
-_PATCH_FAMILY_REGISTRY = {spec.family: spec for spec in REGISTERED_PATCH_FAMILY_SPECS}
+
+def _build_patch_family_registry(
+    specs: tuple[PatchFamilySpec, ...],
+) -> dict[str, PatchFamilySpec]:
+    registry: dict[str, PatchFamilySpec] = {}
+    for spec in specs:
+        if spec.family in registry:
+            raise ValueError(f"DUPLICATE_PATCH_FAMILY: {spec.family}")
+        registry[spec.family] = spec
+    return registry
+
+
+_REGISTERED_PATCH_FAMILY_SPECS = (
+    STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC,
+    STATIC_ALIAS_PROJECTION_CLEANUP_SPEC,
+    *FROZEN_BASELINE_SPECS,
+)
+
+_PATCH_FAMILY_REGISTRY = _build_patch_family_registry(_REGISTERED_PATCH_FAMILY_SPECS)
 
 
 def list_registered_patch_families() -> tuple[PatchFamilySpec, ...]:

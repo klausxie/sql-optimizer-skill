@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 from sqlopt.patch_families.registry import (
+    _build_patch_family_registry,
     list_registered_patch_families,
     lookup_patch_family_spec,
 )
@@ -36,3 +39,11 @@ def test_patch_contracts_frozen_family_scope_is_registry_derived() -> None:
     }
     assert FROZEN_AUTO_PATCH_FAMILIES == registry_families
     assert "STATIC_ALIAS_PROJECTION_CLEANUP" not in FROZEN_AUTO_PATCH_FAMILIES
+
+
+def test_duplicate_family_registration_fails_fast() -> None:
+    spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
+    assert spec is not None
+
+    with pytest.raises(ValueError, match="DUPLICATE_PATCH_FAMILY: STATIC_INCLUDE_WRAPPER_COLLAPSE"):
+        _build_patch_family_registry((spec, spec))
