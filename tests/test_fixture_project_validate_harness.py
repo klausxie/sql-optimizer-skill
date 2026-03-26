@@ -12,9 +12,12 @@ from .fixture_project_harness_support import (
     SEMANTIC_TARGETS,
     VALIDATE_EVIDENCE_MODES,
     VALIDATE_STATUSES,
+    dynamic_blocked_neighbor_families,
+    fixture_registered_families,
     load_fixture_scenarios,
     patchability_bucket,
     primary_blocker,
+    registered_patch_family_spec,
     run_fixture_validate_harness,
     semantic_gate_bucket,
     validate_blocker_family,
@@ -22,6 +25,22 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):
+    def test_fixture_registered_family_surface_stays_backed_by_registry(self) -> None:
+        scenarios = load_fixture_scenarios()
+        registered_families = fixture_registered_families(scenarios)
+        self.assertTrue(registered_families)
+        for family in registered_families:
+            spec = registered_patch_family_spec(family)
+            self.assertIsNotNone(spec, family)
+            self.assertTrue(spec.fixture_obligations.ready_case_required, family)
+
+        required_blocked_neighbor_families = {
+            family
+            for family in registered_families
+            if bool(registered_patch_family_spec(family).fixture_obligations.blocked_neighbor_required)
+        }
+        self.assertTrue(required_blocked_neighbor_families <= dynamic_blocked_neighbor_families(scenarios))
+
     def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
         scenarios = load_fixture_scenarios()
         ready_dynamic_families = {
