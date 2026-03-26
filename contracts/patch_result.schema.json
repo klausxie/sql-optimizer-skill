@@ -22,10 +22,10 @@
         "requiredTemplateOps": {"type": "array", "items": {"type": "string"}},
         "expectedRenderedSql": {"type": "string"},
         "expectedRenderedSqlNormalized": {"type": "string"},
-        "expectedFingerprint": {"type": "string"},
+        "expectedFingerprint": {"type": ["string", "object"]},
         "requiredAnchors": {"type": "array", "items": {"type": "string"}},
         "requiredIncludes": {"type": "array", "items": {"type": "string"}},
-        "requiredPlaceholderShape": {"type": "string"},
+        "requiredPlaceholderShape": {"type": ["string", "array"], "items": {"type": "string"}},
         "dialectSyntaxCheckRequired": {"type": "boolean"}
       }
     },

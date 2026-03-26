@@ -80,6 +80,12 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_COUNT_WRAPPER", sql_key)
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
+                self.assertEqual((result.get("patchTarget") or {}).get("family"), "DYNAMIC_COUNT_WRAPPER_COLLAPSE", sql_key)
+                self.assertEqual(
+                    (((result.get("patchTarget") or {}).get("replayContract") or {}).get("expectedRenderedSql")),
+                    result.get("rewrittenSql"),
+                    sql_key,
+                )
             if sql_key == "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "STATIC_INCLUDE_ONLY", sql_key)

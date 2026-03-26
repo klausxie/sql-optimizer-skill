@@ -62,14 +62,14 @@ def build_patch_target_contract(
         str(replay.get("expectedRenderedSqlNormalized") or "")
         or normalize_patch_target_sql(expected_rendered_sql)
     )
-    replay["expectedFingerprint"] = (
-        str(replay.get("expectedFingerprint") or "")
-        or fingerprint_patch_target_sql(replay["expectedRenderedSqlNormalized"])
+    replay["expectedFingerprint"] = replay.get("expectedFingerprint") or fingerprint_patch_target_sql(
+        replay["expectedRenderedSqlNormalized"]
     )
     replay["requiredTemplateOps"] = [str(op) for op in replay.get("requiredTemplateOps") or []]
     replay["requiredAnchors"] = [str(anchor) for anchor in replay.get("requiredAnchors") or []]
     replay["requiredIncludes"] = [str(include) for include in replay.get("requiredIncludes") or []]
-    replay["requiredPlaceholderShape"] = str(replay.get("requiredPlaceholderShape") or "")
+    placeholder_shape = replay.get("requiredPlaceholderShape")
+    replay["requiredPlaceholderShape"] = list(placeholder_shape) if isinstance(placeholder_shape, list) else str(placeholder_shape or "")
     replay["dialectSyntaxCheckRequired"] = bool(replay.get("dialectSyntaxCheckRequired"))
 
     return {

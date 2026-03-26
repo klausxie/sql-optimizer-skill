@@ -40,6 +40,7 @@ class ValidationResult:
     rewrite_safety_level: str | None = None
     patchability: dict[str, Any] | None = None
     selected_patch_strategy: dict[str, Any] | None = None
+    patch_target: dict[str, Any] | None = None
     dynamic_template: dict[str, Any] | None = None
     dynamic_candidate_intent: dict[str, Any] | None = None
     canonicalization: dict[str, Any] | None = None
@@ -93,6 +94,8 @@ class ValidationResult:
             payload["patchability"] = self.patchability
         if self.selected_patch_strategy is not None:
             payload["selectedPatchStrategy"] = self.selected_patch_strategy
+        if self.patch_target is not None:
+            payload["patchTarget"] = self.patch_target
         if self.dynamic_template is not None:
             payload["dynamicTemplate"] = self.dynamic_template
         if self.canonicalization is not None:
