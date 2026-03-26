@@ -206,6 +206,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                         baseline = PerformanceBaseline(
                             sql_unit_id=sql_unit.sql_unit_id,
                             path_id=branch.path_id,
+                            original_sql=branch.expanded_sql,
                             plan=None,
                             estimated_cost=0.0,
                             actual_time_ms=None,
@@ -221,6 +222,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     baseline = PerformanceBaseline(
                         sql_unit_id=sql_unit.sql_unit_id,
                         path_id=branch.path_id,
+                        original_sql=branch.expanded_sql,
                         plan=baseline_data["plan"],
                         estimated_cost=baseline_data["estimated_cost"],
                         actual_time_ms=baseline_data.get("actual_time_ms"),
@@ -271,6 +273,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 return PerformanceBaseline(
                     sql_unit_id=sql_unit_id,
                     path_id=path_id,
+                    original_sql=expanded_sql,
                     plan=None,
                     estimated_cost=0.0,
                     actual_time_ms=None,
@@ -281,6 +284,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             return PerformanceBaseline(
                 sql_unit_id=sql_unit_id,
                 path_id=path_id,
+                original_sql=expanded_sql,
                 plan=baseline_data["plan"],
                 estimated_cost=baseline_data["estimated_cost"],
                 actual_time_ms=baseline_data.get("actual_time_ms"),
@@ -314,6 +318,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         baseline = PerformanceBaseline(
             sql_unit_id="stub-1",
             path_id="p1",
+            original_sql="SELECT * FROM stub",
             plan={"cost": 100.0, "rows": 1000},
             estimated_cost=100.0,
             actual_time_ms=50.0,
@@ -347,6 +352,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 {
                     "sql_unit_id": baseline.sql_unit_id,
                     "path_id": baseline.path_id,
+                    "original_sql": baseline.original_sql,
                     "plan": baseline.plan,
                     "estimated_cost": baseline.estimated_cost,
                     "actual_time_ms": baseline.actual_time_ms,

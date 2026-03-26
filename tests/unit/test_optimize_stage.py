@@ -48,6 +48,7 @@ class TestOptimizeStageRun:
                 PerformanceBaseline(
                     sql_unit_id="unit-1",
                     path_id="path-a",
+                    original_sql="SELECT * FROM users WHERE id = 1",
                     plan={},
                     estimated_cost=100.0,
                 )
@@ -129,12 +130,14 @@ class TestOptimizeStageRun:
                 PerformanceBaseline(
                     sql_unit_id="sql-1",
                     path_id="branch-1",
+                    original_sql="SELECT id, name FROM customers",
                     plan={},
                     estimated_cost=50.0,
                 ),
                 PerformanceBaseline(
                     sql_unit_id="sql-2",
                     path_id="branch-1",
+                    original_sql="SELECT * FROM orders WHERE status = 'active'",
                     plan={},
                     estimated_cost=75.0,
                 ),
@@ -177,10 +180,7 @@ class TestOptimizeStageRun:
                 assert len(result.proposals) == 2
 
                 assert result.proposals[0].original_sql == "SELECT id, name FROM customers"
-                assert (
-                    result.proposals[1].original_sql
-                    == "SELECT * FROM orders WHERE status = 'active'"
-                )
+                assert result.proposals[1].original_sql == "SELECT * FROM orders WHERE status = 'active'"
             finally:
                 os.chdir(original_cwd)
 
@@ -194,6 +194,7 @@ class TestOptimizeStageRun:
                 PerformanceBaseline(
                     sql_unit_id="mock-unit",
                     path_id="mock-path",
+                    original_sql="SELECT * FROM products",
                     plan={},
                     estimated_cost=100.0,
                 )
@@ -223,51 +224,35 @@ class TestOptimizeStageRun:
 
                 proposal = result.proposals[0]
                 assert proposal.original_sql == "SELECT * FROM products"
-                assert (
-                    proposal.optimized_sql.startswith("/*")
-                    or "optimized" in proposal.optimized_sql.lower()
-                )
+                assert proposal.optimized_sql.startswith("/*") or "optimized" in proposal.optimized_sql.lower()
                 assert proposal.rationale is not None
                 assert 0.0 <= proposal.confidence <= 1.0
             finally:
                 os.chdir(original_cwd)
 
-    def test_run_handles_missing_sql_in_lookup(self):
-        """Test that run() skips baselines when SQL not found in parse data."""
+    def test_run_processes_all_baselines_with_original_sql(self):
+        """Test that run() processes all baselines since they all have original_sql."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            run_id = "test-run-missing-sql"
+            run_id = "test-run-all-baselines"
             run_path = self._create_run_structure(Path(tmpdir), run_id)
 
             baselines = [
                 PerformanceBaseline(
                     sql_unit_id="unit-1",
                     path_id="path-1",
+                    original_sql="SELECT a FROM table_a",
                     plan={},
                     estimated_cost=100.0,
                 ),
                 PerformanceBaseline(
                     sql_unit_id="unit-2",
                     path_id="path-2",
+                    original_sql="SELECT b FROM table_b",
                     plan={},
                     estimated_cost=100.0,
                 ),
             ]
             self._write_baselines_file(run_path, baselines)
-
-            sql_units = [
-                SQLUnitWithBranches(
-                    sql_unit_id="unit-1",
-                    branches=[
-                        SQLBranch(
-                            path_id="path-1",
-                            condition=None,
-                            expanded_sql="SELECT a FROM table_a",
-                            is_valid=True,
-                        )
-                    ],
-                )
-            ]
-            self._write_parse_file(run_path, sql_units)
 
             original_cwd = Path.cwd()
             os.chdir(tmpdir)
@@ -275,8 +260,10 @@ class TestOptimizeStageRun:
                 stage = OptimizeStage(run_id=run_id)
                 result = stage.run()
 
-                assert len(result.proposals) == 1
+                # Both baselines get processed since they all have original_sql
+                assert len(result.proposals) == 2
                 assert result.proposals[0].sql_unit_id == "unit-1"
+                assert result.proposals[1].sql_unit_id == "unit-2"
             finally:
                 os.chdir(original_cwd)
 
@@ -290,12 +277,14 @@ class TestOptimizeStageRun:
                 PerformanceBaseline(
                     sql_unit_id="unit-multi",
                     path_id="branch-a",
+                    original_sql="SELECT * FROM items WHERE type = 'A'",
                     plan={},
                     estimated_cost=50.0,
                 ),
                 PerformanceBaseline(
                     sql_unit_id="unit-multi",
                     path_id="branch-b",
+                    original_sql="SELECT * FROM items WHERE type = 'B'",
                     plan={},
                     estimated_cost=75.0,
                 ),

@@ -8,8 +8,6 @@ from sqlopt.contracts.init import InitOutput, SQLUnit
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.parse import (
     ParseOutput,
-    Risk,
-    RiskOutput,
     SQLBranch,
     SQLUnitWithBranches,
 )
@@ -26,8 +24,6 @@ __all__ = [
     "RecognitionOutput",
     "Report",
     "ResultOutput",
-    "Risk",
-    "RiskOutput",
     "SQLBranch",
     "SQLUnit",
     "SQLUnitWithBranches",

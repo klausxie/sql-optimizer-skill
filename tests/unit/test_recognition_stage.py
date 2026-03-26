@@ -266,6 +266,7 @@ class TestRecognitionStageWriteOutput:
                     PerformanceBaseline(
                         sql_unit_id="test_unit",
                         path_id="test_path",
+                        original_sql="SELECT * FROM test",
                         plan={"cost": 50.0},
                         estimated_cost=50.0,
                         actual_time_ms=25.0,
@@ -292,6 +293,7 @@ class TestRecognitionStageWriteOutput:
             baseline = PerformanceBaseline(
                 sql_unit_id="test_unit",
                 path_id="test_path",
+                original_sql="SELECT * FROM test",
                 plan={"cost": 50.0},
                 estimated_cost=50.0,
                 actual_time_ms=25.0,
@@ -322,6 +324,7 @@ class TestPerformanceBaselineStructure:
         baseline = PerformanceBaseline(
             sql_unit_id="unit_1",
             path_id="path_1",
+            original_sql="SELECT * FROM users WHERE id = 1",
             plan={"Node Type": "Seq Scan", "cost": 100.0},
             estimated_cost=100.0,
             actual_time_ms=50.0,
@@ -338,6 +341,7 @@ class TestPerformanceBaselineStructure:
         baseline = PerformanceBaseline(
             sql_unit_id="unit_1",
             path_id="path_1",
+            original_sql="SELECT * FROM users",
             plan={},
             estimated_cost=10.0,
         )
@@ -349,6 +353,7 @@ class TestPerformanceBaselineStructure:
         original = PerformanceBaseline(
             sql_unit_id="unit_test",
             path_id="path_test",
+            original_sql="SELECT * FROM orders WHERE status = 'active'",
             plan={"Node Type": "Hash Join"},
             estimated_cost=75.0,
             actual_time_ms=30.0,
@@ -475,20 +480,14 @@ class TestRecognitionStageWithMockLLM:
                     SQLUnitWithBranches(
                         sql_unit_id="unit_1",
                         branches=[
-                            SQLBranch(
-                                path_id="p1", condition=None, expanded_sql="SELECT 1", is_valid=True
-                            ),
-                            SQLBranch(
-                                path_id="p2", condition=None, expanded_sql="SELECT 2", is_valid=True
-                            ),
+                            SQLBranch(path_id="p1", condition=None, expanded_sql="SELECT 1", is_valid=True),
+                            SQLBranch(path_id="p2", condition=None, expanded_sql="SELECT 2", is_valid=True),
                         ],
                     ),
                     SQLUnitWithBranches(
                         sql_unit_id="unit_2",
                         branches=[
-                            SQLBranch(
-                                path_id="p3", condition=None, expanded_sql="SELECT 3", is_valid=True
-                            ),
+                            SQLBranch(path_id="p3", condition=None, expanded_sql="SELECT 3", is_valid=True),
                         ],
                     ),
                 ]
@@ -515,12 +514,14 @@ class TestRecognitionOutputStructure:
             PerformanceBaseline(
                 sql_unit_id="u1",
                 path_id="p1",
+                original_sql="SELECT * FROM a",
                 plan={"cost": 10.0},
                 estimated_cost=10.0,
             ),
             PerformanceBaseline(
                 sql_unit_id="u2",
                 path_id="p2",
+                original_sql="SELECT * FROM b",
                 plan={"cost": 20.0},
                 estimated_cost=20.0,
                 actual_time_ms=15.0,
@@ -541,6 +542,7 @@ class TestRecognitionOutputStructure:
                     {
                         "sql_unit_id": "test_unit",
                         "path_id": "test_path",
+                        "original_sql": "SELECT * FROM test",
                         "plan": {"Node Type": "Seq Scan"},
                         "estimated_cost": 50.0,
                         "actual_time_ms": 25.0,

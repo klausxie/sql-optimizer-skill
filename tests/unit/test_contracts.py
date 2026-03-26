@@ -15,8 +15,6 @@ from sqlopt.contracts import (
     RecognitionOutput,
     Report,
     ResultOutput,
-    Risk,
-    RiskOutput,
     SQLBranch,
     SQLUnit,
     SQLUnitWithBranches,
@@ -43,7 +41,9 @@ class TestSQLUnit:
         assert parsed["statement_type"] == "SELECT"
 
     def test_from_json(self) -> None:
-        json_str = '{"id":"unit-2","mapper_file":"/a.xml","sql_id":"find","sql_text":"SELECT 1","statement_type":"SELECT"}'
+        json_str = (
+            '{"id":"unit-2","mapper_file":"/a.xml","sql_id":"find","sql_text":"SELECT 1","statement_type":"SELECT"}'
+        )
         unit = SQLUnit.from_json(json_str)
         assert unit.id == "unit-2"
         assert unit.mapper_file == "/a.xml"
@@ -148,9 +148,7 @@ class TestSQLBranch:
         assert parsed["condition"] is None
 
     def test_from_json(self) -> None:
-        json_str = (
-            '{"path_id":"path-3","condition":"x > 0","expanded_sql":"SELECT 1","is_valid":false}'
-        )
+        json_str = '{"path_id":"path-3","condition":"x > 0","expanded_sql":"SELECT 1","is_valid":false}'
         branch = SQLBranch.from_json(json_str)
         assert branch.path_id == "path-3"
         assert branch.condition == "x > 0"
@@ -250,84 +248,6 @@ class TestParseOutput:
         assert restored.sql_units_with_branches[0].sql_unit_id == "u3"
 
 
-class TestRisk:
-    """Tests for Risk serialization."""
-
-    def test_to_json(self) -> None:
-        risk = Risk(
-            sql_unit_id="u1",
-            risk_type="SCALABILITY",
-            severity="HIGH",
-            message="Query may not scale",
-        )
-        result = risk.to_json()
-        parsed = json.loads(result)
-        assert parsed["sql_unit_id"] == "u1"
-        assert parsed["risk_type"] == "SCALABILITY"
-        assert parsed["severity"] == "HIGH"
-        assert parsed["message"] == "Query may not scale"
-
-    def test_from_json(self) -> None:
-        json_str = '{"sql_unit_id":"u2","risk_type":"SECURITY","severity":"MEDIUM","message":"SQL injection risk"}'
-        risk = Risk.from_json(json_str)
-        assert risk.sql_unit_id == "u2"
-        assert risk.risk_type == "SECURITY"
-        assert risk.severity == "MEDIUM"
-
-    def test_roundtrip(self) -> None:
-        risk = Risk(
-            sql_unit_id="u3",
-            risk_type="PERFORMANCE",
-            severity="LOW",
-            message="Could use index",
-        )
-        json_str = risk.to_json()
-        restored = Risk.from_json(json_str)
-        assert restored.sql_unit_id == risk.sql_unit_id
-        assert restored.risk_type == risk.risk_type
-        assert restored.severity == risk.severity
-        assert restored.message == risk.message
-
-
-class TestRiskOutput:
-    """Tests for RiskOutput serialization."""
-
-    def test_to_json_empty(self) -> None:
-        output = RiskOutput(risks=[])
-        result = output.to_json()
-        parsed = json.loads(result)
-        assert parsed["risks"] == []
-
-    def test_to_json_with_risks(self) -> None:
-        risk = Risk(
-            sql_unit_id="u1",
-            risk_type="RISK",
-            severity="HIGH",
-            message="Test risk",
-        )
-        output = RiskOutput(risks=[risk])
-        result = output.to_json()
-        parsed = json.loads(result)
-        assert len(parsed["risks"]) == 1
-
-    def test_from_json(self) -> None:
-        json_str = '{"risks":[{"sql_unit_id":"u1","risk_type":"R","severity":"H","message":"M"}]}'
-        output = RiskOutput.from_json(json_str)
-        assert len(output.risks) == 1
-        assert output.risks[0].sql_unit_id == "u1"
-
-    def test_roundtrip(self) -> None:
-        risks = [
-            Risk(sql_unit_id="u1", risk_type="T1", severity="H", message="M1"),
-            Risk(sql_unit_id="u2", risk_type="T2", severity="L", message="M2"),
-        ]
-        output = RiskOutput(risks=risks)
-        json_str = output.to_json()
-        restored = RiskOutput.from_json(json_str)
-        assert len(restored.risks) == 2
-        assert restored.risks[0].sql_unit_id == "u1"
-
-
 class TestPerformanceBaseline:
     """Tests for PerformanceBaseline serialization."""
 
@@ -335,6 +255,7 @@ class TestPerformanceBaseline:
         baseline = PerformanceBaseline(
             sql_unit_id="u1",
             path_id="p1",
+            original_sql="SELECT * FROM users",
             plan={"NodeType": "SeqScan", "RelationName": "users"},
             estimated_cost=100.5,
             actual_time_ms=50.0,
@@ -348,10 +269,11 @@ class TestPerformanceBaseline:
         assert parsed["actual_time_ms"] == 50.0
 
     def test_from_json(self) -> None:
-        json_str = '{"sql_unit_id":"u2","path_id":"p2","plan":{"NodeType":"IndexScan"},"estimated_cost":50.0,"actual_time_ms":null}'
+        json_str = '{"sql_unit_id":"u2","path_id":"p2","original_sql":"SELECT * FROM orders","plan":{"NodeType":"IndexScan"},"estimated_cost":50.0,"actual_time_ms":null}'
         baseline = PerformanceBaseline.from_json(json_str)
         assert baseline.sql_unit_id == "u2"
         assert baseline.path_id == "p2"
+        assert baseline.original_sql == "SELECT * FROM orders"
         assert baseline.plan["NodeType"] == "IndexScan"
         assert baseline.estimated_cost == 50.0
         assert baseline.actual_time_ms is None
@@ -360,6 +282,7 @@ class TestPerformanceBaseline:
         baseline = PerformanceBaseline(
             sql_unit_id="u3",
             path_id="p3",
+            original_sql="SELECT * FROM users WHERE status = 'active'",
             plan={"NodeType": "HashJoin"},
             estimated_cost=200.0,
             actual_time_ms=100.0,
@@ -386,6 +309,7 @@ class TestRecognitionOutput:
         baseline = PerformanceBaseline(
             sql_unit_id="u1",
             path_id="p1",
+            original_sql="SELECT 1",
             plan={},
             estimated_cost=10.0,
         )
@@ -395,9 +319,7 @@ class TestRecognitionOutput:
         assert len(parsed["baselines"]) == 1
 
     def test_from_json(self) -> None:
-        json_str = (
-            '{"baselines":[{"sql_unit_id":"u1","path_id":"p1","plan":{},"estimated_cost":10.0}]}'
-        )
+        json_str = '{"baselines":[{"sql_unit_id":"u1","path_id":"p1","original_sql":"SELECT 1","plan":{},"estimated_cost":10.0}]}'
         output = RecognitionOutput.from_json(json_str)
         assert len(output.baselines) == 1
         assert output.baselines[0].sql_unit_id == "u1"
@@ -407,12 +329,14 @@ class TestRecognitionOutput:
             PerformanceBaseline(
                 sql_unit_id="u1",
                 path_id="p1",
+                original_sql="SELECT * FROM a",
                 plan={"type": "seq"},
                 estimated_cost=100.0,
             ),
             PerformanceBaseline(
                 sql_unit_id="u2",
                 path_id="p2",
+                original_sql="SELECT * FROM b",
                 plan={"type": "index"},
                 estimated_cost=50.0,
             ),

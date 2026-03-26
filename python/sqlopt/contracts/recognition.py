@@ -9,6 +9,7 @@ from typing import List
 class PerformanceBaseline:
     sql_unit_id: str
     path_id: str
+    original_sql: str
     plan: dict | None
     estimated_cost: float
     actual_time_ms: float | None = None
