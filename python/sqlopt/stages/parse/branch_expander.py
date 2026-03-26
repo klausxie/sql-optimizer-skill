@@ -13,6 +13,7 @@ import xml.etree.ElementTree
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from sqlopt.contracts.init import FieldDistribution
 from sqlopt.stages.branching.branch_validator import BranchValidator
 from sqlopt.stages.branching.fragment_registry import FragmentRegistry
 
@@ -36,6 +37,7 @@ class ExpandedBranch:
     active_conditions: list[str] = field(default_factory=list)
     risk_score: float | None = None
     score_reasons: list[str] = field(default_factory=list)
+    branch_type: str | None = None
 
 
 class BranchExpander:
@@ -55,6 +57,7 @@ class BranchExpander:
         max_branches: int = 50,
         fragments: FragmentRegistry | None = None,
         table_metadata: dict[str, dict[str, Any]] | None = None,
+        field_distributions: dict[str, list[FieldDistribution]] | None = None,
     ) -> None:
         """Initialize with branch generation strategy.
 
@@ -67,6 +70,7 @@ class BranchExpander:
         self.max_branches = max_branches
         self.fragments = fragments
         self.table_metadata = table_metadata or {}
+        self.field_distributions = field_distributions or {}
 
     def expand(
         self,
@@ -98,6 +102,7 @@ class BranchExpander:
                 strategy=self.strategy,
                 max_branches=self.max_branches,
                 table_metadata=self.table_metadata,
+                field_distributions=self.field_distributions,
             )
             branch_dicts = generator.generate(sql_node)
             return self._map_branches(branch_dicts)
@@ -146,6 +151,7 @@ class BranchExpander:
             risk_flags = branch_dict.get("risk_flags", [])
             risk_score = branch_dict.get("risk_score")
             score_reasons = branch_dict.get("score_reasons", [])
+            branch_type = branch_dict.get("branch_type")
 
             path_id = f"branch_{branch_id}"
             condition = " AND ".join(active_conditions) if active_conditions else None
@@ -160,6 +166,7 @@ class BranchExpander:
                     active_conditions=active_conditions,
                     risk_score=risk_score,
                     score_reasons=score_reasons,
+                    branch_type=branch_type,
                 )
             )
 

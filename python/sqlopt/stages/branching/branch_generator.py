@@ -4,6 +4,8 @@ This module provides the BranchGenerator class which generates all possible
 SQL branches from MyBatis dynamic SQL nodes (if, choose, etc.).
 """
 
+# ruff: noqa: I001,F401,RUF003,RET507,PIE810,SIM102,PERF401,ARG002,SIM108,SIM114,RUF005
+
 from __future__ import annotations
 
 import copy
@@ -25,6 +27,7 @@ from sqlopt.stages.branching.planner import DimensionCandidate, LadderBranchPlan
 from sqlopt.stages.branching.risk_scorer import SQLDeltaRiskScorer
 
 if TYPE_CHECKING:
+    from sqlopt.contracts.init import FieldDistribution
     from sqlopt.stages.branching.sql_node import SqlNode
 
 
@@ -49,6 +52,7 @@ class BranchGenerator:
         strategy_seed: int | None = None,
         condition_weights: dict[str, float] | None = None,
         table_metadata: dict[str, dict] | None = None,
+        field_distributions: dict[str, list["FieldDistribution"]] | None = None,
     ) -> None:
         """Initialize the branch generator.
 
@@ -63,11 +67,13 @@ class BranchGenerator:
         self.strategy_seed: int | None = strategy_seed
         self.condition_weights = condition_weights
         self.table_metadata = table_metadata
+        self.field_distributions = field_distributions or {}
         self._strategy: BranchGenerationStrategy = create_strategy(
             strategy,
             seed=strategy_seed,
             condition_weights=condition_weights,
             table_metadata=table_metadata,
+            field_distributions=field_distributions,
         )
         self._mutex_detector: MutexBranchDetector = MutexBranchDetector()
 
@@ -210,7 +216,10 @@ class BranchGenerator:
             else:
                 branch["risk_flags"] = []
 
-        scorer = SQLDeltaRiskScorer(table_metadata=self.table_metadata)
+        scorer = SQLDeltaRiskScorer(
+            table_metadata=self.table_metadata,
+            field_distributions=self.field_distributions,
+        )
         for branch in branches:
             risk_score, score_reasons = scorer.score_branch(
                 branch.get("sql", ""),
@@ -233,7 +242,10 @@ class BranchGenerator:
         if not dimensions:
             return [[]]
 
-        scorer = SQLDeltaRiskScorer(table_metadata=self.table_metadata)
+        scorer = SQLDeltaRiskScorer(
+            table_metadata=self.table_metadata,
+            field_distributions=self.field_distributions,
+        )
         candidates = [
             DimensionCandidate(
                 dimension=dimension,
@@ -1215,6 +1227,7 @@ class BranchGenerator:
             self.strategy_seed,
             condition_weights=self.condition_weights,
             table_metadata=self.table_metadata,
+            field_distributions=self.field_distributions,
         )
 
     def set_max_branches(self, max_branches: int) -> None:

@@ -132,7 +132,7 @@ class StageRunner:
         from sqlopt.stages.parse import ParseStage
 
         logger.info("[RUNNER] Initializing ParseStage...")
-        stage = ParseStage(self.run_id, use_mock=use_mock)
+        stage = ParseStage(self.run_id, use_mock=use_mock, config=self.config)
         result = stage.run(progress_callback=progress_cb)
         save_json_file(result, self.paths.parse_sql_units_with_branches)
         logger.info(f"[RUNNER] Parse stage output: {self.paths.parse_sql_units_with_branches}")
@@ -167,7 +167,7 @@ class StageRunner:
             logger.info("[RUNNER] LLM disabled - using mock mode")
 
         logger.info("[RUNNER] Initializing RecognitionStage...")
-        stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
+        stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock, config=self.config)
         result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.recognition_baselines)
         logger.info(f"[RUNNER] Recognition stage output: {self.paths.recognition_baselines}")
@@ -195,7 +195,7 @@ class StageRunner:
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
         logger.info("[RUNNER] Initializing OptimizeStage...")
-        stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
+        stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock, config=self.config)
         result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.optimize_proposals)
         logger.info(f"[RUNNER] Optimize stage output: {self.paths.optimize_proposals}")

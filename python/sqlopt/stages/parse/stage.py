@@ -9,7 +9,7 @@ from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
-from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.init import FieldDistribution, InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
 from sqlopt.stages.branching.fragment_registry import build_fragment_registry
@@ -57,6 +57,7 @@ class ParseStage(Stage[None, ParseOutput]):
         init_file = loader.get_init_sql_units_path()
         fragments_file = loader.get_init_sql_fragments_path()
         table_schemas_file = loader.get_init_table_schemas_path()
+        field_distributions_file = loader.get_init_field_distributions_path()
         logger.info(f"[PARSE] Init file: {init_file}")
 
         if not init_file.exists():
@@ -77,6 +78,7 @@ class ParseStage(Stage[None, ParseOutput]):
 
         fragment_registry = _load_fragment_registry(fragments_file)
         table_metadata = _load_table_metadata(table_schemas_file)
+        field_distributions = _load_field_distributions(field_distributions_file)
 
         strategy = self.config.parse_strategy if self.config else "ladder"
         max_branches = self.config.parse_max_branches if self.config else 50
@@ -85,6 +87,7 @@ class ParseStage(Stage[None, ParseOutput]):
             max_branches=max_branches,
             fragments=fragment_registry,
             table_metadata=table_metadata,
+            field_distributions=field_distributions,
         )
 
         units_with_branches: list[SQLUnitWithBranches] = []
@@ -96,6 +99,12 @@ class ParseStage(Stage[None, ParseOutput]):
                 default_namespace=_infer_namespace(sql_unit.id),
             )
             total_branches += len(expanded)
+            units_with_branches.append(
+                SQLUnitWithBranches(
+                    sql_unit_id=sql_unit.id,
+                    branches=[_to_sql_branch(branch) for branch in expanded],
+                )
+            )
             if progress_callback:
                 progress_callback(
                     f"Processing SQL unit {idx + 1}/{len(init_data.sql_units)}: {sql_unit.id}",
@@ -128,10 +137,8 @@ class ParseStage(Stage[None, ParseOutput]):
             logger.debug("[PARSE] No run_id, skipping file output")
             return
 
-        if not output.sql_units_with_branches:
-            logger.debug("[PARSE] No units to write, skipping file output")
-            return
-
+        parse_dir = Path("runs") / run_id / "parse"
+        parse_dir.mkdir(parents=True, exist_ok=True)
         file_manager = ContractFileManager(run_id, "parse")
         unit_ids: list[str] = []
         total_bytes = 0
@@ -161,8 +168,6 @@ class ParseStage(Stage[None, ParseOutput]):
         index_path = file_manager.write_index(unit_ids)
         total_bytes += file_manager.get_file_size(index_path)
 
-        parse_dir = Path("runs") / run_id / "parse"
-        parse_dir.mkdir(parents=True, exist_ok=True)
         compat_path = parse_dir / "sql_units_with_branches.json"
         compat_path.write_text(output.to_json(), encoding="utf-8")
         compat_bytes = file_manager.get_file_size(compat_path)
@@ -187,6 +192,7 @@ class ParseStage(Stage[None, ParseOutput]):
             )
 
             parse_dir = Path("runs") / run_id / "parse"
+            parse_dir.mkdir(parents=True, exist_ok=True)
             file_size = 0
             files_count = 0
 
@@ -283,8 +289,48 @@ def _load_table_metadata(table_schemas_file: Path) -> dict[str, dict[str, Any]]:
     return table_metadata
 
 
+def _load_field_distributions(field_distributions_file: Path) -> dict[str, list[FieldDistribution]]:
+    if not field_distributions_file.exists():
+        return {}
+
+    try:
+        raw_data = json.loads(field_distributions_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError) as exc:
+        logger.warning("[PARSE] Failed to load field distributions from %s: %s", field_distributions_file, exc)
+        return {}
+
+    if not isinstance(raw_data, list):
+        return {}
+
+    grouped: dict[str, list[FieldDistribution]] = {}
+    for item in raw_data:
+        if not isinstance(item, dict):
+            continue
+        try:
+            distribution = FieldDistribution(**item)
+        except TypeError as exc:
+            logger.debug("[PARSE] Skipping invalid field distribution entry: %s", exc)
+            continue
+        grouped.setdefault(distribution.table_name.lower(), []).append(distribution)
+    return grouped
+
+
 def _infer_namespace(sql_unit_id: str) -> str | None:
     if "." not in sql_unit_id:
         return None
     namespace, _statement_id = sql_unit_id.rsplit(".", 1)
     return namespace or None
+
+
+def _to_sql_branch(branch: Any) -> SQLBranch:
+    return SQLBranch(
+        path_id=branch.path_id,
+        condition=branch.condition,
+        expanded_sql=branch.expanded_sql,
+        is_valid=branch.is_valid,
+        risk_flags=list(branch.risk_flags),
+        active_conditions=list(branch.active_conditions),
+        risk_score=branch.risk_score,
+        score_reasons=list(branch.score_reasons),
+        branch_type=getattr(branch, "branch_type", None),
+    )

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 from sqlopt.common.config import SQLOptConfig
-from sqlopt.stages.parse.stage import ParseStage
 from sqlopt.contracts.parse import ParseOutput
+from sqlopt.stages.parse.stage import ParseStage
 
 
 class TestParseStage:
@@ -99,6 +99,23 @@ class TestParseStage:
             ),
             encoding="utf-8",
         )
+        (run_dir / "field_distributions.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "table_name": "users",
+                        "column_name": "status",
+                        "total_count": 1200000,
+                        "distinct_count": 2,
+                        "null_count": 0,
+                        "top_values": [{"value": "ACTIVE", "count": 1100000}],
+                        "min_value": "ACTIVE",
+                        "max_value": "INACTIVE",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
 
         config = SQLOptConfig(parse_strategy="all_combinations", parse_max_branches=10)
         stage = ParseStage(run_id="parse-stage-test", use_mock=False, config=config)
@@ -112,3 +129,27 @@ class TestParseStage:
         assert any("prefix_wildcard" in branch.risk_flags for branch in branches)
         assert any(branch.risk_score is not None for branch in branches)
         assert any(branch.score_reasons for branch in branches)
+        assert any("field_low_card:status" in branch.score_reasons for branch in branches)
+        assert any("field_skewed:status" in branch.score_reasons for branch in branches)
+
+    def test_parse_stage_writes_empty_outputs_for_empty_init(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ):
+        """ParseStage should persist empty outputs instead of falling back to stub in later stages."""
+        monkeypatch.chdir(tmp_path)
+        run_dir = tmp_path / "runs" / "parse-empty-test" / "init"
+        run_dir.mkdir(parents=True)
+        (run_dir / "sql_units.json").write_text("[]", encoding="utf-8")
+
+        stage = ParseStage(run_id="parse-empty-test", use_mock=False)
+        output = stage.run()
+
+        assert output.sql_units_with_branches == []
+        compat_file = tmp_path / "runs" / "parse-empty-test" / "parse" / "sql_units_with_branches.json"
+        index_file = tmp_path / "runs" / "parse-empty-test" / "parse" / "units" / "_index.json"
+        assert compat_file.exists()
+        assert index_file.exists()
+        assert ParseOutput.from_json(compat_file.read_text(encoding="utf-8")).sql_units_with_branches == []
+        assert json.loads(index_file.read_text(encoding="utf-8")) == []

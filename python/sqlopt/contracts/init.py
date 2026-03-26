@@ -77,6 +77,7 @@ class FieldDistribution:
     column_name: str
     distinct_count: int
     null_count: int
+    total_count: int = 0
     top_values: List[Dict[str, Any]] = field(default_factory=list)
     min_value: Optional[str] = None
     max_value: Optional[str] = None

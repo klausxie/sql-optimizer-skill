@@ -69,6 +69,11 @@ class TestRunPathsFilePaths:
         paths = RunPaths(run_id="run-123")
         assert paths.init_sql_units == paths.init_dir / "sql_units.json"
 
+    def test_init_field_distributions(self):
+        """Test init_field_distributions returns init_dir / field_distributions.json."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.init_field_distributions == paths.init_dir / "field_distributions.json"
+
     def test_parse_sql_units_with_branches(self):
         """Test parse_sql_units_with_branches returns correct path."""
         paths = RunPaths(run_id="run-123")
@@ -157,6 +162,7 @@ class TestRunPathsPathTypes:
         paths = RunPaths(run_id="test-run")
         for prop_name in [
             "init_sql_units",
+            "init_field_distributions",
             "parse_sql_units_with_branches",
             "parse_risks",
             "recognition_baselines",

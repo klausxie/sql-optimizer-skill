@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import Any, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
+from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
@@ -52,7 +55,7 @@ def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, Table
             for col in schema.columns:
                 col_name = col.get("name", "").lower()
                 col_type = col.get("type", "").upper()
-                if col_name == param_lower or col_name == param_snake:
+                if col_name in (param_lower, param_snake):
                     return col_type
         return None
 
@@ -87,6 +90,113 @@ def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, Table
     return re.sub(r"#\{([^}]+)\}", get_sample_value, sql)
 
 
+def _is_select_statement(sql: str) -> bool:
+    """Best-effort detection for read-only queries that can be safely executed."""
+    sql_upper = sql.lstrip().upper()
+    if sql_upper.startswith("SELECT"):
+        return True
+    if sql_upper.startswith("WITH"):
+        return "SELECT" in sql_upper and "UPDATE" not in sql_upper and "DELETE" not in sql_upper
+    return False
+
+
+def _estimate_cost_from_plan(plan: dict | None) -> float:
+    """Extract estimated cost from known plan formats."""
+    if not isinstance(plan, dict):
+        return 0.0
+    if "Plan" in plan and isinstance(plan["Plan"], dict):
+        return float(plan["Plan"].get("Total Cost", 0.0) or 0.0)
+    query_block = plan.get("query_block", {})
+    if isinstance(query_block, dict):
+        cost_info = query_block.get("cost_info", {})
+        if isinstance(cost_info, dict):
+            return float(cost_info.get("query_cost", 0.0) or 0.0)
+        return float(query_block.get("cost", 0.0) or 0.0)
+    if "cost" in plan:
+        return float(plan.get("cost", 0.0) or 0.0)
+    return 0.0
+
+
+def _extract_actual_time_ms(plan: dict | None) -> float | None:
+    """Extract actual execution time from known plan formats."""
+    if not isinstance(plan, dict):
+        return None
+    if "Plan" in plan and isinstance(plan["Plan"], dict):
+        actual_total = plan["Plan"].get("Actual Total Time")
+        return float(actual_total) if actual_total is not None else None
+    return None
+
+
+def _extract_rows_examined(plan: dict | None) -> int | None:
+    """Best-effort extraction of examined row counts from plan trees."""
+    if not isinstance(plan, dict):
+        return None
+
+    candidate_keys = {
+        "Actual Rows",
+        "Plan Rows",
+        "rows",
+        "rows_examined_per_scan",
+        "rows_produced_per_join",
+    }
+    values: list[int] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in candidate_keys and isinstance(value, (int, float)):
+                    values.append(int(value))
+                else:
+                    walk(value)
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(plan)
+    if not values:
+        return None
+    return max(values)
+
+
+def _normalize_baseline_data(raw_baseline: dict[str, Any] | None) -> dict[str, Any]:
+    """Normalize baseline payloads from DB connectors and LLM providers."""
+    if not isinstance(raw_baseline, dict):
+        return {
+            "plan": None,
+            "estimated_cost": 0.0,
+            "actual_time_ms": None,
+        }
+
+    if any(key in raw_baseline for key in ("plan", "estimated_cost", "actual_time_ms")):
+        plan = raw_baseline.get("plan")
+        return {
+            "plan": plan,
+            "estimated_cost": float(raw_baseline.get("estimated_cost", _estimate_cost_from_plan(plan)) or 0.0),
+            "actual_time_ms": raw_baseline.get("actual_time_ms", _extract_actual_time_ms(plan)),
+        }
+
+    return {
+        "plan": raw_baseline,
+        "estimated_cost": _estimate_cost_from_plan(raw_baseline),
+        "actual_time_ms": _extract_actual_time_ms(raw_baseline),
+    }
+
+
+def _build_result_signature(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build a stable signature for baseline result comparisons."""
+    sample_rows = rows[:20]
+    checksum_source = json.dumps(sample_rows, sort_keys=True, default=str, ensure_ascii=False)
+    checksum = hashlib.sha256(checksum_source.encode("utf-8")).hexdigest()
+    column_names = list(sample_rows[0].keys()) if sample_rows else []
+    return {
+        "row_count": len(rows),
+        "sample_size": len(sample_rows),
+        "columns": column_names,
+        "checksum": checksum,
+    }
+
+
 class RecognitionStage(Stage[None, RecognitionOutput]):
     """Recognition stage identifies performance baselines for SQL units."""
 
@@ -96,16 +206,18 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         llm_provider: LLMProviderBase | None = None,
         use_mock: bool = True,
         config: SQLOptConfig | None = None,
+        db_connector: Any | None = None,
     ) -> None:
         super().__init__("recognition")
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
         self.use_mock = use_mock
         self.config = config
+        self.db_connector = db_connector or getattr(self.llm_provider, "db_connector", None)
 
     def run(
         self,
-        input_data: None = None,
+        _input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -133,8 +245,6 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             units_dir = loader.get_parse_units_dir()
             index_file = units_dir / "_index.json"
             if index_file.exists():
-                import json
-
                 index_data = json.loads(index_file.read_text(encoding="utf-8"))
                 unit_ids = index_data if isinstance(index_data, list) else index_data.get("unit_ids", [])
                 all_branches = []
@@ -161,22 +271,24 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         table_schemas_file = loader.get_init_table_schemas_path()
         if table_schemas_file.exists():
             try:
-                import json
-
-                from sqlopt.contracts.init import TableSchema
-
                 schemas_data = json.loads(table_schemas_file.read_text(encoding="utf-8"))
                 table_schemas = {k: TableSchema(**v) for k, v in schemas_data.items()}
                 logger.info(f"[RECOGNITION] Loaded {len(table_schemas)} table schema(s)")
-            except Exception:
+            except (OSError, TypeError, ValueError, json.JSONDecodeError):
                 logger.debug("[RECOGNITION] Failed to load table schemas, using heuristics")
 
         start_time = time.time()
-        if self.config and self.config.concurrency.enabled:
-            logger.info("[RECOGNITION] Using concurrent execution mode")
-            baselines = self._run_concurrent(parse_data, table_schemas, self._progress_callback)
-        else:
-            baselines = self._run_sequential(parse_data, table_schemas, self._progress_callback)
+        db_connector = self._get_db_connector()
+        try:
+            if self.config and self.config.concurrency.enabled and db_connector is None:
+                logger.info("[RECOGNITION] Using concurrent execution mode")
+                baselines = self._run_concurrent(parse_data, table_schemas, self._progress_callback)
+            else:
+                if db_connector is not None and self.config and self.config.concurrency.enabled:
+                    logger.info("[RECOGNITION] DB baseline enabled, forcing sequential execution")
+                baselines = self._run_sequential(parse_data, table_schemas, self._progress_callback, db_connector)
+        finally:
+            self._disconnect_db_connector()
 
         duration_seconds = time.time() - start_time
         logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
@@ -191,9 +303,10 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         parse_data: ParseOutput,
         table_schemas: dict[str, TableSchema] | None,
         progress_callback: ProgressCallback | None,
+        db_connector: Any | None,
     ) -> list[PerformanceBaseline]:
         baselines: list[PerformanceBaseline] = []
-        platform = "postgresql"
+        platform = self._get_platform()
         total_branches = sum(len(su.branches) for su in parse_data.sql_units_with_branches)
         logger.info(f"[RECOGNITION] Processing {total_branches} branch(es) for baseline generation")
 
@@ -209,51 +322,23 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 if not branch.is_valid:
                     logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
-                try:
-                    if branch.branch_type == "baseline_only":
-                        logger.info(
-                            f"[RECOGNITION]   [SKIP] Skipping EXPLAIN for baseline_only branch {sql_unit.sql_unit_id}.{branch.path_id}"
-                        )
-                        baseline = PerformanceBaseline(
-                            sql_unit_id=sql_unit.sql_unit_id,
-                            path_id=branch.path_id,
-                            original_sql=branch.expanded_sql,
-                            plan=None,
-                            estimated_cost=0.0,
-                            actual_time_ms=None,
-                            branch_type="baseline_only",
-                        )
-                        baselines.append(baseline)
-                        continue
-                    sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql, table_schemas)
-                    logger.debug(
-                        f"[RECOGNITION]   EXPLAIN for {sql_unit.sql_unit_id}.{branch.path_id}: {sql_for_explain[:60]}..."
-                    )
-                    baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
-                    baseline = PerformanceBaseline(
-                        sql_unit_id=sql_unit.sql_unit_id,
-                        path_id=branch.path_id,
-                        original_sql=branch.expanded_sql,
-                        plan=baseline_data["plan"],
-                        estimated_cost=baseline_data["estimated_cost"],
-                        actual_time_ms=baseline_data.get("actual_time_ms"),
-                        branch_type=branch.branch_type,
-                    )
-                    baselines.append(baseline)
-                    logger.info(
-                        "[RECOGNITION]   [OK] %s.%s: cost=%s",
-                        sql_unit.sql_unit_id,
-                        branch.path_id,
-                        baseline_data["estimated_cost"],
-                    )
-                except Exception as e:  # noqa: BLE001
-                    logger.warning(
-                        "[RECOGNITION]   [FAIL] Failed: %s.%s - %s",
-                        sql_unit.sql_unit_id,
-                        branch.path_id,
-                        str(e),
-                    )
-                    continue
+                baseline = self._create_baseline(
+                    sql_unit_id=sql_unit.sql_unit_id,
+                    path_id=branch.path_id,
+                    expanded_sql=branch.expanded_sql,
+                    branch_type=branch.branch_type,
+                    table_schemas=table_schemas,
+                    platform=platform,
+                    db_connector=db_connector,
+                )
+                baselines.append(baseline)
+                logger.info(
+                    "[RECOGNITION]   [OK] %s.%s: cost=%s%s",
+                    sql_unit.sql_unit_id,
+                    branch.path_id,
+                    baseline.estimated_cost,
+                    f", error={baseline.execution_error}" if baseline.execution_error else "",
+                )
 
         return baselines
 
@@ -278,31 +363,18 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             timeout_per_task=self.config.concurrency.timeout_per_task if self.config else 120,
         )
         baselines: list[PerformanceBaseline] = []
-        platform = "postgresql"
+        platform = self._get_platform()
 
-        def process_task(task: tuple[str, str, str, str | None]) -> PerformanceBaseline | None:
+        def process_task(task: tuple[str, str, str, str | None]) -> PerformanceBaseline:
             sql_unit_id, path_id, expanded_sql, branch_type = task
-            if branch_type == "baseline_only":
-                logger.info(f"[RECOGNITION]   [SKIP] Skipping EXPLAIN for baseline_only branch {sql_unit_id}.{path_id}")
-                return PerformanceBaseline(
-                    sql_unit_id=sql_unit_id,
-                    path_id=path_id,
-                    original_sql=expanded_sql,
-                    plan=None,
-                    estimated_cost=0.0,
-                    actual_time_ms=None,
-                    branch_type="baseline_only",
-                )
-            sql_for_explain = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas)
-            baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
-            return PerformanceBaseline(
+            return self._create_baseline(
                 sql_unit_id=sql_unit_id,
                 path_id=path_id,
-                original_sql=expanded_sql,
-                plan=baseline_data["plan"],
-                estimated_cost=baseline_data["estimated_cost"],
-                actual_time_ms=baseline_data.get("actual_time_ms"),
+                expanded_sql=expanded_sql,
                 branch_type=branch_type,
+                table_schemas=table_schemas,
+                platform=platform,
+                db_connector=None,
             )
 
         completed = [0]
@@ -320,10 +392,11 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             if result.success and result.result:
                 baselines.append(result.result)
                 logger.info(
-                    "[RECOGNITION]   [OK] %s.%s: cost=%s",
+                    "[RECOGNITION]   [OK] %s.%s: cost=%s%s",
                     result.result.sql_unit_id,
                     result.result.path_id,
                     result.result.estimated_cost,
+                    f", error={result.result.execution_error}" if result.result.execution_error else "",
                 )
             else:
                 logger.warning("[RECOGNITION]   [FAIL] Failed: %s", result.error)
@@ -341,6 +414,114 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         )
         return RecognitionOutput(baselines=[baseline])
 
+    def _get_platform(self) -> str:
+        return self.config.db_platform if self.config else "postgresql"
+
+    def _get_db_connector(self) -> Any | None:
+        if self.db_connector is not None:
+            return self.db_connector
+
+        if self.config and self.config.db_host and self.config.db_port and self.config.db_name:
+            from sqlopt.common.db_connector import create_connector
+
+            self.db_connector = create_connector(
+                platform=self.config.db_platform,
+                host=self.config.db_host,
+                port=self.config.db_port,
+                db=self.config.db_name,
+                user=self.config.db_user or "",
+                password=self.config.db_password or "",
+            )
+        return self.db_connector
+
+    def _disconnect_db_connector(self) -> None:
+        connector = self.db_connector
+        if connector is None or not hasattr(connector, "disconnect"):
+            return
+        try:
+            connector.disconnect()
+        except Exception:  # noqa: BLE001
+            logger.debug("[RECOGNITION] Failed to disconnect DB connector", exc_info=True)
+
+    def _generate_baseline_data(
+        self,
+        sql_for_execution: str,
+        platform: str,
+        db_connector: Any | None,
+    ) -> dict[str, Any]:
+        if db_connector is not None:
+            return _normalize_baseline_data(db_connector.execute_explain(sql_for_execution))
+        return _normalize_baseline_data(self.llm_provider.generate_baseline(sql_for_execution, platform))
+
+    def _create_baseline(
+        self,
+        sql_unit_id: str,
+        path_id: str,
+        expanded_sql: str,
+        branch_type: str | None,
+        table_schemas: dict[str, TableSchema] | None,
+        platform: str,
+        db_connector: Any | None,
+    ) -> PerformanceBaseline:
+        if branch_type == "baseline_only":
+            logger.info("[RECOGNITION]   [SKIP] Skipping EXPLAIN for baseline_only branch %s.%s", sql_unit_id, path_id)
+            return PerformanceBaseline(
+                sql_unit_id=sql_unit_id,
+                path_id=path_id,
+                original_sql=expanded_sql,
+                plan=None,
+                estimated_cost=0.0,
+                actual_time_ms=None,
+                branch_type="baseline_only",
+            )
+
+        sql_for_execution = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas)
+        logger.debug("[RECOGNITION]   EXPLAIN for %s.%s: %s...", sql_unit_id, path_id, sql_for_execution[:60])
+
+        try:
+            baseline_data = self._generate_baseline_data(sql_for_execution, platform, db_connector)
+        except Exception as e:  # noqa: BLE001
+            return PerformanceBaseline(
+                sql_unit_id=sql_unit_id,
+                path_id=path_id,
+                original_sql=expanded_sql,
+                plan=None,
+                estimated_cost=0.0,
+                actual_time_ms=None,
+                execution_error=f"baseline_generation_failed: {e}",
+                branch_type=branch_type,
+            )
+
+        plan = baseline_data.get("plan")
+        actual_time_ms = baseline_data.get("actual_time_ms")
+        rows_returned = None
+        result_signature = None
+        execution_error = None
+
+        if db_connector is not None and _is_select_statement(sql_for_execution):
+            try:
+                query_started_at = time.perf_counter()
+                rows = db_connector.execute_query(sql_for_execution)
+                actual_time_ms = (time.perf_counter() - query_started_at) * 1000.0
+                rows_returned = len(rows)
+                result_signature = _build_result_signature(rows)
+            except Exception as e:  # noqa: BLE001
+                execution_error = f"query_execution_failed: {e}"
+
+        return PerformanceBaseline(
+            sql_unit_id=sql_unit_id,
+            path_id=path_id,
+            original_sql=expanded_sql,
+            plan=plan,
+            estimated_cost=float(baseline_data.get("estimated_cost", 0.0) or 0.0),
+            actual_time_ms=actual_time_ms,
+            rows_returned=rows_returned,
+            rows_examined=_extract_rows_examined(plan),
+            result_signature=result_signature,
+            execution_error=execution_error,
+            branch_type=branch_type,
+        )
+
     def _write_output(self, run_id: str, output: RecognitionOutput) -> dict:
         """Write recognition output to per-unit files and backward-compatible single file.
 
@@ -352,10 +533,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         Returns:
             dict with 'unit_count', 'file_size_bytes' keys
         """
-        if not output.baselines:
-            logger.debug("[RECOGNITION] No baselines to write, skipping file output")
-            return {"unit_count": 0, "file_size_bytes": 0}
-
+        output_dir = Path("runs") / run_id / "recognition"
+        output_dir.mkdir(parents=True, exist_ok=True)
         file_manager = ContractFileManager(run_id, "recognition")
 
         # Group baselines by sql_unit_id
@@ -372,6 +551,11 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     "plan": baseline.plan,
                     "estimated_cost": baseline.estimated_cost,
                     "actual_time_ms": baseline.actual_time_ms,
+                    "rows_returned": baseline.rows_returned,
+                    "rows_examined": baseline.rows_examined,
+                    "result_signature": baseline.result_signature,
+                    "execution_error": baseline.execution_error,
+                    "branch_type": baseline.branch_type,
                 }
             )
 
@@ -388,8 +572,6 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         total_bytes += file_manager.get_file_size(index_path)
 
         # Write backward-compatible single file
-        output_dir = Path("runs") / run_id / "recognition"
-        output_dir.mkdir(parents=True, exist_ok=True)
         compat_path = output_dir / "baselines.json"
         compat_path.write_text(output.to_json(), encoding="utf-8")
         compat_bytes = file_manager.get_file_size(compat_path)

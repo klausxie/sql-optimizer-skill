@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import sys
+import json
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generator
@@ -11,6 +11,63 @@ from typing import Any, Generator
 _psycopg2 = None
 _pymysql = None
 _RealDictCursor = None
+
+
+def _extract_postgres_explain_payload(result: dict[str, Any] | None) -> dict[str, Any]:
+    """Normalize PostgreSQL EXPLAIN output into a stable payload."""
+    if not result or "QUERY PLAN" not in result:
+        return {}
+
+    query_plan = result["QUERY PLAN"]
+    if not isinstance(query_plan, list) or not query_plan:
+        return {}
+
+    plan_dict = dict(query_plan[0])
+    plan_root = plan_dict.get("Plan", {})
+    actual_time_ms = None
+    estimated_cost = 0.0
+
+    if isinstance(plan_root, dict):
+        actual_time_ms = plan_root.get("Actual Total Time")
+        estimated_cost = float(plan_root.get("Total Cost", 0.0) or 0.0)
+
+    return {
+        "plan": plan_dict,
+        "actual_time_ms": actual_time_ms,
+        "estimated_cost": estimated_cost,
+    }
+
+
+def _extract_mysql_explain_payload(result: dict[str, Any] | None) -> dict[str, Any]:
+    """Normalize MySQL EXPLAIN FORMAT=JSON output into a stable payload."""
+    if not result:
+        return {"plan": {}, "actual_time_ms": None, "estimated_cost": 0.0}
+
+    result_dict = dict(result)
+    plan_dict: dict[str, Any] = result_dict
+
+    if "EXPLAIN" in result_dict and isinstance(result_dict["EXPLAIN"], str):
+        explain_text = result_dict["EXPLAIN"]
+        try:
+            loaded = json.loads(explain_text)
+            plan_dict = loaded if isinstance(loaded, dict) else {"raw_explain": loaded}
+        except json.JSONDecodeError:
+            plan_dict = {"raw_explain": explain_text}
+
+    estimated_cost = 0.0
+    query_block = plan_dict.get("query_block", {})
+    if isinstance(query_block, dict):
+        cost_info = query_block.get("cost_info", {})
+        if isinstance(cost_info, dict):
+            estimated_cost = float(cost_info.get("query_cost", 0.0) or 0.0)
+        else:
+            estimated_cost = float(query_block.get("cost", 0.0) or 0.0)
+
+    return {
+        "plan": plan_dict,
+        "actual_time_ms": None,
+        "estimated_cost": estimated_cost,
+    }
 
 
 def _ensure_psycopg2():
@@ -121,7 +178,7 @@ class PostgreSQLConnector(DBConnector):
 
     def connect(self) -> None:
         if self._conn is None or self._conn.closed:
-            psycopg2, RealDictCursor = _ensure_psycopg2()
+            psycopg2, _real_dict_cursor = _ensure_psycopg2()
             if psycopg2 is None:
                 raise ImportError("psycopg2 is not installed. Install with: pip install psycopg2-binary")
             self._conn = psycopg2.connect(
@@ -156,25 +213,13 @@ class PostgreSQLConnector(DBConnector):
         if self._conn is None:
             return {}
 
-        _, RealDictCursorClass = _ensure_psycopg2()
+        _, real_dict_cursor_class = _ensure_psycopg2()
         explain_sql = f"EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) {sql}"
 
-        with self._conn.cursor(cursor_factory=RealDictCursorClass) as cursor:
+        with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
             cursor.execute(explain_sql)
             result = cursor.fetchone()
-            if result and "QUERY PLAN" in result:
-                query_plan = result["QUERY PLAN"]
-                if isinstance(query_plan, list) and len(query_plan) > 0:
-                    plan_dict = dict(query_plan[0])
-                    actual_time_ms = plan_dict.get("Plan", {}).get("Actual Total Time")
-                    estimated_cost = plan_dict.get("Plan", {}).get("Total Cost", 0.0)
-                    return {
-                        "plan": plan_dict,
-                        "actual_time_ms": actual_time_ms,
-                        "estimated_cost": estimated_cost,
-                    }
-                return {}
-            return {}
+            return _extract_postgres_explain_payload(result)
 
     def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
@@ -190,8 +235,8 @@ class PostgreSQLConnector(DBConnector):
         if self._conn is None:
             return []
 
-        _, RealDictCursorClass = _ensure_psycopg2()
-        with self._conn.cursor(cursor_factory=RealDictCursorClass) as cursor:
+        _, real_dict_cursor_class = _ensure_psycopg2()
+        with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
             cursor.execute(sql, params)
             if cursor.description is None:
                 return []
@@ -273,19 +318,7 @@ class MySQLConnector(DBConnector):
         with self._conn.cursor() as cursor:
             cursor.execute(explain_sql)
             result = cursor.fetchone()
-            if result:
-                result_dict = dict(result)
-                actual_time_ms = None
-                estimated_cost = 0.0
-                query_block = result_dict.get("query_block", {})
-                if isinstance(query_block, dict):
-                    estimated_cost = query_block.get("cost", estimated_cost)
-                return {
-                    "plan": result_dict,
-                    "actual_time_ms": actual_time_ms,
-                    "estimated_cost": estimated_cost,
-                }
-            return {"plan": {}, "actual_time_ms": None, "estimated_cost": 0.0}
+            return _extract_mysql_explain_payload(result)
 
     def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
 from sqlopt.contracts.init import FieldDistribution, TableSchema
@@ -11,6 +13,42 @@ if TYPE_CHECKING:
     from sqlopt.common.db_connector import DBConnector
 
 logger = logging.getLogger(__name__)
+
+CLAUSE_BOUNDARY_PATTERN = (
+    r"(?=\b(?:INNER|LEFT|RIGHT|FULL|OUTER|CROSS)\s+JOIN\b|\bJOIN\b|\bWHERE\b|"
+    r"\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bLIMIT\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)"
+)
+CONDITION_OPERATOR_PATTERN = r"(?:=|<>|!=|<=|>=|<|>|LIKE\b|ILIKE\b|IN\b|BETWEEN\b|IS\b)"
+SQL_FIELD_KEYWORDS = {
+    "and",
+    "or",
+    "not",
+    "in",
+    "is",
+    "null",
+    "true",
+    "false",
+    "like",
+    "ilike",
+    "between",
+    "exists",
+    "select",
+    "from",
+    "where",
+    "join",
+    "inner",
+    "left",
+    "right",
+    "outer",
+    "cross",
+    "group",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "on",
+    "as",
+}
 
 
 def extract_table_schemas(
@@ -247,9 +285,77 @@ def _execute_safe(
     """Execute query safely, handling connection and operational errors."""
     try:
         return db_connector.execute_query(sql, params)
-    except (ConnectionError, RuntimeError, Exception) as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning("Query failed: %s - Error: %s", sql, e)
         return []
+
+
+def extract_table_references_from_sql(sql_text: str) -> List[tuple[str, str | None]]:
+    """Extract table references and aliases from SQL text."""
+    normalized_sql = _normalize_sql_for_analysis(sql_text)
+    if not normalized_sql:
+        return []
+
+    pattern = re.compile(
+        r"\b(?:FROM|JOIN|UPDATE|INTO|DELETE\s+FROM)\s+"
+        r"(?P<table>[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)"
+        r"(?:\s+(?:AS\s+)?(?P<alias>(?!(?:where|join|inner|left|right|full|outer|cross|on|group|order|having|limit|union|except|intersect|set|values)\b)[a-zA-Z_][a-zA-Z0-9_]*))?",
+        re.IGNORECASE,
+    )
+
+    references: List[tuple[str, str | None]] = []
+    seen: set[tuple[str, str | None]] = set()
+    for match in pattern.finditer(normalized_sql):
+        table_name = _normalize_identifier(match.group("table"))
+        alias = match.group("alias")
+        if alias and alias.lower() in SQL_FIELD_KEYWORDS:
+            alias = None
+        normalized_ref = (table_name, alias.lower() if alias else None)
+        if normalized_ref not in seen:
+            seen.add(normalized_ref)
+            references.append(normalized_ref)
+    return references
+
+
+def extract_condition_fields_by_table(sql_text: str) -> Dict[str, set[str]]:
+    """Extract condition fields grouped by table name."""
+    normalized_sql = _normalize_sql_for_analysis(sql_text)
+    table_refs = extract_table_references_from_sql(sql_text)
+    if not normalized_sql or not table_refs:
+        return {}
+
+    alias_map: Dict[str, str] = {}
+    ordered_tables: List[str] = []
+    for table_name, alias in table_refs:
+        if table_name not in ordered_tables:
+            ordered_tables.append(table_name)
+        alias_map[table_name] = table_name
+        if alias:
+            alias_map[alias] = table_name
+
+    fields_by_table: Dict[str, set[str]] = {table_name: set() for table_name in ordered_tables}
+    clauses = _extract_condition_clauses(normalized_sql)
+    if not clauses:
+        return fields_by_table
+
+    qualified_pattern = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
+    for clause in clauses:
+        for qualifier, column_name in qualified_pattern.findall(clause):
+            table_name = alias_map.get(qualifier.lower())
+            if table_name:
+                fields_by_table.setdefault(table_name, set()).add(column_name.lower())
+
+        clause_without_qualified = qualified_pattern.sub(" ", clause)
+        unqualified_fields = _extract_unqualified_condition_fields(clause_without_qualified)
+        if not unqualified_fields:
+            continue
+        if len(ordered_tables) == 1:
+            fields_by_table[ordered_tables[0]].update(unqualified_fields)
+            continue
+        for table_name in ordered_tables:
+            fields_by_table[table_name].update(unqualified_fields)
+
+    return {table_name: fields for table_name, fields in fields_by_table.items() if fields}
 
 
 def extract_where_fields_from_sql(sql_text: str) -> List[str]:
@@ -263,126 +369,9 @@ def extract_where_fields_from_sql(sql_text: str) -> List[str]:
     Returns:
         List of field/column names found in WHERE conditions.
     """
-    import re
-
-    if not sql_text:
-        return []
-
-    mybatis_patterns = [
-        r"#{[^}]*}",  # #{field_name}
-        r"\${[^}]*}",  # ${field_name}
-        r"<if[^>]*>.*?</if>",  # <if test="...">...</if>
-        r"<where[^>]*>",  # <where> tags
-        r"<set[^>]*>",  # <set> tags
-        r"<trim[^>]*>.*?</trim>",  # <trim>...</trim>
-        r"<choose[^>]*>.*?</choose>",  # <choose>...</choose>
-        r"<when[^>]*>.*?</when>",  # <when>...</when>
-        r"<otherwise[^>]*>.*?</otherwise>",  # <otherwise>...</otherwise>
-        r"<foreach[^>]*>.*?</foreach>",  # <foreach>...</foreach>
-        r"<bind[^>]*>.*?</bind>",  # <bind>...</bind>
-        r"<include[^>]*>.*?</include>",  # <include...>...</include>
-        r"&lt;if.*?&gt;",  # escaped <if>
-        r"&gt;",  # escaped >
-        r"&lt;",  # escaped <
-    ]
-
-    cleaned_sql = sql_text
-    for pattern in mybatis_patterns:
-        cleaned_sql = re.sub(pattern, " ", cleaned_sql, flags=re.IGNORECASE | re.DOTALL)
-
-    sql_keywords = {
-        "select",
-        "from",
-        "where",
-        "and",
-        "or",
-        "not",
-        "in",
-        "is",
-        "null",
-        "true",
-        "false",
-        "like",
-        "between",
-        "exists",
-        "any",
-        "all",
-        "some",
-        "case",
-        "when",
-        "then",
-        "else",
-        "end",
-        "as",
-        "on",
-        "join",
-        "inner",
-        "left",
-        "right",
-        "outer",
-        "cross",
-        "group",
-        "by",
-        "order",
-        "having",
-        "limit",
-        "offset",
-        "union",
-        "intersect",
-        "except",
-        "insert",
-        "update",
-        "delete",
-        "values",
-        "set",
-        "into",
-        "create",
-        "drop",
-        "alter",
-        "table",
-        "index",
-        "view",
-        "procedure",
-        "function",
-        "trigger",
-        "grant",
-        "revoke",
-        "commit",
-        "rollback",
-        "savepoint",
-        "lock",
-        "unlock",
-        "call",
-        "explain",
-        "describe",
-        "show",
-        "use",
-        "database",
-        "schema",
-    }
-
-    field_names: set[str] = set()
-
-    where_pattern = r"\bWHERE\s+(.+?)(?:\bGROUP BY\b|\bORDER BY\b|\bLIMIT\b|$)"
-    match = re.search(where_pattern, cleaned_sql, re.IGNORECASE | re.DOTALL)
-    if not match:
-        return []
-
-    where_clause = match.group(1)
-
-    condition_pattern = r"(?:AND|OR)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=|<|>|<=|>=|<>|!=|LIKE|IN|BETWEEN|IS)"
-    for m in re.finditer(condition_pattern, where_clause, re.IGNORECASE):
-        field = m.group(1).lower()
-        if field not in sql_keywords:
-            field_names.add(field)
-
-    comparison_pattern = r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=|<|>|<=|>=|<>|!=|LIKE|IN|BETWEEN|IS)\s+"
-    for m in re.finditer(comparison_pattern, where_clause, re.IGNORECASE):
-        field = m.group(1).lower()
-        if field not in sql_keywords:
-            field_names.add(field)
-
-    return list(field_names)
+    fields_by_table = extract_condition_fields_by_table(sql_text)
+    field_names = {field for fields in fields_by_table.values() for field in fields}
+    return sorted(field_names)
 
 
 def extract_field_distributions(
@@ -394,10 +383,11 @@ def extract_field_distributions(
     progress_callback: Callable[[str, tuple[int, int] | None], None] | None = None,
 ) -> List[FieldDistribution]:
     distributions: List[FieldDistribution] = []
+    unique_columns = sorted(set(column_names))
 
-    for idx, col in enumerate(column_names):
+    for idx, col in enumerate(unique_columns):
         if progress_callback:
-            progress_callback(f"Extracting distribution: {table_name}.{col}", (idx + 1, len(column_names)))
+            progress_callback(f"Extracting distribution: {table_name}.{col}", (idx + 1, len(unique_columns)))
         try:
             dist = _extract_single_column_distribution(table_name, col, db_connector, platform, top_n)
             if dist:
@@ -419,13 +409,17 @@ def _extract_single_column_distribution(
     safe_table = _safe_identifier(table_name, platform)
     safe_column = _safe_identifier(column_name, platform)
 
-    distinct_query = f"SELECT COUNT(DISTINCT {safe_column}) FROM {safe_table}"
-    distinct_result = _execute_safe(db_connector, distinct_query, None)
-    distinct_count = distinct_result[0].get("count", 0) if distinct_result else 0
+    total_query = f"SELECT COUNT(*) AS count FROM {safe_table}"
+    total_result = _execute_safe(db_connector, total_query, None)
+    total_count = _extract_count_value(total_result)
 
-    null_query = f"SELECT COUNT(*) FROM {safe_table} WHERE {safe_column} IS NULL"
+    distinct_query = f"SELECT COUNT(DISTINCT {safe_column}) AS count FROM {safe_table}"
+    distinct_result = _execute_safe(db_connector, distinct_query, None)
+    distinct_count = _extract_count_value(distinct_result)
+
+    null_query = f"SELECT COUNT(*) AS count FROM {safe_table} WHERE {safe_column} IS NULL"
     null_result = _execute_safe(db_connector, null_query, None)
-    null_count = null_result[0].get("count", 0) if null_result else 0
+    null_count = _extract_count_value(null_result)
 
     top_values: List[Dict[str, Any]] = []
     if platform == "postgresql":
@@ -450,8 +444,7 @@ def _extract_single_column_distribution(
         top_result = _execute_safe(db_connector, top_query, (top_n,))
 
     if top_result:
-        for row in top_result:
-            top_values.append({"value": str(row.get("value", "")), "count": row.get("count", 0)})
+        top_values.extend({"value": str(row.get("value", "")), "count": row.get("count", 0)} for row in top_result)
 
     min_max_query = f"SELECT MIN({safe_column}) as min_val, MAX({safe_column}) as max_val FROM {safe_table}"
     min_max_result = _execute_safe(db_connector, min_max_query, None)
@@ -464,6 +457,7 @@ def _extract_single_column_distribution(
     return FieldDistribution(
         table_name=table_name,
         column_name=column_name,
+        total_count=int(total_count) if total_count else 0,
         distinct_count=int(distinct_count) if distinct_count else 0,
         null_count=int(null_count) if null_count else 0,
         top_values=top_values,
@@ -477,3 +471,76 @@ def _safe_identifier(name: str, platform: str) -> str:
     if platform == "postgresql":
         return f'"{name}"'
     return f"`{name}`"
+
+
+def _normalize_sql_for_analysis(sql_text: str) -> str:
+    if not sql_text:
+        return ""
+
+    normalized = html.unescape(sql_text)
+    normalized = re.sub(r"<!--.*?-->", " ", normalized, flags=re.DOTALL)
+    normalized = re.sub(r"#\{[^}]*\}", " ? ", normalized)
+    normalized = re.sub(r"\$\{[^}]*\}", " ? ", normalized)
+    normalized = re.sub(r"<where\b[^>]*>", " WHERE ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"</where>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<trim\b[^>]*prefix\s*=\s*['\"]WHERE['\"][^>]*>", " WHERE ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"</trim>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"</?(?:if|choose|when|otherwise|foreach|set)\b[^>]*>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<bind\b[^>]*/?>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<include\b[^>]*/?>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<[^>]+>", " ", normalized)
+    normalized = re.sub(r"'(?:''|[^'])*'", " ", normalized)
+    normalized = normalized.replace("`", "").replace('"', "")
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def _normalize_identifier(identifier: str) -> str:
+    cleaned = identifier.strip().strip("`").strip('"')
+    return cleaned.split(".")[-1].lower()
+
+
+def _extract_condition_clauses(sql_text: str) -> List[str]:
+    patterns = [
+        re.compile(
+            r"\bWHERE\b\s+(?P<clause>.+?)(?=\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bLIMIT\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        re.compile(
+            r"\bHAVING\b\s+(?P<clause>.+?)(?=\bORDER\s+BY\b|\bLIMIT\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        re.compile(rf"\bON\b\s+(?P<clause>.+?){CLAUSE_BOUNDARY_PATTERN}", re.IGNORECASE | re.DOTALL),
+    ]
+
+    clauses: List[str] = []
+    for pattern in patterns:
+        clauses.extend(match.group("clause") for match in pattern.finditer(sql_text))
+    return clauses
+
+
+def _extract_unqualified_condition_fields(clause: str) -> set[str]:
+    comparison_pattern = re.compile(
+        rf"(?:\b[a-zA-Z_][a-zA-Z0-9_]*\s*\(\s*)?"
+        rf"([a-zA-Z_][a-zA-Z0-9_]*)"
+        rf"(?:\s*\))?\s*{CONDITION_OPERATOR_PATTERN}",
+        re.IGNORECASE,
+    )
+
+    fields: set[str] = set()
+    for match in comparison_pattern.finditer(clause):
+        column_name = match.group(1).lower()
+        if column_name not in SQL_FIELD_KEYWORDS:
+            fields.add(column_name)
+    return fields
+
+
+def _extract_count_value(rows: List[Dict[str, Any]]) -> int:
+    if not rows:
+        return 0
+    row = rows[0]
+    for key, value in row.items():
+        if key.lower() == "count":
+            return int(value) if value is not None else 0
+    first_value = next(iter(row.values()), 0)
+    return int(first_value) if first_value is not None else 0

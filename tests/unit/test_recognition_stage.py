@@ -1,5 +1,7 @@
 """Unit tests for RecognitionStage."""
 
+from __future__ import annotations
+
 import json
 import os
 import tempfile
@@ -10,6 +12,59 @@ from sqlopt.common.llm_mock_generator import MockLLMProvider
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.recognition.stage import RecognitionStage
+
+
+class FakeDBConnector:
+    """Simple fake DB connector for recognition-stage tests."""
+
+    def __init__(
+        self,
+        explain_result: dict | None = None,
+        query_result: list[dict] | None = None,
+        query_error: Exception | None = None,
+    ) -> None:
+        self.explain_result = explain_result or {
+            "plan": {
+                "Plan": {
+                    "Node Type": "Seq Scan",
+                    "Total Cost": 42.0,
+                    "Actual Total Time": 5.5,
+                    "Actual Rows": 2,
+                }
+            },
+            "estimated_cost": 42.0,
+            "actual_time_ms": 5.5,
+        }
+        self.query_result = query_result or [{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]
+        self.query_error = query_error
+        self.explain_calls: list[str] = []
+        self.query_calls: list[str] = []
+        self.disconnected = False
+
+    def execute_explain(self, sql: str) -> dict:
+        self.explain_calls.append(sql)
+        return self.explain_result
+
+    def execute_query(self, sql: str, params: tuple | None = None) -> list[dict]:
+        del params
+        self.query_calls.append(sql)
+        if self.query_error is not None:
+            raise self.query_error
+        return self.query_result
+
+    def disconnect(self) -> None:
+        self.disconnected = True
+
+
+class DBBackedRecognitionProvider(MockLLMProvider):
+    """Provider wrapper that exposes a DB connector and forbids LLM baseline fallback."""
+
+    def __init__(self, db_connector: FakeDBConnector) -> None:
+        super().__init__()
+        self.db_connector = db_connector
+
+    def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict:
+        raise AssertionError(f"generate_baseline should not be called when DB connector is available: {sql} / {platform}")
 
 
 class TestRecognitionStageRun:
@@ -229,6 +284,98 @@ class TestRecognitionStageRun:
             finally:
                 os.chdir(original_cwd)
 
+    def test_run_executes_select_branch_against_db_and_collects_result_signature(self):
+        """Test RecognitionStage uses DB baseline execution when connector is available."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test_run_db_select"
+            self._create_parse_file(Path(tmpdir), run_id)
+            db_connector = FakeDBConnector()
+            provider = DBBackedRecognitionProvider(db_connector)
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                stage = RecognitionStage(run_id=run_id, llm_provider=provider)
+                output = stage.run()
+
+                baseline = output.baselines[0]
+                assert db_connector.explain_calls
+                assert db_connector.query_calls
+                assert db_connector.disconnected is True
+                assert baseline.rows_returned == 2
+                assert baseline.rows_examined == 2
+                assert baseline.result_signature is not None
+                assert baseline.result_signature["row_count"] == 2
+                assert baseline.result_signature["sample_size"] == 2
+                assert baseline.actual_time_ms is not None
+                assert baseline.execution_error is None
+            finally:
+                os.chdir(original_cwd)
+
+    def test_run_skips_query_execution_for_non_select_sql(self):
+        """Test RecognitionStage only executes SELECT statements for baseline results."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test_run_db_update"
+            parse_dir = Path(tmpdir) / "runs" / run_id / "parse"
+            parse_dir.mkdir(parents=True, exist_ok=True)
+            parse_file = parse_dir / "sql_units_with_branches.json"
+            parse_data = ParseOutput(
+                sql_units_with_branches=[
+                    SQLUnitWithBranches(
+                        sql_unit_id="sql_unit_update",
+                        branches=[
+                            SQLBranch(
+                                path_id="path_update",
+                                condition=None,
+                                expanded_sql="UPDATE users SET status = 1 WHERE id = 1",
+                                is_valid=True,
+                            ),
+                        ],
+                    )
+                ]
+            )
+            parse_file.write_text(parse_data.to_json(), encoding="utf-8")
+            db_connector = FakeDBConnector()
+            provider = DBBackedRecognitionProvider(db_connector)
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                stage = RecognitionStage(run_id=run_id, llm_provider=provider)
+                output = stage.run()
+
+                baseline = output.baselines[0]
+                assert db_connector.explain_calls
+                assert not db_connector.query_calls
+                assert baseline.rows_returned is None
+                assert baseline.result_signature is None
+                assert baseline.execution_error is None
+            finally:
+                os.chdir(original_cwd)
+
+    def test_run_keeps_plan_when_query_execution_fails(self):
+        """Test RecognitionStage still writes baseline when real query execution fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test_run_db_query_fail"
+            self._create_parse_file(Path(tmpdir), run_id)
+            db_connector = FakeDBConnector(query_error=RuntimeError("boom"))
+            provider = DBBackedRecognitionProvider(db_connector)
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                stage = RecognitionStage(run_id=run_id, llm_provider=provider)
+                output = stage.run()
+
+                baseline = output.baselines[0]
+                assert baseline.plan is not None
+                assert baseline.estimated_cost == 42.0
+                assert baseline.rows_returned is None
+                assert baseline.result_signature is None
+                assert baseline.execution_error == "query_execution_failed: boom"
+            finally:
+                os.chdir(original_cwd)
+
 
 class TestRecognitionStageStubOutput:
     """Tests for RecognitionStage._create_stub_output() method."""
@@ -315,6 +462,60 @@ class TestRecognitionStageWriteOutput:
             finally:
                 os.chdir(original_cwd)
 
+    def test_write_output_persists_extended_baseline_fields(self):
+        """Test _write_output keeps result-signature fields in per-unit files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test_write_extended"
+            baseline = PerformanceBaseline(
+                sql_unit_id="test_unit",
+                path_id="test_path",
+                original_sql="SELECT * FROM test",
+                plan={"cost": 50.0},
+                estimated_cost=50.0,
+                actual_time_ms=25.0,
+                rows_returned=3,
+                rows_examined=20,
+                result_signature={"row_count": 3, "checksum": "abc"},
+                execution_error=None,
+                branch_type="dynamic",
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                stage = RecognitionStage()
+                stage._write_output(run_id, RecognitionOutput(baselines=[baseline]))  # noqa: SLF001
+
+                unit_file = Path("runs") / run_id / "recognition" / "units" / "test_unit.json"
+                unit_data = json.loads(unit_file.read_text(encoding="utf-8"))
+                stored_baseline = unit_data["baselines"][0]
+                assert stored_baseline["rows_returned"] == 3
+                assert stored_baseline["rows_examined"] == 20
+                assert stored_baseline["result_signature"]["checksum"] == "abc"
+                assert stored_baseline["branch_type"] == "dynamic"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_write_output_persists_empty_baselines(self):
+        """Test _write_output writes empty compatibility files for downstream stages."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test_write_empty"
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                stage = RecognitionStage()
+                stats = stage._write_output(run_id, RecognitionOutput(baselines=[]))  # noqa: SLF001
+
+                output_file = Path("runs") / run_id / "recognition" / "baselines.json"
+                index_file = Path("runs") / run_id / "recognition" / "units" / "_index.json"
+                assert output_file.exists()
+                assert index_file.exists()
+                assert RecognitionOutput.from_json(output_file.read_text(encoding="utf-8")).baselines == []
+                assert json.loads(index_file.read_text(encoding="utf-8")) == []
+                assert stats["unit_count"] == 0
+            finally:
+                os.chdir(original_cwd)
+
 
 class TestPerformanceBaselineStructure:
     """Tests for PerformanceBaseline object structure."""
@@ -357,6 +558,10 @@ class TestPerformanceBaselineStructure:
             plan={"Node Type": "Hash Join"},
             estimated_cost=75.0,
             actual_time_ms=30.0,
+            rows_returned=12,
+            rows_examined=1200,
+            result_signature={"row_count": 12, "checksum": "sig"},
+            execution_error=None,
         )
 
         json_str = original.to_json()
@@ -367,6 +572,10 @@ class TestPerformanceBaselineStructure:
         assert restored.plan == original.plan
         assert restored.estimated_cost == original.estimated_cost
         assert restored.actual_time_ms == original.actual_time_ms
+        assert restored.rows_returned == original.rows_returned
+        assert restored.rows_examined == original.rows_examined
+        assert restored.result_signature == original.result_signature
+        assert restored.execution_error == original.execution_error
 
 
 class TestMockLLMProviderIntegration:

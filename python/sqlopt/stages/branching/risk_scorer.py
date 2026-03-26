@@ -38,7 +38,7 @@ class SQLDeltaRiskScorer:
 
     def score_sql(self, sql: str) -> tuple[float, list[str]]:
         text = sql.strip()
-        score = self._strategy._get_condition_weight(text) if text else 0.0
+        score = self._strategy._get_condition_weight(text) if text else 0.0  # noqa: SLF001
         # Add weight adjustments from field distributions
         score += self._compute_field_distribution_weights(text)
         reasons = self._collect_reasons(text)
@@ -129,7 +129,7 @@ class SQLDeltaRiskScorer:
                 col_name = dist.column_name.lower()
                 if col_name not in sql_lower:
                     continue
-                total_rows = dist.distinct_count + dist.null_count
+                total_rows = self._get_total_rows(dist)
                 null_ratio = dist.null_count / max(total_rows, 1)
                 if null_ratio > 0.1:
                     weight_adjustment += 2.0
@@ -137,7 +137,8 @@ class SQLDeltaRiskScorer:
                     weight_adjustment += 1.0
                 if dist.top_values and len(dist.top_values) > 0:
                     top_value_count = dist.top_values[0].get("count", 0)
-                    if total_rows > 0 and top_value_count / total_rows > 0.8:
+                    non_null_rows = max(total_rows - dist.null_count, 1)
+                    if non_null_rows > 0 and top_value_count / non_null_rows > 0.8:
                         weight_adjustment += 2.0
         return weight_adjustment
 
@@ -153,14 +154,23 @@ class SQLDeltaRiskScorer:
                 col_name = dist.column_name.lower()
                 if col_name not in sql_lower:
                     continue
-                null_ratio = dist.null_count / max(dist.distinct_count + dist.null_count, 1)
+                total_rows = self._get_total_rows(dist)
+                null_ratio = dist.null_count / max(total_rows, 1)
                 if null_ratio > 0.1:
                     reasons.append(f"field_null_high:{col_name}")
                 if dist.distinct_count < 10:
                     reasons.append(f"field_low_card:{col_name}")
                 if dist.top_values and len(dist.top_values) > 0:
-                    reasons.append(f"field_skewed:{col_name}")
+                    top_value_count = dist.top_values[0].get("count", 0)
+                    non_null_rows = max(total_rows - dist.null_count, 1)
+                    if non_null_rows > 0 and top_value_count / non_null_rows > 0.8:
+                        reasons.append(f"field_skewed:{col_name}")
         return reasons
+
+    def _get_total_rows(self, dist: "FieldDistribution") -> int:
+        if getattr(dist, "total_count", 0):
+            return dist.total_count
+        return dist.distinct_count + dist.null_count
 
     def _dedupe(self, values: list[str]) -> list[str]:
         ordered: list[str] = []

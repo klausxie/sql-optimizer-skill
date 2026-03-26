@@ -13,6 +13,10 @@ class PerformanceBaseline:
     plan: dict | None
     estimated_cost: float
     actual_time_ms: float | None = None
+    rows_returned: int | None = None
+    rows_examined: int | None = None
+    result_signature: dict | None = None
+    execution_error: str | None = None
     branch_type: str | None = None
 
     def to_json(self) -> str:

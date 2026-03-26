@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 import yaml
+from sqlopt.contracts.optimize import OptimizeOutput
+from sqlopt.contracts.parse import ParseOutput
+from sqlopt.contracts.recognition import RecognitionOutput
 from sqlopt.stage_runner import (
     STAGE_ORDER,
     PipelineResult,
@@ -285,6 +288,65 @@ class TestStageRunnerHasFailures:
             runner.run_all()
 
             assert runner.has_failures() is False
+
+
+class TestStageRunnerConfigPropagation:
+    """Tests for forwarding loaded config into downstream stages."""
+
+    def test_runner_passes_config_to_parse_recognition_and_optimize(self, monkeypatch: pytest.MonkeyPatch):
+        """StageRunner should pass the loaded config into stage constructors."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "sqlopt.yml"
+            config_path.write_text(
+                yaml.dump(
+                    {
+                        "config_version": "v1",
+                        "parse_strategy": "all_combinations",
+                        "parse_max_branches": 12,
+                        "llm_enabled": False,
+                    }
+                )
+            )
+            runner = StageRunner(str(config_path), base_dir=tmpdir, run_id="config-pass-through")
+
+            captured: dict[str, object] = {}
+
+            class DummyParseStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["parse_config"] = kwargs.get("config")
+
+                def run(self, **_kwargs):
+                    return ParseOutput(sql_units_with_branches=[])
+
+            class DummyRecognitionStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["recognition_config"] = kwargs.get("config")
+
+                def run(self, **_kwargs):
+                    return RecognitionOutput(baselines=[])
+
+            class DummyOptimizeStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["optimize_config"] = kwargs.get("config")
+
+                def run(self, **_kwargs):
+                    return OptimizeOutput(proposals=[])
+
+            import sqlopt.stages.optimize as optimize_module
+            import sqlopt.stages.parse as parse_module
+            import sqlopt.stages.recognition as recognition_module
+
+            monkeypatch.setattr(parse_module, "ParseStage", DummyParseStage)
+            monkeypatch.setattr(recognition_module, "RecognitionStage", DummyRecognitionStage)
+            monkeypatch.setattr(optimize_module, "OptimizeStage", DummyOptimizeStage)
+
+            runner._run_parse_stage(use_mock=False)  # noqa: SLF001
+            runner._run_recognition_stage(use_mock=False)  # noqa: SLF001
+            runner._run_optimize_stage(use_mock=False)  # noqa: SLF001
+
+            assert captured["parse_config"] is runner.config
+            assert captured["recognition_config"] is runner.config
+            assert captured["optimize_config"] is runner.config
 
 
 class TestStageOrder:

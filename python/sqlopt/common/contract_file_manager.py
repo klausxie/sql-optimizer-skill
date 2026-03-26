@@ -57,7 +57,8 @@ class ContractFileManager:
         temp_path = self.units_dir / "_index.json.tmp"
 
         temp_path.write_text(json.dumps(unit_ids, indent=2, ensure_ascii=False), encoding="utf-8")
-        temp_path.rename(index_path)
+        # Path.rename() does not replace existing files on Windows.
+        temp_path.replace(index_path)
         return index_path
 
     def read_unit_file(self, unit_id: str) -> dict[str, Any]:

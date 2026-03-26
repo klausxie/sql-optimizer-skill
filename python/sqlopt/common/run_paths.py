@@ -80,6 +80,11 @@ class RunPaths:
         return self.mock_dir / "init" / "table_schemas.json"
 
     @property
+    def mock_init_field_distributions(self) -> Path:
+        """Mock path for init stage field distributions."""
+        return self.mock_dir / "init" / "field_distributions.json"
+
+    @property
     def mock_init_xml_mappings(self) -> Path:
         """Mock path for init stage XML mappings."""
         return self.mock_dir / "init" / "xml_mappings.json"
@@ -118,6 +123,11 @@ class RunPaths:
     def init_table_schemas(self) -> Path:
         """Path to table schemas JSON file from init stage."""
         return self.init_dir / "table_schemas.json"
+
+    @property
+    def init_field_distributions(self) -> Path:
+        """Path to field distributions JSON file from init stage."""
+        return self.init_dir / "field_distributions.json"
 
     @property
     def init_xml_mappings(self) -> Path:

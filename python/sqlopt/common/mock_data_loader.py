@@ -7,10 +7,12 @@ before reading real stage outputs, enabling isolated stage debugging.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from sqlopt.common.run_paths import RunPaths
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,13 @@ class MockDataLoader:
         return self._mock_first(
             self.paths.mock_init_table_schemas,
             self.paths.init_table_schemas,
+        )
+
+    def get_init_field_distributions_path(self) -> Path:
+        """Get path for init stage field distributions input."""
+        return self._mock_first(
+            self.paths.mock_init_field_distributions,
+            self.paths.init_field_distributions,
         )
 
     def get_init_xml_mappings_path(self) -> Path:

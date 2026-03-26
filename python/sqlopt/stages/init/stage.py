@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -24,7 +23,12 @@ from sqlopt.stages.base import Stage
 
 from .parser import ParsedFragment, ParsedStatement, parse_mapper_file
 from .scanner import find_mapper_files
-from .table_extractor import extract_field_distributions, extract_table_schemas, extract_where_fields_from_sql
+from .table_extractor import (
+    extract_condition_fields_by_table,
+    extract_field_distributions,
+    extract_table_references_from_sql,
+    extract_table_schemas,
+)
 
 if TYPE_CHECKING:
     from sqlopt.common.db_connector import DBConnector
@@ -43,29 +47,8 @@ def extract_table_names_from_sql(sql_text: str) -> list[str]:
     Returns:
         List of table names found in the SQL text.
     """
-    if not sql_text:
-        return []
-
-    # Pattern to match table names in FROM and JOIN clauses
-    # Handles: FROM table_name, FROM table_name AS alias, JOIN table_name, etc.
-    patterns = [
-        # FROM clause: FROM table_name (with optional AS alias)
-        r"\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+AS\s+[a-zA-Z_][a-zA-Z0-9_]*)?",
-        # JOIN clause: JOIN table_name, INNER JOIN, LEFT JOIN, RIGHT JOIN, etc.
-        r"\b(?:INNER|LEFT|RIGHT|OUTER|CROSS)?\s*JOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-    ]
-
-    table_names: set[str] = set()
-    sql_upper = sql_text.upper()
-
-    for pattern in patterns:
-        matches = re.finditer(pattern, sql_upper, re.IGNORECASE)
-        for match in matches:
-            table_name = match.group(1)
-            if table_name and table_name.upper() not in ("SELECT", "WHERE", "ON", "AND", "OR", "NOT", "IN", "SET"):
-                table_names.add(match.group(1).lower())
-
-    return list(table_names)
+    table_names = [table_name for table_name, _alias in extract_table_references_from_sql(sql_text)]
+    return list(dict.fromkeys(table_names))
 
 
 class InitStage(Stage[None, InitOutput]):
@@ -121,12 +104,10 @@ class InitStage(Stage[None, InitOutput]):
                     continue
                 unit = _parsed_to_sqlunit(stmt)
                 table_names = extract_table_names_from_sql(unit.sql_text)
-                where_fields = extract_where_fields_from_sql(unit.sql_text)
+                fields_by_table_from_sql = extract_condition_fields_by_table(unit.sql_text)
                 all_table_names.update(table_names)
                 for tbl in table_names:
-                    if tbl not in field_by_table:
-                        field_by_table[tbl] = set()
-                    field_by_table[tbl].update(where_fields)
+                    field_by_table.setdefault(tbl, set()).update(fields_by_table_from_sql.get(tbl, set()))
 
         file_count = len(mapper_files)
         table_count = len(all_table_names)
@@ -270,8 +251,7 @@ class InitStage(Stage[None, InitOutput]):
             table_schemas=table_schemas,
         )
         self._write_output(output)
-        if field_distributions:
-            self._write_field_distributions(field_distributions, rid)
+        self._write_field_distributions(field_distributions, rid)
         logger.info(
             "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings,field_distributions}}.json".format(
                 rid
@@ -367,7 +347,7 @@ class InitStage(Stage[None, InitOutput]):
             summary_file = output_dir / "SUMMARY.md"
             summary_file.write_text(summary_content, encoding="utf-8")
             logger.info(f"[INIT] Summary written to: {summary_file}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"[INIT] Failed to generate SUMMARY.md: {e}")
 
 

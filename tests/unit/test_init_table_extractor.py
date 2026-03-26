@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 import pytest
 from sqlopt.contracts.init import TableSchema
 from sqlopt.stages.init.stage import extract_table_names_from_sql
-from sqlopt.stages.init.table_extractor import extract_table_schemas
+from sqlopt.stages.init.table_extractor import (
+    extract_condition_fields_by_table,
+    extract_field_distributions,
+    extract_table_schemas,
+    extract_where_fields_from_sql,
+)
 
 
 class TestExtractTableNamesFromSql:
@@ -96,9 +101,7 @@ class TestExtractTableNamesFromSql:
         """Test SQL with backtick-quoted table names."""
         sql = "SELECT * FROM `users`"
         result = extract_table_names_from_sql(sql)
-        # The pattern doesn't handle backticks, so it may not find the table
-        # This test documents current behavior
-        assert isinstance(result, list)
+        assert "users" in result
 
     def test_cross_join(self):
         """Test CROSS JOIN pattern."""
@@ -237,21 +240,72 @@ class TestExtractTableNamesIntegration:
         assert "products" in result
 
     def test_extract_from_insert_statement(self):
-        """Test extracting tables from INSERT statement - function looks for FROM/JOIN patterns."""
+        """Test extracting tables from INSERT statement."""
         sql = "INSERT INTO users (name, email) VALUES (#{name}, #{email})"
         result = extract_table_names_from_sql(sql)
-        # Current implementation only extracts from FROM/JOIN clauses, not INSERT targets
-        assert result == []
+        assert "users" in result
 
     def test_extract_from_update_statement(self):
-        """Test extracting tables from UPDATE statement - function looks for FROM/JOIN patterns."""
+        """Test extracting tables from UPDATE statement."""
         sql = "UPDATE orders SET status = 'shipped' WHERE id = #{id}"
         result = extract_table_names_from_sql(sql)
-        # Current implementation only extracts from FROM/JOIN clauses, not UPDATE targets
-        assert result == []
+        assert "orders" in result
 
     def test_extract_from_delete_statement(self):
         """Test extracting tables from DELETE statement."""
         sql = "DELETE FROM users WHERE id = #{id}"
         result = extract_table_names_from_sql(sql)
         assert "users" in result
+
+
+class TestExtractConditionFields:
+    """Tests for condition field extraction helpers."""
+
+    def test_extract_where_fields_from_dynamic_mybatis_sql(self):
+        """Dynamic <if> tags should preserve inner condition columns."""
+        sql = """
+            <select id="findUsers">
+                SELECT * FROM users u
+                <where>
+                    <if test="status != null">AND u.status = #{status}</if>
+                    <if test="name != null">AND UPPER(name) = UPPER(#{name})</if>
+                </where>
+            </select>
+        """
+        result = extract_where_fields_from_sql(sql)
+        assert set(result) == {"name", "status"}
+
+    def test_extract_condition_fields_grouped_by_table(self):
+        """Qualified join conditions should map back to their owning tables."""
+        sql = """
+            SELECT u.id, o.id
+            FROM users u
+            JOIN orders o ON u.id = o.user_id
+            WHERE o.status = #{status}
+        """
+        result = extract_condition_fields_by_table(sql)
+        assert result["users"] == {"id"}
+        assert result["orders"] == {"status", "user_id"}
+
+
+class TestExtractFieldDistributions:
+    """Tests for field distribution extraction."""
+
+    def test_extract_field_distributions_includes_total_count(self):
+        """Extracted distributions should include the table row count for ratio calculations."""
+        mock_connector = MagicMock()
+        mock_connector.execute_query.side_effect = [
+            [{"count": 100}],
+            [{"count": 5}],
+            [{"count": 20}],
+            [{"value": "active", "count": 70}],
+            [{"min_val": "active", "max_val": "inactive"}],
+        ]
+
+        result = extract_field_distributions("users", ["status"], mock_connector, "postgresql")
+
+        assert len(result) == 1
+        distribution = result[0]
+        assert distribution.total_count == 100
+        assert distribution.distinct_count == 5
+        assert distribution.null_count == 20
