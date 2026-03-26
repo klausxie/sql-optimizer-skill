@@ -192,20 +192,8 @@ class InitStage(Stage[None, InitOutput]):
                     user=cfg.db_user or "",
                     password=cfg.db_password or "",
                 )
-                logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
-                if progress_callback:
-                    progress_callback(f"Extracting schemas for {len(all_table_names)} table(s)")
-                table_schemas = extract_table_schemas(
-                    table_names=list(all_table_names),
-                    db_connector=db_connector,
-                    platform=cfg.db_platform,
-                )
-                logger.info(f"[INIT] Extracted schemas for {len(table_schemas)} table(s)")
-                schema_extraction_success = True
-
-                logger.info("[INIT] Extracting WHERE field distributions")
-                if progress_callback:
-                    progress_callback("Extracting WHERE field distributions")
+                file_count = len(mapper_files)
+                table_count = len(all_table_names)
                 field_by_table: dict[str, set[str]] = {}
                 for unit in sql_units:
                     table_names = extract_table_names_from_sql(unit.sql_text)
@@ -214,7 +202,35 @@ class InitStage(Stage[None, InitOutput]):
                         if tbl not in field_by_table:
                             field_by_table[tbl] = set()
                         field_by_table[tbl].update(where_fields)
+                field_count = sum(len(c) for c in field_by_table.values())
+                total_work = file_count + table_count + field_count
 
+                def make_schema_callback(offset: int) -> Callable[[str, tuple[int, int] | None], None] | None:
+                    def wrapper(msg: str, sub: tuple[int, int] | None) -> None:
+                        if progress_callback and sub is not None:
+                            progress_callback(msg, (offset + sub[0], total_work))
+
+                    return wrapper
+
+                def make_field_callback(offset: int) -> Callable[[str, tuple[int, int] | None], None] | None:
+                    def wrapper(msg: str, sub: tuple[int, int] | None) -> None:
+                        if progress_callback and sub is not None:
+                            progress_callback(msg, (offset + sub[0], total_work))
+
+                    return wrapper
+
+                logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
+                table_schemas = extract_table_schemas(
+                    table_names=list(all_table_names),
+                    db_connector=db_connector,
+                    platform=cfg.db_platform,
+                    progress_callback=make_schema_callback(file_count),
+                )
+                logger.info(f"[INIT] Extracted schemas for {len(table_schemas)} table(s)")
+                schema_extraction_success = True
+
+                logger.info("[INIT] Extracting WHERE field distributions")
+                field_offset = file_count + table_count
                 for tbl, cols in field_by_table.items():
                     if tbl not in table_schemas:
                         logger.debug(f"[INIT] Skipping {tbl} - not in database schema")
@@ -231,8 +247,10 @@ class InitStage(Stage[None, InitOutput]):
                             column_names=list(cols),
                             db_connector=db_connector,
                             platform=cfg.db_platform,
+                            progress_callback=make_field_callback(field_offset),
                         )
                         field_distributions.extend(dists)
+                logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
                 logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")

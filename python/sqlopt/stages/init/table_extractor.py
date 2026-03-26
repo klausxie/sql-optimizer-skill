@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
 from sqlopt.contracts.init import FieldDistribution, TableSchema
 
@@ -17,28 +17,21 @@ def extract_table_schemas(
     table_names: List[str],
     db_connector: "DBConnector",
     platform: str,
+    progress_callback: Callable[[str, tuple[int, int] | None], None] | None = None,
 ) -> Dict[str, TableSchema]:
-    """Extract table schemas from database.
-
-    Args:
-        table_names: List of table names to extract schemas for.
-        db_connector: Database connector instance.
-        platform: Database platform ('postgresql' or 'mysql').
-
-    Returns:
-        Dict mapping table name to TableSchema.
-    """
     if not table_names:
         return {}
 
     schemas: Dict[str, TableSchema] = {}
 
-    for table_name in table_names:
+    for idx, table_name in enumerate(table_names):
+        if progress_callback:
+            progress_callback(f"Extracting schema: {table_name}", (idx + 1, len(table_names)))
         try:
             schema = _extract_single_table(table_name, db_connector, platform)
             if schema:
                 schemas[table_name] = schema
-        except (ConnectionError, RuntimeError) as e:  # noqa: PERF203
+        except (ConnectionError, RuntimeError) as e:
             logger.warning("Failed to extract schema for table %s: %s", table_name, e)
 
     return schemas
@@ -398,22 +391,13 @@ def extract_field_distributions(
     db_connector: "DBConnector",
     platform: str,
     top_n: int = 10,
+    progress_callback: Callable[[str, tuple[int, int] | None], None] | None = None,
 ) -> List[FieldDistribution]:
-    """Extract data distribution statistics for specified columns.
-
-    Args:
-        table_name: Name of the table.
-        column_names: List of column names to analyze.
-        db_connector: Database connector instance.
-        platform: Database platform ('postgresql' or 'mysql').
-        top_n: Number of top values to collect (default: 10).
-
-    Returns:
-        List of FieldDistribution for each column.
-    """
     distributions: List[FieldDistribution] = []
 
-    for col in column_names:
+    for idx, col in enumerate(column_names):
+        if progress_callback:
+            progress_callback(f"Extracting distribution: {table_name}.{col}", (idx + 1, len(column_names)))
         try:
             dist = _extract_single_column_distribution(table_name, col, db_connector, platform, top_n)
             if dist:
