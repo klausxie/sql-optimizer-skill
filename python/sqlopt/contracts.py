@@ -27,6 +27,47 @@ SCHEMA_MAP = {
 }
 
 
+def _resolve_local_ref(root_schema: dict[str, Any], ref: str) -> dict[str, Any]:
+    if not ref.startswith("#/"):
+        raise ContractError(f"jsonschema dependency missing; cannot resolve external schema ref {ref}")
+    current: Any = root_schema
+    for part in ref[2:].split("/"):
+        if not isinstance(current, dict) or part not in current:
+            raise ContractError(f"jsonschema dependency missing; cannot resolve schema ref {ref}")
+        current = current[part]
+    if not isinstance(current, dict):
+        raise ContractError(f"jsonschema dependency missing; invalid schema ref {ref}")
+    return current
+
+
+def _validate_required_fields_fallback(
+    schema: dict[str, Any],
+    payload: Any,
+    path: str = "$",
+    root_schema: dict[str, Any] | None = None,
+) -> None:
+    root = root_schema or schema
+    if "$ref" in schema:
+        _validate_required_fields_fallback(_resolve_local_ref(root, str(schema["$ref"])), payload, path, root)
+        return
+    schema_type = schema.get("type")
+    if schema_type == "object" and isinstance(payload, dict):
+        missing = [key for key in schema.get("required", []) if key not in payload]
+        if missing:
+            raise ContractError(f"{path} missing required fields: {missing}")
+        properties = schema.get("properties", {})
+        for key, subschema in properties.items():
+            if key in payload and isinstance(subschema, dict):
+                _validate_required_fields_fallback(subschema, payload[key], f"{path}.{key}", root)
+        return
+    if schema_type == "array" and isinstance(payload, list):
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(payload):
+                _validate_required_fields_fallback(item_schema, item, f"{path}[{index}]", root)
+        return
+
+
 def _resolve_contract_dir(repo_root: Path) -> Path:
     """Resolve contracts directory for both repo-local and installed runtime layouts."""
     candidates = [
@@ -56,13 +97,14 @@ class ContractValidator:
         schema = self._schema(name)
         if jsonschema is not None:
             try:
-                jsonschema.validate(instance=payload, schema=schema)
+                validator_cls = jsonschema.validators.validator_for(schema)
+                validator_cls.check_schema(schema)
+                validator = validator_cls(schema)
+                validator.validate(payload)
             except Exception as exc:
                 raise ContractError(f"{name} schema validation failed: {exc}") from exc
             return
-        if schema.get("type") == "object" and isinstance(payload, dict):
-            missing = [k for k in schema.get("required", []) if k not in payload]
-            if missing:
-                raise ContractError(f"{name} missing required fields: {missing}")
-        else:
-            raise ContractError(f"jsonschema dependency missing; cannot validate {name}")
+        try:
+            _validate_required_fields_fallback(schema, payload)
+        except ContractError as exc:
+            raise ContractError(f"{name} schema validation failed: {exc}") from exc
