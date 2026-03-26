@@ -4,25 +4,10 @@ import hashlib
 from copy import deepcopy
 from typing import Any
 
+from .patch_families.registry import list_registered_patch_families
 
 FROZEN_AUTO_PATCH_FAMILIES = frozenset(
-    {
-        "STATIC_STATEMENT_REWRITE",
-        "STATIC_WRAPPER_COLLAPSE",
-        "STATIC_CTE_INLINE",
-        "STATIC_ALIAS_PROJECTION_CLEANUP",
-        "STATIC_INCLUDE_WRAPPER_COLLAPSE",
-        "DYNAMIC_COUNT_WRAPPER_COLLAPSE",
-        "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-        "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
-        "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
-        "REDUNDANT_GROUP_BY_WRAPPER",
-        "REDUNDANT_HAVING_WRAPPER",
-        "REDUNDANT_DISTINCT_WRAPPER",
-        "GROUP_BY_FROM_ALIAS_CLEANUP",
-        "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP",
-        "DISTINCT_FROM_ALIAS_CLEANUP",
-    }
+    spec.family for spec in list_registered_patch_families() if spec.status == "FROZEN_AUTO_PATCH"
 )
 
 
