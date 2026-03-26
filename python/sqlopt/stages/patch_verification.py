@@ -90,34 +90,52 @@ def append_patch_verification(
         applicable=applicable,
         patch_target=patch_target,
     )
-    replay_evidence_required = applicable is True and bool(
-        verification_policy.require_replay_match and patch_target
-    )
-    xml_required = applicable is True and verification_policy.require_xml_parse
-    render_required = applicable is True and verification_policy.require_render_ok
-    sql_required = applicable is True and verification_policy.require_sql_parse
-    apply_required = applicable is True and verification_policy.require_apply_check
+    replay_required = bool(verification_policy.require_replay_match and patch_target)
+    replay_evidence_required = applicable is True and replay_required
+    xml_required = verification_policy.require_xml_parse
+    xml_evidence_required = applicable is True and xml_required
+    render_required = verification_policy.require_render_ok
+    render_evidence_required = applicable is True and render_required
+    sql_required = verification_policy.require_sql_parse
+    sql_evidence_required = applicable is True and sql_required
+    apply_required = verification_policy.require_apply_check
+    apply_evidence_required = applicable is True and apply_required
     patch_target_ok = bool(patch_target) or not requires_patch_target
-    replay_check_ok = (
-        bool(replay_matches_target)
-        if replay_evidence_required
-        else (True if replay_matches_target is None else bool(replay_matches_target))
-    )
+    if replay_matches_target is None:
+        replay_check_ok = not replay_evidence_required
+    elif replay_required:
+        replay_check_ok = bool(replay_matches_target)
+    else:
+        replay_check_ok = True
     replay_check_reason = None
     if not replay_check_ok:
         replay_check_reason = replay_reason_code or (
             "PATCH_DECISION_EVIDENCE_INCOMPLETE" if replay_matches_target is None else "PATCH_TARGET_DRIFT"
         )
-    xml_check_ok = True if xml_parse_ok is None and not xml_required else bool(xml_parse_ok)
-    render_check_ok = True if render_ok is None and not render_required else bool(render_ok)
-    sql_check_ok = True if sql_parse_ok is None and not sql_required else bool(sql_parse_ok)
+    if xml_parse_ok is None:
+        xml_check_ok = not xml_evidence_required
+    else:
+        xml_check_ok = bool(xml_parse_ok) if xml_required else True
+    if render_ok is None:
+        render_check_ok = not render_evidence_required
+    else:
+        render_check_ok = bool(render_ok) if render_required else True
+    if sql_parse_ok is None:
+        sql_check_ok = not sql_evidence_required
+    else:
+        sql_check_ok = bool(sql_parse_ok) if sql_required else True
     xml_reason = None if xml_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if xml_parse_ok is None else "PATCH_SYNTAX_INVALID")
     render_reason = (
         None if render_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if render_ok is None else "PATCH_SYNTAX_INVALID")
     )
     sql_reason = None if sql_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if sql_parse_ok is None else "PATCH_SYNTAX_INVALID")
     family_spec_ok = not family_spec_missing
-    apply_check_ok = applicable is True if applicable is not None else not apply_required
+    if applicable is None:
+        apply_check_ok = not apply_evidence_required
+    elif applicable is True:
+        apply_check_ok = True
+    else:
+        apply_check_ok = not apply_required
     apply_check_reason = None
     if not apply_check_ok:
         apply_check_reason = (
@@ -177,25 +195,25 @@ def append_patch_verification(
         VerificationCheck(
             "replay_matches_target",
             replay_check_ok,
-            "error" if replay_evidence_required or replay_matches_target is not None else "info",
+            "error" if replay_required else "info",
             replay_check_reason,
         ),
         VerificationCheck(
             "xml_parse_ok",
             xml_check_ok,
-            "error" if xml_required or xml_parse_ok is not None else "info",
+            "error" if xml_required else "info",
             xml_reason,
         ),
         VerificationCheck(
             "render_ok",
             render_check_ok,
-            "error" if render_required or render_ok is not None else "info",
+            "error" if render_required else "info",
             render_reason,
         ),
         VerificationCheck(
             "sql_parse_ok",
             sql_check_ok,
-            "error" if sql_required or sql_parse_ok is not None else "info",
+            "error" if sql_required else "info",
             sql_reason,
         ),
         VerificationCheck(
@@ -211,13 +229,13 @@ def append_patch_verification(
     ]
     proof_complete = not required_failures and not required_missing
     first_required_issue = required_missing[0] if required_missing else (required_failures[0] if required_failures else None)
-    failed_checks = {check.name: check for check in checks if check.ok is False}
-    replay_failure = failed_checks.get("replay_matches_target")
+    required_failures_by_name = {check.name: check for check in required_failures}
+    replay_failure = required_failures_by_name.get("replay_matches_target")
     syntax_failure = next(
         (
-            failed_checks[name]
+            required_failures_by_name[name]
             for name in ("xml_parse_ok", "render_ok", "sql_parse_ok")
-            if name in failed_checks and failed_checks[name].reason_code == "PATCH_SYNTAX_INVALID"
+            if name in required_failures_by_name and required_failures_by_name[name].reason_code == "PATCH_SYNTAX_INVALID"
         ),
         None,
     )
@@ -249,6 +267,10 @@ def append_patch_verification(
         verification_status = "UNVERIFIED"
         verification_reason_code = "PATCH_FAMILY_SPEC_MISSING"
         verification_reason_message = "applicable patch family is not registered in the verification policy registry"
+    elif applicable is False:
+        verification_status = "VERIFIED"
+        verification_reason_code = selection_code or "PATCH_NOT_APPLICABLE"
+        verification_reason_message = "patch was rejected with an explicit apply-check failure"
     elif applicable is True and not proof_complete and first_required_issue is not None:
         verification_status = "UNVERIFIED"
         verification_reason_code = str(first_required_issue.reason_code or "PATCH_DECISION_EVIDENCE_INCOMPLETE")
@@ -257,10 +279,6 @@ def append_patch_verification(
         verification_status = "VERIFIED"
         verification_reason_code = selection_code or "PATCH_APPLICABLE_VERIFIED"
         verification_reason_message = "patch was selected and passed git apply --check"
-    elif applicable is False:
-        verification_status = "VERIFIED"
-        verification_reason_code = selection_code or "PATCH_NOT_APPLICABLE"
-        verification_reason_message = "patch was rejected with an explicit apply-check failure"
     elif selection_code:
         verification_status = "VERIFIED"
         verification_reason_code = selection_code
