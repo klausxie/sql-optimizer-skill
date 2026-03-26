@@ -6,7 +6,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
 from sqlopt.common.contract_file_manager import ContractFileManager
@@ -18,10 +18,9 @@ from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
 
-if TYPE_CHECKING:
-    from sqlopt.common.config import SQLOptConfig
-
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str], None]
 
 
 def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, TableSchema] | None = None) -> str:
@@ -109,9 +108,11 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> RecognitionOutput:
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
+        self._progress_callback = progress_callback
         logger.info("=" * 60)
         logger.info("[RECOGNITION] Starting Recognition stage")
         logger.info(f"[RECOGNITION] Run ID: {rid}, Mock mode: {mock}")
@@ -150,7 +151,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     f"[RECOGNITION] Loaded {len(parse_data.sql_units_with_branches)} SQL unit(s) from per-unit files"
                 )
             else:
-                logger.warning(f"[RECOGNITION] Per-unit format detected but _index.json not found, using stub data")
+                logger.warning("[RECOGNITION] Per-unit format detected but _index.json not found, using stub data")
                 return self._create_stub_output()
         else:
             parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
@@ -173,9 +174,9 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         start_time = time.time()
         if self.config and self.config.concurrency.enabled:
             logger.info("[RECOGNITION] Using concurrent execution mode")
-            baselines = self._run_concurrent(parse_data, table_schemas)
+            baselines = self._run_concurrent(parse_data, table_schemas, self._progress_callback)
         else:
-            baselines = self._run_sequential(parse_data, table_schemas)
+            baselines = self._run_sequential(parse_data, table_schemas, self._progress_callback)
 
         duration_seconds = time.time() - start_time
         logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
@@ -186,7 +187,10 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         return output
 
     def _run_sequential(
-        self, parse_data: ParseOutput, table_schemas: dict[str, TableSchema] | None
+        self,
+        parse_data: ParseOutput,
+        table_schemas: dict[str, TableSchema] | None,
+        progress_callback: ProgressCallback | None,
     ) -> list[PerformanceBaseline]:
         baselines: list[PerformanceBaseline] = []
         platform = "postgresql"
@@ -195,6 +199,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         for sql_unit in parse_data.sql_units_with_branches:
             for branch in sql_unit.branches:
+                if progress_callback:
+                    progress_callback(f"Processing {sql_unit.sql_unit_id}.{branch.path_id}")
                 if not branch.is_valid:
                     logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
@@ -247,7 +253,10 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         return baselines
 
     def _run_concurrent(
-        self, parse_data: ParseOutput, table_schemas: dict[str, TableSchema] | None
+        self,
+        parse_data: ParseOutput,
+        table_schemas: dict[str, TableSchema] | None,
+        progress_callback: ProgressCallback | None,
     ) -> list[PerformanceBaseline]:
         tasks: list[tuple[str, str, str, str | None]] = [
             (sql_unit.sql_unit_id, branch.path_id, branch.expanded_sql, branch.branch_type)
@@ -296,6 +305,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         def on_progress(done: int, total_count: int) -> None:
             completed[0] = done
             logger.info(f"[RECOGNITION] Progress: {done}/{total_count}")
+            if progress_callback:
+                progress_callback(f"Processing {done}/{total_count}")
 
         with ConcurrentExecutor(options) as executor:
             results: list[TaskResult] = executor.map(process_task, tasks, on_progress)

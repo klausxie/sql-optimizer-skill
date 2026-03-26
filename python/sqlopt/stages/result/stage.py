@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
@@ -17,6 +18,8 @@ from sqlopt.contracts.result import Patch, Report, ResultOutput
 from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str], None]
 
 
 class ResultStage(Stage[None, ResultOutput]):
@@ -42,6 +45,7 @@ class ResultStage(Stage[None, ResultOutput]):
         _input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ResultOutput:
         """Execute result stage.
 
@@ -74,6 +78,8 @@ class ResultStage(Stage[None, ResultOutput]):
 
         optimize_data = OptimizeOutput.from_json(optimize_file.read_text(encoding="utf-8"))
         logger.info(f"[RESULT] Loaded {len(optimize_data.proposals)} proposal(s) from optimize stage")
+        if progress_callback:
+            progress_callback(f"Loaded {len(optimize_data.proposals)} proposal(s)")
 
         init_file = loader.get_init_sql_units_path()
         logger.info(f"[RESULT] Init file: {init_file}")
@@ -209,7 +215,7 @@ class ResultStage(Stage[None, ResultOutput]):
         details_lines.append(f"Patches generated: {len(patches)}")
 
         if baseline_only_risks:
-            details_lines.append(f"\nBaseline-only static analysis (no EXPLAIN performed):")
+            details_lines.append("\nBaseline-only static analysis (no EXPLAIN performed):")
             for risk in baseline_only_risks:
                 details_lines.append(f"  - {risk}")
 

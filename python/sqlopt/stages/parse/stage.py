@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
@@ -17,6 +17,8 @@ from sqlopt.stages.parse.branch_expander import BranchExpander
 
 logger = logging.getLogger(__name__)
 
+ProgressCallback = Callable[[str], None]
+
 
 class ParseStage(Stage[None, ParseOutput]):
     def __init__(self, run_id: str | None = None, use_mock: bool = True, config: SQLOptConfig | None = None):
@@ -25,7 +27,13 @@ class ParseStage(Stage[None, ParseOutput]):
         self.use_mock = use_mock
         self.config = config
 
-    def run(self, _input_data: None = None, run_id: str | None = None, use_mock: bool | None = None) -> ParseOutput:
+    def run(
+        self,
+        _input_data: None = None,
+        run_id: str | None = None,
+        use_mock: bool | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> ParseOutput:
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
         logger.info("=" * 60)
@@ -88,11 +96,14 @@ class ParseStage(Stage[None, ParseOutput]):
                 default_namespace=_infer_namespace(sql_unit.id),
             )
             total_branches += len(expanded)
-            # Progress logging
+            if progress_callback:
+                progress_callback(f"Processing SQL unit {idx + 1}/{len(init_data.sql_units)}: {sql_unit.id}")
             if len(init_data.sql_units) <= 10:
                 pct = (idx + 1) * 100 // len(init_data.sql_units) // 10
                 logger.info(f"[PARSE] Progress: {idx + 1}/{len(init_data.sql_units)} ({pct}%)")
 
+        if progress_callback:
+            progress_callback(f"{len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info("[PARSE] Parse stage completed")
 

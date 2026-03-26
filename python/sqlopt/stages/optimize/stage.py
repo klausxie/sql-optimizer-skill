@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
@@ -18,6 +19,8 @@ from sqlopt.contracts.recognition import RecognitionOutput
 from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str], None]
 
 
 class OptimizeStage(Stage[None, OptimizeOutput]):
@@ -41,10 +44,12 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> OptimizeOutput:
         start_time = time.time()
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
+        self._progress_callback = progress_callback
         logger.info("=" * 60)
         logger.info("[OPTIMIZE] Starting Optimize stage")
         logger.info(f"[OPTIMIZE] Run ID: {rid}, Mock mode: {mock}")
@@ -68,9 +73,9 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
 
         if self.config.concurrency.enabled:
-            proposals = self._run_concurrent(baselines_data.baselines)
+            proposals = self._run_concurrent(baselines_data.baselines, self._progress_callback)
         else:
-            proposals = self._run_sequential(baselines_data.baselines)
+            proposals = self._run_sequential(baselines_data.baselines, self._progress_callback)
 
         logger.info(f"[OPTIMIZE] Generated {len(proposals)} proposal(s)")
         output = OptimizeOutput(proposals=proposals)
@@ -83,9 +88,13 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         logger.info("[OPTIMIZE] Optimize stage completed")
         return output
 
-    def _run_sequential(self, baselines: list) -> list[OptimizationProposal]:
+    def _run_sequential(
+        self, baselines: list, progress_callback: ProgressCallback | None
+    ) -> list[OptimizationProposal]:
         proposals: list[OptimizationProposal] = []
-        for baseline in baselines:
+        for idx, baseline in enumerate(baselines):
+            if progress_callback:
+                progress_callback(f"Optimizing {idx + 1}/{len(baselines)}: {baseline.sql_unit_id}.{baseline.path_id}")
             if baseline.plan is None:
                 logger.info(
                     f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
@@ -107,7 +116,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 )
                 proposals.append(proposal)
                 logger.info(
-                    f"[OPTIMIZE]   [OK] %s.%s: confidence=%.2f",
+                    "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f",
                     baseline.sql_unit_id,
                     baseline.path_id,
                     proposal_data["confidence"],
@@ -122,7 +131,9 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 continue
         return proposals
 
-    def _run_concurrent(self, baselines: list) -> list[OptimizationProposal]:
+    def _run_concurrent(
+        self, baselines: list, progress_callback: ProgressCallback | None
+    ) -> list[OptimizationProposal]:
         tasks = []
         for baseline in baselines:
             if baseline.plan is None:
@@ -166,6 +177,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             completed += 1
             if result.success and result.result:
                 proposals.append(result.result)
+                if progress_callback:
+                    progress_callback(
+                        f"Optimizing {completed}/{total}: {result.result.sql_unit_id}.{result.result.path_id}"
+                    )
                 logger.info(
                     "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f",
                     result.result.sql_unit_id,
@@ -176,6 +191,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 )
             else:
                 baseline = result.item
+                if progress_callback:
+                    progress_callback(f"Optimizing {completed}/{total}: {baseline.sql_unit_id}.{baseline.path_id}")
                 logger.warning(
                     "[OPTIMIZE]   [FAIL] %s.%s (%d/%d): %s",
                     baseline.sql_unit_id,

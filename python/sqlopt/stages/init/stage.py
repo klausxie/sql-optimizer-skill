@@ -6,7 +6,7 @@ import re
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.summary_generator import generate_init_summary_markdown
@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from sqlopt.common.db_connector import DBConnector
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str], None]
 
 
 def extract_table_names_from_sql(sql_text: str) -> list[str]:
@@ -77,6 +79,7 @@ class InitStage(Stage[None, InitOutput]):
         _input_data: None = None,
         config: SQLOptConfig | None = None,
         run_id: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> InitOutput:
         start_time = time.time()
         cfg = config or self.config
@@ -113,6 +116,8 @@ class InitStage(Stage[None, InitOutput]):
         total_statements = 0
         total_fragments = 0
         for idx, xml_path in enumerate(mapper_files):
+            if progress_callback:
+                progress_callback(f"Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
             logger.info(f"[INIT] Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
             statements, fragments = parse_mapper_file(xml_path)
             stmt_count = len(statements)
@@ -152,6 +157,10 @@ class InitStage(Stage[None, InitOutput]):
 
             file_mappings[str(xml_path)] = file_mapping
 
+        if progress_callback:
+            progress_callback(
+                f"{total_statements} SQL unit(s), {total_fragments} SQL fragment(s) from {len(mapper_files)} file(s)"
+            )
         logger.info(
             f"[INIT] {total_statements} SQL unit(s), {total_fragments} SQL fragment(s) from {len(mapper_files)} mapper file(s)"
         )
@@ -181,6 +190,8 @@ class InitStage(Stage[None, InitOutput]):
                     password=cfg.db_password or "",
                 )
                 logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
+                if progress_callback:
+                    progress_callback(f"Extracting schemas for {len(all_table_names)} table(s)")
                 table_schemas = extract_table_schemas(
                     table_names=list(all_table_names),
                     db_connector=db_connector,
@@ -190,6 +201,8 @@ class InitStage(Stage[None, InitOutput]):
                 schema_extraction_success = True
 
                 logger.info("[INIT] Extracting WHERE field distributions")
+                if progress_callback:
+                    progress_callback("Extracting WHERE field distributions")
                 field_by_table: dict[str, set[str]] = {}
                 for unit in sql_units:
                     table_names = extract_table_names_from_sql(unit.sql_text)

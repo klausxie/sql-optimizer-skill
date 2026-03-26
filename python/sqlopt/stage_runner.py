@@ -70,21 +70,24 @@ class StageRunner:
         stage_idx = STAGE_ORDER.index(stage_name) + 1
         start_time = time.time()
 
-        self.display.update(stage_name, stage_idx, f"Starting...")
+        self.display.update(stage_name, stage_idx, "Starting...")
         self.paths.ensure_dirs()
         self.progress.start_stage(stage_name)
 
+        def progress_cb(message: str) -> None:
+            self.display.update(stage_name, stage_idx, message)
+
         try:
             if stage_name == "init":
-                self._run_init_stage()
+                self._run_init_stage(progress_cb)
             elif stage_name == "parse":
-                self._run_parse_stage(use_mock=use_mock)
+                self._run_parse_stage(use_mock=use_mock, progress_cb=progress_cb)
             elif stage_name == "recognition":
-                self._run_recognition_stage(use_mock=use_mock)
+                self._run_recognition_stage(use_mock=use_mock, progress_cb=progress_cb)
             elif stage_name == "optimize":
-                self._run_optimize_stage(use_mock=use_mock)
+                self._run_optimize_stage(use_mock=use_mock, progress_cb=progress_cb)
             elif stage_name == "result":
-                self._run_result_stage(use_mock=use_mock)
+                self._run_result_stage(use_mock=use_mock, progress_cb=progress_cb)
 
             elapsed = time.time() - start_time
             self.progress.complete_stage(stage_name)
@@ -116,25 +119,25 @@ class StageRunner:
             logger.error(f"[RUNNER] Full pipeline failed at stage '{failed_stage}': {e}")
             return PipelineResult(success=False, stage_results=stage_results)
 
-    def _run_init_stage(self) -> None:
+    def _run_init_stage(self, progress_cb: Any = None) -> None:
         from sqlopt.stages.init import InitStage
 
         logger.info("[RUNNER] Initializing InitStage...")
         stage = InitStage(self.config, self.run_id)
-        result = stage.run()
+        result = stage.run(progress_callback=progress_cb)
         save_json_file(result, self.paths.init_sql_units)
         logger.info(f"[RUNNER] Init stage output: {self.paths.init_sql_units}")
 
-    def _run_parse_stage(self, use_mock: bool = True) -> None:
+    def _run_parse_stage(self, use_mock: bool = True, progress_cb: Any = None) -> None:
         from sqlopt.stages.parse import ParseStage
 
         logger.info("[RUNNER] Initializing ParseStage...")
         stage = ParseStage(self.run_id, use_mock=use_mock)
-        result = stage.run()
+        result = stage.run(progress_callback=progress_cb)
         save_json_file(result, self.paths.parse_sql_units_with_branches)
         logger.info(f"[RUNNER] Parse stage output: {self.paths.parse_sql_units_with_branches}")
 
-    def _run_recognition_stage(self, use_mock: bool = True) -> None:
+    def _run_recognition_stage(self, use_mock: bool = True, progress_cb: Any = None) -> None:
         from sqlopt.common.db_connector import create_connector
         from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.recognition import RecognitionStage
@@ -165,11 +168,11 @@ class StageRunner:
 
         logger.info("[RUNNER] Initializing RecognitionStage...")
         stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
-        result = stage.run(run_id=self.run_id)
+        result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.recognition_baselines)
         logger.info(f"[RUNNER] Recognition stage output: {self.paths.recognition_baselines}")
 
-    def _run_optimize_stage(self, use_mock: bool = True) -> None:
+    def _run_optimize_stage(self, use_mock: bool = True, progress_cb: Any = None) -> None:
         from sqlopt.common.db_connector import create_connector
         from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
         from sqlopt.stages.optimize import OptimizeStage
@@ -193,16 +196,16 @@ class StageRunner:
 
         logger.info("[RUNNER] Initializing OptimizeStage...")
         stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock)
-        result = stage.run(run_id=self.run_id)
+        result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.optimize_proposals)
         logger.info(f"[RUNNER] Optimize stage output: {self.paths.optimize_proposals}")
 
-    def _run_result_stage(self, use_mock: bool = True) -> None:
+    def _run_result_stage(self, use_mock: bool = True, progress_cb: Any = None) -> None:
         from sqlopt.stages.result import ResultStage
 
         logger.info("[RUNNER] Initializing ResultStage...")
         stage = ResultStage(self.run_id, use_mock=use_mock)
-        result = stage.run(run_id=self.run_id)
+        result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.result_report)
         logger.info(f"[RUNNER] Result stage output: {self.paths.result_report}")
 

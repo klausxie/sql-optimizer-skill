@@ -5,10 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 Input = TypeVar("Input")
 Output = TypeVar("Output")
+
+# Progress callback type: (message) -> None
+ProgressCallback = Callable[[str], None]
 
 
 class Stage(ABC, Generic[Input, Output]):
@@ -62,11 +65,17 @@ class Stage(ABC, Generic[Input, Output]):
             self.stop()
 
     @abstractmethod
-    def run(self, input_data: Input) -> Output:
+    def run(
+        self,
+        input_data: Input,
+        progress_callback: ProgressCallback | None = None,
+    ) -> Output:
         """Execute the stage with given input.
 
         Args:
             input_data: Stage input contract.
+            progress_callback: Optional callback (message: str) -> None
+                called at key progress points for user-friendly display.
 
         Returns:
             Stage output contract.
