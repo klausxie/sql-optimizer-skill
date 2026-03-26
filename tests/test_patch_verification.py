@@ -462,6 +462,46 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertIsNone(rows[0]["inputs"]["sql_parse_ok"])
         self.assertIsNone(rows[0]["verdict"]["sql_parse_ok"])
 
+    def test_patch_verification_marks_missing_required_sql_parse_evidence_unverified(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_missing_required_sql_parse_") as td:
+            run_dir = Path(td)
+            patch_target = self._patch_target(family="STATIC_INCLUDE_WRAPPER_COLLAPSE")
+            patch = {
+                "selectionReason": {"code": "PATCH_SELECTED_SINGLE_PASS", "message": "selected"},
+                "applicable": True,
+                "patchFiles": [str(run_dir / "pipeline" / "patch_generate" / "files" / "demo.patch")],
+                "patchTarget": patch_target,
+                "replayEvidence": {"matchesTarget": True, "driftReason": None},
+                "syntaxEvidence": {
+                    "ok": False,
+                    "xmlParseOk": True,
+                    "renderOk": True,
+                    "renderedSqlPresent": True,
+                },
+            }
+            acceptance = {"status": "PASS", "patchTarget": patch_target}
+            append_patch_verification(
+                run_dir=run_dir,
+                validator=self._validator(),
+                patch=patch,
+                acceptance=acceptance,
+                status="PASS",
+                semantic_gate_status="PASS",
+                semantic_gate_confidence="HIGH",
+                sql_key="demo.user.find#v1",
+                statement_key="demo.user.find",
+                same_statement=[{"sqlKey": "demo.user.find#v1"}],
+                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+            )
+            rows = _read_ledger(run_dir)
+
+        self.assertEqual(rows[0]["status"], "UNVERIFIED")
+        self.assertEqual(rows[0]["reason_code"], "PATCH_DECISION_EVIDENCE_INCOMPLETE")
+        sql_check = next(check for check in rows[0]["checks"] if check["name"] == "sql_parse_ok")
+        self.assertEqual(sql_check["reason_code"], "PATCH_DECISION_EVIDENCE_INCOMPLETE")
+        self.assertIsNone(rows[0]["inputs"]["sql_parse_ok"])
+        self.assertIsNone(rows[0]["verdict"]["sql_parse_ok"])
+
     def test_patch_verification_marks_missing_registered_family_unverified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_missing_family_") as td:
             run_dir = Path(td)
