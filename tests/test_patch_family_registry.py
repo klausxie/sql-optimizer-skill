@@ -36,6 +36,14 @@ def test_static_alias_projection_cleanup_spec_carries_mvp_contract_sections() ->
     assert spec.fixture_obligations.blocked_neighbor_required is True
 
 
+def test_static_include_wrapper_collapse_spec_exposes_acceptance_policy() -> None:
+    spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
+    assert spec is not None
+    assert spec.status == "FROZEN_AUTO_PATCH"
+    assert spec.acceptance.semantic_required_status == "PASS"
+    assert spec.acceptance.semantic_min_confidence == "MEDIUM"
+
+
 def test_patch_contracts_frozen_family_scope_is_registry_derived() -> None:
     registry_families = {
         spec.family

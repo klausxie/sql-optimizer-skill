@@ -20,7 +20,8 @@ from .patch_strategy_planner import plan_patch_strategy
 from .semantic_equivalence import build_semantic_equivalence
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
-from ...patch_contracts import FROZEN_AUTO_PATCH_FAMILIES, build_patch_target_contract
+from ...patch_contracts import build_patch_target_contract, semantic_confidence_rank
+from ...patch_families.registry import lookup_patch_family_spec
 
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -142,10 +143,6 @@ def _build_patch_target(
 ) -> dict[str, Any] | None:
     if acceptance_status != "PASS":
         return None
-    if str((semantic_equivalence or {}).get("status") or "").strip().upper() != "PASS":
-        return None
-    if str((semantic_equivalence or {}).get("confidence") or "").strip().upper() not in {"MEDIUM", "HIGH"}:
-        return None
     if not bool((patchability or {}).get("eligible")):
         return None
     if not selected_patch_strategy or not selected_candidate_id or not rewritten_sql:
@@ -154,7 +151,14 @@ def _build_patch_target(
     if not replay_contract:
         return None
     family = _derive_patch_target_family(rewrite_facts, rewrite_materialization, selected_patch_strategy)
-    if not family or family not in FROZEN_AUTO_PATCH_FAMILIES:
+    spec = lookup_patch_family_spec(family) if family else None
+    if spec is None or spec.status != "FROZEN_AUTO_PATCH":
+        return None
+    semantic_status = str((semantic_equivalence or {}).get("status") or "").strip().upper()
+    if semantic_status != str(spec.acceptance.semantic_required_status or "").strip().upper():
+        return None
+    semantic_confidence = str((semantic_equivalence or {}).get("confidence") or "").strip().upper()
+    if semantic_confidence_rank(semantic_confidence) < semantic_confidence_rank(spec.acceptance.semantic_min_confidence):
         return None
     evidence_refs = [str(evidence_dir)] if evidence_dir is not None else []
     return build_patch_target_contract(

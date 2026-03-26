@@ -11,6 +11,11 @@ FROZEN_AUTO_PATCH_FAMILIES = frozenset(
 )
 
 
+def semantic_confidence_rank(confidence: str) -> int:
+    order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+    return order.get(str(confidence or "").strip().upper(), -1)
+
+
 def normalize_patch_target_sql(text: str) -> str:
     return " ".join(str(text or "").split())
 
