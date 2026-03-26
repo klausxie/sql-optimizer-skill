@@ -16,6 +16,8 @@ def _build_patch_family_registry(
     registry: dict[str, PatchFamilySpec] = {}
     for spec in specs:
         canonical_family = _canonicalize_family_id(spec.family)
+        if spec.family != canonical_family:
+            raise ValueError(f"NON_CANONICAL_PATCH_FAMILY: {canonical_family}")
         if canonical_family in registry:
             raise ValueError(f"DUPLICATE_PATCH_FAMILY: {canonical_family}")
         registry[canonical_family] = spec
