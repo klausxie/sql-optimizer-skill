@@ -267,6 +267,10 @@ def append_patch_verification(
         verification_status = "VERIFIED"
         verification_reason_code = "PATCH_SEMANTIC_CONFIDENCE_LOW"
         verification_reason_message = "patch generation was intentionally blocked due to low semantic confidence"
+    elif applicable is False and apply_required and not apply_check_ok:
+        verification_status = "UNVERIFIED"
+        verification_reason_code = str(apply_check_reason or selection_code or "PATCH_NOT_APPLICABLE")
+        verification_reason_message = "patch failed a required apply-check verification"
     elif applicable is False:
         verification_status = "VERIFIED"
         verification_reason_code = selection_code or "PATCH_NOT_APPLICABLE"

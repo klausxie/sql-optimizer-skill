@@ -403,6 +403,43 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "UNVERIFIED")
         self.assertEqual(rows[0]["reason_code"], "PATCH_FAMILY_SPEC_MISSING")
 
+    def test_patch_verification_marks_required_apply_check_failure_unverified(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_apply_required_") as td:
+            run_dir = Path(td)
+            patch_target = self._patch_target(family="STATIC_INCLUDE_WRAPPER_COLLAPSE")
+            patch = {
+                "selectionReason": {"code": "PATCH_NOT_APPLICABLE", "message": "apply check failed"},
+                "applicable": False,
+                "patchFiles": [],
+                "patchTarget": patch_target,
+                "replayEvidence": {"matchesTarget": True, "driftReason": None},
+                "syntaxEvidence": {
+                    "ok": True,
+                    "xmlParseOk": True,
+                    "renderOk": True,
+                    "sqlParseOk": True,
+                    "renderedSqlPresent": True,
+                },
+            }
+            acceptance = {"status": "PASS", "patchTarget": patch_target}
+            append_patch_verification(
+                run_dir=run_dir,
+                validator=self._validator(),
+                patch=patch,
+                acceptance=acceptance,
+                status="PASS",
+                semantic_gate_status="PASS",
+                semantic_gate_confidence="HIGH",
+                sql_key="demo.user.find#v1",
+                statement_key="demo.user.find",
+                same_statement=[{"sqlKey": "demo.user.find#v1"}],
+                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+            )
+            rows = _read_ledger(run_dir)
+
+        self.assertEqual(rows[0]["status"], "UNVERIFIED")
+        self.assertEqual(rows[0]["reason_code"], "PATCH_NOT_APPLICABLE")
+
 
 if __name__ == "__main__":
     unittest.main()
