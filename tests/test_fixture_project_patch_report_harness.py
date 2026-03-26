@@ -6,7 +6,7 @@ import unittest
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 from .fixture_project_harness_support import (
-    fixture_registered_families,
+    fixture_dynamic_registered_families,
     patch_blocker_family,
     patch_meets_registered_fixture_obligations,
     run_fixture_patch_and_report_harness,
@@ -15,24 +15,20 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
-    def test_registered_fixture_patch_families_meet_registry_obligations(self) -> None:
+    def test_current_dynamic_fixture_patch_families_meet_registry_obligations(self) -> None:
         scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
         patch_by_key = {str(row["sqlKey"]): row for row in patches}
-        registered_families = fixture_registered_families(scenarios)
+        dynamic_registered_families = fixture_dynamic_registered_families(scenarios)
 
-        self.assertTrue(registered_families)
+        self.assertTrue(dynamic_registered_families)
         for scenario in scenarios:
             sql_key = str(scenario["sqlKey"])
             patch = patch_by_key[sql_key]
-            target_registered_family = str(scenario.get("targetRegisteredFamily") or "").strip()
             target_dynamic_family = str(scenario.get("targetDynamicBaselineFamily") or "").strip()
-            tracked_family = target_registered_family or target_dynamic_family
-            if not tracked_family:
+            if not target_dynamic_family:
                 continue
-            self.assertIn(tracked_family, registered_families, sql_key)
+            self.assertIn(target_dynamic_family, dynamic_registered_families, sql_key)
             self.assertTrue(patch_meets_registered_fixture_obligations(patch, scenario), sql_key)
-            if target_registered_family and patch.get("applicable") is True:
-                self.assertEqual(((patch.get("patchTarget") or {}).get("family")), target_registered_family, sql_key)
             if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH":
                 self.assertEqual(((patch.get("patchTarget") or {}).get("family")), target_dynamic_family, sql_key)
 

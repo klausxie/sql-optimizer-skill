@@ -13,7 +13,7 @@ from .fixture_project_harness_support import (
     VALIDATE_EVIDENCE_MODES,
     VALIDATE_STATUSES,
     dynamic_blocked_neighbor_families,
-    fixture_registered_families,
+    fixture_dynamic_registered_families,
     load_fixture_scenarios,
     patchability_bucket,
     primary_blocker,
@@ -25,21 +25,30 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):
-    def test_fixture_registered_family_surface_stays_backed_by_registry(self) -> None:
+    def test_fixture_current_dynamic_family_surface_stays_backed_by_registry(self) -> None:
         scenarios = load_fixture_scenarios()
-        registered_families = fixture_registered_families(scenarios)
-        self.assertTrue(registered_families)
-        for family in registered_families:
+        dynamic_registered_families = fixture_dynamic_registered_families(scenarios)
+        self.assertTrue(dynamic_registered_families)
+        for family in dynamic_registered_families:
             spec = registered_patch_family_spec(family)
             self.assertIsNotNone(spec, family)
             self.assertTrue(spec.fixture_obligations.ready_case_required, family)
 
         required_blocked_neighbor_families = {
             family
-            for family in registered_families
+            for family in dynamic_registered_families
             if bool(registered_patch_family_spec(family).fixture_obligations.blocked_neighbor_required)
         }
         self.assertTrue(required_blocked_neighbor_families <= dynamic_blocked_neighbor_families(scenarios))
+
+    def test_fixture_current_scope_has_no_static_registered_family_targets(self) -> None:
+        scenarios = load_fixture_scenarios()
+        static_registered_families = {
+            str(scenario.get("targetRegisteredFamily") or "").strip()
+            for scenario in scenarios
+            if str(scenario.get("targetRegisteredFamily") or "").strip()
+        }
+        self.assertEqual(static_registered_families, set())
 
     def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
         scenarios = load_fixture_scenarios()

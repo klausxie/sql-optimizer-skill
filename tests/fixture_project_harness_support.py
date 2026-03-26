@@ -68,13 +68,21 @@ def dynamic_blocked_neighbor_families(scenarios: list[dict]) -> set[str]:
     return blocked_families
 
 
-def fixture_registered_families(scenarios: list[dict]) -> set[str]:
+def fixture_dynamic_registered_families(scenarios: list[dict]) -> set[str]:
     registered_families: set[str] = set()
     for row in scenarios:
-        for family_field in ("targetDynamicBaselineFamily", "targetRegisteredFamily"):
-            spec = registered_patch_family_spec(row.get(family_field))
-            if spec is not None:
-                registered_families.add(str(spec.family))
+        spec = registered_patch_family_spec(row.get("targetDynamicBaselineFamily"))
+        if spec is not None:
+            registered_families.add(str(spec.family))
+    return registered_families
+
+
+def fixture_registered_families(scenarios: list[dict]) -> set[str]:
+    registered_families = fixture_dynamic_registered_families(scenarios)
+    for row in scenarios:
+        spec = registered_patch_family_spec(row.get("targetRegisteredFamily"))
+        if spec is not None:
+            registered_families.add(str(spec.family))
     return registered_families
 
 
