@@ -1,72 +1,44 @@
 # Result Stage
 
-**Purpose**: Generate optimization reports, create SQL patches with unified diffs.
+## Purpose
 
-## What It Does
+`result` turns proposals and baselines into a ranked report and optional patch set.
 
-1. Loads proposals from Optimize stage
-2. Loads baselines from Recognition stage
-3. Generates human-readable report with recommendations
-4. Creates SQL patches via `difflib.unified_diff()`
+## Inputs
 
-## Input
+- init SQL units
+- recognition baselines
+- optimize proposals
 
-- `proposals.json` from Optimize stage
-- `baselines.json` from Recognition stage
+## Main work
 
-## Output Files
+- rank proposals by validated impact
+- separate:
+  - verified improvements
+  - candidates that still need validation
+  - result mismatches
+  - validation failures
+- generate patches only for proposals that are safe enough to patch
+- generate a summary report for humans
 
-| File | Description |
-|------|-------------|
-| `report.json` | Full optimization report with summary, details, risks |
-| `patches/` | Generated SQL patches (unified diff format) |
-| `SUMMARY.md` | Human-readable summary |
+## Patch generation rule
 
-## Report Structure
+A proposal is patch-ready only when:
 
-```json
-{
-  "summary": {
-    "total_units": 10,
-    "total_proposals": 25,
-    "high_confidence": 18,
-    "estimated_improvement": "30%"
-  },
-  "details": [
-    {
-      "sql_unit_id": "findUser",
-      "proposals": [
-        {
-          "path_id": "default",
-          "rationale": "Use covering index",
-          "confidence": 0.85
-        }
-      ]
-    }
-  ]
-}
-```
+- validation status is `validated`
+- result equivalence is not false
+- gain ratio is not negative
 
-## Patch Generation
+## Outputs
 
-Uses Python's `difflib.unified_diff()` to generate unified diff text:
+- `report.json`
+- `SUMMARY.md`
 
-```python
-# _create_patch() in result/stage.py
-diff = difflib.unified_diff(
-    original_sql.splitlines(keepends=True),
-    optimized_sql.splitlines(keepends=True),
-    fromfile='original.sql',
-    tofile='optimized.sql'
-)
-```
-
-Note: This generates plain diff text, NOT structured REPLACE/ADD/REMOVE/WRAP operations.
-
-## Stub Mode
-
-When `run_id=None`, generates stub report.
-
-## See Also
+## Primary implementation
 
 - `python/sqlopt/stages/result/stage.py`
+
+## Related docs
+
+- [Result contracts](../CONTRACTS/result.md)
+- [Data Flow](../DATAFLOW.md)

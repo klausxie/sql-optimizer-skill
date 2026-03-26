@@ -1,66 +1,48 @@
 # Init Stage
 
-**Purpose**: Scan MyBatis XML files, extract SQL units, collect table schemas and field distributions.
+## Purpose
 
-## What It Does
+`init` converts mapper XML files into stable SQL units and metadata that later stages can reuse.
 
-1. Scans mapper XML files using glob patterns from config
-2. Extracts SQL statements and SQL fragment definitions
-3. Connects to DB (if configured) to extract table schemas
-4. Collects WHERE clause field cardinality distributions
+## Inputs
 
-## Input
+- project root
+- mapper glob patterns
+- optional MySQL or PostgreSQL connection
 
-- `sqlopt.yml` configuration file
+## Main work
 
-## Output Files
+- find mapper XML files
+- parse statements and reusable SQL fragments
+- create `SQLUnit` records
+- build XML mappings back to the original files
+- extract referenced table names
+- extract predicate field names by table
+- load table schema and index metadata
+- load field distributions for predicate columns
 
-| File | Description |
-|------|-------------|
-| `sql_units.json` | SQL units extracted from XML (id, mapper_file, sql_id, sql_text, statement_type) |
-| `sql_fragments.json` | SQL fragment definitions |
-| `table_schemas.json` | Database table column/index info (from DB if configured) |
-| `xml_mappings.json` | XML file to SQL unit mappings |
-| `field_distributions.json` | WHERE field cardinality stats (top values, distinct count, null count) |
-| `SUMMARY.md` | Human-readable summary with actionable insights |
+## Outputs
 
-## Key Functions
+- `sql_units.json`
+- `sql_fragments.json`
+- `table_schemas.json`
+- `field_distributions.json`
+- `xml_mappings.json`
+- `SUMMARY.md`
 
-```python
-# stage.py
-extract_table_schemas(table_names, db_connector, platform, progress_callback)
-extract_field_distributions(table_name, column_names, db_connector, platform, top_n, progress_callback)
-```
+## Large-project and failure behavior
 
-## Progress Tracking
+- mapper files that fail parsing are skipped instead of aborting the whole stage
+- field distribution extraction only runs for columns that are confirmed to exist in the extracted schema
+- metadata is written once and reused by later stages
 
-Cumulative progress across three phases:
-1. **File parsing**: (file_idx, total_files) → reports progress per XML file
-2. **Schema extraction**: (file_count + schema_idx, total_work) → cumulative across tables
-3. **Field distribution**: (file_count + table_count + field_idx, total_work) → cumulative
-
-## Configuration
-
-```yaml
-db_platform: postgresql  # or mysql
-db_host: localhost
-db_port: 5432
-db_name: myapp
-db_user: postgres
-db_password: secret
-scan_mapper_globs:
-  - "src/main/resources/**/*.xml"
-statement_types:  # optional filter
-  - SELECT
-```
-
-## Stub Mode
-
-When `run_id=None`, returns hardcoded stub data for isolated testing:
-- Single SQL unit: `"SELECT * FROM users WHERE id = #{id}"`
-- No DB connection required
-
-## See Also
+## Primary implementation
 
 - `python/sqlopt/stages/init/stage.py`
+- `python/sqlopt/stages/init/parser.py`
 - `python/sqlopt/stages/init/table_extractor.py`
+
+## Related docs
+
+- [Init contracts](../CONTRACTS/init.md)
+- [Data Flow](../DATAFLOW.md)

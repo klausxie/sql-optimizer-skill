@@ -1,78 +1,113 @@
 # Architecture
 
-## Overview
+## System overview
 
-SQL Optimizer is a MyBatis XML SQL optimization tool with a 5-stage pipeline. It analyzes and optimizes SQL statements extracted from MyBatis mapper XML files.
+The implementation is a file-based pipeline orchestrated by `StageRunner`.
 
-## Pipeline
-
-```
-InitStage → ParseStage → RecognitionStage → OptimizeStage → ResultStage
-    │            │              │                │             │
-    ▼            ▼              ▼                ▼             ▼
- sql_units   branches      baselines         proposals       report
+```text
+InitStage -> ParseStage -> RecognitionStage -> OptimizeStage -> ResultStage
+   |             |                |                  |                |
+   v             v                v                  v                v
+ sql_units    branches         baselines         proposals          report
 ```
 
-## Directory Structure
+The pipeline persists stage outputs under `runs/{run_id}/` and allows later stages to resume from disk.
 
-```
-sqlopt/
-├── cli/
-│   └── main.py              # CLI: sqlopt run|mock
-├── stage_runner.py          # Pipeline orchestrator
-├── common/                   # Shared utilities (13 modules)
-│   ├── config.py            # SQLOptConfig + load_config()
-│   ├── run_paths.py          # RunPaths - run directory management
-│   ├── progress.py           # ProgressTracker - stage monitoring
-│   ├── progress_display.py   # User-friendly progress bar (TTY/non-TTY)
-│   ├── errors.py             # SQLOptError hierarchy (5 types)
-│   ├── db_connector.py       # DBConnector - PostgreSQL/MySQL
-│   ├── db_pool.py           # DBPoolBase + PostgresPool
-│   ├── llm_mock_generator.py # MockLLMProvider for baselines/suggestions
-│   ├── mock_data_loader.py   # MockDataLoader - mock-first path resolution
-│   ├── concurrent.py         # ConcurrentExecutor for parallel work
-│   ├── contract_file_manager.py  # Per-unit JSON file I/O
-│   └── summary_generator.py  # SUMMARY.md generation
-└── stages/
-    ├── base.py              # Stage[T, T] abstract base class
-    ├── init/stage.py        # InitStage - XML scanning, SQL extraction
-    ├── parse/stage.py       # ParseStage - dynamic tag expansion
-    ├── recognition/stage.py # RecognitionStage - baseline collection
-    ├── optimize/stage.py    # OptimizeStage - LLM optimization
-    ├── result/stage.py      # ResultStage - report and patches
-    └── branching/            # Shared branching logic (14 modules)
-        ├── branch_generator.py
-        ├── branch_strategy.py    # LadderSamplingStrategy
-        ├── xml_language_driver.py
-        ├── xml_script_builder.py
-        ├── fragment_registry.py
-        └── ...
-```
+## Main building blocks
 
-## Stage Summary
+### Stage runner
 
-| Stage | Input | Output | Key Classes |
-|-------|-------|--------|------------|
-| **Init** | None | sql_units, table_schemas, field_distributions | InitStage, table_extractor |
-| **Parse** | InitOutput | sql_units_with_branches | ParseStage, BranchExpander |
-| **Recognition** | ParseOutput | baselines | RecognitionStage, MockLLMProvider |
-| **Optimize** | ParseOutput + RecognitionOutput | proposals | OptimizeStage, MockLLMProvider |
-| **Result** | OptimizeOutput | report, patches | ResultStage |
+- `python/sqlopt/stage_runner.py`
+- Loads config.
+- Creates the run directory layout.
+- Wires DB connectors and LLM providers.
+- Drives stage-by-stage execution and CLI progress output.
 
-## Key Design Decisions
+### Stage modules
 
-1. **Single stage.py per stage**: All logic in one file for simplicity
-2. **Mock providers**: MockLLMProvider for CI/CD without real DB/LLM
-3. **Per-unit files**: Parse/Recognition/Optimize write `units/{id}.json` + `_index.json`
-4. **difflib for patches**: Simple unified diff, not structured operations
-5. **Cumulative progress**: Progress bar shows continuous progress within each stage
+- `python/sqlopt/stages/init/`
+- `python/sqlopt/stages/parse/`
+- `python/sqlopt/stages/recognition/`
+- `python/sqlopt/stages/optimize/`
+- `python/sqlopt/stages/result/`
 
-See `../decisions/` for detailed decision records.
+Each stage reads the previous stage's persisted artifacts, transforms them, and writes its own outputs.
 
-## Design Principles
+### Shared runtime modules
 
-- **Stage autonomy**: Each stage is self-contained, can be tested independently
-- **Contract-driven**: Stage communication via JSON files (Python dataclasses with to_json())
-- **CI-friendly**: Mock mode for testing without real DB or LLM
+- `common/config.py`
+- `common/run_paths.py`
+- `common/progress.py`
+- `common/progress_display.py`
+- `common/concurrent.py`
+- `common/db_connector.py`
+- `common/contract_file_manager.py`
+- `common/mock_data_loader.py`
 
-See `../archive/v10-refactor-original/` for historical design documents.
+## Large-project design
+
+The current implementation uses several tactics to stay usable on larger mapper sets.
+
+### Per-unit outputs
+
+Parse, recognition, and optimize stages write:
+
+- one compatibility file for the whole stage
+- one `units/{unit_id}.json` file per SQL unit
+- one `_index.json` file for unit discovery
+
+This avoids forcing downstream tools to parse one giant JSON blob for all SQL units.
+
+### Safe concurrency
+
+`common/concurrent.py` now supports:
+
+- bounded worker count
+- bounded in-flight task count
+- batch execution
+- retry with exponential backoff
+- timeout-based failure classification
+- result ordering aligned with input order
+
+### Stage-specific concurrency choices
+
+- `parse` can expand SQL units concurrently because units are independent.
+- `recognition` can run concurrently when no real DB connector is used.
+- `recognition` switches to sequential mode when real DB baseline execution is active, because plan/query execution should not poison shared connections.
+- `optimize` can run concurrently in estimate-only mode and switches to sequential mode when real DB validation is enabled.
+
+## Error-handling model
+
+The project is designed to degrade at the smallest useful scope.
+
+### Pipeline level
+
+- A stage failure fails the current command.
+- Completed earlier stages are preserved on disk.
+
+### Stage level
+
+- Summary generation is best-effort and does not block stage completion.
+- Real DB connector failures are captured per branch or per proposal where possible.
+
+### Unit level
+
+- `init` skips mapper files that cannot be parsed and continues with the rest.
+- `parse` isolates unit-level branch expansion failures and emits an `error` branch instead of aborting the stage.
+- `recognition` stores `execution_error` on the baseline when a branch fails plan generation or execution.
+- `optimize` stores `validation_status` and `validation_error` instead of failing the whole stage when an optimized SQL validation fails.
+
+## Progress reporting
+
+The CLI now provides stage progress in both TTY and non-TTY environments.
+
+- TTY mode updates the current line in place.
+- Non-TTY mode emits throttled snapshots instead of logging every tiny update.
+- Progress lines include stage percent, sub-progress, elapsed time, throughput, and ETA.
+- Pipeline start and end banners are printed around `run_all()`.
+
+## Canonical references
+
+- [Data Flow](DATAFLOW.md)
+- [Stage design](STAGES/README.md)
+- [Contracts](CONTRACTS/overview.md)

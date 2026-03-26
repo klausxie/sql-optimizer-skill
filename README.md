@@ -1,414 +1,149 @@
 # SQL Optimizer
 
-SQL 优化工具，用于分析和优化 MyBatis XML 中的 SQL 语句。
+SQL Optimizer is a MyBatis XML slow-SQL analysis pipeline.
 
-## 功能特点
+It scans mapper XML files, expands dynamic SQL branches, validates candidates with `EXPLAIN` and optional baseline execution, generates optimization proposals, and produces a final report with ranked findings and optional patches.
 
-- **SQL 解析**: 自动识别和分析 MyBatis Mapper XML 中的 SQL 语句
-- **性能基线**: 生成 SQL 性能基线数据
-- **智能优化**: 基于 LLM 的 SQL 优化建议
-- **数据库支持**: PostgreSQL / MySQL
+## What The Project Does
 
----
+- Finds SQL statements in MyBatis mapper XML files.
+- Expands dynamic SQL branches such as `if`, `choose`, `foreach`, `bind`, and `include`.
+- Uses schema, index, row-count, and field-distribution metadata to improve slow-SQL detection.
+- Runs `EXPLAIN` and baseline execution when a real MySQL or PostgreSQL test database is available.
+- Generates optimization proposals and validates optimized SQL against the same baseline.
+- Produces a final ranked report and patch-ready output.
 
-## 架构概览
+## Pipeline
 
-### 五阶段流水线
+| Stage | Goal | Main output |
+| --- | --- | --- |
+| `init` | Scan XML, extract SQL units, schema facts, and field distributions | `runs/{run_id}/init/` |
+| `parse` | Expand MyBatis dynamic SQL into executable branches | `runs/{run_id}/parse/` |
+| `recognition` | Collect plans and baseline metrics | `runs/{run_id}/recognition/` |
+| `optimize` | Generate and validate optimization proposals | `runs/{run_id}/optimize/` |
+| `result` | Rank findings and emit report and patches | `runs/{run_id}/result/` |
 
-```
-┌─────────┐    ┌─────────┐    ┌────────────┐    ┌──────────┐    ┌───────┐
-│  Init   │───▶│  Parse  │───▶│ Recognition │───▶│ Optimize │───▶│Result │
-└─────────┘    └─────────┘    └────────────┘    └──────────┘    └───────┘
-```
+## Quick Start
 
-| 阶段 | 说明 | 输出 |
-|------|------|------|
-| **Init** | 扫描 MyBatis XML，提取 SQL 单元 | `sql_units.json`, `field_distributions.json` |
-| **Parse** | 展开动态标签（if/include/foreach），生成执行分支 | `sql_units_with_branches.json` |
-| **Recognition** | 采集 SQL 执行计划，生成性能基线 | `baselines.json` |
-| **Optimize** | 基于规则 + LLM 生成优化建议 | `proposals.json` |
-| **Result** | 汇总输出补丁或报告 | `report.json` |
-
-### 目录结构
-
-```
-python/sqlopt/
-├── cli/main.py              # CLI 入口
-├── stage_runner.py          # 流水线编排器
-├── common/                  # 公共模块
-│   ├── config.py           # 配置加载
-│   ├── run_paths.py        # 路径管理
-│   ├── progress.py         # 进度跟踪（内部）
-│   ├── progress_display.py # 用户友好的进度条显示（TTY/非TTY 模式）
-│   ├── errors.py           # 错误定义
-│   ├── llm_mock_generator.py  # LLM Mock 数据生成
-│   └── db_connector.py     # 数据库连接器
-├── stages/
-│   ├── init/               # Init 阶段
-│   ├── parse/              # Parse 阶段
-│   ├── recognition/         # Recognition 阶段
-│   ├── optimize/           # Optimize 阶段
-│   └── result/             # Result 阶段
-└── contracts/              # 数据契约（JSON Schema）
-    └── schemas/
-```
-
----
-
-## 快速开始
-
-### 1. 安装
+### 1. Install
 
 ```bash
-# 安装所有依赖（PostgreSQL + MySQL + OpenAI）
-pip install -r requirements.txt
-
-# 开发模式（运行测试）
 pip install -e ".[dev]"
 ```
 
-### 2. 创建配置文件
-
-```bash
-# PostgreSQL
-cp templates/sqlopt.postgresql.yml.template sqlopt.yml
-
-# MySQL
-cp templates/sqlopt.mysql.yml.template sqlopt.yml
-```
-
-编辑 `sqlopt.yml`，填入数据库连接信息。
-
-### 3. 运行
-
-```bash
-# 完整流程（可混用数字别名：1=init, 2=parse, 3=recognition, 4=optimize, 5=result）
-sqlopt run 1
-sqlopt run 2
-sqlopt run 3
-sqlopt run 4
-sqlopt run 5
-
-# 或使用原始名称
-sqlopt run init
-sqlopt run parse
-sqlopt run recognition
-sqlopt run optimize
-sqlopt run result
-
-# 分阶段运行
-sqlopt run 1 --config sqlopt.yml
-```
-
-> **auto_latest 行为**: 对于非 Init 阶段（2-5），如果省略 `--run-id` 参数，`sqlopt` 会自动查找 `runs/` 目录下最新的运行目录并使用。只有 Init 阶段需要显式指定或自动创建新的 run-id。
-
-### 4. 查看结果
-
-结果保存在 `runs/<run_id>/` 目录下。
-
-#### 输出文件
-
-各阶段除了输出 JSON 数据文件外，**Init 和 Result 阶段还会生成人类可读的 `SUMMARY.md` 报告**，便于快速查看分析结果：
-
-- `runs/<run_id>/init/SUMMARY.md` - Init 阶段的扫描摘要
-- `runs/<run_id>/result/SUMMARY.md` - Result 阶段的优化报告汇总
-
-### 不安装直接运行
-
-复制脚本到本地，修改脚本里的路径配置，然后直接运行：
-
-**macOS / Linux**:
-
-```bash
-# 1. 复制脚本
-cp /path/to/sql-optimizer-skill/scripts/sqlopt /path/to/mybatis-project/
-
-# 2. 编辑脚本中的路径配置
-# SQLOPT_HOME="/path/to/sql-optimizer-skill"
-# WORKDIR="/path/to/your/mybatis-project"
-
-# 3. 运行
-cd /path/to/mybatis-project
-./sqlopt run init --config sqlopt.yml
-./sqlopt mock <run_id>
-```
-
-**Windows**:
-
-```batch
-# 1. 复制脚本
-copy D:\path\to\sql-optimizer-skill\scripts\sqlopt.bat D:\path\to\mybatis-project\
-
-# 2. 编辑脚本中的路径配置
-# set "SQLOPT_HOME=D:\path\to\sql-optimizer-skill"
-# set "WORKDIR=D:\path\to\your\mybatis-project"
-
-# 3. 运行
-D:\path\to\mybatis-project\sqlopt.bat run init --config sqlopt.yml
-```
-
----
-
-## 构建
-
-### 构建可执行文件
-
-```bash
-# 安装构建依赖
-pip install -e ".[dev]"
-
-# 执行构建
-python scripts/build.py
-```
-
-构建完成后，可执行文件位于 `dist/` 目录。
-
-### 分发
-
-```
-dist/                 # 可执行文件
-templates/            # 配置模板
-```
-
-用户只需提供这两个目录。
-
----
-
-## 直接调试
-
-在业务项目目录（包含 MyBatis XML 的项目）下，使用 `sqlopt run` 命令运行单个阶段：
-
-```bash
-# 切换到业务项目目录（假设你的 MyBatis 项目）
-cd /path/to/your/mybatis-project
-
-# 创建配置文件（从 sql-optimizer-skill 复制模板）
-cp /path/to/sql-optimizer-skill/templates/sqlopt.example.yml.template sqlopt.yml
-
-# 编辑 sqlopt.yml，填入数据库连接和 MyBatis XML 路径
-# scan_mapper_globs: ["src/main/resources/**/*.xml"]
-
-# 运行（init 创建时间戳目录，后续命令自动使用最新目录）
-sqlopt run 1 --config sqlopt.yml        # 创建 run-20260324-143052
-sqlopt run 2 --config sqlopt.yml       # 自动使用 run-20260324-143052
-sqlopt run 3 --config sqlopt.yml
-sqlopt run 4 --config sqlopt.yml
-sqlopt run 5 --config sqlopt.yml
-
-# 指定 run-id（复用特定 pipeline）
-sqlopt run init --config sqlopt.yml --run-id my-run-1
-sqlopt run parse --config sqlopt.yml --run-id my-run-1
-```
-
-### Mock 数据调试
-
-每个阶段会读取 `runs/<run_id>/` 下的前置阶段输出。如需单独调试某个阶段，可以将 mock 数据放到 `mock/` 子目录下：
-
-```
-runs/<run_id>/
-├── init/sql_units.json
-├── parse/sql_units_with_branches.json
-├── recognition/baselines.json
-├── optimize/proposals.json
-├── result/report.json
-└── mock/                    # Mock 数据（可替换任意阶段）
-    ├── init/sql_units.json
-    ├── parse/sql_units_with_branches.json
-    └── ...
-```
-
-> **Per-unit 目录格式**: Parse/Recognition/Optimize 阶段除了生成主 JSON 文件外，还会输出 per-unit 文件到 `units/{id}.json` + `_index.json`，便于按 SQL 单元单独查看和管理。
-
-**使用方式**：将 mock 文件放到对应目录，阶段运行时会自动优先读取 mock 数据（默认启用）。
-
-**禁用 mock**：使用 `--no-mock` flag 禁用 mock 数据：
-```bash
-sqlopt run 2 --config sqlopt.yml --no-mock
-```
-
-**复制 mock 模板**：使用 `sqlopt mock` 命令：
-```bash
-# 查看可用的 mock 模板
-sqlopt mock
-
-# 复制 mock 模板到 run 目录
-sqlopt mock <run_id>
-
-# 从指定目录复制 mock 数据
-sqlopt mock <run_id> --source /path/to/mock/data
-```
-
-或者手动复制：
-```bash
-cp -r /path/to/sql-optimizer-skill/templates/mock/ runs/<run_id>/mock/
-```
-
----
-
-## 阶段调测
-
-### Init 阶段（1）
-
-扫描 MyBatis XML 文件，提取 SQL 单元。
-
-```bash
-# 运行
-sqlopt run 1 --config sqlopt.yml
-
-# Mock 模式（无需数据库）
-# 在 sqlopt.yml 中设置：
-# llm_provider: mock
-# llm_enabled: true
-
-# 查看输出
-cat runs/<run_id>/init/sql_units.json
-
-# 测试
-python -m pytest tests/unit/test_init_stage.py -v
-```
-
-### Parse 阶段（2）
-
-展开动态 SQL 标签，生成执行分支。
-
-```bash
-# 运行（依赖 Init 阶段输出）
-sqlopt run 2 --config sqlopt.yml
-
-# Mock 模式（无需数据库）
-# 在 sqlopt.yml 中设置：
-# llm_provider: mock
-# llm_enabled: true
-
-# 查看输出
-cat runs/<run_id>/parse/sql_units_with_branches.json
-
-# 测试
-python -m pytest tests/unit/test_parse_stage.py -v
-```
-
-### Recognition 阶段（3）
-
-采集 SQL 执行计划，生成性能基线。
-
-```bash
-# 运行（依赖 Parse 阶段输出）
-sqlopt run 3 --config sqlopt.yml
-
-# Mock 模式（无需真实数据库，用 Mock 执行计划）
-# 在 sqlopt.yml 中设置：
-# llm_provider: mock
-# llm_enabled: true
-
-# 查看输出
-cat runs/<run_id>/recognition/baselines.json
-
-# 测试
-python -m pytest tests/unit/test_recognition_stage.py -v
-```
-
-### Optimize 阶段（4）
-
-基于规则和 LLM 生成优化建议。
-
-```bash
-# 运行（依赖 Recognition + Parse 阶段输出）
-sqlopt run 4 --config sqlopt.yml
-
-# Mock 模式（无需 LLM API）
-# 在 sqlopt.yml 中设置：
-# llm_provider: mock
-# llm_enabled: true
-
-# 查看输出
-cat runs/<run_id>/optimize/proposals.json
-
-# 测试
-python -m pytest tests/unit/test_optimize_stage.py -v
-```
-
-### Result 阶段（5）
-
-汇总输出补丁或报告。
-
-```bash
-# 运行（依赖 Optimize 阶段输出）
-sqlopt run 5 --config sqlopt.yml
-python -m sqlopt.stages.result.stage --config sqlopt.yml
-
-# Mock 模式（生成模拟报告）
-# 在 sqlopt.yml 中设置：
-# llm_provider: mock
-# llm_enabled: true
-
-# 查看输出
-cat runs/<run_id>/result/report.json
-
-# 测试
-python -m pytest tests/unit/test_result_stage.py -v
-```
-
----
-
-## 测试
-
-```bash
-# 运行所有单元测试
-python -m pytest tests/unit/ -v
-
-# 运行带覆盖率
-python -m pytest tests/unit/ --cov=sqlopt --cov-report=term-missing
-
-# 运行集成测试
-python -m pytest tests/integration/ -v
-```
-
-### 使用 Mock 模式测试
-
-如无数据库或 LLM，可使用 mock 模式：
-
-```yaml
-llm_provider: mock
-llm_enabled: true
-```
-
----
-
-## 配置说明
-
-### 完整配置示例
+### 2. Create `sqlopt.yml`
 
 ```yaml
 config_version: v1
-db_platform: postgresql
-db_host: localhost
-db_port: 5432
-db_name: myapp
-db_user: postgres
-db_password: mypassword
-llm_provider: opencode_run
-llm_enabled: true
 project_root_path: .
 scan_mapper_globs:
   - "src/main/resources/**/*.xml"
+
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: app
+db_user: postgres
+db_password: postgres
+
+llm_enabled: false
+llm_provider: mock
 ```
 
-### LLM Provider
+### 3. Run the pipeline
 
-| Provider | 说明 | 适用场景 |
-|----------|------|----------|
-| `opencode_run` | 使用本地 opencode（**推荐**） | 生产环境 |
-| `openai` | 使用 OpenAI API | 需要 `OPENAI_API_KEY` |
-| `mock` | 模拟数据 | 测试 |
+```bash
+sqlopt run 1 --config sqlopt.yml
+sqlopt run 2 --config sqlopt.yml
+sqlopt run 3 --config sqlopt.yml
+sqlopt run 4 --config sqlopt.yml
+sqlopt run 5 --config sqlopt.yml
+```
 
----
+You can also use stage names:
 
-## 依赖
+```bash
+sqlopt run init --config sqlopt.yml
+sqlopt run parse --config sqlopt.yml
+sqlopt run recognition --config sqlopt.yml
+sqlopt run optimize --config sqlopt.yml
+sqlopt run result --config sqlopt.yml
+```
 
-- Python >= 3.9
-- PostgreSQL 或 MySQL（用于实际优化）
-- opencode（可选，用于 LLM 优化）
+### 4. Inspect outputs
 
-## 许可证
+Each run is written to `runs/{run_id}/`.
+
+Important files:
+
+- `runs/{run_id}/init/sql_units.json`
+- `runs/{run_id}/init/field_distributions.json`
+- `runs/{run_id}/parse/sql_units_with_branches.json`
+- `runs/{run_id}/recognition/baselines.json`
+- `runs/{run_id}/optimize/proposals.json`
+- `runs/{run_id}/result/report.json`
+
+## Real-World Validation
+
+The repository includes a real integration sample project:
+
+- `tests/real/mybatis-test`
+
+Use it to validate the pipeline against MyBatis XML, MySQL, and PostgreSQL test databases.
+
+## Documentation Map
+
+Start here if you are new to the project:
+
+- [Documentation Home](docs/current/README.md)
+- [Project Summary](docs/current/SUMMARY.md)
+- [Architecture](docs/current/ARCHITECTURE.md)
+- [Data Flow](docs/current/DATAFLOW.md)
+
+Stage design:
+
+- [Stage Overview](docs/current/STAGES/README.md)
+- [Init Stage](docs/current/STAGES/init.md)
+- [Parse Stage](docs/current/STAGES/parse.md)
+- [Recognition Stage](docs/current/STAGES/recognition.md)
+- [Optimize Stage](docs/current/STAGES/optimize.md)
+- [Result Stage](docs/current/STAGES/result.md)
+
+Data contracts:
+
+- [Contracts Overview](docs/current/CONTRACTS/overview.md)
+- [Init Contracts](docs/current/CONTRACTS/init.md)
+- [Parse Contracts](docs/current/CONTRACTS/parse.md)
+- [Recognition Contracts](docs/current/CONTRACTS/recognition.md)
+- [Optimize Contracts](docs/current/CONTRACTS/optimize.md)
+- [Result Contracts](docs/current/CONTRACTS/result.md)
+
+Supporting modules and historical material:
+
+- [Common Runtime Modules](docs/current/COMMON/overview.md)
+- [Archive Index](docs/archive/README.md)
+- [Design Decisions](docs/decisions/README.md)
+
+## Testing
+
+```bash
+python -m pytest tests/unit -q
+python -m pytest tests/integration -q
+```
+
+For a real project smoke test:
+
+```bash
+cd tests/real/mybatis-test
+mvn test -q
+```
+
+## Current Design Notes
+
+- Large projects are handled with per-unit files in parse, recognition, and optimize stages.
+- Safe concurrency is used where it helps, and real DB validation falls back to sequential execution when shared-connection safety matters.
+- CLI progress works in both TTY and non-TTY environments and now shows stage percent, throughput, and ETA without flooding logs.
+
+## License
 
 MIT

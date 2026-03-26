@@ -1,39 +1,25 @@
-# Data Contracts
+# Contracts Overview
 
-## Overview
+Contracts are Python dataclasses serialized to JSON files between stages.
 
-Python dataclasses with `to_json()` / `from_json()` methods.
+## Contract map
 
-## Contracts
+| Contract file | Main types | Produced by | Consumed by |
+| --- | --- | --- | --- |
+| [common.md](common.md) | shared IDs and status fields | all stages | all stages |
+| [init.md](init.md) | `SQLUnit`, `SQLFragment`, `TableSchema`, `FieldDistribution`, `InitOutput` | init | parse, result |
+| [parse.md](parse.md) | `SQLBranch`, `SQLUnitWithBranches`, `ParseOutput` | parse | recognition |
+| [recognition.md](recognition.md) | `PerformanceBaseline`, `RecognitionOutput` | recognition | optimize, result |
+| [optimize.md](optimize.md) | `OptimizationProposal`, `OptimizeOutput` | optimize | result |
+| [result.md](result.md) | `Report`, `Patch`, `ResultOutput` | result | humans and downstream tooling |
 
-| File | Description |
-|------|-------------|
-| `base.py` | Base dataclass with to_dict/from_dict |
-| `init.py` | InitOutput, SQLUnit, SQLFragment, TableSchema, FieldDistribution |
-| `parse.py` | ParseOutput, SQLBranch, SQLUnitWithBranches |
-| `recognition.py` | RecognitionOutput, PerformanceBaseline |
-| `optimize.py` | OptimizeOutput, OptimizationProposal |
-| `result.py` | ResultOutput, Report, Patch |
+## Serialization pattern
 
-## SQLUnit Fields
+- Each contract has a Python dataclass definition under `python/sqlopt/contracts/`.
+- Each stage writes a backward-compatible aggregate file.
+- Parse, recognition, and optimize also write per-unit JSON files.
 
-```python
-id: str           # SQL key (e.g., "findUser")
-mapper_file: str  # XML file path
-sql_id: str       # Statement ID in XML
-sql_text: str     # SQL content
-statement_type: str  # SELECT/INSERT/UPDATE/DELETE
-```
+## Read next
 
-## Per-Stage Output
-
-Each stage writes to `runs/{run_id}/{stage}/`:
-- **init**: `sql_units.json`, `sql_fragments.json`, `table_schemas.json`
-- **parse**: `sql_units_with_branches.json`, `units/{id}.json`
-- **recognition**: `baselines.json`, `units/{id}.json`
-- **optimize**: `proposals.json`, `units/{id}.json`
-- **result**: `report.json`, `patches/`
-
-## Validation
-
-No JSON Schema enforcement. Contracts are Python dataclasses validated at runtime.
+- [Common IDs and status fields](common.md)
+- [Init contracts](init.md)

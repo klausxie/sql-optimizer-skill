@@ -1,77 +1,54 @@
 # Optimize Stage
 
-**Purpose**: Generate SQL optimization proposals via LLM analysis of baseline data.
+## Purpose
 
-## What It Does
+`optimize` generates rewrite proposals and validates them against the baseline collected in recognition.
 
-1. Loads baseline data from Recognition stage
-2. Analyzes each SQL branch for optimization opportunities
-3. Generates proposals via MockLLMProvider
-4. Runs sequentially or concurrently based on config
+## Inputs
 
-## Input
+- recognition baselines
+- table schema metadata
+- optional DB connector
+- LLM or mock provider
 
-- `baselines.json` from Recognition stage
-- `sql_units_with_branches.json` from Parse stage
+## Main work
 
-## Output Files
+- generate optimized SQL proposals
+- compare optimized SQL against the original baseline
+- collect:
+  - before metrics
+  - after metrics
+  - result equivalence
+  - validation status
+  - validation error
+  - gain ratio
 
-| File | Description |
-|------|-------------|
-| `proposals.json` | Optimization proposals per branch |
-| `units/{id}.json` | Per-unit proposals |
-| `SUMMARY.md` | Human-readable summary |
+## Validation modes
 
-## Optimization Proposal
+- `estimated_only`: no real DB connector, compare plan-level metrics only
+- `explained_only`: real DB connector available, but query is not safe to execute
+- `validated`: optimized SQL executed and matched the baseline signature
+- `result_mismatch`: optimized SQL executed but changed the result signature
+- `validation_failed`: explain or execution failed
 
-```json
-{
-  "sql_unit_id": "findUser",
-  "path_id": "default",
-  "original_sql": "SELECT * FROM users WHERE id = ?",
-  "optimized_sql": "SELECT id, name, email FROM users WHERE id = ?",
-  "rationale": "Use covering index, reduce data transfer",
-  "confidence": 0.85
-}
-```
+## Concurrency and safety
 
-## Optimization Types
+- estimate-only optimization can run concurrently
+- real DB validation switches to sequential mode
+- proposal-level failures do not fail the stage; they become validation states
 
-- **Index suggestion**: Add covering index for WHERE clause
-- **Query rewrite**: Use EXISTS instead of IN, avoid SELECT *
-- **Limit pushdown**: Move LIMIT to subquery when possible
+## Outputs
 
-## Execution Modes
+- `proposals.json`
+- `units/{unit_id}.json`
+- `units/_index.json`
+- `SUMMARY.md`
 
-- **Sequential**: `_run_sequential()` - process units one by one
-- **Concurrent**: `_run_concurrent()` - process multiple units in parallel
-
-## Key Classes
-
-```python
-# optimize/stage.py
-class OptimizeStage(Stage[None, OptimizeOutput])
-
-# common/llm_mock_generator.py
-class MockLLMProvider:
-    def generate_optimization(sql: str, platform: str) -> OptimizationProposal
-```
-
-## Configuration
-
-```yaml
-concurrency:
-  max_workers: 4
-  enabled: true
-llm_provider: mock
-llm_enabled: true
-```
-
-## Stub Mode
-
-When `run_id=None`, returns stub optimization proposals.
-
-## See Also
+## Primary implementation
 
 - `python/sqlopt/stages/optimize/stage.py`
-- `python/sqlopt/common/llm_mock_generator.py`
+
+## Related docs
+
+- [Optimize contracts](../CONTRACTS/optimize.md)
+- [Result stage](result.md)

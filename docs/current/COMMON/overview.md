@@ -1,42 +1,30 @@
-# Common Modules
+# Common Runtime Modules
 
-## Overview
+These modules are shared across multiple stages and define the runtime behavior of the pipeline.
 
-Shared utilities used across all stages.
+## Core modules
 
-## Modules
+| Module | Responsibility |
+| --- | --- |
+| `common/config.py` | Loads `SQLOptConfig` and concurrency settings |
+| `common/run_paths.py` | Resolves canonical run output paths |
+| `common/progress.py` | Tracks stage status and timestamps |
+| `common/progress_display.py` | CLI progress rendering for TTY and non-TTY runs |
+| `common/concurrent.py` | Batched, bounded, retry-capable task execution |
+| `common/db_connector.py` | MySQL and PostgreSQL plan/query execution |
+| `common/contract_file_manager.py` | Per-unit JSON read/write helpers |
+| `common/mock_data_loader.py` | Mock-first path resolution used in tests and local development |
+| `common/summary_generator.py` | `SUMMARY.md` generation helpers |
 
-| Module | Purpose |
-|--------|---------|
-| `config.py` | SQLOptConfig dataclass, YAML loading |
-| `run_paths.py` | Run directory management |
-| `progress.py` | ProgressTracker for stage monitoring |
-| `progress_display.py` | User-friendly progress bar (TTY/non-TTY) |
-| `errors.py` | SQLOptError hierarchy (5 types) |
-| `db_connector.py` | PostgreSQL/MySQL connectors |
-| `db_pool.py` | Connection pooling |
-| `llm_mock_generator.py` | MockLLMProvider for baselines/suggestions |
-| `mock_data_loader.py` | Mock-first path resolution |
-| `concurrent.py` | ConcurrentExecutor for parallel work |
-| `contract_file_manager.py` | Per-unit JSON file I/O |
-| `summary_generator.py` | SUMMARY.md generation |
+## Important runtime rules
 
-## Usage Heat Map
+- Run artifacts live under `runs/{run_id}/`.
+- Parse, recognition, and optimize stages support per-unit outputs.
+- Real DB validation uses the DB connector directly and falls back to sequential execution where connection safety matters.
+- Progress output is human-readable even when the command runs in CI logs or redirected stdout.
 
-| Module | init | parse | recognition | optimize | result |
-|--------|------|-------|-------------|----------|--------|
-| config | ✓ | ✓ | ✓ | ✓ | ✓ |
-| run_paths | ✓ | ✓ | ✓ | ✓ | ✓ |
-| progress | ✓ | ✓ | ✓ | ✓ | ✓ |
-| progress_display | ✓ | ✓ | ✓ | ✓ | ✓ |
-| errors | ✓ | ✓ | ✓ | ✓ | ✓ |
-| db_connector | ✓ | - | ✓ | - | - |
-| llm_mock | - | - | ✓ | ✓ | - |
-| concurrent | - | - | ✓ | ✓ | - |
-| contract_file | - | ✓ | ✓ | ✓ | - |
-| summary | ✓ | - | - | - | ✓ |
+## Related docs
 
-## Note on progress.py vs progress_display.py
-
-- `progress.py`: Internal progress tracking (ProgressTracker class)
-- `progress_display.py`: User-visible progress output (ProgressDisplay class)
+- [Architecture](../ARCHITECTURE.md)
+- [Data Flow](../DATAFLOW.md)
+- [Contracts](../CONTRACTS/overview.md)
