@@ -14,6 +14,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+TABLE_REFERENCE_FUNCTIONS = {
+    "extract",
+    "overlay",
+    "substring",
+    "trim",
+}
+
 CLAUSE_BOUNDARY_PATTERN = (
     r"(?=\b(?:INNER|LEFT|RIGHT|FULL|OUTER|CROSS)\s+JOIN\b|\bJOIN\b|\bWHERE\b|"
     r"\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bLIMIT\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)"
@@ -295,6 +302,7 @@ def extract_table_references_from_sql(sql_text: str) -> List[tuple[str, str | No
     normalized_sql = _normalize_sql_for_analysis(sql_text)
     if not normalized_sql:
         return []
+    normalized_sql = _strip_function_calls_for_table_scan(normalized_sql)
 
     pattern = re.compile(
         r"\b(?:FROM|JOIN|UPDATE|INTO|DELETE\s+FROM)\s+"
@@ -315,6 +323,62 @@ def extract_table_references_from_sql(sql_text: str) -> List[tuple[str, str | No
             seen.add(normalized_ref)
             references.append(normalized_ref)
     return references
+
+
+def _strip_function_calls_for_table_scan(sql_text: str) -> str:
+    """Strip function bodies that may legally contain FROM as an argument separator.
+
+    Standard SQL functions like EXTRACT and SUBSTRING use FROM inside their
+    argument list, which would otherwise be mistaken for a table clause by the
+    lightweight table-reference regex below.
+    """
+    if not sql_text:
+        return sql_text
+
+    result: list[str] = []
+    idx = 0
+    length = len(sql_text)
+
+    while idx < length:
+        char = sql_text[idx]
+        if char.isalpha() or char == "_":
+            start = idx
+            idx += 1
+            while idx < length and (sql_text[idx].isalnum() or sql_text[idx] == "_"):
+                idx += 1
+            identifier = sql_text[start:idx]
+            lookahead = idx
+            while lookahead < length and sql_text[lookahead].isspace():
+                lookahead += 1
+
+            if identifier.lower() in TABLE_REFERENCE_FUNCTIONS and lookahead < length and sql_text[lookahead] == "(":
+                end_idx = _find_matching_parenthesis(sql_text, lookahead)
+                if end_idx == -1:
+                    result.append(identifier)
+                    continue
+                result.append(identifier.upper())
+                idx = end_idx + 1
+                continue
+
+            result.append(identifier)
+            continue
+
+        result.append(char)
+        idx += 1
+
+    return "".join(result)
+
+
+def _find_matching_parenthesis(sql_text: str, open_idx: int) -> int:
+    depth = 0
+    for idx in range(open_idx, len(sql_text)):
+        if sql_text[idx] == "(":
+            depth += 1
+        elif sql_text[idx] == ")":
+            depth -= 1
+            if depth == 0:
+                return idx
+    return -1
 
 
 def extract_condition_fields_by_table(sql_text: str) -> Dict[str, set[str]]:

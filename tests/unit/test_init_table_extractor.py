@@ -8,6 +8,7 @@ from sqlopt.stages.init.stage import extract_table_names_from_sql
 from sqlopt.stages.init.table_extractor import (
     extract_condition_fields_by_table,
     extract_field_distributions,
+    extract_table_references_from_sql,
     extract_table_schemas,
     extract_where_fields_from_sql,
 )
@@ -256,6 +257,28 @@ class TestExtractTableNamesIntegration:
         sql = "DELETE FROM users WHERE id = #{id}"
         result = extract_table_names_from_sql(sql)
         assert "users" in result
+
+    def test_ignore_extract_function_from_keyword(self):
+        """EXTRACT(... FROM column) should not produce a fake table reference."""
+        sql = """
+            SELECT id as orderId, created_at as createdAt,
+                   EXTRACT(YEAR FROM created_at) as year
+            FROM orders
+            WHERE EXTRACT(YEAR FROM created_at) = #{year}
+        """
+        result = extract_table_names_from_sql(sql)
+        assert "orders" in result
+        assert "created_at" not in result
+
+    def test_extract_function_does_not_create_fake_reference(self):
+        """Low-level reference extraction should ignore FROM inside SQL functions."""
+        sql = """
+            SELECT EXTRACT(MONTH FROM created_at) as month
+            FROM orders o
+        """
+        result = extract_table_references_from_sql(sql)
+        assert ("orders", "o") in result
+        assert all(table_name != "created_at" for table_name, _alias in result)
 
 
 class TestExtractConditionFields:

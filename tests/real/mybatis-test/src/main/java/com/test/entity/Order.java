@@ -10,6 +10,7 @@ public class Order {
     private Long userId;
     private String orderNo;
     private BigDecimal amount;
+    private BigDecimal totalAmount;
     private String status;
     private String orderType;
     private LocalDateTime createdAt;

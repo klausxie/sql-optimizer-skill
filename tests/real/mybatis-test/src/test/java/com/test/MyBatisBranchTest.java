@@ -17,6 +17,10 @@ public class MyBatisBranchTest {
     
     @Autowired
     private UserMapper userMapper;
+
+    private static String uniqueEmail(String prefix) {
+        return prefix + "+" + System.nanoTime() + "@test.com";
+    }
     
     // ========== 基础场景测试 ==========
     
@@ -187,13 +191,13 @@ public class MyBatisBranchTest {
     public void testForeachInsert() {
         User user1 = new User();
         user1.setName("Test1");
-        user1.setEmail("test1@test.com");
+        user1.setEmail(uniqueEmail("test1"));
         user1.setStatus("1");
         user1.setType("VIP");
         
         User user2 = new User();
         user2.setName("Test2");
-        user2.setEmail("test2@test.com");
+        user2.setEmail(uniqueEmail("test2"));
         user2.setStatus("1");
         user2.setType("NORMAL");
         
@@ -365,13 +369,13 @@ public class MyBatisBranchTest {
     public void testInsertWithSelectKey() {
         User u1 = new User();
         u1.setName("NewUser1");
-        u1.setEmail("new1@test.com");
+        u1.setEmail(uniqueEmail("new1"));
         u1.setStatus("1");
         u1.setType("VIP");
         
         User u2 = new User();
         u2.setName("NewUser2");
-        u2.setEmail("new2@test.com");
+        u2.setEmail(uniqueEmail("new2"));
         // status 和 type 为 null，测试 otherwise
         
         int result = userMapper.testInsertWithSelectKey(Arrays.asList(u1, u2));
@@ -731,7 +735,7 @@ public class MyBatisBranchTest {
     public void testSelectKeyOracle() {
         User user = new User();
         user.setName("TestOracle");
-        user.setEmail("oracle@test.com");
+        user.setEmail(uniqueEmail("oracle"));
         int result = userMapper.testSelectKeyOracle(user);
         assertTrue(result > 0);
         System.out.println("S1 - selectKey Oracle: " + result + " 条");
@@ -741,7 +745,7 @@ public class MyBatisBranchTest {
     public void testSelectKeyPostgres() {
         User user = new User();
         user.setName("TestPostgres");
-        user.setEmail("postgres@test.com");
+        user.setEmail(uniqueEmail("postgres"));
         int result = userMapper.testSelectKeyPostgres(user);
         assertTrue(result > 0);
         System.out.println("S2 - selectKey Postgres: " + result + " 条");
@@ -751,7 +755,7 @@ public class MyBatisBranchTest {
     public void testSelectKeyMysql() {
         User user = new User();
         user.setName("TestMysql");
-        user.setEmail("mysql@test.com");
+        user.setEmail(uniqueEmail("mysql"));
         int result = userMapper.testSelectKeyMysql(user);
         assertTrue(result > 0);
         System.out.println("S3 - selectKey MySQL: " + result + " 条");
@@ -761,7 +765,7 @@ public class MyBatisBranchTest {
     public void testSelectKeyUuid() {
         User user = new User();
         user.setName("TestUuid");
-        user.setEmail("uuid@test.com");
+        user.setEmail(uniqueEmail("uuid"));
         int result = userMapper.testSelectKeyUuid(user);
         assertTrue(result > 0);
         System.out.println("S4 - selectKey UUID: " + result + " 条");

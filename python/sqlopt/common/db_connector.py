@@ -190,7 +190,7 @@ class PostgreSQLConnector(DBConnector):
             )
             self._conn.autocommit = False
             with self._conn.cursor() as cursor:
-                cursor.execute("SET TRANSACTION READ ONLY")
+                cursor.execute("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY")
 
     def disconnect(self) -> None:
         """Close database connection."""
@@ -216,10 +216,14 @@ class PostgreSQLConnector(DBConnector):
         _, real_dict_cursor_class = _ensure_psycopg2()
         explain_sql = f"EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) {sql}"
 
-        with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
-            cursor.execute(explain_sql)
-            result = cursor.fetchone()
-            return _extract_postgres_explain_payload(result)
+        try:
+            with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
+                cursor.execute(explain_sql)
+                result = cursor.fetchone()
+                return _extract_postgres_explain_payload(result)
+        except Exception:
+            self.rollback()
+            raise
 
     def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
@@ -236,11 +240,15 @@ class PostgreSQLConnector(DBConnector):
             return []
 
         _, real_dict_cursor_class = _ensure_psycopg2()
-        with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
-            cursor.execute(sql, params)
-            if cursor.description is None:
-                return []
-            return [dict(row) for row in cursor.fetchall()]
+        try:
+            with self._conn.cursor(cursor_factory=real_dict_cursor_class) as cursor:
+                cursor.execute(sql, params)
+                if cursor.description is None:
+                    return []
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            self.rollback()
+            raise
 
     def __repr__(self) -> str:
         return f"PostgreSQLConnector(host={self.host}, port={self.port}, dbname={self.dbname}, user={self.user})"
@@ -315,10 +323,14 @@ class MySQLConnector(DBConnector):
 
         explain_sql = f"EXPLAIN FORMAT=JSON {sql}"
 
-        with self._conn.cursor() as cursor:
-            cursor.execute(explain_sql)
-            result = cursor.fetchone()
-            return _extract_mysql_explain_payload(result)
+        try:
+            with self._conn.cursor() as cursor:
+                cursor.execute(explain_sql)
+                result = cursor.fetchone()
+                return _extract_mysql_explain_payload(result)
+        except Exception:
+            self.rollback()
+            raise
 
     def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.
@@ -334,9 +346,13 @@ class MySQLConnector(DBConnector):
         if self._conn is None or not self._conn.open:
             return []
 
-        with self._conn.cursor() as cursor:
-            cursor.execute(sql, params)
-            return [dict(row) for row in cursor.fetchall()]
+        try:
+            with self._conn.cursor() as cursor:
+                cursor.execute(sql, params)
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            self.rollback()
+            raise
 
     def __repr__(self) -> str:
         return f"MySQLConnector(host={self.host}, port={self.port}, db={self.db}, user={self.user})"
