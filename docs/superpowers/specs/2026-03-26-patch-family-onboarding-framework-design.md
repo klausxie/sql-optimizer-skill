@@ -413,6 +413,28 @@ The first implementation must stay small.
 4. integrate registry reads in `patch_verification.py`
 5. add fixture consistency assertions against the registry
 
+### 11.1.1 MVP Authority Boundary
+
+The registry is the long-term shared family contract, but **it is not fully authoritative across every stage in MVP**.
+
+For the first implementation:
+
+1. `identity`, `acceptance`, and `verification` sections are authoritative in MVP
+2. `fixture obligations` are authoritative in MVP for consistency checks
+3. `scope`, `patch target policy`, `replay policy`, and `blocking policy` are present in the spec model in MVP, but may remain partly hand-wired in existing subsystem code for the first pass
+
+This means the MVP is intentionally a **registry seed**, not yet a full cross-subsystem replacement.
+
+### 11.1.2 What Remains Hand-Wired In MVP
+
+For the first implementation, the following logic is allowed to stay in existing subsystem code:
+
+1. detailed shape recognition in rewrite-facts and dynamic intent analyzers
+2. replay/materialization construction in planner/materializer code
+3. blocker enforcement in patch safety and decision engine
+
+The framework must still document these concerns, but the MVP does not require all of them to become registry-driven on day one.
+
 ### 11.2 MVP Migration Scope
 
 The first version should not migrate the entire family catalog.
@@ -426,6 +448,16 @@ Recommended pair:
 
 1. `STATIC_INCLUDE_WRAPPER_COLLAPSE` as the stable template family
 2. `STATIC_ALIAS_PROJECTION_CLEANUP` as the first onboarding-driven expansion family
+
+### 11.3 MVP Success Interpretation
+
+The MVP succeeds if it proves that:
+
+1. a family can be registered once and referenced by validate and verification consistently
+2. frozen-family and fixture assertions can be checked against registry state
+3. a new family such as `STATIC_ALIAS_PROJECTION_CLEANUP` can be onboarded without requiring a simultaneous rewrite of replay/materialization and blocker logic
+
+The MVP does **not** require `STATIC_ALIAS_PROJECTION_CLEANUP` to be fully driven by registry-owned replay/materialization or blocker enforcement in the first pass.
 
 ## 12. Recommended Rollout Order
 
