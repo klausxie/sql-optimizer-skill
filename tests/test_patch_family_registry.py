@@ -7,6 +7,7 @@ import pytest
 
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 import sqlopt.patch_families.registry as registry_module
+import sqlopt.patch_families.specs as specs_package
 from sqlopt.patch_families.registry import (
     _build_patch_family_registry,
     list_registered_patch_families,
@@ -78,9 +79,13 @@ def test_lowercase_family_registration_fails_fast() -> None:
 
 
 def test_registry_imports_concrete_spec_modules_directly() -> None:
-    source = inspect.getsource(registry_module)
+    registry_source = inspect.getsource(registry_module)
+    specs_source = inspect.getsource(specs_package)
 
-    assert "from .specs import (" not in source
-    assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in source
-    assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in source
-    assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in source
+    assert "from .specs import (" not in registry_source
+    assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in registry_source
+    assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in registry_source
+    assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .frozen_baselines import FROZEN_BASELINE_SPECS" not in specs_source
+    assert "from .static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" not in specs_source
+    assert "from .static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" not in specs_source
