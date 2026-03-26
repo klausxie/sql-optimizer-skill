@@ -1,5 +1,7 @@
 """Unit tests for OptimizeStage."""
 
+from __future__ import annotations
+
 import json
 import os
 import tempfile
@@ -10,6 +12,87 @@ from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.optimize.stage import OptimizeStage
+from sqlopt.stages.recognition.stage import _build_result_signature
+
+
+class FakeOptimizeDBConnector:
+    """Simple DB connector for optimize-stage validation tests."""
+
+    def __init__(
+        self,
+        explain_result: dict | None = None,
+        query_rows: list[dict] | None = None,
+        query_error: Exception | None = None,
+    ) -> None:
+        self.explain_result = explain_result or {
+            "plan": {
+                "Plan": {
+                    "Node Type": "Index Scan",
+                    "Total Cost": 15.0,
+                    "Actual Total Time": 2.0,
+                    "Actual Rows": 2,
+                }
+            },
+            "estimated_cost": 15.0,
+            "actual_time_ms": 2.0,
+        }
+        self.query_rows = query_rows or [{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]
+        self.query_error = query_error
+        self.explain_calls: list[str] = []
+        self.query_calls: list[str] = []
+        self.disconnected = False
+
+    def execute_explain(self, sql: str) -> dict:
+        self.explain_calls.append(sql)
+        return self.explain_result
+
+    def execute_query(self, sql: str, params: tuple | None = None) -> list[dict]:
+        del params
+        self.query_calls.append(sql)
+        if self.query_error is not None:
+            raise self.query_error
+        return self.query_rows
+
+    def disconnect(self) -> None:
+        self.disconnected = True
+
+
+class ValidatingOptimizeProvider:
+    """Provider stub for optimize-stage validation tests."""
+
+    def __init__(
+        self,
+        optimized_sql: str = "SELECT id, name FROM users WHERE id = 1",
+        confidence: float = 0.92,
+        db_connector: FakeOptimizeDBConnector | None = None,
+        baseline_payload: dict | None = None,
+    ) -> None:
+        self.optimized_sql = optimized_sql
+        self.confidence = confidence
+        self.db_connector = db_connector
+        self.baseline_payload = baseline_payload or {
+            "plan": {"Plan": {"Total Cost": 20.0, "Actual Total Time": 4.0}},
+            "estimated_cost": 20.0,
+            "actual_time_ms": 4.0,
+        }
+        self.optimization_calls: list[str] = []
+        self.baseline_calls: list[str] = []
+
+    def generate_optimization(self, sql: str, description: str = "") -> str:
+        self.optimization_calls.append(sql)
+        return json.dumps(
+            {
+                "sql_unit_id": "unit-1",
+                "path_id": "path-a",
+                "optimized_sql": self.optimized_sql,
+                "rationale": f"optimized:{description or 'default'}",
+                "confidence": self.confidence,
+            }
+        )
+
+    def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict:
+        self.baseline_calls.append(f"{platform}:{sql}")
+        return self.baseline_payload
 
 
 class TestOptimizeStageRun:
@@ -325,6 +408,115 @@ class TestOptimizeStageRun:
             finally:
                 os.chdir(original_cwd)
 
+    def test_run_validates_optimized_sql_with_db_connector(self):
+        """Test run() records before/after metrics when DB validation is available."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test-run-db-validation"
+            run_path = self._create_run_structure(Path(tmpdir), run_id)
+            baseline_rows = [{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]
+
+            baselines = [
+                PerformanceBaseline(
+                    sql_unit_id="unit-1",
+                    path_id="path-a",
+                    original_sql="SELECT * FROM users WHERE id = 1",
+                    plan={"Plan": {"Total Cost": 100.0, "Actual Total Time": 25.0, "Actual Rows": 2}},
+                    estimated_cost=100.0,
+                    actual_time_ms=25.0,
+                    rows_returned=2,
+                    rows_examined=20,
+                    result_signature=_build_result_signature(baseline_rows),
+                )
+            ]
+            self._write_baselines_file(run_path, baselines)
+
+            db_connector = FakeOptimizeDBConnector(query_rows=baseline_rows)
+            provider = ValidatingOptimizeProvider(db_connector=db_connector)
+
+            original_cwd = Path.cwd()
+            os.chdir(tmpdir)
+            try:
+                stage = OptimizeStage(run_id=run_id, llm_provider=provider)
+                result = stage.run()
+
+                assert len(result.proposals) == 1
+                proposal = result.proposals[0]
+                assert proposal.before_metrics["estimated_cost"] == 100.0
+                assert proposal.after_metrics["estimated_cost"] == 15.0
+                assert proposal.validation_status == "validated"
+                assert proposal.result_equivalent is True
+                assert proposal.gain_ratio is not None
+                assert db_connector.explain_calls
+                assert db_connector.query_calls
+                assert db_connector.disconnected is True
+            finally:
+                os.chdir(original_cwd)
+
+    def test_run_marks_result_mismatch_when_signature_differs(self):
+        """Test run() marks validation mismatch when optimized results differ."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test-run-db-mismatch"
+            run_path = self._create_run_structure(Path(tmpdir), run_id)
+            baselines = [
+                PerformanceBaseline(
+                    sql_unit_id="unit-1",
+                    path_id="path-a",
+                    original_sql="SELECT * FROM users WHERE id = 1",
+                    plan={"Plan": {"Total Cost": 80.0, "Actual Total Time": 10.0, "Actual Rows": 1}},
+                    estimated_cost=80.0,
+                    actual_time_ms=10.0,
+                    rows_returned=1,
+                    result_signature={"row_count": 1, "sample_size": 1, "columns": ["id"], "checksum": "same"},
+                )
+            ]
+            self._write_baselines_file(run_path, baselines)
+
+            db_connector = FakeOptimizeDBConnector(query_rows=[{"id": 99}])
+            provider = ValidatingOptimizeProvider(db_connector=db_connector)
+
+            original_cwd = Path.cwd()
+            os.chdir(tmpdir)
+            try:
+                stage = OptimizeStage(run_id=run_id, llm_provider=provider)
+                result = stage.run()
+
+                proposal = result.proposals[0]
+                assert proposal.validation_status == "result_mismatch"
+                assert proposal.result_equivalent is False
+            finally:
+                os.chdir(original_cwd)
+
+    def test_run_uses_estimated_only_validation_without_db_connector(self):
+        """Test run() still records after metrics when only provider baseline is available."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test-run-estimated-only"
+            run_path = self._create_run_structure(Path(tmpdir), run_id)
+            baselines = [
+                PerformanceBaseline(
+                    sql_unit_id="unit-1",
+                    path_id="path-a",
+                    original_sql="SELECT * FROM users WHERE id = 1",
+                    plan={"Plan": {"Total Cost": 60.0}},
+                    estimated_cost=60.0,
+                )
+            ]
+            self._write_baselines_file(run_path, baselines)
+            provider = ValidatingOptimizeProvider()
+
+            original_cwd = Path.cwd()
+            os.chdir(tmpdir)
+            try:
+                stage = OptimizeStage(run_id=run_id, llm_provider=provider)
+                result = stage.run()
+
+                proposal = result.proposals[0]
+                assert proposal.validation_status == "estimated_only"
+                assert proposal.after_metrics["estimated_cost"] == 20.0
+                assert proposal.result_equivalent is None
+                assert provider.baseline_calls
+            finally:
+                os.chdir(original_cwd)
+
 
 class TestOptimizeStageStub:
     """Tests for OptimizeStage._create_stub_output() method."""
@@ -459,6 +651,45 @@ class TestOptimizeStageWriteOutput:
             finally:
                 os.chdir(original_cwd)
 
+    def test_write_output_persists_validation_fields(self):
+        """Test that _write_output() keeps validation fields in JSON."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test-write-validation"
+            output_dir = Path(tmpdir) / "runs" / run_id / "optimize"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            original_cwd = Path.cwd()
+            os.chdir(tmpdir)
+            try:
+                stage = OptimizeStage(run_id=run_id)
+                output = OptimizeOutput(
+                    proposals=[
+                        OptimizationProposal(
+                            sql_unit_id="validate-1",
+                            path_id="p1",
+                            original_sql="SELECT * FROM t",
+                            optimized_sql="SELECT id FROM t",
+                            rationale="Reduce columns",
+                            confidence=0.95,
+                            before_metrics={"estimated_cost": 80.0},
+                            after_metrics={"estimated_cost": 20.0},
+                            result_equivalent=True,
+                            validation_status="validated",
+                            validation_error=None,
+                            gain_ratio=0.75,
+                        )
+                    ]
+                )
+                stage._write_output(run_id, output)  # noqa: SLF001
+
+                content = json.loads((output_dir / "proposals.json").read_text(encoding="utf-8"))
+                proposal = content["proposals"][0]
+                assert proposal["validation_status"] == "validated"
+                assert proposal["result_equivalent"] is True
+                assert proposal["gain_ratio"] == 0.75
+            finally:
+                os.chdir(original_cwd)
+
 
 class TestOptimizationProposalStructure:
     """Tests for OptimizationProposal structure and serialization."""
@@ -472,6 +703,12 @@ class TestOptimizationProposalStructure:
             optimized_sql="SELECT id FROM test",
             rationale="Reduce columns",
             confidence=0.88,
+            before_metrics={"estimated_cost": 100.0},
+            after_metrics={"estimated_cost": 20.0},
+            result_equivalent=True,
+            validation_status="validated",
+            validation_error=None,
+            gain_ratio=0.8,
         )
 
         json_str = original.to_json()
@@ -483,6 +720,11 @@ class TestOptimizationProposalStructure:
         assert restored.optimized_sql == original.optimized_sql
         assert restored.rationale == original.rationale
         assert restored.confidence == original.confidence
+        assert restored.before_metrics == original.before_metrics
+        assert restored.after_metrics == original.after_metrics
+        assert restored.result_equivalent == original.result_equivalent
+        assert restored.validation_status == original.validation_status
+        assert restored.gain_ratio == original.gain_ratio
 
     def test_proposal_confidence_range(self):
         """Test that confidence value is within valid range."""

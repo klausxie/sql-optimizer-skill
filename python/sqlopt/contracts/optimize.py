@@ -1,5 +1,7 @@
 """Contract definitions for optimize operation."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, dataclass
 from typing import List
@@ -15,6 +17,12 @@ class OptimizationProposal:
     optimized_sql: str
     rationale: str
     confidence: float  # 0.0 to 1.0
+    before_metrics: dict | None = None
+    after_metrics: dict | None = None
+    result_equivalent: bool | None = None
+    validation_status: str | None = None
+    validation_error: str | None = None
+    gain_ratio: float | None = None
 
     def to_json(self) -> str:
         """Serialize to JSON string."""

@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
@@ -14,9 +14,17 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
-from sqlopt.contracts.recognition import RecognitionOutput
+from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
+from sqlopt.stages.recognition.stage import (
+    _build_result_signature,
+    _extract_rows_examined,
+    _is_select_statement,
+    _normalize_baseline_data,
+    _resolve_mybatis_params_for_explain,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +40,18 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         llm_provider: LLMProviderBase | None = None,
         use_mock: bool = True,
         config: SQLOptConfig | None = None,
+        db_connector: Any | None = None,
     ) -> None:
         super().__init__("optimize")
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
         self.use_mock = use_mock
         self.config = config or SQLOptConfig()
+        self.db_connector = db_connector or getattr(self.llm_provider, "db_connector", None)
 
     def run(
         self,
-        input_data: None = None,
+        _input_data: None = None,
         run_id: str | None = None,
         use_mock: bool | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -69,13 +79,21 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         baselines_data = RecognitionOutput.from_json(baselines_file.read_text(encoding="utf-8"))
         logger.info(f"[OPTIMIZE] Loaded {len(baselines_data.baselines)} baseline(s) from recognition stage")
 
+        loader = MockDataLoader(rid, use_mock=mock)
+        table_schemas = self._load_table_schemas(loader)
+
         proposals: list[OptimizationProposal] = []
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
 
-        if self.config.concurrency.enabled:
-            proposals = self._run_concurrent(baselines_data.baselines, self._progress_callback)
-        else:
-            proposals = self._run_sequential(baselines_data.baselines, self._progress_callback)
+        try:
+            if self.config.concurrency.enabled and self.db_connector is None:
+                proposals = self._run_concurrent(baselines_data.baselines, self._progress_callback, table_schemas)
+            else:
+                if self.db_connector is not None and self.config.concurrency.enabled:
+                    logger.info("[OPTIMIZE] DB validation enabled, forcing sequential execution")
+                proposals = self._run_sequential(baselines_data.baselines, self._progress_callback, table_schemas)
+        finally:
+            self._disconnect_db_connector()
 
         logger.info(f"[OPTIMIZE] Generated {len(proposals)} proposal(s)")
         output = OptimizeOutput(proposals=proposals)
@@ -89,7 +107,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         return output
 
     def _run_sequential(
-        self, baselines: list, progress_callback: ProgressCallback | None
+        self,
+        baselines: list[PerformanceBaseline],
+        progress_callback: ProgressCallback | None,
+        table_schemas: dict[str, TableSchema] | None,
     ) -> list[OptimizationProposal]:
         proposals: list[OptimizationProposal] = []
         for idx, baseline in enumerate(baselines):
@@ -108,6 +129,11 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 logger.debug(f"[OPTIMIZE]   Generating optimization for {baseline.sql_unit_id}.{baseline.path_id}")
                 proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
                 proposal_data = json.loads(proposal_json)
+                validation = self._validate_optimized_sql(
+                    baseline=baseline,
+                    optimized_sql=proposal_data["optimized_sql"],
+                    table_schemas=table_schemas,
+                )
 
                 proposal = OptimizationProposal(
                     sql_unit_id=baseline.sql_unit_id,
@@ -116,13 +142,20 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     optimized_sql=proposal_data["optimized_sql"],
                     rationale=proposal_data["rationale"],
                     confidence=proposal_data["confidence"],
+                    before_metrics=self._build_before_metrics(baseline),
+                    after_metrics=validation["after_metrics"],
+                    result_equivalent=validation["result_equivalent"],
+                    validation_status=validation["validation_status"],
+                    validation_error=validation["validation_error"],
+                    gain_ratio=validation["gain_ratio"],
                 )
                 proposals.append(proposal)
                 logger.info(
-                    "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f",
+                    "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f, status=%s",
                     baseline.sql_unit_id,
                     baseline.path_id,
                     proposal_data["confidence"],
+                    validation["validation_status"],
                 )
             except Exception as e:  # noqa: BLE001
                 logger.warning(
@@ -135,7 +168,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         return proposals
 
     def _run_concurrent(
-        self, baselines: list, progress_callback: ProgressCallback | None
+        self,
+        baselines: list[PerformanceBaseline],
+        progress_callback: ProgressCallback | None,
+        table_schemas: dict[str, TableSchema] | None,
     ) -> list[OptimizationProposal]:
         tasks = []
         for baseline in baselines:
@@ -159,11 +195,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         proposals: list[OptimizationProposal] = []
         total = len(tasks)
-        completed = 0
-
-        def process_task(baseline) -> OptimizationProposal | None:
+        def process_task(baseline: PerformanceBaseline) -> OptimizationProposal:
             proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
             proposal_data = json.loads(proposal_json)
+            validation = self._validate_optimized_sql(
+                baseline=baseline,
+                optimized_sql=proposal_data["optimized_sql"],
+                table_schemas=table_schemas,
+            )
             return OptimizationProposal(
                 sql_unit_id=baseline.sql_unit_id,
                 path_id=baseline.path_id,
@@ -171,13 +210,18 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 optimized_sql=proposal_data["optimized_sql"],
                 rationale=proposal_data["rationale"],
                 confidence=proposal_data["confidence"],
+                before_metrics=self._build_before_metrics(baseline),
+                after_metrics=validation["after_metrics"],
+                result_equivalent=validation["result_equivalent"],
+                validation_status=validation["validation_status"],
+                validation_error=validation["validation_error"],
+                gain_ratio=validation["gain_ratio"],
             )
 
         with ConcurrentExecutor(options) as executor:
             results = executor.map(process_task, tasks)
 
-        for result in results:
-            completed += 1
+        for completed, result in enumerate(results, start=1):
             if result.success and result.result:
                 proposals.append(result.result)
                 if progress_callback:
@@ -186,12 +230,13 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                         (completed, total),
                     )
                 logger.info(
-                    "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f",
+                    "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f, status=%s",
                     result.result.sql_unit_id,
                     result.result.path_id,
                     completed,
                     total,
                     result.result.confidence,
+                    result.result.validation_status,
                 )
             else:
                 baseline = result.item
@@ -221,9 +266,159 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     optimized_sql="SELECT id, name FROM users",
                     rationale="Reduce columns to improve performance",
                     confidence=0.9,
+                    before_metrics={"estimated_cost": 100.0, "actual_time_ms": 50.0},
+                    after_metrics={"estimated_cost": 20.0, "actual_time_ms": 10.0},
+                    result_equivalent=True,
+                    validation_status="validated",
+                    gain_ratio=0.8,
                 )
             ]
         )
+
+    def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
+        schemas: dict[str, TableSchema] = {}
+        schemas_file = loader.get_init_table_schemas_path()
+        if not schemas_file.exists():
+            return schemas
+        try:
+            schemas_data = json.loads(schemas_file.read_text(encoding="utf-8"))
+            schemas = {name: TableSchema(**item) for name, item in schemas_data.items()}
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            logger.debug("[OPTIMIZE] Failed to load table schemas, using heuristics")
+        return schemas
+
+    def _disconnect_db_connector(self) -> None:
+        connector = self.db_connector
+        if connector is None or not hasattr(connector, "disconnect"):
+            return
+        try:
+            connector.disconnect()
+        except Exception:  # noqa: BLE001
+            logger.debug("[OPTIMIZE] Failed to disconnect DB connector", exc_info=True)
+
+    def _build_before_metrics(self, baseline: PerformanceBaseline) -> dict:
+        return {
+            "estimated_cost": baseline.estimated_cost,
+            "actual_time_ms": baseline.actual_time_ms,
+            "rows_returned": baseline.rows_returned,
+            "rows_examined": baseline.rows_examined,
+            "result_signature": baseline.result_signature,
+            "plan": baseline.plan,
+        }
+
+    def _validate_optimized_sql(
+        self,
+        baseline: PerformanceBaseline,
+        optimized_sql: str,
+        table_schemas: dict[str, TableSchema] | None,
+    ) -> dict[str, Any]:
+        after_metrics: dict[str, Any] = {
+            "estimated_cost": None,
+            "actual_time_ms": None,
+            "rows_returned": None,
+            "rows_examined": None,
+            "result_signature": None,
+            "plan": None,
+        }
+        validation_status = "not_validated"
+        validation_error = None
+        result_equivalent = None
+
+        executable_sql = _resolve_mybatis_params_for_explain(optimized_sql, table_schemas)
+        db_connector = self.db_connector
+
+        try:
+            if db_connector is not None:
+                baseline_data = _normalize_baseline_data(db_connector.execute_explain(executable_sql))
+            else:
+                baseline_data = _normalize_baseline_data(
+                    self.llm_provider.generate_baseline(executable_sql, self.config.db_platform)
+                )
+        except Exception as e:  # noqa: BLE001
+            return {
+                "after_metrics": after_metrics,
+                "validation_status": "validation_failed",
+                "validation_error": f"explain_failed: {e}",
+                "result_equivalent": None,
+                "gain_ratio": None,
+            }
+
+        after_metrics["estimated_cost"] = baseline_data.get("estimated_cost")
+        after_metrics["actual_time_ms"] = baseline_data.get("actual_time_ms")
+        after_metrics["plan"] = baseline_data.get("plan")
+        after_metrics["rows_examined"] = _extract_rows_examined(after_metrics["plan"])
+
+        if db_connector is None:
+            validation_status = "estimated_only"
+            return {
+                "after_metrics": after_metrics,
+                "validation_status": validation_status,
+                "validation_error": None,
+                "result_equivalent": None,
+                "gain_ratio": self._calculate_gain_ratio(
+                    baseline.actual_time_ms,
+                    baseline.estimated_cost,
+                    after_metrics["actual_time_ms"],
+                    after_metrics["estimated_cost"],
+                ),
+            }
+
+        if not _is_select_statement(executable_sql):
+            validation_status = "explained_only"
+            return {
+                "after_metrics": after_metrics,
+                "validation_status": validation_status,
+                "validation_error": None,
+                "result_equivalent": None,
+                "gain_ratio": self._calculate_gain_ratio(
+                    baseline.actual_time_ms,
+                    baseline.estimated_cost,
+                    after_metrics["actual_time_ms"],
+                    after_metrics["estimated_cost"],
+                ),
+            }
+
+        try:
+            query_started_at = time.perf_counter()
+            rows = db_connector.execute_query(executable_sql)
+            after_metrics["actual_time_ms"] = (time.perf_counter() - query_started_at) * 1000.0
+            after_metrics["rows_returned"] = len(rows)
+            after_metrics["result_signature"] = _build_result_signature(rows)
+            expected_signature = baseline.result_signature
+            if expected_signature is not None:
+                result_equivalent = expected_signature == after_metrics["result_signature"]
+                validation_status = "validated" if result_equivalent else "result_mismatch"
+            else:
+                validation_status = "validated_without_baseline"
+        except Exception as e:  # noqa: BLE001
+            validation_status = "validation_failed"
+            validation_error = f"query_execution_failed: {e}"
+
+        return {
+            "after_metrics": after_metrics,
+            "validation_status": validation_status,
+            "validation_error": validation_error,
+            "result_equivalent": result_equivalent,
+            "gain_ratio": self._calculate_gain_ratio(
+                baseline.actual_time_ms,
+                baseline.estimated_cost,
+                after_metrics["actual_time_ms"],
+                after_metrics["estimated_cost"],
+            ),
+        }
+
+    def _calculate_gain_ratio(
+        self,
+        before_time_ms: float | None,
+        before_cost: float | None,
+        after_time_ms: float | None,
+        after_cost: float | None,
+    ) -> float | None:
+        if before_time_ms and after_time_ms is not None and before_time_ms > 0:
+            return (before_time_ms - after_time_ms) / before_time_ms
+        if before_cost and after_cost is not None and before_cost > 0:
+            return (before_cost - after_cost) / before_cost
+        return None
 
     def _write_output(self, run_id: str, output: OptimizeOutput) -> None:
         """Write optimize output to per-unit files and backward-compatible single file.
@@ -258,6 +453,12 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     "optimized_sql": proposal.optimized_sql,
                     "rationale": proposal.rationale,
                     "confidence": proposal.confidence,
+                    "before_metrics": proposal.before_metrics,
+                    "after_metrics": proposal.after_metrics,
+                    "result_equivalent": proposal.result_equivalent,
+                    "validation_status": proposal.validation_status,
+                    "validation_error": proposal.validation_error,
+                    "gain_ratio": proposal.gain_ratio,
                 }
             )
 
@@ -307,6 +508,11 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 avg_confidence = sum(confidences) / len(confidences)
                 high_confidence_count = sum(1 for c in confidences if c >= 0.7)
                 low_confidence_count = sum(1 for c in confidences if c < 0.7)
+                validated_count = sum(1 for p in proposals if p.validation_status == "validated")
+                mismatch_count = sum(1 for p in proposals if p.validation_status == "result_mismatch")
+            else:
+                validated_count = 0
+                mismatch_count = 0
 
             output_dir = Path("runs") / run_id / "optimize"
             file_size_bytes = 0
@@ -322,6 +528,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 f"High confidence proposals (>=0.7): {high_confidence_count}",
                 f"Low confidence proposals (<0.7): {low_confidence_count}",
                 f"Average confidence: {avg_confidence:.2f}",
+                f"Validated proposals: {validated_count}",
+                f"Result mismatches: {mismatch_count}",
             ]
 
             summary = StageSummary(
