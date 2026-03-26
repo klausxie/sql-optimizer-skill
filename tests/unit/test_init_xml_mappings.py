@@ -112,73 +112,73 @@ class TestXMLMappingStructure:
 
     def test_file_mapping_creation(self):
         """Test creating a FileMapping."""
-        file_mapping = FileMapping(xmlPath="/path/to/mapper.xml")
+        file_mapping = FileMapping(xml_path="/path/to/mapper.xml")
 
-        assert file_mapping.xmlPath == "/path/to/mapper.xml"
+        assert file_mapping.xml_path == "/path/to/mapper.xml"
         assert file_mapping.fragments == []
         assert file_mapping.statements == []
 
     def test_statement_mapping_creation(self):
         """Test creating a StatementMapping."""
         stmt_mapping = StatementMapping(
-            sqlKey="com.test.UserMapper.findAll",
-            statementId="findAll",
+            sql_key="com.test.UserMapper.findAll",
+            statement_id="findAll",
             xpath="/mapper/select[@id='findAll']",
-            tagName="select",
-            idAttr="findAll",
-            originalContent="<select id='findAll'>SELECT *</select>",
+            tag_name="select",
+            id_attr="findAll",
+            original_content="<select id='findAll'>SELECT *</select>",
         )
 
-        assert stmt_mapping.sqlKey == "com.test.UserMapper.findAll"
-        assert stmt_mapping.tagName == "select"
+        assert stmt_mapping.sql_key == "com.test.UserMapper.findAll"
+        assert stmt_mapping.tag_name == "select"
         assert "@id='findAll']" in stmt_mapping.xpath
 
     def test_fragment_mapping_creation(self):
         """Test creating a FragmentMapping."""
         frag_mapping = FragmentMapping(
-            fragmentId="baseColumns",
-            sqlKey=None,
+            fragment_id="baseColumns",
+            sql_key=None,
             xpath="/mapper/sql[@id='baseColumns']",
-            tagName="sql",
-            idAttr="baseColumns",
-            originalContent="<sql id='baseColumns'>SELECT id, name</sql>",
+            tag_name="sql",
+            id_attr="baseColumns",
+            original_content="<sql id='baseColumns'>SELECT id, name</sql>",
         )
 
-        assert frag_mapping.fragmentId == "baseColumns"
-        assert frag_mapping.tagName == "sql"
-        assert frag_mapping.sqlKey is None
+        assert frag_mapping.fragment_id == "baseColumns"
+        assert frag_mapping.tag_name == "sql"
+        assert frag_mapping.sql_key is None
 
     def test_xml_mapping_with_files(self):
         """Test creating XMLMapping with multiple files."""
-        file1 = FileMapping(xmlPath="/path/to/UserMapper.xml")
+        file1 = FileMapping(xml_path="/path/to/UserMapper.xml")
         file1.statements.append(
             StatementMapping(
-                sqlKey="findAll",
-                statementId="findAll",
+                sql_key="findAll",
+                statement_id="findAll",
                 xpath="/mapper/select[@id='findAll']",
-                tagName="select",
-                idAttr="findAll",
-                originalContent="<select id='findAll'/>",
+                tag_name="select",
+                id_attr="findAll",
+                original_content="<select id='findAll'/>",
             )
         )
 
-        file2 = FileMapping(xmlPath="/path/to/OrderMapper.xml")
+        file2 = FileMapping(xml_path="/path/to/OrderMapper.xml")
         file2.fragments.append(
             FragmentMapping(
-                fragmentId="baseColumns",
-                sqlKey=None,
+                fragment_id="baseColumns",
+                sql_key=None,
                 xpath="/mapper/sql[@id='baseColumns']",
-                tagName="sql",
-                idAttr="baseColumns",
-                originalContent="<sql id='baseColumns'/>",
+                tag_name="sql",
+                id_attr="baseColumns",
+                original_content="<sql id='baseColumns'/>",
             )
         )
 
         xml_mapping = XMLMapping(files=[file1, file2])
 
         assert len(xml_mapping.files) == 2
-        assert xml_mapping.files[0].xmlPath == "/path/to/UserMapper.xml"
-        assert xml_mapping.files[1].xmlPath == "/path/to/OrderMapper.xml"
+        assert xml_mapping.files[0].xml_path == "/path/to/UserMapper.xml"
+        assert xml_mapping.files[1].xml_path == "/path/to/OrderMapper.xml"
         assert len(xml_mapping.files[0].statements) == 1
         assert len(xml_mapping.files[1].fragments) == 1
 
@@ -285,15 +285,15 @@ class TestInitOutputWithXmlMappings:
 
     def test_init_output_serialization(self):
         """Test that InitOutput with XMLMapping serializes correctly."""
-        file_mapping = FileMapping(xmlPath="/path/to/mapper.xml")
+        file_mapping = FileMapping(xml_path="/path/to/mapper.xml")
         file_mapping.statements.append(
             StatementMapping(
-                sqlKey="findAll",
-                statementId="findAll",
+                sql_key="findAll",
+                statement_id="findAll",
                 xpath="/mapper/select[@id='findAll']",
-                tagName="select",
-                idAttr="findAll",
-                originalContent="<select id='findAll'/>",
+                tag_name="select",
+                id_attr="findAll",
+                original_content="<select id='findAll'/>",
             )
         )
 
@@ -313,25 +313,25 @@ class TestInitOutputWithXmlMappings:
         """Test InitOutput with both statements and fragments."""
         from sqlopt.contracts.init import SQLFragment, SQLUnit
 
-        file_mapping = FileMapping(xmlPath="/path/to/mapper.xml")
+        file_mapping = FileMapping(xml_path="/path/to/mapper.xml")
         file_mapping.statements.append(
             StatementMapping(
-                sqlKey="findAll",
-                statementId="findAll",
+                sql_key="findAll",
+                statement_id="findAll",
                 xpath="/mapper/select[@id='findAll']",
-                tagName="select",
-                idAttr="findAll",
-                originalContent="<select id='findAll'/>",
+                tag_name="select",
+                id_attr="findAll",
+                original_content="<select id='findAll'/>",
             )
         )
         file_mapping.fragments.append(
             FragmentMapping(
-                fragmentId="baseColumns",
-                sqlKey=None,
+                fragment_id="baseColumns",
+                sql_key=None,
                 xpath="/mapper/sql[@id='baseColumns']",
-                tagName="sql",
-                idAttr="baseColumns",
-                originalContent="<sql id='baseColumns'/>",
+                tag_name="sql",
+                id_attr="baseColumns",
+                original_content="<sql id='baseColumns'/>",
             )
         )
 
@@ -344,11 +344,11 @@ class TestInitOutputWithXmlMappings:
         )
 
         sql_fragment = SQLFragment(
-            fragmentId="baseColumns",
-            xmlPath="/path/to/mapper.xml",
-            startLine=1,
-            endLine=5,
-            xmlContent="<sql id='baseColumns'>SELECT id</sql>",
+            fragment_id="baseColumns",
+            xml_path="/path/to/mapper.xml",
+            start_line=1,
+            end_line=5,
+            xml_content="<sql id='baseColumns'>SELECT id</sql>",
         )
 
         output = InitOutput(

@@ -126,7 +126,7 @@ def generate_init_summary_markdown(
         for fm in output.xml_mappings.files:
             stmt_count = len(fm.statements)
             frag_count = len(fm.fragments)
-            filename = fm.xmlPath.split("/")[-1]
+            filename = fm.xml_path.split("/")[-1]
             lines.append(f"| `{filename}` | {stmt_count} | {frag_count} |")
         lines.append("")
 
@@ -170,8 +170,8 @@ def generate_init_summary_markdown(
         lines.append(f"发现 **{len(output.sql_fragments)}** 个可复用片段:")
         lines.append("")
         for frag in output.sql_fragments[:10]:
-            filename = frag.xmlPath.split("/")[-1] if frag.xmlPath else "unknown"
-            lines.append(f"- `{frag.fragmentId}` @ `{filename}`:{frag.startLine}")
+            filename = frag.xml_path.split("/")[-1] if frag.xml_path else "unknown"
+            lines.append(f"- `{frag.fragment_id}` @ `{filename}`:{frag.start_line}")
         if len(output.sql_fragments) > 10:
             lines.append(f"- ... 还有 {len(output.sql_fragments) - 10} 个片段")
         lines.append("")

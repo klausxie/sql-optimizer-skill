@@ -24,11 +24,11 @@ class TestParsedToSqlfragment:
 
         result = _parsed_to_sqlfragment(frag)
 
-        assert result.fragmentId == "baseColumns"
-        assert result.xmlPath == "/path/to/mapper.xml"
-        assert result.startLine == 5
-        assert result.endLine == 10
-        assert "SELECT id, name FROM users" in result.xmlContent
+        assert result.fragment_id == "baseColumns"
+        assert result.xml_path == "/path/to/mapper.xml"
+        assert result.start_line == 5
+        assert result.end_line == 10
+        assert "SELECT id, name FROM users" in result.xml_content
 
     def test_fragment_with_no_id(self):
         """Test fragment with different ID."""
@@ -43,8 +43,8 @@ class TestParsedToSqlfragment:
 
         result = _parsed_to_sqlfragment(frag)
 
-        assert result.fragmentId == "myFragment"
-        assert result.xmlPath == "/path/to/OtherMapper.xml"
+        assert result.fragment_id == "myFragment"
+        assert result.xml_path == "/path/to/OtherMapper.xml"
 
     def test_fragment_preserves_xml_content(self):
         """Test that XML content is preserved exactly."""
@@ -60,7 +60,7 @@ class TestParsedToSqlfragment:
 
         result = _parsed_to_sqlfragment(frag)
 
-        assert result.xmlContent == xml_content
+        assert result.xml_content == xml_content
 
 
 class TestFragmentExtractionFromXml:
@@ -225,7 +225,7 @@ class TestSqlFragmentsInInitOutput:
         )
 
         assert len(output.sql_fragments) == 1
-        assert output.sql_fragments[0].fragmentId == "testFrag"
+        assert output.sql_fragments[0].fragment_id == "testFrag"
 
     def test_multiple_fragments_in_output(self):
         """Test that multiple fragments can be added to InitOutput."""
@@ -250,4 +250,4 @@ class TestSqlFragmentsInInitOutput:
         )
 
         assert len(output.sql_fragments) == 3
-        assert {f.fragmentId for f in output.sql_fragments} == {"frag0", "frag1", "frag2"}
+        assert {f.fragment_id for f in output.sql_fragments} == {"frag0", "frag1", "frag2"}

@@ -77,11 +77,11 @@ class TestParseStage:
             json.dumps(
                 [
                     {
-                        "fragmentId": "statusCondition",
-                        "xmlPath": str(mapper),
-                        "startLine": 1,
-                        "endLine": 4,
-                        "xmlContent": '<sql id="statusCondition"><if test="status != null">AND status = #{status}</if></sql>',
+                        "fragment_id": "statusCondition",
+                        "xml_path": str(mapper),
+                        "start_line": 1,
+                        "end_line": 4,
+                        "xml_content": '<sql id="statusCondition"><if test="status != null">AND status = #{status}</if></sql>',
                     }
                 ]
             ),

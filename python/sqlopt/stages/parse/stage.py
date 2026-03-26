@@ -235,7 +235,7 @@ def _load_fragment_registry(fragments_file: Path):
         return None
 
     xml_paths = sorted(
-        {str(item.get("xmlPath")) for item in fragment_data if isinstance(item, dict) and item.get("xmlPath")}
+        {str(item.get("xml_path")) for item in fragment_data if isinstance(item, dict) and item.get("xml_path")}
     )
     if not xml_paths:
         return None

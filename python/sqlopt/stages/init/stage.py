@@ -121,7 +121,7 @@ class InitStage(Stage[None, InitOutput]):
             total_fragments += frag_count
             logger.debug(f"[INIT]   Found {stmt_count} SQL statement(s) in {Path(xml_path).name}")
 
-            file_mapping = FileMapping(xmlPath=str(xml_path))
+            file_mapping = FileMapping(xml_path=str(xml_path))
             for stmt in statements:
                 if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
                     logger.debug(f"[INIT]   Skipping {stmt.statement_type} statement: {stmt.statement_id}")
@@ -130,24 +130,24 @@ class InitStage(Stage[None, InitOutput]):
                 sql_units.append(unit)
                 stmt_xpath = _build_statement_xpath(stmt)
                 stmt_mapping = StatementMapping(
-                    sqlKey=stmt.sql_key,
-                    statementId=stmt.statement_id,
+                    sql_key=stmt.sql_key,
+                    statement_id=stmt.statement_id,
                     xpath=stmt_xpath,
-                    tagName=stmt.statement_type.lower(),
-                    idAttr=stmt.statement_id,
-                    originalContent=stmt.xml_content,
+                    tag_name=stmt.statement_type.lower(),
+                    id_attr=stmt.statement_id,
+                    original_content=stmt.xml_content,
                 )
                 file_mapping.statements.append(stmt_mapping)
 
             for frag in fragments:
                 sql_fragments.append(_parsed_to_sqlfragment(frag))
                 frag_mapping = FragmentMapping(
-                    fragmentId=frag.fragment_id,
-                    sqlKey=None,
+                    fragment_id=frag.fragment_id,
+                    sql_key=None,
                     xpath=frag.xpath,
-                    tagName="sql",
-                    idAttr=frag.fragment_id,
-                    originalContent=frag.xml_content,
+                    tag_name="sql",
+                    id_attr=frag.fragment_id,
+                    original_content=frag.xml_content,
                 )
                 file_mapping.fragments.append(frag_mapping)
 
@@ -352,9 +352,9 @@ def _parsed_to_sqlunit(stmt: ParsedStatement) -> SQLUnit:
 
 def _parsed_to_sqlfragment(frag: ParsedFragment) -> SQLFragment:
     return SQLFragment(
-        fragmentId=frag.fragment_id,
-        xmlPath=frag.xml_path,
-        startLine=frag.start_line,
-        endLine=frag.end_line,
-        xmlContent=frag.xml_content,
+        fragment_id=frag.fragment_id,
+        xml_path=frag.xml_path,
+        start_line=frag.start_line,
+        end_line=frag.end_line,
+        xml_content=frag.xml_content,
     )

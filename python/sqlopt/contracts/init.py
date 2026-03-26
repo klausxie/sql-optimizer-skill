@@ -33,11 +33,11 @@ class SQLUnit:
 class SQLFragment:
     """Represents a reusable SQL fragment (<sql id="">) from mapper files."""
 
-    fragmentId: str  # noqa: N815
-    xmlPath: str  # noqa: N815
-    startLine: int  # noqa: N815
-    endLine: int  # noqa: N815
-    xmlContent: str  # noqa: N815
+    fragment_id: str
+    xml_path: str
+    start_line: int
+    end_line: int
+    xml_content: str
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -96,12 +96,12 @@ class FieldDistribution:
 class FragmentMapping:
     """Mapping for a SQL fragment within an XML file."""
 
-    fragmentId: str  # noqa: N815
-    sqlKey: Optional[str]  # noqa: N815
+    fragment_id: str
+    sql_key: Optional[str]
     xpath: str
-    tagName: str  # noqa: N815
-    idAttr: str  # noqa: N815
-    originalContent: str  # noqa: N815
+    tag_name: str
+    id_attr: str
+    original_content: str
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -118,12 +118,12 @@ class FragmentMapping:
 class StatementMapping:
     """Mapping for a SQL statement within an XML file."""
 
-    sqlKey: str  # noqa: N815
-    statementId: str  # noqa: N815
+    sql_key: str
+    statement_id: str
     xpath: str
-    tagName: str  # noqa: N815
-    idAttr: str  # noqa: N815
-    originalContent: str  # noqa: N815
+    tag_name: str
+    id_attr: str
+    original_content: str
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -140,7 +140,7 @@ class StatementMapping:
 class FileMapping:
     """Mapping for a single XML file containing fragments and statements."""
 
-    xmlPath: str  # noqa: N815
+    xml_path: str
     fragments: List[FragmentMapping] = field(default_factory=list)
     statements: List[StatementMapping] = field(default_factory=list)
 
@@ -155,7 +155,7 @@ class FileMapping:
         fragments = [FragmentMapping(**f) for f in data.get("fragments", [])]
         statements = [StatementMapping(**s) for s in data.get("statements", [])]
         return cls(
-            xmlPath=data["xmlPath"],
+            xml_path=data["xml_path"],
             fragments=fragments,
             statements=statements,
         )
