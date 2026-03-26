@@ -9,9 +9,10 @@ from typing import List
 class PerformanceBaseline:
     sql_unit_id: str
     path_id: str
-    plan: dict
+    plan: dict | None
     estimated_cost: float
     actual_time_ms: float | None = None
+    branch_type: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))

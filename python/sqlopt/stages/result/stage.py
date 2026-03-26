@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import difflib
+import json
 import logging
 import time
 from pathlib import Path
 
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
-from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.init import InitOutput, TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
+from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.contracts.result import Patch, Report, ResultOutput
 from sqlopt.stages.base import Stage
 
@@ -84,6 +86,23 @@ class ResultStage(Stage[None, ResultOutput]):
 
         sql_unit_map = {unit.id: unit for unit in init_data.sql_units}
 
+        baselines_file = loader.get_recognition_baselines_path()
+        baseline_only_risks: list[str] = []
+        if baselines_file.exists():
+            try:
+                baselines_data = RecognitionOutput.from_json(baselines_file.read_text(encoding="utf-8"))
+                baseline_only_baselines = [b for b in baselines_data.baselines if b.plan is None]
+                if baseline_only_baselines:
+                    logger.info(
+                        f"[RESULT] Found {len(baseline_only_baselines)} baseline_only branch(es) for static analysis"
+                    )
+                    table_schemas = self._load_table_schemas(loader)
+                    baseline_only_risks = self._analyze_baseline_only_branches(
+                        baseline_only_baselines, sql_unit_map, table_schemas
+                    )
+            except Exception as e:
+                logger.warning(f"[RESULT] Failed to load baselines for static analysis: {e}")
+
         high_confidence_proposals = [p for p in optimize_data.proposals if p.confidence > 0.7]
         logger.info(f"[RESULT] High-confidence proposals (confidence > 0.7): {len(high_confidence_proposals)}")
 
@@ -98,7 +117,7 @@ class ResultStage(Stage[None, ResultOutput]):
             patches.append(patch)
             logger.info("[RESULT]   [OK] %s: %s...", proposal.sql_unit_id, proposal.rationale[:50])
 
-        report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches)
+        report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches, baseline_only_risks)
         logger.info(f"[RESULT] Report summary: {report.summary}")
 
         output = ResultOutput(
@@ -160,6 +179,7 @@ class ResultStage(Stage[None, ResultOutput]):
         all_proposals: list[OptimizationProposal],
         high_confidence: list[OptimizationProposal],
         patches: list[Patch],
+        baseline_only_risks: list[str] | None = None,
     ) -> Report:
         """Create a Report from optimization analysis.
 
@@ -167,6 +187,7 @@ class ResultStage(Stage[None, ResultOutput]):
             all_proposals: All optimization proposals
             high_confidence: Proposals with confidence > 0.7
             patches: Generated patches
+            baseline_only_risks: Static risk analysis for baseline_only branches
 
         Returns:
             Report with summary and recommendations
@@ -187,6 +208,11 @@ class ResultStage(Stage[None, ResultOutput]):
         details_lines.append(f"High-confidence proposals (confidence > 0.7): {high_conf_count}")
         details_lines.append(f"Patches generated: {len(patches)}")
 
+        if baseline_only_risks:
+            details_lines.append(f"\nBaseline-only static analysis (no EXPLAIN performed):")
+            for risk in baseline_only_risks:
+                details_lines.append(f"  - {risk}")
+
         if high_confidence:
             details_lines.append("\nHigh-confidence optimizations:")
             details_lines.extend(
@@ -201,6 +227,9 @@ class ResultStage(Stage[None, ResultOutput]):
             for p in high_confidence
             if p.confidence < 0.8
         ]
+
+        if baseline_only_risks:
+            risks.extend(baseline_only_risks)
 
         if not risks:
             risks.append("Low risk - all changes are straightforward optimizations")
@@ -219,6 +248,50 @@ class ResultStage(Stage[None, ResultOutput]):
             risks=risks,
             recommendations=recommendations,
         )
+
+    def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
+        schemas: dict[str, TableSchema] = {}
+        try:
+            schemas_file = loader.get_init_table_schemas_path()
+            if schemas_file.exists():
+                schemas_data = json.loads(schemas_file.read_text(encoding="utf-8"))
+                schemas = {k: TableSchema(**v) for k, v in schemas_data.items()}
+                logger.info(f"[RESULT] Loaded {len(schemas)} table schema(s) for static analysis")
+        except Exception as e:
+            logger.warning(f"[RESULT] Failed to load table schemas: {e}")
+        return schemas
+
+    def _analyze_baseline_only_branches(
+        self,
+        baselines: list[PerformanceBaseline],
+        sql_unit_map: dict[str, InitOutput.SQLUnit],
+        table_schemas: dict[str, TableSchema],
+    ) -> list[str]:
+        risks: list[str] = []
+        for baseline in baselines:
+            sql_unit = sql_unit_map.get(baseline.sql_unit_id)
+            if not sql_unit:
+                continue
+            sql_lower = sql_unit.sql_text.lower()
+            risk_factors: list[str] = []
+            table_size = None
+            for table_name, schema in table_schemas.items():
+                if table_name.lower() in sql_lower:
+                    table_size = getattr(schema, "size", None)
+                    break
+            if table_size == "large":
+                if "select *" in sql_lower:
+                    risk_factors.append("SELECT * on large table")
+                if "limit" not in sql_lower:
+                    risk_factors.append("no LIMIT on large table")
+                if "where" not in sql_lower:
+                    risk_factors.append("no WHERE clause (full scan)")
+            if risk_factors:
+                risk_level = "HIGH" if len(risk_factors) >= 2 else "MEDIUM"
+                risks.append(f"[{baseline.sql_unit_id}.{baseline.path_id}] {risk_level}: {'; '.join(risk_factors)}")
+            else:
+                risks.append(f"[{baseline.sql_unit_id}.{baseline.path_id}] LOW: baseline only, no obvious issues")
+        return risks
 
     def _create_stub_output(self) -> ResultOutput:
         """Create stub output when no run_id is available.

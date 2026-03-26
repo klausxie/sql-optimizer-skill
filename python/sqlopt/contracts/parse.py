@@ -15,6 +15,7 @@ class SQLBranch:
     active_conditions: list[str] = field(default_factory=list)
     risk_score: float | None = None
     score_reasons: list[str] = field(default_factory=list)
+    branch_type: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -27,12 +28,14 @@ class SQLBranch:
                 "active_conditions": self.active_conditions,
                 "risk_score": self.risk_score,
                 "score_reasons": self.score_reasons,
+                "branch_type": self.branch_type,
             }
         )
 
     @classmethod
     def from_json(cls, json_str: str) -> SQLBranch:
         data = json.loads(json_str)
+        branch_type = data.get("branch_type")
         return cls(
             path_id=data["path_id"],
             condition=data.get("condition"),
@@ -42,6 +45,7 @@ class SQLBranch:
             active_conditions=data.get("active_conditions", []),
             risk_score=data.get("risk_score"),
             score_reasons=data.get("score_reasons", []),
+            branch_type=branch_type,
         )
 
 

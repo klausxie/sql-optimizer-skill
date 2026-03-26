@@ -100,6 +100,11 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
     ) -> list[OptimizationProposal]:
         proposals: list[OptimizationProposal] = []
         for baseline in baselines:
+            if baseline.plan is None:
+                logger.info(
+                    f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
+                )
+                continue
             sql = sql_lookup.get((baseline.sql_unit_id, baseline.path_id), "")
             if not sql:
                 logger.debug(f"[OPTIMIZE]   Skipping {baseline.sql_unit_id}.{baseline.path_id} - no SQL found")
@@ -141,7 +146,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         sql_lookup: dict[tuple[str, str], str],
     ) -> list[OptimizationProposal]:
         tasks = []
+        skipped_baseline_only = 0
         for baseline in baselines:
+            if baseline.plan is None:
+                logger.info(
+                    f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
+                )
+                skipped_baseline_only += 1
+                continue
             sql = sql_lookup.get((baseline.sql_unit_id, baseline.path_id), "")
             if sql:
                 tasks.append((baseline, sql))

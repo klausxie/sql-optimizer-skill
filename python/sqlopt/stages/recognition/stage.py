@@ -174,6 +174,20 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
                 try:
+                    if branch.branch_type == "baseline_only":
+                        logger.info(
+                            f"[RECOGNITION]   [SKIP] Skipping EXPLAIN for baseline_only branch {sql_unit.sql_unit_id}.{branch.path_id}"
+                        )
+                        baseline = PerformanceBaseline(
+                            sql_unit_id=sql_unit.sql_unit_id,
+                            path_id=branch.path_id,
+                            plan=None,
+                            estimated_cost=0.0,
+                            actual_time_ms=None,
+                            branch_type="baseline_only",
+                        )
+                        baselines.append(baseline)
+                        continue
                     sql_for_explain = _resolve_mybatis_params_for_explain(branch.expanded_sql, table_schemas)
                     logger.debug(
                         f"[RECOGNITION]   EXPLAIN for {sql_unit.sql_unit_id}.{branch.path_id}: {sql_for_explain[:60]}..."
@@ -185,6 +199,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                         plan=baseline_data["plan"],
                         estimated_cost=baseline_data["estimated_cost"],
                         actual_time_ms=baseline_data.get("actual_time_ms"),
+                        branch_type=branch.branch_type,
                     )
                     baselines.append(baseline)
                     logger.info(
@@ -207,8 +222,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
     def _run_concurrent(
         self, parse_data: ParseOutput, table_schemas: dict[str, TableSchema] | None
     ) -> list[PerformanceBaseline]:
-        tasks: list[tuple[str, str, str]] = [
-            (sql_unit.sql_unit_id, branch.path_id, branch.expanded_sql)
+        tasks: list[tuple[str, str, str, str | None]] = [
+            (sql_unit.sql_unit_id, branch.path_id, branch.expanded_sql, branch.branch_type)
             for sql_unit in parse_data.sql_units_with_branches
             for branch in sql_unit.branches
             if branch.is_valid
@@ -224,8 +239,18 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         baselines: list[PerformanceBaseline] = []
         platform = "postgresql"
 
-        def process_task(task: tuple[str, str, str]) -> PerformanceBaseline | None:
-            sql_unit_id, path_id, expanded_sql = task
+        def process_task(task: tuple[str, str, str, str | None]) -> PerformanceBaseline | None:
+            sql_unit_id, path_id, expanded_sql, branch_type = task
+            if branch_type == "baseline_only":
+                logger.info(f"[RECOGNITION]   [SKIP] Skipping EXPLAIN for baseline_only branch {sql_unit_id}.{path_id}")
+                return PerformanceBaseline(
+                    sql_unit_id=sql_unit_id,
+                    path_id=path_id,
+                    plan=None,
+                    estimated_cost=0.0,
+                    actual_time_ms=None,
+                    branch_type="baseline_only",
+                )
             sql_for_explain = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas)
             baseline_data = self.llm_provider.generate_baseline(sql_for_explain, platform)
             return PerformanceBaseline(
@@ -234,6 +259,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 plan=baseline_data["plan"],
                 estimated_cost=baseline_data["estimated_cost"],
                 actual_time_ms=baseline_data.get("actual_time_ms"),
+                branch_type=branch_type,
             )
 
         completed = [0]
