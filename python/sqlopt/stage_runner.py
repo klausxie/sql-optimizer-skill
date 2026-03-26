@@ -74,8 +74,8 @@ class StageRunner:
         self.paths.ensure_dirs()
         self.progress.start_stage(stage_name)
 
-        def progress_cb(message: str) -> None:
-            self.display.update(stage_name, stage_idx, message)
+        def progress_cb(message: str = "", sub_progress: tuple[int, int] | None = None) -> None:
+            self.display.update(stage_name, stage_idx, message, sub_progress)
 
         try:
             if stage_name == "init":

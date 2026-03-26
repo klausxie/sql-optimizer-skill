@@ -20,7 +20,7 @@ from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
 
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 class OptimizeStage(Stage[None, OptimizeOutput]):
@@ -94,7 +94,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         proposals: list[OptimizationProposal] = []
         for idx, baseline in enumerate(baselines):
             if progress_callback:
-                progress_callback(f"Optimizing {idx + 1}/{len(baselines)}: {baseline.sql_unit_id}.{baseline.path_id}")
+                progress_callback(
+                    f"Optimizing {idx + 1}/{len(baselines)}: {baseline.sql_unit_id}.{baseline.path_id}",
+                    (idx + 1, len(baselines)),
+                )
             if baseline.plan is None:
                 logger.info(
                     f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
@@ -179,7 +182,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 proposals.append(result.result)
                 if progress_callback:
                     progress_callback(
-                        f"Optimizing {completed}/{total}: {result.result.sql_unit_id}.{result.result.path_id}"
+                        f"Optimizing {completed}/{total}: {result.result.sql_unit_id}.{result.result.path_id}",
+                        (completed, total),
                     )
                 logger.info(
                     "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f",
@@ -192,7 +196,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             else:
                 baseline = result.item
                 if progress_callback:
-                    progress_callback(f"Optimizing {completed}/{total}: {baseline.sql_unit_id}.{baseline.path_id}")
+                    progress_callback(
+                        f"Optimizing {completed}/{total}: {baseline.sql_unit_id}.{baseline.path_id}",
+                        (completed, total),
+                    )
                 logger.warning(
                     "[OPTIMIZE]   [FAIL] %s.%s (%d/%d): %s",
                     baseline.sql_unit_id,

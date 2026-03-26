@@ -10,8 +10,8 @@ from typing import Callable, Generic, TypeVar
 Input = TypeVar("Input")
 Output = TypeVar("Output")
 
-# Progress callback type: (message) -> None
-ProgressCallback = Callable[[str], None]
+# Progress callback type: (message, sub_progress) -> None
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 class Stage(ABC, Generic[Input, Output]):

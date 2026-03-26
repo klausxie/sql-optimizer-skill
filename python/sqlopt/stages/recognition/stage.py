@@ -20,7 +20,7 @@ from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
 
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, TableSchema] | None = None) -> str:
@@ -197,10 +197,15 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         total_branches = sum(len(su.branches) for su in parse_data.sql_units_with_branches)
         logger.info(f"[RECOGNITION] Processing {total_branches} branch(es) for baseline generation")
 
+        done = 0
         for sql_unit in parse_data.sql_units_with_branches:
             for branch in sql_unit.branches:
+                done += 1
                 if progress_callback:
-                    progress_callback(f"Processing {sql_unit.sql_unit_id}.{branch.path_id}")
+                    progress_callback(
+                        f"Processing {sql_unit.sql_unit_id}.{branch.path_id}",
+                        (done, total_branches),
+                    )
                 if not branch.is_valid:
                     logger.debug(f"[RECOGNITION]   Skipping invalid branch: {branch.path_id}")
                     continue
@@ -306,7 +311,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             completed[0] = done
             logger.info(f"[RECOGNITION] Progress: {done}/{total_count}")
             if progress_callback:
-                progress_callback(f"Processing {done}/{total_count}")
+                progress_callback(f"Processing {done}/{total_count}", (done, total_count))
 
         with ConcurrentExecutor(options) as executor:
             results: list[TaskResult] = executor.map(process_task, tasks, on_progress)

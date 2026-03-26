@@ -17,7 +17,7 @@ from sqlopt.stages.parse.branch_expander import BranchExpander
 
 logger = logging.getLogger(__name__)
 
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 class ParseStage(Stage[None, ParseOutput]):
@@ -97,7 +97,10 @@ class ParseStage(Stage[None, ParseOutput]):
             )
             total_branches += len(expanded)
             if progress_callback:
-                progress_callback(f"Processing SQL unit {idx + 1}/{len(init_data.sql_units)}: {sql_unit.id}")
+                progress_callback(
+                    f"Processing SQL unit {idx + 1}/{len(init_data.sql_units)}: {sql_unit.id}",
+                    (idx + 1, len(init_data.sql_units)),
+                )
             if len(init_data.sql_units) <= 10:
                 pct = (idx + 1) * 100 // len(init_data.sql_units) // 10
                 logger.info(f"[PARSE] Progress: {idx + 1}/{len(init_data.sql_units)} ({pct}%)")

@@ -19,7 +19,7 @@ from sqlopt.stages.base import Stage
 
 logger = logging.getLogger(__name__)
 
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 class ResultStage(Stage[None, ResultOutput]):

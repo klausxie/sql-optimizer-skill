@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 def extract_table_names_from_sql(sql_text: str) -> list[str]:
@@ -117,7 +117,10 @@ class InitStage(Stage[None, InitOutput]):
         total_fragments = 0
         for idx, xml_path in enumerate(mapper_files):
             if progress_callback:
-                progress_callback(f"Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
+                progress_callback(
+                    f"Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}",
+                    (idx + 1, len(mapper_files)),
+                )
             logger.info(f"[INIT] Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
             statements, fragments = parse_mapper_file(xml_path)
             stmt_count = len(statements)

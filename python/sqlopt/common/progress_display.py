@@ -50,6 +50,7 @@ class ProgressDisplay:
         stage: str,
         stage_idx: int,
         message: str = "",
+        sub_progress: tuple[int, int] | None = None,
     ) -> None:
         """Update progress display.
 
@@ -57,18 +58,23 @@ class ProgressDisplay:
             stage: Current stage name (e.g., "init", "parse")
             stage_idx: Current stage index (1-based, e.g., 2 for stage 2 of 5)
             message: Optional message to display (e.g., "Processing SQL 3/47")
+            sub_progress: Optional (current, total) for within-stage progress.
+                When provided, overall percentage reflects actual progress.
         """
         if self._current_stage != stage:
             self._current_stage = stage
             self._stage_start[stage] = time.time()
 
-        # Calculate overall progress (stage_idx is 1-based)
-        overall_pct = stage_idx * 100 // self.total_stages
-        bar = self._render_bar(stage_idx, self.total_stages)
+        if sub_progress is not None:
+            current, total = sub_progress
+            overall_pct = int((stage_idx - 1 + current / total) / self.total_stages * 100)
+            bar = self._render_bar(overall_pct, 100)
+            parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), bar, f"{overall_pct}%"]
+        else:
+            overall_pct = stage_idx * 100 // self.total_stages
+            bar = self._render_bar(stage_idx, self.total_stages)
+            parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), bar, f"{overall_pct}%"]
 
-        # Build output line
-        stage_label = stage.upper()
-        parts = [f"[{stage_idx}/{self.total_stages}]", stage_label, bar, f"{overall_pct}%"]
         if message:
             parts.append(f"— {self._truncate(message)}")
 
