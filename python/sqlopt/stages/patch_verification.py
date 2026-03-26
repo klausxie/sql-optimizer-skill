@@ -99,7 +99,6 @@ def append_patch_verification(
     render_evidence_required = applicable is True and render_required
     sql_required = verification_policy.require_sql_parse
     sql_evidence_required = applicable is True and sql_required
-    syntax_aggregate_required = applicable is True and any((xml_required, render_required, sql_required))
     apply_required = verification_policy.require_apply_check
     apply_evidence_required = applicable is True and apply_required
     patch_target_ok = bool(patch_target) or not requires_patch_target
@@ -126,26 +125,10 @@ def append_patch_verification(
         sql_check_ok = not sql_evidence_required
     else:
         sql_check_ok = bool(sql_parse_ok) if sql_required else True
-    required_syntax_failure_present = any(
-        (
-            xml_required and not xml_check_ok,
-            render_required and not render_check_ok,
-            sql_required and not sql_check_ok,
-        )
-    )
-    disabled_syntax_failure_present = any(
-        (
-            (not xml_required) and xml_parse_ok is False,
-            (not render_required) and render_ok is False,
-            (not sql_required) and sql_parse_ok is False,
-        )
-    )
     if syntax_ok is None:
         syntax_aggregate_ok = True
-    elif syntax_ok is False and disabled_syntax_failure_present and not required_syntax_failure_present:
-        syntax_aggregate_ok = True
     else:
-        syntax_aggregate_ok = bool(syntax_ok) if syntax_aggregate_required else True
+        syntax_aggregate_ok = bool(syntax_ok)
     syntax_aggregate_reason = None if syntax_aggregate_ok else "PATCH_SYNTAX_INVALID"
     xml_reason = None if xml_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if xml_parse_ok is None else "PATCH_SYNTAX_INVALID")
     render_reason = (
@@ -224,7 +207,7 @@ def append_patch_verification(
         VerificationCheck(
             "syntax_ok",
             syntax_aggregate_ok,
-            "error" if syntax_aggregate_required else "info",
+            "info",
             syntax_aggregate_reason,
         ),
         VerificationCheck(
@@ -263,7 +246,7 @@ def append_patch_verification(
     syntax_failure = next(
         (
             required_failures_by_name[name]
-            for name in ("syntax_ok", "xml_parse_ok", "render_ok", "sql_parse_ok")
+            for name in ("xml_parse_ok", "render_ok", "sql_parse_ok")
             if name in required_failures_by_name and required_failures_by_name[name].reason_code == "PATCH_SYNTAX_INVALID"
         ),
         None,

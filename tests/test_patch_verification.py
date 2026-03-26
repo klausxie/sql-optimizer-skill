@@ -285,7 +285,7 @@ class PatchVerificationTest(unittest.TestCase):
 
         self.assertEqual(rows[0]["status"], "VERIFIED")
 
-    def test_patch_verification_treats_aggregate_syntax_failure_as_required_failure(self) -> None:
+    def test_patch_verification_keeps_raw_aggregate_syntax_failure_observational(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_aggregate_syntax_failure_") as td:
             run_dir = Path(td)
             patch_target = self._patch_target(family="STATIC_INCLUDE_WRAPPER_COLLAPSE")
@@ -319,8 +319,10 @@ class PatchVerificationTest(unittest.TestCase):
             )
             rows = _read_ledger(run_dir)
 
-        self.assertEqual(rows[0]["status"], "UNVERIFIED")
-        self.assertEqual(rows[0]["reason_code"], "PATCH_SYNTAX_INVALID")
+        self.assertEqual(rows[0]["status"], "VERIFIED")
+        syntax_check = next(check for check in rows[0]["checks"] if check["name"] == "syntax_ok")
+        self.assertEqual(syntax_check["severity"], "info")
+        self.assertFalse(syntax_check["ok"])
 
     def test_patch_verification_keeps_disabled_sql_parse_failure_non_blocking(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_optional_sql_parse_") as td:
