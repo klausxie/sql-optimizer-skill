@@ -8,6 +8,26 @@ from ..platforms.sql.materialization_constants import TEMPLATE_SAFE_MODES
 from .patching_render import build_range_patch
 
 
+def _template_replay_contract_error(acceptance: dict) -> dict | None:
+    materialization = acceptance.get("rewriteMaterialization") or {}
+    replay_contract = materialization.get("replayContract")
+    if not isinstance(replay_contract, dict):
+        return None
+    required_ops = [str(op) for op in (replay_contract.get("requiredTemplateOps") or []) if str(op).strip()]
+    actual_ops = [
+        str(row.get("op") or "").strip()
+        for row in (acceptance.get("templateRewriteOps") or [])
+        if isinstance(row, dict) and str(row.get("op") or "").strip()
+    ]
+    missing = [op for op in required_ops if op not in actual_ops]
+    if missing:
+        return {
+            "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
+            "message": f"template replay contract missing required rewrite ops: {', '.join(missing)}",
+        }
+    return None
+
+
 def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -> tuple[str | None, int, dict | None]:
     materialization = acceptance.get("rewriteMaterialization") or {}
     mode = str(materialization.get("mode") or "").strip()
@@ -24,6 +44,9 @@ def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -
             "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
             "message": "template materialization did not include rewrite ops",
         }
+    replay_contract_error = _template_replay_contract_error(acceptance)
+    if replay_contract_error is not None:
+        return None, 0, replay_contract_error
     statement_op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
     if statement_op is not None:
         range_info = ((sql_unit.get("locators") or {}) if isinstance(sql_unit.get("locators"), dict) else {}).get("range")

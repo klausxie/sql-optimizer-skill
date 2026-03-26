@@ -8,6 +8,8 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
+from ..verification.patch_replay import replay_patch_target as _replay_patch_target
+from ..verification.patch_syntax import verify_patch_syntax as _verify_patch_syntax
 from .patching_render import (
     build_unified_patch as _build_unified_patch,
     normalize_sql_text as _normalize_sql_text,
@@ -66,6 +68,7 @@ def _finalize_generated_patch(
     changed_lines: int,
     candidates_evaluated: int,
     selected_candidate_id: str | None,
+    patch_target: dict[str, Any] | None,
     no_effect_message: str,
     workdir: Path,
 ) -> dict:
@@ -77,6 +80,7 @@ def _finalize_generated_patch(
         changed_lines=changed_lines,
         candidates_evaluated=candidates_evaluated,
         selected_candidate_id=selected_candidate_id,
+        patch_target=patch_target,
         no_effect_message=no_effect_message,
         workdir=workdir,
         check_patch_applicable=_check_patch_applicable,
@@ -88,6 +92,8 @@ def _finalize_generated_patch(
 def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: ContractValidator, config: dict[str, Any] | None = None) -> dict:
     paths = canonical_paths(run_dir)
     acceptance_rows = read_jsonl(paths.acceptance_path)
+    fragment_rows = read_jsonl(paths.scan_fragments_path) if paths.scan_fragments_path.exists() else []
+    fragment_catalog = {str(row.get("fragmentKey") or ""): row for row in fragment_rows if str(row.get("fragmentKey") or "").strip()}
 
     project_root = Path.cwd().resolve()
     configured_root = str((((config or {}).get("project", {}) or {}).get("root_path") or "")).strip()
@@ -113,6 +119,44 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         build_unified_patch=_build_unified_patch,
     )
     sql_key = decision_ctx.sql_key
+    patch_target = dict(acceptance.get("patchTarget") or {})
+
+    if patch.get("applicable") is True and patch_target:
+        replay_result = _replay_patch_target(
+            sql_unit=sql_unit,
+            patch_target=patch_target,
+            fragment_catalog=fragment_catalog,
+        )
+        selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
+        patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
+        syntax_result = _verify_patch_syntax(
+            sql_unit=sql_unit,
+            patch_target=patch_target,
+            patch_text=patch_text,
+            replay_result=replay_result,
+        )
+        patch["patchTarget"] = patch_target
+        patch["replayEvidence"] = {
+            "matchesTarget": replay_result.matches_target,
+            "renderedSql": replay_result.rendered_sql,
+            "normalizedRenderedSql": replay_result.normalized_rendered_sql,
+            "driftReason": replay_result.drift_reason,
+        }
+        patch["syntaxEvidence"] = syntax_result.to_dict()
+        if replay_result.matches_target is not True or syntax_result.ok is not True:
+            reason_code = replay_result.drift_reason or syntax_result.reason_code or "PATCH_TARGET_DRIFT"
+            reason_message = "generated patch does not replay back to the persisted patch target"
+            patch = _skip_patch_result(
+                sql_key=decision_ctx.sql_key,
+                statement_key=decision_ctx.statement_key,
+                reason_code=reason_code,
+                reason_message=reason_message,
+                candidates_evaluated=decision_ctx.candidates_evaluated,
+                selected_candidate_id=patch_target.get("selectedCandidateId"),
+                patch_target=patch_target,
+                replay_evidence=patch["replayEvidence"],
+                syntax_evidence=patch["syntaxEvidence"],
+            )
 
     patch = _attach_patch_diagnostics(patch, sql_unit, acceptance)
 

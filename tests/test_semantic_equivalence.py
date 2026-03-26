@@ -219,6 +219,23 @@ class SemanticEquivalenceTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "PASS")
 
+    def test_static_alias_projection_cleanup_is_treated_as_semantically_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="SELECT id AS id, name AS name, email AS email FROM users ORDER BY created_at DESC",
+            rewritten_sql="SELECT id, name, email FROM users ORDER BY created_at DESC",
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT")
+        self.assertEqual(result["confidence"], "HIGH")
+
     def test_update_noop_is_treated_as_semantically_stable_even_without_row_count(self) -> None:
         result = build_semantic_equivalence(
             original_sql="UPDATE orders SET status = #{status} WHERE order_no IN #{orderNo}",

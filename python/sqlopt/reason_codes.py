@@ -339,6 +339,20 @@ REASON_CODES = {
         description="Template rewrite is unsafe",
         user_message="The template rewrite may not be safe to apply. Manual review required.",
     ),
+    "PATCH_REPLAY_CONTRACT_MISSING": ReasonCode(
+        code="PATCH_REPLAY_CONTRACT_MISSING",
+        category="patch",
+        severity="degradable",
+        description="Patch target replay contract missing",
+        user_message="The patch target is missing replay proof details required for automatic patch generation.",
+    ),
+    "PATCH_TARGET_CONTRACT_MISSING": ReasonCode(
+        code="PATCH_TARGET_CONTRACT_MISSING",
+        category="patch",
+        severity="degradable",
+        description="Patch target contract missing",
+        user_message="The persisted patch target contract is missing, so patch generation cannot continue automatically.",
+    ),
     "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS": ReasonCode(
         code="PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
         category="patch",

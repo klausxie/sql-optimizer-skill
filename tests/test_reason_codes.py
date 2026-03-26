@@ -18,8 +18,8 @@ class TestReasonCodeRegistry:
 
     def test_all_codes_registered(self):
         """Verify all expected reason codes are registered."""
-        # Should have 39 codes total
-        assert len(REASON_CODES) >= 39
+        # Should have the full registry, including patch contract guards.
+        assert len(REASON_CODES) >= 41
 
         # Check some key codes exist
         expected_codes = [
@@ -30,6 +30,8 @@ class TestReasonCodeRegistry:
             "OPTIMIZE_LLM_TIMEOUT",
             "VALIDATE_DB_UNREACHABLE",
             "PATCH_TEMPLATE_REWRITE_UNSAFE",
+            "PATCH_REPLAY_CONTRACT_MISSING",
+            "PATCH_TARGET_CONTRACT_MISSING",
         ]
         for code in expected_codes:
             assert code in REASON_CODES, f"Expected code {code} not found"
@@ -141,3 +143,16 @@ class TestReasonCodeRegistry:
         assert "fatal" in severities
         assert "retryable" in severities
         assert "degradable" in severities
+
+    def test_patch_contract_guard_codes_are_patch_degradable(self):
+        """Patch contract guard codes should be patch-surface degradable outcomes."""
+        replay_missing = get_reason_code("PATCH_REPLAY_CONTRACT_MISSING")
+        target_missing = get_reason_code("PATCH_TARGET_CONTRACT_MISSING")
+
+        assert replay_missing is not None
+        assert replay_missing.category == "patch"
+        assert replay_missing.severity == "degradable"
+
+        assert target_missing is not None
+        assert target_missing.category == "patch"
+        assert target_missing.severity == "degradable"

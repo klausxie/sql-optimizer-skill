@@ -13,6 +13,49 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PatchGenerateOrchestrationTest(unittest.TestCase):
+    def _patch_target(self, *, target_sql: str = "SELECT id FROM users", after_template: str = "SELECT id FROM users") -> dict:
+        return {
+            "sqlKey": "demo.user.find#v1",
+            "selectedCandidateId": "c1",
+            "targetSql": target_sql,
+            "targetSqlNormalized": target_sql,
+            "targetSqlFingerprint": "demo-fingerprint",
+            "semanticGateStatus": "PASS",
+            "semanticGateConfidence": "HIGH",
+            "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+            "family": "STATIC_STATEMENT_REWRITE",
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+            "patchability": {"eligible": True},
+            "rewriteMaterialization": {
+                "mode": "STATEMENT_TEMPLATE_SAFE",
+                "replayVerified": True,
+                "replayContract": {
+                    "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_statement_body"],
+                    "expectedRenderedSql": target_sql,
+                    "expectedRenderedSqlNormalized": target_sql,
+                    "expectedFingerprint": {"kind": "normalized_sql", "value": target_sql},
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": [],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": after_template}],
+            "replayContract": {
+                "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                "requiredTemplateOps": ["replace_statement_body"],
+                "expectedRenderedSql": target_sql,
+                "expectedRenderedSqlNormalized": target_sql,
+                "expectedFingerprint": {"kind": "normalized_sql", "value": target_sql},
+                "requiredAnchors": [],
+                "requiredIncludes": [],
+                "requiredPlaceholderShape": [],
+                "dialectSyntaxCheckRequired": True,
+            },
+            "evidenceRefs": [],
+        }
+
     def _prepare_run_dir(self, acceptance: dict) -> Path:
         td = tempfile.TemporaryDirectory(prefix="sqlopt_patch_orchestration_")
         self.addCleanup(td.cleanup)
@@ -111,6 +154,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "sqlKey": "demo.user.find#v1",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(),
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
@@ -140,6 +184,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "sqlKey": "demo.user.find#v1",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(),
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
@@ -221,6 +266,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "sqlKey": "demo.user.find#v1",
             "status": "PASS",
             "rewrittenSql": "  SELECT   *   FROM users   ",
+            "patchTarget": self._patch_target(target_sql="SELECT * FROM users", after_template="SELECT * FROM users"),
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
@@ -245,6 +291,56 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"]["skipped"])
         patch_file = run_dir / "pipeline" / "patch_generate" / "files" / "demo.user.find#v1.patch"
         self.assertFalse(patch_file.exists())
+
+    def test_patch_generate_rejects_when_patch_target_missing(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT * FROM users",
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
+            "locators": {"statementId": "listUsersSorted"},
+        }
+
+        patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_CONTRACT_MISSING")
+
+    def test_patch_generate_blocks_when_replay_target_drift_exists(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT name FROM users"),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT * FROM users",
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
+            "namespace": "com.example.mapper.user.user_mapper",
+            "locators": {"statementId": "listUsersSorted", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=("diff", 1, None)):
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
 
 
 if __name__ == "__main__":

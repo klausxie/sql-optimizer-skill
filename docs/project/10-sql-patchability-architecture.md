@@ -182,7 +182,7 @@
 
 1. `STATIC_INCLUDE_WRAPPER_COLLAPSE`
    - 代表样例：`demo.user.advanced.listUsersViaStaticIncludeWrapped#v14`
-2. `STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE`
+2. `STATIC_INCLUDE_WRAPPER_COLLAPSE`
    - 代表样例：`demo.user.advanced.listUsersRecentPagedWrapped#v16`
 3. `DYNAMIC_COUNT_WRAPPER_COLLAPSE`
    - 代表样例：`demo.user.advanced.countUsersFilteredWrapped#v4`

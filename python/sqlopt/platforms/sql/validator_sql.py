@@ -20,6 +20,7 @@ from .patch_strategy_planner import plan_patch_strategy
 from .semantic_equivalence import build_semantic_equivalence
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
+from ...patch_contracts import FROZEN_AUTO_PATCH_FAMILIES, build_patch_target_contract
 
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -95,6 +96,80 @@ def _patch_template_settings(config: dict[str, Any] | None) -> dict[str, bool]:
     return {
         "enable_fragment_materialization": bool(template_cfg.get("enable_fragment_materialization", False)),
     }
+
+
+def _derive_patch_target_family(
+    rewrite_facts: dict[str, Any] | None,
+    rewrite_materialization: dict[str, Any] | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> str | None:
+    dynamic_profile = dict(((rewrite_facts or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {})
+    dynamic_family = str(dynamic_profile.get("baselineFamily") or "").strip()
+    if dynamic_family:
+        return dynamic_family
+
+    aggregation_profile = dict(((rewrite_facts or {}).get("aggregationQuery") or {}).get("capabilityProfile") or {})
+    aggregation_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
+    if aggregation_family:
+        return aggregation_family
+
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type == "SAFE_WRAPPER_COLLAPSE":
+        return "STATIC_WRAPPER_COLLAPSE"
+
+    cte_query = dict((rewrite_facts or {}).get("cteQuery") or {})
+    if cte_query.get("inlineCandidate"):
+        return "STATIC_CTE_INLINE"
+
+    if strategy_type == "EXACT_TEMPLATE_EDIT":
+        return "STATIC_STATEMENT_REWRITE"
+    return None
+
+
+def _build_patch_target(
+    *,
+    sql_unit: dict[str, Any],
+    rewritten_sql: str | None,
+    selected_candidate_id: str | None,
+    semantic_equivalence: dict[str, Any],
+    patchability: dict[str, Any] | None,
+    selected_patch_strategy: dict[str, Any] | None,
+    rewrite_materialization: dict[str, Any] | None,
+    template_rewrite_ops: list[dict[str, Any]] | None,
+    rewrite_facts: dict[str, Any] | None,
+    evidence_dir: Path | None,
+    acceptance_status: str,
+) -> dict[str, Any] | None:
+    if acceptance_status != "PASS":
+        return None
+    if str((semantic_equivalence or {}).get("status") or "").strip().upper() != "PASS":
+        return None
+    if str((semantic_equivalence or {}).get("confidence") or "").strip().upper() not in {"MEDIUM", "HIGH"}:
+        return None
+    if not bool((patchability or {}).get("eligible")):
+        return None
+    if not selected_patch_strategy or not selected_candidate_id or not rewritten_sql:
+        return None
+    replay_contract = dict((rewrite_materialization or {}).get("replayContract") or {})
+    if not replay_contract:
+        return None
+    family = _derive_patch_target_family(rewrite_facts, rewrite_materialization, selected_patch_strategy)
+    if not family or family not in FROZEN_AUTO_PATCH_FAMILIES:
+        return None
+    evidence_refs = [str(evidence_dir)] if evidence_dir is not None else []
+    return build_patch_target_contract(
+        sql_key=str(sql_unit.get("sqlKey") or ""),
+        target_sql=rewritten_sql,
+        selected_candidate_id=selected_candidate_id,
+        selected_patch_strategy=selected_patch_strategy,
+        family=family,
+        semantic_equivalence=semantic_equivalence,
+        patchability=dict(patchability or {}),
+        rewrite_materialization=dict(rewrite_materialization or {}),
+        template_rewrite_ops=[dict(row) for row in (template_rewrite_ops or []) if isinstance(row, dict)],
+        replay_contract=replay_contract,
+        evidence_refs=evidence_refs,
+    )
 
 
 def _dynamic_template_summary(
@@ -299,6 +374,19 @@ def validate_proposal(
         rewrite_safety_level = "BLOCKED"
     else:
         rewrite_safety_level = "REVIEW"
+    patch_target = _build_patch_target(
+        sql_unit=sql_unit,
+        rewritten_sql=selection.rewritten_sql,
+        selected_candidate_id=selection.selected_candidate_id,
+        semantic_equivalence=semantic_equivalence,
+        patchability=patchability,
+        selected_patch_strategy=selected_patch_strategy,
+        rewrite_materialization=rewrite_materialization,
+        template_rewrite_ops=template_rewrite_ops,
+        rewrite_facts=rewrite_facts,
+        evidence_dir=evidence_dir,
+        acceptance_status=decision.status,
+    )
     decision_layers = _build_decision_layers(
         status=decision.status,
         validation_profile=validation_profile,
@@ -349,6 +437,7 @@ def validate_proposal(
         rewrite_safety_level=rewrite_safety_level,
         patchability=patchability,
         selected_patch_strategy=selected_patch_strategy,
+        patch_target=patch_target,
         dynamic_template=_dynamic_template_summary(rewrite_facts, patchability, selected_patch_strategy),
         dynamic_candidate_intent=dynamic_candidate_intent,
         canonicalization=selection.canonicalization,

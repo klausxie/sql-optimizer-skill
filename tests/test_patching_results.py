@@ -23,6 +23,9 @@ class PatchingResultsTest(unittest.TestCase):
             patchability={"applyCheckPassed": False},
             selection_evidence={"acceptanceStatus": "NEED_MORE_PARAMS"},
             fallback_reason_codes=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
+            patch_target={"family": "STATIC_STATEMENT_REWRITE"},
+            replay_evidence={"driftReason": "PATCH_TARGET_DRIFT"},
+            syntax_evidence={"ok": False},
         )
 
         self.assertEqual(patch["selectedCandidateId"], "c1")
@@ -33,6 +36,8 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertFalse(patch["patchability"]["applyCheckPassed"])
         self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "NEED_MORE_PARAMS")
         self.assertIn("VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", patch["fallbackReasonCodes"])
+        self.assertEqual(patch["patchTarget"]["family"], "STATIC_STATEMENT_REWRITE")
+        self.assertEqual(patch["replayEvidence"]["driftReason"], "PATCH_TARGET_DRIFT")
 
     def test_selected_patch_result_marks_patch_as_selected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_result_") as td:
@@ -49,6 +54,7 @@ class PatchingResultsTest(unittest.TestCase):
                 patchability={"applyCheckPassed": True},
                 selection_evidence={"acceptanceStatus": "PASS"},
                 fallback_reason_codes=[],
+                patch_target={"family": "STATIC_STATEMENT_REWRITE"},
             )
 
         self.assertEqual(patch["patchFiles"], [str(patch_file)])
@@ -57,6 +63,7 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertTrue(patch["applicable"])
         self.assertEqual(patch["deliveryOutcome"]["tier"], "READY_TO_APPLY")
         self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "PASS")
+        self.assertEqual(patch["patchTarget"]["family"], "STATIC_STATEMENT_REWRITE")
 
 
 if __name__ == "__main__":

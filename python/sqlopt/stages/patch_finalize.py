@@ -13,6 +13,7 @@ def finalize_generated_patch(
     changed_lines: int,
     candidates_evaluated: int,
     selected_candidate_id: str | None,
+    patch_target: dict[str, Any] | None,
     no_effect_message: str,
     workdir: Path,
     check_patch_applicable: Callable[[Path, Path], tuple[bool, str | None]],
@@ -28,6 +29,7 @@ def finalize_generated_patch(
             reason_code="PATCH_NO_EFFECTIVE_CHANGE",
             reason_message=no_effect_message,
             candidates_evaluated=candidates_evaluated,
+            patch_target=patch_target,
         )
     patch_file.parent.mkdir(parents=True, exist_ok=True)
     patch_file.write_text(patch_text, encoding="utf-8")
@@ -42,6 +44,7 @@ def finalize_generated_patch(
             selected_candidate_id=selected_candidate_id,
             applicable=False,
             apply_check_error=apply_error,
+            patch_target=patch_target,
         )
     return selected_patch_result(
         sql_key=sql_key,
@@ -50,4 +53,5 @@ def finalize_generated_patch(
         changed_lines=changed_lines,
         candidates_evaluated=candidates_evaluated,
         selected_candidate_id=selected_candidate_id,
+        patch_target=patch_target,
     )

@@ -7,7 +7,7 @@ from .dynamic_candidate_intent_engine import assess_dynamic_candidate_intent_mod
 from .patch_safety import assess_patch_safety_model
 from .patch_strategy_registry import iter_patch_strategies
 from .rewrite_facts import build_rewrite_facts_model
-from .template_materializer import build_rewrite_materialization
+from .template_materializer import build_replay_contract, build_rewrite_materialization
 
 
 def _blocked_strategy_hints(patchability: dict[str, Any]) -> list[dict[str, Any]]:
@@ -110,14 +110,24 @@ def plan_patch_strategy(
     selected = candidates[0] if candidates else None
     if selected is not None:
         selected_summary = selected.to_summary_dict()
+        selected_materialization = dict(selected.materialization or {})
+        selected_ops = [dict(row) for row in (selected.ops or []) if isinstance(row, dict)]
+        if "replayContract" not in selected_materialization:
+            selected_materialization["replayContract"] = build_replay_contract(
+                sql_unit,
+                rewritten_sql,
+                selected_materialization,
+                selected_ops,
+                fragment_catalog,
+            )
         return (
             rewrite_facts,
             dynamic_candidate_intent,
             patchability,
             selected_summary,
             [row.to_summary_dict() for row in candidates],
-            dict(selected.materialization or {}),
-            [dict(row) for row in (selected.ops or []) if isinstance(row, dict)],
+            selected_materialization,
+            selected_ops,
         )
 
     return (

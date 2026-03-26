@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import Counter
 import unittest
 
+from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
+
 from .fixture_project_harness_support import (
     patch_blocker_family,
     run_fixture_patch_and_report_harness,
@@ -11,6 +13,18 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
+    def test_auto_patches_require_frozen_family_and_replay_evidence(self) -> None:
+        _scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
+
+        auto_patches = [row for row in patches if row.get("applicable") is True]
+        self.assertTrue(auto_patches)
+        for patch in auto_patches:
+            sql_key = str(patch["sqlKey"])
+            family = str(((patch.get("patchTarget") or {}).get("family")) or "").strip()
+            self.assertIn(family, FROZEN_AUTO_PATCH_FAMILIES, sql_key)
+            self.assertTrue(((patch.get("replayEvidence") or {}).get("matchesTarget")) is True, sql_key)
+            self.assertTrue(((patch.get("syntaxEvidence") or {}).get("ok")) is True, sql_key)
+
     def test_fixture_project_patch_matches_scenario_matrix(self) -> None:
         scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
         patch_by_key = {str(row["sqlKey"]): row for row in patches}

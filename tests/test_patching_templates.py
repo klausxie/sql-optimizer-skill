@@ -34,6 +34,24 @@ class PatchingTemplatesTest(unittest.TestCase):
         self.assertEqual(changed_lines, 0)
         self.assertIsNone(error)
 
+    def test_build_template_plan_patch_rejects_missing_replay_contract_ops(self) -> None:
+        patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+            {"locators": {"range": {"startOffset": 0, "endOffset": 1}}},
+            {
+                "rewriteMaterialization": {
+                    "mode": "STATEMENT_TEMPLATE_SAFE",
+                    "replayVerified": True,
+                    "replayContract": {"requiredTemplateOps": ["replace_fragment_body"]},
+                },
+                "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": "SELECT 1"}],
+            },
+            Path("."),
+        )
+
+        self.assertIsNone(patch_text)
+        self.assertEqual(changed_lines, 0)
+        self.assertEqual(error["code"], "PATCH_TEMPLATE_MATERIALIZATION_MISSING")
+
     def test_build_template_plan_patch_builds_fragment_patch(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_template_fragment_") as td:
             run_dir = Path(td)

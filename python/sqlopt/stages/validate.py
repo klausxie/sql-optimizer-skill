@@ -42,6 +42,8 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
         write_json(sql_artifact_dir / "patchability.assessment.json", result.patchability)
     if result.patch_strategy_candidates is not None:
         write_json(sql_artifact_dir / "patch.strategy.plan.json", result.patch_strategy_candidates)
+    if result.patch_target is not None:
+        write_json(sql_artifact_dir / "patch.target.contract.json", result.patch_target)
     if result.canonicalization_assessment is not None:
         write_json(sql_artifact_dir / "canonicalization.assessment.json", result.canonicalization_assessment)
     if result.candidate_selection_trace is not None:

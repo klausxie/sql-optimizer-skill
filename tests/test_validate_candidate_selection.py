@@ -194,6 +194,94 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result["rewriteMaterialization"]["mode"], "STATEMENT_SQL")
         self.assertEqual(result["templateRewriteOps"], [])
 
+    def test_validate_persists_patch_target_contract_for_ready_family(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="validate_patch_target_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user">
+  <sql id="userBaseQuery">SELECT id FROM users</sql>
+  <select id="countUser">select count(1) from (<include refid="userBaseQuery" />) tmp</select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
+            sql_unit = {
+                "sqlKey": "demo.user.countUser#v2",
+                "sql": "select count(1) from ( SELECT id FROM users ) tmp",
+                "statementType": "SELECT",
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user",
+                "statementId": "countUser",
+                "templateSql": 'select count(1) from (<include refid="userBaseQuery" />) tmp',
+                "dynamicFeatures": ["INCLUDE"],
+                "includeBindings": [{"ref": base_ref, "properties": [], "bindingHash": "base"}],
+                "primaryFragmentTarget": base_ref,
+            }
+            fragment_catalog = {
+                base_ref: {
+                    "fragmentKey": base_ref,
+                    "xmlPath": str(xml_path),
+                    "namespace": "demo.user",
+                    "templateSql": "SELECT id FROM users",
+                    "dynamicFeatures": [],
+                    "includeBindings": [],
+                }
+            }
+            proposal = {
+                "llmCandidates": [
+                    {
+                        "id": "c1",
+                        "rewrittenSql": "SELECT COUNT(*) FROM users",
+                        "rewriteStrategy": "ELIMINATE_UNNECESSARY_SUBQUERY",
+                    }
+                ],
+                "suggestions": [],
+            }
+            config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+            def fake_semantics(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_semantic_compare_v2",
+                    "rowCount": {"status": "MATCH"},
+                    "keySetHash": {"status": "MATCH"},
+                    "rowSampleHash": {"status": "MATCH"},
+                    "evidenceRefs": [],
+                    "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+                }
+
+            def fake_plan(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_explain_json_compare",
+                    "beforeSummary": {"totalCost": 10.0},
+                    "afterSummary": {"totalCost": 8.0},
+                    "reasonCodes": ["TOTAL_COST_REDUCED"],
+                    "improved": True,
+                    "evidenceRefs": [],
+                }
+
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(
+                    sql_unit,
+                    proposal,
+                    True,
+                    config=config,
+                    evidence_dir=Path(td),
+                    fragment_catalog=fragment_catalog,
+                )
+
+        patch_target = result.to_contract()["patchTarget"]
+        self.assertEqual(patch_target["family"], "STATIC_INCLUDE_WRAPPER_COLLAPSE")
+        self.assertEqual(patch_target["targetSql"], "SELECT COUNT(*) FROM users")
+        self.assertEqual(patch_target["semanticGateStatus"], "PASS")
+        self.assertEqual(patch_target["semanticGateConfidence"], "HIGH")
+        self.assertEqual(patch_target["replayContract"]["expectedRenderedSql"], "SELECT COUNT(*) FROM users")
+        self.assertTrue(patch_target["targetSqlNormalized"])
+        self.assertTrue(patch_target["targetSqlFingerprint"])
+
     def test_validate_rejects_text_fallback_candidate(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.countUser#v2",

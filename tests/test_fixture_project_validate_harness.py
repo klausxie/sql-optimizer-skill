@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
+
 from .fixture_project_harness_support import (
     BLOCKER_FAMILIES,
     FIXTURE_PROJECT,
@@ -20,6 +22,17 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):
+    def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
+        scenarios = load_fixture_scenarios()
+        ready_dynamic_families = {
+            str(scenario["targetDynamicBaselineFamily"])
+            for scenario in scenarios
+            if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH"
+            and str(scenario.get("targetDynamicBaselineFamily") or "").strip()
+        }
+        self.assertTrue(ready_dynamic_families)
+        self.assertTrue(ready_dynamic_families <= FROZEN_AUTO_PATCH_FAMILIES)
+
     def test_fixture_scenario_matrix_has_validate_harness_contract(self) -> None:
         scenarios = load_fixture_scenarios()
         self.assertGreaterEqual(len(scenarios), 20)
@@ -80,6 +93,12 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_COUNT_WRAPPER", sql_key)
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
+                self.assertEqual((result.get("patchTarget") or {}).get("family"), "DYNAMIC_COUNT_WRAPPER_COLLAPSE", sql_key)
+                self.assertEqual(
+                    (((result.get("patchTarget") or {}).get("replayContract") or {}).get("expectedRenderedSql")),
+                    result.get("rewrittenSql"),
+                    sql_key,
+                )
             if sql_key == "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "STATIC_INCLUDE_ONLY", sql_key)

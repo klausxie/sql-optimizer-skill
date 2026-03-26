@@ -260,10 +260,7 @@ def _build_dynamic_template_facts(
             blocker_family = None
             blockers = []
             template_preserving_candidate = template_anchor_stable
-            if re.search(r"\blimit\b", template_sql, flags=re.IGNORECASE) or re.search(r"\boffset\b|\bfetch\b", template_sql, flags=re.IGNORECASE):
-                baseline_family = "STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE"
-            else:
-                baseline_family = "STATIC_INCLUDE_WRAPPER_COLLAPSE"
+            baseline_family = "STATIC_INCLUDE_WRAPPER_COLLAPSE"
 
     return DynamicTemplateRewriteFacts(
         present=True,

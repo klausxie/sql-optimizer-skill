@@ -45,6 +45,47 @@ class PatchApplicabilityTest(unittest.TestCase):
             "perfComparison": {},
             "securityChecks": {},
             "selectedCandidateId": "c-pass-1",
+            "patchTarget": {
+                "sqlKey": "demo.user.listUsersSorted#v1",
+                "selectedCandidateId": "c-pass-1",
+                "targetSql": "SELECT id, name FROM users ORDER BY created_at DESC",
+                "targetSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
+                "targetSqlFingerprint": "demo-fingerprint",
+                "semanticGateStatus": "PASS",
+                "semanticGateConfidence": "HIGH",
+                "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                "family": "STATIC_STATEMENT_REWRITE",
+                "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                "patchability": {"eligible": True},
+                "rewriteMaterialization": {
+                    "mode": "STATEMENT_SQL",
+                    "replayVerified": True,
+                    "replayContract": {
+                        "replayMode": "STATEMENT_SQL",
+                        "requiredTemplateOps": [],
+                        "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
+                        "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
+                        "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
+                        "requiredAnchors": [],
+                        "requiredIncludes": [],
+                        "requiredPlaceholderShape": [],
+                        "dialectSyntaxCheckRequired": False,
+                    },
+                },
+                "templateRewriteOps": [],
+                "replayContract": {
+                    "replayMode": "STATEMENT_SQL",
+                    "requiredTemplateOps": [],
+                    "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
+                    "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
+                    "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": [],
+                    "dialectSyntaxCheckRequired": False,
+                },
+                "evidenceRefs": [],
+            },
         }
 
     def test_patch_marked_applicable_when_git_apply_check_passes(self) -> None:
@@ -69,7 +110,7 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row.get("applicable"))
         self.assertIsNone(patch_row.get("applyCheckError"))
         self.assertTrue(patch_row.get("patchFiles"))
-        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "READY_TO_APPLY")
+        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "AUTO_PATCH")
         self.assertTrue(patch_row.get("patchability", {}).get("applyCheckPassed"))
 
     def test_patch_formats_single_line_sql_for_readability(self) -> None:
@@ -82,6 +123,10 @@ class PatchApplicabilityTest(unittest.TestCase):
                 **self._base_acceptance(),
                 "rewrittenSql": "SELECT id, name FROM users WHERE deleted = 0 AND status = #{status} ORDER BY created_at DESC",
             }
+            acceptance["patchTarget"]["targetSql"] = acceptance["rewrittenSql"]
+            acceptance["patchTarget"]["targetSqlNormalized"] = acceptance["rewrittenSql"]
+            acceptance["patchTarget"]["replayContract"]["expectedRenderedSql"] = acceptance["rewrittenSql"]
+            acceptance["patchTarget"]["replayContract"]["expectedRenderedSqlNormalized"] = acceptance["rewrittenSql"]
             (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
@@ -221,7 +266,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
             )
             self.assertEqual(patch_row.get("patchFiles"), [])
-            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "PATCHABLE_WITH_REWRITE")
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
             self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MAPPER_REFACTOR")
 
     def test_patch_not_applicable_when_git_apply_check_fails(self) -> None:
@@ -250,7 +295,7 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertFalse(patch_row.get("applicable"))
         self.assertIn("patch does not apply", str(patch_row.get("applyCheckError")))
         self.assertEqual(patch_row.get("patchFiles"), [])
-        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "MANUAL_REVIEW")
+        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "GIT_CONFLICT")
 
     def test_patch_prefers_statement_template_ops_from_validate(self) -> None:
@@ -534,7 +579,7 @@ class PatchApplicabilityTest(unittest.TestCase):
 
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED")
-        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "MANUAL_REVIEW")
+        self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MANUAL_PATCH")
 
     def test_patch_is_skipped_when_placeholder_semantics_mismatch(self) -> None:
