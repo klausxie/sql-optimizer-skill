@@ -106,14 +106,14 @@ class ResultStage(Stage[None, ResultOutput]):
                     baseline_only_risks = self._analyze_baseline_only_branches(
                         baseline_only_baselines, sql_unit_map, table_schemas
                     )
-            except Exception as e:
+            except (OSError, TypeError, ValueError, json.JSONDecodeError) as e:
                 logger.warning(f"[RESULT] Failed to load baselines for static analysis: {e}")
 
-        high_confidence_proposals = [p for p in optimize_data.proposals if p.confidence > 0.7]
-        logger.info(f"[RESULT] High-confidence proposals (confidence > 0.7): {len(high_confidence_proposals)}")
+        patch_candidates = [p for p in optimize_data.proposals if self._should_generate_patch(p)]
+        logger.info(f"[RESULT] Patch-ready proposals: {len(patch_candidates)}")
 
         patches: list[Patch] = []
-        for proposal in high_confidence_proposals:
+        for proposal in patch_candidates:
             sql_unit = sql_unit_map.get(proposal.sql_unit_id)
             if sql_unit is None:
                 logger.debug(f"[RESULT]   Skipping {proposal.sql_unit_id} - not found in init data")
@@ -123,7 +123,7 @@ class ResultStage(Stage[None, ResultOutput]):
             patches.append(patch)
             logger.info("[RESULT]   [OK] %s: %s...", proposal.sql_unit_id, proposal.rationale[:50])
 
-        report = self._create_report(optimize_data.proposals, high_confidence_proposals, patches, baseline_only_risks)
+        report = self._create_report(optimize_data.proposals, patch_candidates, patches, baseline_only_risks)
         logger.info(f"[RESULT] Report summary: {report.summary}")
 
         output = ResultOutput(
@@ -142,7 +142,7 @@ class ResultStage(Stage[None, ResultOutput]):
             output=output,
             run_id=rid,
             duration_seconds=duration_seconds,
-            high_confidence_count=len(high_confidence_proposals),
+            high_confidence_count=len(patch_candidates),
         )
 
         logger.info("[RESULT] Result stage completed")
@@ -183,7 +183,7 @@ class ResultStage(Stage[None, ResultOutput]):
     def _create_report(
         self,
         all_proposals: list[OptimizationProposal],
-        high_confidence: list[OptimizationProposal],
+        patch_candidates: list[OptimizationProposal],
         patches: list[Patch],
         baseline_only_risks: list[str] | None = None,
     ) -> Report:
@@ -191,7 +191,7 @@ class ResultStage(Stage[None, ResultOutput]):
 
         Args:
             all_proposals: All optimization proposals
-            high_confidence: Proposals with confidence > 0.7
+            patch_candidates: Proposals considered safe enough to patch
             patches: Generated patches
             baseline_only_risks: Static risk analysis for baseline_only branches
 
@@ -199,54 +199,79 @@ class ResultStage(Stage[None, ResultOutput]):
             Report with summary and recommendations
         """
         total_proposals = len(all_proposals)
-        high_conf_count = len(high_confidence)
+        verified = self._sort_by_impact([p for p in all_proposals if self._is_verified_improvement(p)])
+        needs_validation = self._sort_by_impact([p for p in all_proposals if self._needs_more_validation(p)])
+        mismatches = self._sort_by_impact([p for p in all_proposals if self._is_result_mismatch(p)])
+        failed_validation = self._sort_by_impact([p for p in all_proposals if self._is_validation_failure(p)])
 
-        # Build summary
-        if high_conf_count == 0:
-            summary = "No high-confidence optimizations found (confidence > 0.7)"
+        if verified:
+            summary = f"Found {len(verified)} verified optimization(s) out of {total_proposals} total proposal(s)"
+        elif needs_validation:
+            summary = f"Found {len(needs_validation)} optimization candidate(s) that still need validation"
         else:
-            summary = (
-                f"Found {high_conf_count} high-confidence optimization(s) out of {total_proposals} total proposals"
-            )
+            summary = "No verified optimizations found"
 
-        # Build details
         details_lines = [f"Total proposals analyzed: {total_proposals}"]
-        details_lines.append(f"High-confidence proposals (confidence > 0.7): {high_conf_count}")
+        details_lines.append(f"Verified optimizations: {len(verified)}")
+        details_lines.append(f"Need more validation: {len(needs_validation)}")
+        details_lines.append(f"Validation mismatches: {len(mismatches)}")
+        details_lines.append(f"Validation failures: {len(failed_validation)}")
         details_lines.append(f"Patches generated: {len(patches)}")
 
-        if baseline_only_risks:
-            details_lines.append("\nBaseline-only static analysis (no EXPLAIN performed):")
-            for risk in baseline_only_risks:
-                details_lines.append(f"  - {risk}")
+        if verified:
+            details_lines.append("")
+            details_lines.append("Verified optimizations:")
+            details_lines.extend(self._format_ranked_items(verified))
 
-        if high_confidence:
-            details_lines.append("\nHigh-confidence optimizations:")
-            details_lines.extend(
-                f"  - [{p.sql_unit_id}] {p.rationale} (confidence: {p.confidence:.2f})" for p in high_confidence
-            )
+        if needs_validation:
+            details_lines.append("")
+            details_lines.append("Need more validation:")
+            details_lines.extend(self._format_ranked_items(needs_validation))
+
+        if mismatches:
+            details_lines.append("")
+            details_lines.append("Result mismatches:")
+            details_lines.extend(self._format_ranked_items(mismatches))
+
+        if failed_validation:
+            details_lines.append("")
+            details_lines.append("Validation failures:")
+            details_lines.extend(self._format_ranked_items(failed_validation))
+
+        if baseline_only_risks:
+            details_lines.append("")
+            details_lines.append("Baseline-only static analysis (no EXPLAIN performed):")
+            details_lines.extend(f"  - {risk}" for risk in baseline_only_risks)
 
         details = "\n".join(details_lines)
 
-        # Identify risks
-        risks: list[str] = [
-            f"Medium confidence ({p.confidence:.2f}) for {p.sql_unit_id} - verify before applying"
-            for p in high_confidence
-            if p.confidence < 0.8
-        ]
-
+        risks: list[str] = []
+        risks.extend(
+            f"{proposal.sql_unit_id}.{proposal.path_id} result mismatch after optimization"
+            for proposal in mismatches
+        )
+        risks.extend(
+            f"{proposal.sql_unit_id}.{proposal.path_id} validation failed: {proposal.validation_error or 'unknown error'}"
+            for proposal in failed_validation
+        )
+        risks.extend(
+            f"{proposal.sql_unit_id}.{proposal.path_id} still needs validation before patching"
+            for proposal in needs_validation[:5]
+        )
         if baseline_only_risks:
             risks.extend(baseline_only_risks)
-
         if not risks:
-            risks.append("Low risk - all changes are straightforward optimizations")
+            risks.append("Low risk - verified optimizations preserved baseline behavior")
 
-        # Build recommendations
         recommendations: list[str] = []
-        if high_confidence:
-            recommendations.append(f"Apply {len(patches)} patch(es) to implement high-confidence optimizations")
-        else:
+        if patch_candidates:
+            recommendations.append(f"Apply {len(patches)} verified patch(es) with highest impact first")
+        if needs_validation:
+            recommendations.append("Run the listed candidates against a representative test dataset before patching")
+        if mismatches or failed_validation:
+            recommendations.append("Review mismatched or failed validations before accepting those optimizations")
+        if not recommendations:
             recommendations.append("Review SQL patterns manually for potential optimizations")
-            recommendations.append("Consider adjusting confidence threshold if too restrictive")
 
         return Report(
             summary=summary,
@@ -254,6 +279,54 @@ class ResultStage(Stage[None, ResultOutput]):
             risks=risks,
             recommendations=recommendations,
         )
+
+    def _should_generate_patch(self, proposal: OptimizationProposal) -> bool:
+        if proposal.validation_status is None:
+            return proposal.confidence > 0.7
+        if proposal.validation_status != "validated":
+            return False
+        if proposal.result_equivalent is False:
+            return False
+        return not (proposal.gain_ratio is not None and proposal.gain_ratio <= 0)
+
+    def _is_verified_improvement(self, proposal: OptimizationProposal) -> bool:
+        if proposal.validation_status == "validated" and proposal.result_equivalent is not False:
+            return proposal.gain_ratio is None or proposal.gain_ratio > 0
+        return False
+
+    def _needs_more_validation(self, proposal: OptimizationProposal) -> bool:
+        if proposal.validation_status is None:
+            return proposal.confidence > 0.7
+        return proposal.validation_status in {"estimated_only", "explained_only", "validated_without_baseline"}
+
+    def _is_result_mismatch(self, proposal: OptimizationProposal) -> bool:
+        return proposal.validation_status == "result_mismatch" or proposal.result_equivalent is False
+
+    def _is_validation_failure(self, proposal: OptimizationProposal) -> bool:
+        return proposal.validation_status == "validation_failed"
+
+    def _sort_by_impact(self, proposals: list[OptimizationProposal]) -> list[OptimizationProposal]:
+        return sorted(proposals, key=self._proposal_impact_score, reverse=True)
+
+    def _proposal_impact_score(self, proposal: OptimizationProposal) -> float:
+        before_metrics = proposal.before_metrics or {}
+        baseline_metric = before_metrics.get("actual_time_ms")
+        if baseline_metric is None:
+            baseline_metric = before_metrics.get("estimated_cost")
+        if baseline_metric is None:
+            baseline_metric = before_metrics.get("rows_examined", 0.0)
+        gain_ratio = proposal.gain_ratio or 0.0
+        return float(baseline_metric or 0.0) * max(gain_ratio, 0.0)
+
+    def _format_ranked_items(self, proposals: list[OptimizationProposal]) -> list[str]:
+        lines: list[str] = []
+        for proposal in proposals:
+            gain = f"{proposal.gain_ratio:.2%}" if proposal.gain_ratio is not None else "n/a"
+            lines.append(
+                f"  - [{proposal.sql_unit_id}.{proposal.path_id}] {proposal.rationale} "
+                f"(status: {proposal.validation_status or 'legacy'}, gain: {gain}, confidence: {proposal.confidence:.2f})"
+            )
+        return lines
 
     def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
         schemas: dict[str, TableSchema] = {}
@@ -263,7 +336,7 @@ class ResultStage(Stage[None, ResultOutput]):
                 schemas_data = json.loads(schemas_file.read_text(encoding="utf-8"))
                 schemas = {k: TableSchema(**v) for k, v in schemas_data.items()}
                 logger.info(f"[RESULT] Loaded {len(schemas)} table schema(s) for static analysis")
-        except Exception as e:
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"[RESULT] Failed to load table schemas: {e}")
         return schemas
 

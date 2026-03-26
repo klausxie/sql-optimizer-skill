@@ -290,6 +290,98 @@ class TestResultStageRun:
             finally:
                 os.chdir(original_cwd)
 
+    def test_run_generates_patches_only_for_verified_proposals(self):
+        """Test ResultStage only patches validated-equivalent proposals from new optimize output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_id = "test-run-verified-only"
+            runs_dir = Path(tmpdir) / "runs" / run_id
+
+            optimize_dir = runs_dir / "optimize"
+            optimize_dir.mkdir(parents=True)
+            proposals = [
+                OptimizationProposal(
+                    sql_unit_id="sql-verified",
+                    path_id="path-1",
+                    original_sql="SELECT * FROM users",
+                    optimized_sql="SELECT id FROM users",
+                    rationale="Verified improvement",
+                    confidence=0.9,
+                    before_metrics={"actual_time_ms": 100.0},
+                    after_metrics={"actual_time_ms": 20.0},
+                    result_equivalent=True,
+                    validation_status="validated",
+                    gain_ratio=0.8,
+                ),
+                OptimizationProposal(
+                    sql_unit_id="sql-estimated",
+                    path_id="path-2",
+                    original_sql="SELECT * FROM orders",
+                    optimized_sql="SELECT id FROM orders",
+                    rationale="Needs more validation",
+                    confidence=0.95,
+                    before_metrics={"estimated_cost": 80.0},
+                    after_metrics={"estimated_cost": 30.0},
+                    validation_status="estimated_only",
+                    gain_ratio=0.625,
+                ),
+                OptimizationProposal(
+                    sql_unit_id="sql-mismatch",
+                    path_id="path-3",
+                    original_sql="SELECT * FROM items",
+                    optimized_sql="SELECT id FROM items",
+                    rationale="Result mismatch",
+                    confidence=0.99,
+                    before_metrics={"actual_time_ms": 50.0},
+                    after_metrics={"actual_time_ms": 10.0},
+                    result_equivalent=False,
+                    validation_status="result_mismatch",
+                    gain_ratio=0.8,
+                ),
+            ]
+            optimize_output = OptimizeOutput(proposals=proposals)
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
+
+            init_dir = runs_dir / "init"
+            init_dir.mkdir(parents=True)
+            sql_units = [
+                SQLUnit(
+                    id="sql-verified",
+                    mapper_file="UserMapper.xml",
+                    sql_id="findUser",
+                    sql_text="<select id='findUser'>SELECT * FROM users</select>",
+                    statement_type="SELECT",
+                ),
+                SQLUnit(
+                    id="sql-estimated",
+                    mapper_file="OrderMapper.xml",
+                    sql_id="findOrder",
+                    sql_text="<select id='findOrder'>SELECT * FROM orders</select>",
+                    statement_type="SELECT",
+                ),
+                SQLUnit(
+                    id="sql-mismatch",
+                    mapper_file="ItemMapper.xml",
+                    sql_id="findItem",
+                    sql_text="<select id='findItem'>SELECT * FROM items</select>",
+                    statement_type="SELECT",
+                ),
+            ]
+            init_output = InitOutput(sql_units=sql_units, run_id=run_id)
+            (init_dir / "sql_units.json").write_text(init_output.to_json(), encoding="utf-8")
+
+            original_cwd = str(Path.cwd())
+            try:
+                os.chdir(tmpdir)
+                stage = ResultStage(run_id=run_id)
+                result = stage.run()
+
+                assert len(result.patches) == 1
+                assert result.patches[0].sql_unit_id == "sql-verified"
+                assert result.can_patch is True
+                assert "verified" in result.report.summary.lower()
+            finally:
+                os.chdir(original_cwd)
+
 
 class TestCreatePatch:
     """Tests for ResultStage._create_patch() method."""
@@ -455,7 +547,7 @@ class TestCreateReport:
                 report = stage._create_report(proposals, high_confidence, patches)  # noqa: SLF001
 
                 assert "Total proposals analyzed: 1" in report.details
-                assert "High-confidence proposals" in report.details
+                assert "Verified optimizations" in report.details
                 assert "Patches generated: 1" in report.details
             finally:
                 os.chdir(original_cwd)
@@ -471,6 +563,7 @@ class TestCreateReport:
                     optimized_sql="SELECT id FROM users",
                     rationale="Remove wildcard",
                     confidence=0.75,
+                    validation_status="estimated_only",
                 ),
             ]
             high_confidence = proposals
@@ -490,7 +583,7 @@ class TestCreateReport:
                 report = stage._create_report(proposals, high_confidence, patches)  # noqa: SLF001
 
                 assert len(report.risks) > 0
-                assert any("verify before applying" in risk for risk in report.risks)
+                assert any("needs validation" in risk for risk in report.risks)
             finally:
                 os.chdir(original_cwd)
 
@@ -541,7 +634,7 @@ class TestCreateReport:
                 stage = ResultStage()
                 report = stage._create_report(proposals, high_confidence, patches)  # noqa: SLF001
 
-                assert "No high-confidence optimizations found" in report.summary
+                assert "No verified optimizations found" in report.summary
                 assert "Review SQL patterns manually" in report.recommendations[0]
             finally:
                 os.chdir(original_cwd)
