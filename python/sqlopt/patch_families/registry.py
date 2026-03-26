@@ -6,14 +6,19 @@ from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEAN
 from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC
 
 
+def _canonicalize_family_id(family: str) -> str:
+    return str(family or "").strip()
+
+
 def _build_patch_family_registry(
     specs: tuple[PatchFamilySpec, ...],
 ) -> dict[str, PatchFamilySpec]:
     registry: dict[str, PatchFamilySpec] = {}
     for spec in specs:
-        if spec.family in registry:
-            raise ValueError(f"DUPLICATE_PATCH_FAMILY: {spec.family}")
-        registry[spec.family] = spec
+        canonical_family = _canonicalize_family_id(spec.family)
+        if canonical_family in registry:
+            raise ValueError(f"DUPLICATE_PATCH_FAMILY: {canonical_family}")
+        registry[canonical_family] = spec
     return registry
 
 
@@ -31,4 +36,4 @@ def list_registered_patch_families() -> tuple[PatchFamilySpec, ...]:
 
 
 def lookup_patch_family_spec(family: str) -> PatchFamilySpec | None:
-    return _PATCH_FAMILY_REGISTRY.get(str(family or "").strip())
+    return _PATCH_FAMILY_REGISTRY.get(_canonicalize_family_id(family))
