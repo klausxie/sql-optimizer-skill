@@ -84,6 +84,9 @@ class PatchStrategyPlannerTest(unittest.TestCase):
         self.assertEqual(selected["strategyType"], "SAFE_WRAPPER_COLLAPSE")
         self.assertEqual(candidates[0]["strategyType"], "SAFE_WRAPPER_COLLAPSE")
         self.assertEqual(materialization["mode"], "STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE")
+        self.assertEqual(materialization["replayContract"]["replayMode"], "STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE")
+        self.assertEqual(materialization["replayContract"]["requiredTemplateOps"], ["replace_statement_body"])
+        self.assertEqual(materialization["replayContract"]["expectedRenderedSqlNormalized"], "SELECT COUNT(*) FROM users")
         self.assertEqual(ops[0]["op"], "replace_statement_body")
         self.assertEqual(ops[0]["afterTemplate"], "SELECT COUNT(*) FROM users")
 
@@ -196,6 +199,11 @@ class PatchStrategyPlannerTest(unittest.TestCase):
         self.assertEqual(candidates[0]["strategyType"], "EXACT_TEMPLATE_EDIT")
         self.assertEqual(materialization["mode"], "STATEMENT_SQL")
         self.assertEqual(materialization["targetType"], "STATEMENT")
+        self.assertEqual(materialization["replayContract"]["replayMode"], "STATEMENT_SQL")
+        self.assertEqual(
+            materialization["replayContract"]["expectedRenderedSqlNormalized"],
+            "SELECT id, name, email, status, created_at, updated_at FROM users WHERE created_at >= #{createdAfter} ORDER BY created_at DESC LIMIT 20",
+        )
         self.assertEqual(ops, [])
 
     def test_planner_records_aggregation_constraint_blocked_hint(self) -> None:

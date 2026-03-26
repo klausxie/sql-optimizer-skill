@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,105 @@ from .template_segmentation import (
     extract_repeated_replacement,
     split_by_anchors,
 )
+
+_PLACEHOLDER_RE = re.compile(r"(?:#|\$)\{[^}]+\}")
+
+
+def _normalized_sql_fingerprint(text: str) -> dict[str, str]:
+    normalized = normalize_sql_text(text)
+    return {"kind": "normalized_sql", "value": normalized}
+
+
+def _placeholder_shape(text: str) -> list[str]:
+    return _PLACEHOLDER_RE.findall(str(text or ""))
+
+
+def _qualified_include_refs(template: str, namespace: str) -> list[str]:
+    try:
+        wrapper = ET.fromstring(f"<root>{template}</root>")
+    except ET.ParseError:
+        return []
+    refs: list[str] = []
+    for node in wrapper.iter():
+        if str(node.tag).rsplit("}", 1)[-1].lower() != "include":
+            continue
+        ref = str(node.attrib.get("refid") or "").strip()
+        if not ref:
+            continue
+        refs.append(f"{namespace}.{ref}" if "." not in ref and namespace else ref)
+    return refs
+
+
+def build_replay_contract(
+    sql_unit: dict[str, Any],
+    rewritten_sql: str,
+    materialization: dict[str, Any],
+    ops: list[dict[str, Any]],
+    fragment_catalog: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    fragment_catalog = fragment_catalog or {}
+    mode = str(materialization.get("mode") or "")
+    namespace = str(sql_unit.get("namespace") or "").strip()
+    statement_op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
+    fragment_op = next((row for row in ops if str(row.get("op") or "") == "replace_fragment_body"), None)
+    after_template = str((statement_op or fragment_op or {}).get("afterTemplate") or "")
+    expected_rendered_sql = normalize_sql_text(rewritten_sql if not after_template else after_template)
+
+    if statement_op is not None:
+        xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+        if xml_path.exists():
+            try:
+                root = ET.parse(xml_path).getroot()
+            except Exception:
+                root = None
+            if root is not None:
+                rendered = render_template_body_sql(
+                    after_template,
+                    namespace,
+                    xml_path,
+                    collect_fragments(root, namespace, xml_path),
+                )
+                if rendered:
+                    expected_rendered_sql = rendered
+    elif fragment_op is not None:
+        target_ref = str(fragment_op.get("targetRef") or materialization.get("targetRef") or "").strip()
+        fragment = fragment_catalog.get(target_ref)
+        if fragment is not None:
+            rendered = render_fragment_body_sql(
+                after_template,
+                str(fragment.get("namespace") or namespace),
+                Path(str(fragment.get("xmlPath") or sql_unit.get("xmlPath") or "")),
+                fragment_catalog,
+            )
+            if rendered:
+                expected_rendered_sql = rendered
+
+    expected_rendered_sql = normalize_sql_text(expected_rendered_sql)
+    return {
+        "replayMode": mode,
+        "requiredTemplateOps": [str(row.get("op") or "") for row in ops if str(row.get("op") or "").strip()],
+        "expectedRenderedSql": expected_rendered_sql,
+        "expectedRenderedSqlNormalized": expected_rendered_sql,
+        "expectedFingerprint": _normalized_sql_fingerprint(expected_rendered_sql),
+        "requiredAnchors": [str(anchor) for row in ops for anchor in (row.get("preservedAnchors") or [])],
+        "requiredIncludes": _qualified_include_refs(after_template, namespace),
+        "requiredPlaceholderShape": _placeholder_shape(after_template or rewritten_sql),
+        "dialectSyntaxCheckRequired": mode != STATEMENT_SQL,
+    }
+
+
+def _attach_replay_contract(
+    sql_unit: dict[str, Any],
+    rewritten_sql: str,
+    fragment_catalog: dict[str, dict[str, Any]],
+    materialization: dict[str, Any],
+    ops: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if str(materialization.get("mode") or "") == UNMATERIALIZABLE:
+        return materialization, ops
+    out = dict(materialization)
+    out["replayContract"] = build_replay_contract(sql_unit, rewritten_sql, out, ops, fragment_catalog)
+    return out, ops
 
 
 def _unmaterializable(
@@ -313,7 +413,10 @@ def build_rewrite_materialization(
     fragment_catalog = fragment_catalog or {}
     inferred = infer_rewrite_target(sql_unit, rewritten_sql)
     if inferred.get("modeHint") == STATEMENT_SQL:
-        return (
+        return _attach_replay_contract(
+            sql_unit,
+            rewritten_sql,
+            fragment_catalog,
             {
                 "mode": STATEMENT_SQL,
                 "targetType": "STATEMENT",
@@ -329,11 +432,17 @@ def build_rewrite_materialization(
     if inferred.get("modeHint") == "STATEMENT_OR_FRAGMENT_TEMPLATE_CANDIDATE":
         materialization, ops = _materialize_statement_template(sql_unit, rewritten_sql)
         if materialization is not None:
-            return materialization, ops
+            return _attach_replay_contract(sql_unit, rewritten_sql, fragment_catalog, materialization, ops)
         if not enable_fragment_materialization:
             materialization, ops = _materialize_static_fragment(sql_unit, rewritten_sql, fragment_catalog, inferred)
             if materialization is not None and str(materialization.get("mode") or "") == FRAGMENT_TEMPLATE_SAFE:
-                return _fragment_template_auto_result(materialization), ops
+                return _attach_replay_contract(
+                    sql_unit,
+                    rewritten_sql,
+                    fragment_catalog,
+                    _fragment_template_auto_result(materialization),
+                    ops,
+                )
             return _unmaterializable(
                 target_type="SQL_FRAGMENT",
                 target_ref=inferred.get("targetRef"),
@@ -343,7 +452,7 @@ def build_rewrite_materialization(
         materialization, ops = _materialize_static_fragment(sql_unit, rewritten_sql, fragment_catalog, inferred)
         if materialization is not None:
             materialization["featureFlagApplied"] = True
-            return materialization, ops
+            return _attach_replay_contract(sql_unit, rewritten_sql, fragment_catalog, materialization, ops)
     return _unmaterializable(
         target_type=inferred.get("targetType"),
         target_ref=inferred.get("targetRef"),
