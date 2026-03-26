@@ -339,6 +339,8 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
                 patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
 
 
 if __name__ == "__main__":

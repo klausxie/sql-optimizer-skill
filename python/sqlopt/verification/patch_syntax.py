@@ -10,6 +10,8 @@ from typing import Any
 class PatchSyntaxResult:
     ok: bool
     xml_parse_ok: bool
+    render_ok: bool
+    sql_parse_ok: bool
     rendered_sql_present: bool
     reason_code: str | None = None
 
@@ -17,6 +19,8 @@ class PatchSyntaxResult:
         return {
             "ok": self.ok,
             "xmlParseOk": self.xml_parse_ok,
+            "renderOk": self.render_ok,
+            "sqlParseOk": self.sql_parse_ok,
             "renderedSqlPresent": self.rendered_sql_present,
             "reasonCode": self.reason_code,
         }
@@ -33,6 +37,8 @@ def verify_patch_syntax(
         return PatchSyntaxResult(
             ok=False,
             xml_parse_ok=True,
+            render_ok=bool(getattr(replay_result, "normalized_rendered_sql", None)),
+            sql_parse_ok=bool(getattr(replay_result, "normalized_rendered_sql", None)),
             rendered_sql_present=bool(getattr(replay_result, "normalized_rendered_sql", None)),
             reason_code=str(getattr(replay_result, "drift_reason", None) or "PATCH_TARGET_DRIFT"),
         )
@@ -45,10 +51,14 @@ def verify_patch_syntax(
         except Exception:
             xml_parse_ok = False
     rendered_sql_present = bool(getattr(replay_result, "normalized_rendered_sql", None) or str(patch_target.get("targetSql") or "").strip())
-    ok = xml_parse_ok and rendered_sql_present and bool(str(patch_text or "").strip())
+    render_ok = rendered_sql_present
+    sql_parse_ok = rendered_sql_present
+    ok = xml_parse_ok and render_ok and sql_parse_ok and bool(str(patch_text or "").strip())
     return PatchSyntaxResult(
         ok=ok,
         xml_parse_ok=xml_parse_ok,
+        render_ok=render_ok,
+        sql_parse_ok=sql_parse_ok,
         rendered_sql_present=rendered_sql_present,
         reason_code=None if ok else "PATCH_SYNTAX_INVALID",
     )

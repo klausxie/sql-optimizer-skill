@@ -244,3 +244,90 @@ class VerificationStageIntegrationTest(unittest.TestCase):
 
         self.assertEqual(rows[0]["phase"], "patch_generate")
         self.assertEqual(rows[0]["status"], "VERIFIED")
+
+    def test_patch_stage_records_replay_and_syntax_verdict(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_verification_patch_replay_") as td:
+            run_dir = Path(td)
+            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
+            xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+            rewritten_sql = "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC"
+            acceptance = {
+                "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+                "status": "PASS",
+                "rewrittenSql": rewritten_sql,
+                "equivalence": {"checked": True},
+                "perfComparison": {"checked": True, "reasonCodes": []},
+                "securityChecks": {"dollar_substitution_removed": True},
+                "patchTarget": {
+                    "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+                    "selectedCandidateId": "c1",
+                    "targetSql": rewritten_sql,
+                    "targetSqlNormalized": rewritten_sql,
+                    "targetSqlFingerprint": "demo-fingerprint",
+                    "semanticGateStatus": "PASS",
+                    "semanticGateConfidence": "HIGH",
+                    "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                    "family": "STATIC_STATEMENT_REWRITE",
+                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+                    "patchability": {"eligible": True},
+                    "rewriteMaterialization": {
+                        "mode": "STATEMENT_TEMPLATE_SAFE",
+                        "replayVerified": True,
+                        "replayContract": {
+                            "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                            "requiredTemplateOps": ["replace_statement_body"],
+                            "expectedRenderedSql": rewritten_sql,
+                            "expectedRenderedSqlNormalized": rewritten_sql,
+                            "expectedFingerprint": {"kind": "normalized_sql", "value": rewritten_sql},
+                            "requiredAnchors": [],
+                            "requiredIncludes": [],
+                            "requiredPlaceholderShape": [],
+                            "dialectSyntaxCheckRequired": False,
+                        },
+                    },
+                    "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": rewritten_sql}],
+                    "replayContract": {
+                        "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                        "requiredTemplateOps": ["replace_statement_body"],
+                        "expectedRenderedSql": rewritten_sql,
+                        "expectedRenderedSqlNormalized": rewritten_sql,
+                        "expectedFingerprint": {"kind": "normalized_sql", "value": rewritten_sql},
+                        "requiredAnchors": [],
+                        "requiredIncludes": [],
+                        "requiredPlaceholderShape": [],
+                        "dialectSyntaxCheckRequired": False,
+                    },
+                    "evidenceRefs": [],
+                },
+            }
+            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
+                json.dumps(acceptance, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_generate.execute_one(
+                    {
+                        "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+                        "xmlPath": str(xml_path),
+                        "namespace": "demo.user.advanced",
+                        "statementId": "listUsersProjected",
+                        "statementType": "select",
+                        "variantId": "v1",
+                        "sql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
+                        "templateSql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
+                        "parameterMappings": [],
+                        "paramExample": {},
+                        "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 1, "endOffset": 10}},
+                        "riskFlags": [],
+                        "dynamicFeatures": [],
+                    },
+                    acceptance,
+                    run_dir,
+                    self._validator(),
+                )
+                rows = self._ledger_rows(run_dir)
+
+        self.assertEqual(rows[0]["phase"], "patch_generate")
+        self.assertEqual(rows[0]["status"], "VERIFIED")
+        self.assertTrue(rows[0]["verdict"]["replay_matches_target"])
+        self.assertTrue(rows[0]["verdict"]["syntax_ok"])

@@ -27,8 +27,10 @@ def action_reason(action_id: str) -> str:
 def delivery_rank(tier: str) -> int:
     normalized = str(tier or "").strip().upper()
     return {
+        "AUTO_PATCH": 4,
         "READY_TO_APPLY": 4,
         "PATCHABLE_WITH_REWRITE": 3,
+        "REVIEW_ONLY": 2,
         "MANUAL_REVIEW": 2,
         "NEEDS_REVIEW": 1,
         "BLOCKED": 0,
@@ -41,7 +43,7 @@ def best_patch_row(patch_rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     for row in patch_rows:
         delivery_tier = str(((row.get("deliveryOutcome") or {}).get("tier")) or "").strip()
         if not delivery_tier and row.get("applicable") is True:
-            delivery_tier = "READY_TO_APPLY"
+            delivery_tier = "AUTO_PATCH"
         rank = delivery_rank(delivery_tier)
         if rank > best_rank:
             best = row
@@ -113,7 +115,7 @@ def assess_sql_outcome(
     if best_patch is not None:
         delivery_tier = str(((best_patch.get("deliveryOutcome") or {}).get("tier")) or "").strip()
         if not delivery_tier and best_patch.get("applicable") is True:
-            delivery_tier = "READY_TO_APPLY"
+            delivery_tier = "AUTO_PATCH"
         delivery_assessment = delivery_tier or "BLOCKED"
     elif best_acceptance is not None:
         decision_layers = dict(best_acceptance.get("decisionLayers") or {})
