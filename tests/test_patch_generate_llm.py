@@ -1,6 +1,7 @@
 """Tests for Phase 5 patch_generate LLM assistance"""
 
 import pytest
+from sqlopt.run_paths import canonical_paths
 from sqlopt.stages.patch_generate_llm import (
     TemplatePatchSuggestion,
     build_template_patch_prompt,
@@ -265,7 +266,7 @@ class TestCollectTemplateSuggestions:
         assert suggestions == []
 
     def test_collect_empty_directory(self, tmp_path):
-        suggestions_dir = tmp_path / "ops" / "template_suggestions"
+        suggestions_dir = canonical_paths(tmp_path).ops_dir / "template_suggestions"
         suggestions_dir.mkdir(parents=True)
 
         suggestions = collect_template_suggestions(tmp_path)
@@ -273,7 +274,7 @@ class TestCollectTemplateSuggestions:
 
     def test_collect_with_files(self, tmp_path):
         import json
-        suggestions_dir = tmp_path / "ops" / "template_suggestions"
+        suggestions_dir = canonical_paths(tmp_path).ops_dir / "template_suggestions"
         suggestions_dir.mkdir(parents=True)
 
         suggestion_file = suggestions_dir / "test_mapper.suggestion.json"

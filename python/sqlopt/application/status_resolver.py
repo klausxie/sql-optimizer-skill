@@ -83,9 +83,7 @@ class StatusResolver:
             if to_stage == "report" and report_policy.allow_regenerate:
                 if not self.is_complete_to_stage(state, "patch_generate", include_report=False):
                     return None
-                if report_needs_work:
-                    return ResumeDecision(phase="report", final_meta_status="COMPLETED")
-                return None
+                return ResumeDecision(phase="report", final_meta_status="COMPLETED")
             if self.is_complete_to_stage(state, to_stage, include_report=False):
                 if report_needs_work:
                     return ResumeDecision(phase="report", final_meta_status="COMPLETED")
@@ -113,9 +111,9 @@ class StatusResolver:
         )
         if report_required and report_resume is None and base_complete and (target_stage == "report" or report_done):
             complete = True
-        elif report_required and report_resume is not None:
+        elif report_required and report_resume is not None and not base_complete:
             complete = False
-        if not report_on and report_resume is not None:
+        if not report_on and report_resume is not None and not base_complete:
             complete = False
 
         current_phase = request.state.get("current_phase")
