@@ -14,6 +14,7 @@ class FailureClassificationTest(unittest.TestCase):
         self.assertEqual(classify_reason_code("SCAN_TYPE_ATTR_SANITIZED", phase="scan"), "degradable")
         self.assertEqual(classify_reason_code("SCAN_STATEMENT_PARSE_DEGRADED", phase="scan"), "degradable")
         self.assertEqual(classify_reason_code("SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD", phase="scan"), "fatal")
+        self.assertEqual(classify_reason_code("PATCH_FAMILY_SPEC_MISSING", phase="patch_generate"), "degradable")
         self.assertEqual(classify_reason_code("UNKNOWN_CODE", phase="validate"), "fatal")
 
 

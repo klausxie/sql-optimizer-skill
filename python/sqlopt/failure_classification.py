@@ -38,6 +38,7 @@ PHASE_CLASSIFICATION = {
     },
     "patch_generate": {
         "PATCH_CONFLICT_NO_CLEAR_WINNER": "degradable",
+        "PATCH_FAMILY_SPEC_MISSING": "degradable",
         "PATCH_LOCATOR_AMBIGUOUS": "degradable",
         "PATCH_VALIDATION_BLOCKED_SECURITY": "degradable",
         "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS": "degradable",

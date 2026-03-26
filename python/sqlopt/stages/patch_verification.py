@@ -126,7 +126,23 @@ def append_patch_verification(
         sql_check_ok = not sql_evidence_required
     else:
         sql_check_ok = bool(sql_parse_ok) if sql_required else True
+    required_syntax_failure_present = any(
+        (
+            xml_required and not xml_check_ok,
+            render_required and not render_check_ok,
+            sql_required and not sql_check_ok,
+        )
+    )
+    disabled_syntax_failure_present = any(
+        (
+            (not xml_required) and xml_parse_ok is False,
+            (not render_required) and render_ok is False,
+            (not sql_required) and sql_parse_ok is False,
+        )
+    )
     if syntax_ok is None:
+        syntax_aggregate_ok = True
+    elif syntax_ok is False and disabled_syntax_failure_present and not required_syntax_failure_present:
         syntax_aggregate_ok = True
     else:
         syntax_aggregate_ok = bool(syntax_ok) if syntax_aggregate_required else True
