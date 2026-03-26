@@ -239,7 +239,15 @@ def append_patch_verification(
         ),
         None,
     )
-    if template_ops and replay_verified is not True:
+    if applicable is True and not patch_target:
+        verification_status = "UNVERIFIED"
+        verification_reason_code = "PATCH_TARGET_CONTRACT_MISSING"
+        verification_reason_message = "applicable patch is missing persisted patchTarget contract"
+    elif applicable is True and family_spec_missing:
+        verification_status = "UNVERIFIED"
+        verification_reason_code = "PATCH_FAMILY_SPEC_MISSING"
+        verification_reason_message = "applicable patch family is not registered in the verification policy registry"
+    elif template_ops and replay_verified is not True:
         verification_status = "UNVERIFIED"
         verification_reason_code = "PATCH_TEMPLATE_REPLAY_NOT_VERIFIED"
         verification_reason_message = "template patch path was considered without replay verification"
@@ -259,14 +267,6 @@ def append_patch_verification(
         verification_status = "VERIFIED"
         verification_reason_code = "PATCH_SEMANTIC_CONFIDENCE_LOW"
         verification_reason_message = "patch generation was intentionally blocked due to low semantic confidence"
-    elif applicable is True and not patch_target:
-        verification_status = "UNVERIFIED"
-        verification_reason_code = "PATCH_TARGET_CONTRACT_MISSING"
-        verification_reason_message = "applicable patch is missing persisted patchTarget contract"
-    elif applicable is True and family_spec_missing:
-        verification_status = "UNVERIFIED"
-        verification_reason_code = "PATCH_FAMILY_SPEC_MISSING"
-        verification_reason_message = "applicable patch family is not registered in the verification policy registry"
     elif applicable is False:
         verification_status = "VERIFIED"
         verification_reason_code = selection_code or "PATCH_NOT_APPLICABLE"
