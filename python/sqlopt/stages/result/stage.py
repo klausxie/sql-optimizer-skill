@@ -6,7 +6,6 @@ import difflib
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
@@ -29,14 +28,14 @@ class ResultStage(Stage[None, ResultOutput]):
     Output: ResultOutput with report and patches
     """
 
-    def __init__(self, run_id: str | None = None, use_mock: bool = True) -> None:
+    def __init__(self, run_id: str | None = None, use_mock: bool = True, base_dir: str = "./runs") -> None:
         """Initialize the result stage.
 
         Args:
             run_id: Optional run identifier. If not provided, uses stub data.
             use_mock: If True, use mock data for stage inputs when available.
         """
-        super().__init__("result")
+        super().__init__("result", base_dir=base_dir)
         self.run_id = run_id
         self.use_mock = use_mock
 
@@ -68,7 +67,7 @@ class ResultStage(Stage[None, ResultOutput]):
             logger.warning("[RESULT] No run_id provided, using stub data")
             return self._create_stub_output()
 
-        loader = MockDataLoader(rid, use_mock=mock)
+        loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
 
         optimize_file = loader.get_optimize_proposals_path()
         logger.info(f"[RESULT] Proposals file: {optimize_file}")
@@ -404,7 +403,7 @@ class ResultStage(Stage[None, ResultOutput]):
             run_id: Optional run identifier (uses self.run_id if not provided)
         """
         rid = run_id or self.run_id or "stub-run"
-        output_dir = Path("runs") / rid / "result"
+        output_dir = self.resolve_run_paths(rid).result_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         output_file = output_dir / "report.json"
@@ -428,7 +427,7 @@ class ResultStage(Stage[None, ResultOutput]):
             high_confidence_count: Number of high-confidence proposals.
         """
         try:
-            output_dir = Path("runs") / run_id / "result"
+            output_dir = self.resolve_run_paths(run_id).result_dir
 
             report_size = len(output.report.summary) + len(output.report.details)
 

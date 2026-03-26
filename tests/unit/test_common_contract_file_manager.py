@@ -26,6 +26,11 @@ class TestContractFileManagerInit:
         mgr = ContractFileManager(run_id="run-456", stage_name="recognition")
         assert mgr.units_dir == Path("runs") / "run-456" / "recognition" / "units"
 
+    def test_units_dir_respects_custom_base_dir(self):
+        """Test units_dir is rooted under a provided base_dir."""
+        mgr = ContractFileManager(run_id="run-456", stage_name="recognition", base_dir="/custom/base")
+        assert mgr.units_dir == Path("/custom/base") / "run-456" / "recognition" / "units"
+
 
 class TestWriteUnitFile:
     """Test write_unit_file() method."""
@@ -247,40 +252,48 @@ class TestSanitizeFilename:
     def test_sanitize_replaces_forward_slash(self):
         """Test _sanitize_filename replaces forward slash with underscore."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("foo/bar") == "foo_bar"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("foo/bar") == "foo_bar"
 
     def test_sanitize_replaces_backslash(self):
         """Test _sanitize_filename replaces backslash with underscore."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("foo\\bar") == "foo_bar"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("foo\\bar") == "foo_bar"
 
     def test_sanitize_replaces_question_mark(self):
         """Test _sanitize_filename replaces question mark with underscore."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("foo?bar") == "foo_bar"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("foo?bar") == "foo_bar"
 
     def test_sanitize_replaces_asterisk(self):
         """Test _sanitize_filename replaces asterisk with underscore."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("foo*bar") == "foo_bar"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("foo*bar") == "foo_bar"
 
     def test_sanitize_replaces_colon(self):
         """Test _sanitize_filename replaces colon with underscore."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("foo:bar") == "foo_bar"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("foo:bar") == "foo_bar"
 
     def test_sanitize_preserves_valid_characters(self):
         """Test _sanitize_filename preserves alphanumeric and valid chars."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("UserMapper.findUser") == "UserMapper.findUser"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("UserMapper.findUser") == "UserMapper.findUser"
 
     def test_sanitize_handles_multiple_special_chars(self):
         """Test _sanitize_filename handles multiple special characters."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        assert mgr._sanitize_filename("a?b*c") == "a_b_c"
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        assert sanitize("a?b*c") == "a_b_c"
 
     def test_sanitize_handles_all_invalid_chars(self):
         """Test _sanitize_filename replaces all invalid filename characters."""
         mgr = ContractFileManager(run_id="run-123", stage_name="recognition")
-        result = mgr._sanitize_filename("a/b\\c?d*e:f")
+        sanitize = mgr._sanitize_filename  # noqa: SLF001
+        result = sanitize("a/b\\c?d*e:f")
         assert result == "a_b_c_d_e_f"

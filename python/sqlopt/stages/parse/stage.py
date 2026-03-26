@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
@@ -17,14 +16,23 @@ from sqlopt.stages.base import Stage
 from sqlopt.stages.branching.fragment_registry import build_fragment_registry
 from sqlopt.stages.parse.branch_expander import BranchExpander
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
 class ParseStage(Stage[None, ParseOutput]):
-    def __init__(self, run_id: str | None = None, use_mock: bool = True, config: SQLOptConfig | None = None):
-        super().__init__("parse")
+    def __init__(
+        self,
+        run_id: str | None = None,
+        use_mock: bool = True,
+        config: SQLOptConfig | None = None,
+        base_dir: str = "./runs",
+    ):
+        super().__init__("parse", base_dir=base_dir)
         self.run_id = run_id
         self.use_mock = use_mock
         self.config = config
@@ -56,7 +64,7 @@ class ParseStage(Stage[None, ParseOutput]):
             unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
             return ParseOutput(sql_units_with_branches=[unit_with_branches])
 
-        loader = MockDataLoader(rid, use_mock=mock)
+        loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         init_file = loader.get_init_sql_units_path()
         fragments_file = loader.get_init_sql_fragments_path()
         table_schemas_file = loader.get_init_table_schemas_path()
@@ -239,9 +247,9 @@ class ParseStage(Stage[None, ParseOutput]):
             logger.debug("[PARSE] No run_id, skipping file output")
             return
 
-        parse_dir = Path("runs") / run_id / "parse"
+        parse_dir = self.resolve_run_paths(run_id).parse_dir
         parse_dir.mkdir(parents=True, exist_ok=True)
-        file_manager = ContractFileManager(run_id, "parse")
+        file_manager = ContractFileManager(run_id, "parse", base_dir=self.base_dir)
         unit_ids: list[str] = []
         total_bytes = 0
 
@@ -300,7 +308,7 @@ class ParseStage(Stage[None, ParseOutput]):
                 1 for unit in output.sql_units_with_branches for branch in unit.branches if not branch.is_valid
             )
 
-            parse_dir = Path("runs") / run_id / "parse"
+            parse_dir = self.resolve_run_paths(run_id).parse_dir
             parse_dir.mkdir(parents=True, exist_ok=True)
             file_size = 0
             files_count = 0

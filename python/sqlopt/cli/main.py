@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 from sqlopt.common.config import SQLOptConfig, load_config
+from sqlopt.common.run_paths import RunPaths
 from sqlopt.stage_runner import StageRunner
 
 logging.basicConfig(
@@ -117,7 +118,7 @@ def mock(run_id: str | None, source: str | None) -> None:
             if stage is None:
                 click.echo(f"  Skipping {f.name} - unknown stage mapping")
                 continue
-            stage_mock_dir = Path("runs") / run_id / "mock" / stage
+            stage_mock_dir = RunPaths(run_id).mock_stage_dir(stage)
             stage_mock_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(f, stage_mock_dir / f.name)
             click.echo(f"  Copied {f.name} -> {stage_mock_dir / f.name}")

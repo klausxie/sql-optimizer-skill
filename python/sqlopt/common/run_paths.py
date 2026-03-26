@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+VALID_STAGES = ("init", "parse", "recognition", "optimize", "result")
+
 
 class RunPaths:
     """Manages paths for a single SQL optimization run.
@@ -33,6 +35,43 @@ class RunPaths:
         self.run_id = run_id
         self.base_dir = Path(base_dir)
         self.run_dir = self.base_dir / run_id
+
+    @staticmethod
+    def sanitize_unit_id(unit_id: str) -> str:
+        """Sanitize a unit identifier for filesystem-safe file names."""
+        return unit_id.replace("/", "_").replace("\\", "_").replace("..", "_")
+
+    def stage_dir(self, stage_name: str) -> Path:
+        """Return the directory for a named stage."""
+        if stage_name not in VALID_STAGES:
+            raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {VALID_STAGES}")
+        return self.run_dir / stage_name
+
+    def stage_file(self, stage_name: str, filename: str) -> Path:
+        """Return a file path under a named stage directory."""
+        return self.stage_dir(stage_name) / filename
+
+    def mock_stage_dir(self, stage_name: str) -> Path:
+        """Return the mock directory for a named stage."""
+        if stage_name not in VALID_STAGES:
+            raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {VALID_STAGES}")
+        return self.mock_dir / stage_name
+
+    def mock_stage_file(self, stage_name: str, filename: str) -> Path:
+        """Return a mock file path for a named stage."""
+        return self.mock_stage_dir(stage_name) / filename
+
+    def stage_units_dir(self, stage_name: str) -> Path:
+        """Return the per-unit directory for a stage."""
+        return self.stage_dir(stage_name) / "units"
+
+    def stage_index_file(self, stage_name: str) -> Path:
+        """Return the per-unit index file for a stage."""
+        return self.stage_units_dir(stage_name) / "_index.json"
+
+    def stage_unit_file(self, stage_name: str, unit_id: str) -> Path:
+        """Return the per-unit JSON file path for a stage."""
+        return self.stage_units_dir(stage_name) / f"{self.sanitize_unit_id(unit_id)}.json"
 
     @property
     def init_dir(self) -> Path:
@@ -67,87 +106,87 @@ class RunPaths:
     @property
     def mock_init_sql_units(self) -> Path:
         """Mock path for init stage SQL units."""
-        return self.mock_dir / "init" / "sql_units.json"
+        return self.mock_stage_file("init", "sql_units.json")
 
     @property
     def mock_init_sql_fragments(self) -> Path:
         """Mock path for init stage SQL fragments."""
-        return self.mock_dir / "init" / "sql_fragments.json"
+        return self.mock_stage_file("init", "sql_fragments.json")
 
     @property
     def mock_init_table_schemas(self) -> Path:
         """Mock path for init stage table schemas."""
-        return self.mock_dir / "init" / "table_schemas.json"
+        return self.mock_stage_file("init", "table_schemas.json")
 
     @property
     def mock_init_field_distributions(self) -> Path:
         """Mock path for init stage field distributions."""
-        return self.mock_dir / "init" / "field_distributions.json"
+        return self.mock_stage_file("init", "field_distributions.json")
 
     @property
     def mock_init_xml_mappings(self) -> Path:
         """Mock path for init stage XML mappings."""
-        return self.mock_dir / "init" / "xml_mappings.json"
+        return self.mock_stage_file("init", "xml_mappings.json")
 
     @property
     def mock_parse_sql_units_with_branches(self) -> Path:
         """Mock path for parse stage output."""
-        return self.mock_dir / "parse" / "sql_units_with_branches.json"
+        return self.mock_stage_file("parse", "sql_units_with_branches.json")
 
     @property
     def mock_recognition_baselines(self) -> Path:
         """Mock path for recognition stage output."""
-        return self.mock_dir / "recognition" / "baselines.json"
+        return self.mock_stage_file("recognition", "baselines.json")
 
     @property
     def mock_optimize_proposals(self) -> Path:
         """Mock path for optimize stage output."""
-        return self.mock_dir / "optimize" / "proposals.json"
+        return self.mock_stage_file("optimize", "proposals.json")
 
     @property
     def mock_result_report(self) -> Path:
         """Mock path for result stage output."""
-        return self.mock_dir / "result" / "report.json"
+        return self.mock_stage_file("result", "report.json")
 
     @property
     def init_sql_units(self) -> Path:
         """Path to SQL units JSON file from init stage."""
-        return self.init_dir / "sql_units.json"
+        return self.stage_file("init", "sql_units.json")
 
     @property
     def init_sql_fragments(self) -> Path:
         """Path to SQL fragments JSON file from init stage."""
-        return self.init_dir / "sql_fragments.json"
+        return self.stage_file("init", "sql_fragments.json")
 
     @property
     def init_table_schemas(self) -> Path:
         """Path to table schemas JSON file from init stage."""
-        return self.init_dir / "table_schemas.json"
+        return self.stage_file("init", "table_schemas.json")
 
     @property
     def init_field_distributions(self) -> Path:
         """Path to field distributions JSON file from init stage."""
-        return self.init_dir / "field_distributions.json"
+        return self.stage_file("init", "field_distributions.json")
 
     @property
     def init_xml_mappings(self) -> Path:
         """Path to XML mappings JSON file from init stage."""
-        return self.init_dir / "xml_mappings.json"
+        return self.stage_file("init", "xml_mappings.json")
 
     @property
     def parse_sql_units_with_branches(self) -> Path:
         """Path to SQL units with branches JSON file."""
-        return self.parse_dir / "sql_units_with_branches.json"
+        return self.stage_file("parse", "sql_units_with_branches.json")
 
     @property
     def parse_risks(self) -> Path:
         """Path to risks JSON file from parse stage."""
-        return self.parse_dir / "risks.json"
+        return self.stage_file("parse", "risks.json")
 
     @property
     def parse_units_dir(self) -> Path:
         """Directory for per-unit parse files."""
-        return self.parse_dir / "units"
+        return self.stage_units_dir("parse")
 
     def parse_unit_file(self, unit_id: str) -> Path:
         """Path to a specific unit's parse JSON file.
@@ -159,28 +198,27 @@ class RunPaths:
             Path to the unit's JSON file with sanitized filename.
         """
         # Sanitize unit_id for filesystem safety
-        sanitized = unit_id.replace("/", "_").replace("\\", "_").replace("..", "_")
-        return self.parse_units_dir / f"{sanitized}.json"
+        return self.stage_unit_file("parse", unit_id)
 
     @property
     def parse_index_file(self) -> Path:
         """Path to the parse units index file."""
-        return self.parse_units_dir / "_index.json"
+        return self.stage_index_file("parse")
 
     @property
     def recognition_baselines(self) -> Path:
         """Path to baselines JSON file from recognition stage."""
-        return self.recognition_dir / "baselines.json"
+        return self.stage_file("recognition", "baselines.json")
 
     @property
     def optimize_proposals(self) -> Path:
         """Path to proposals JSON file from optimize stage."""
-        return self.optimize_dir / "proposals.json"
+        return self.stage_file("optimize", "proposals.json")
 
     @property
     def result_report(self) -> Path:
         """Path to final report JSON file."""
-        return self.result_dir / "report.json"
+        return self.stage_file("result", "report.json")
 
     def ensure_dirs(self) -> None:
         """Create all stage directories if they don't exist.
@@ -188,14 +226,7 @@ class RunPaths:
         This method creates the run directory and all stage subdirectories.
         It's safe to call multiple times.
         """
-        for stage_dir in [
-            self.init_dir,
-            self.parse_dir,
-            self.recognition_dir,
-            self.optimize_dir,
-            self.result_dir,
-            self.mock_dir,
-        ]:
+        for stage_dir in [*(self.stage_dir(stage) for stage in VALID_STAGES), self.mock_dir]:
             stage_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod

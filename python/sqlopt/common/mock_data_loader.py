@@ -30,7 +30,7 @@ class MockDataLoader:
         >>> # Otherwise returns real path
     """
 
-    def __init__(self, run_id: str, use_mock: bool = True) -> None:
+    def __init__(self, run_id: str, use_mock: bool = True, base_dir: str = "./runs") -> None:
         """Initialize mock data loader.
 
         Args:
@@ -39,7 +39,8 @@ class MockDataLoader:
         """
         self.run_id = run_id
         self.use_mock = use_mock
-        self.paths = RunPaths(run_id)
+        self.base_dir = base_dir
+        self.paths = RunPaths(run_id, base_dir)
 
     def _mock_first(self, mock_path: Path, real_path: Path) -> Path:
         """Return mock path if available and use_mock is True, else real path."""
@@ -63,9 +64,9 @@ class MockDataLoader:
         if self.use_mock and self.paths.mock_parse_sql_units_with_branches.exists():
             return self.paths.mock_parse_sql_units_with_branches
 
-        units_index_path = self.paths.parse_dir / "units" / "_index.json"
+        units_index_path = self.paths.parse_index_file
         if units_index_path.exists():
-            return self.paths.parse_dir / "units"
+            return self.paths.parse_units_dir
 
         logger.warning("Using legacy single-file format")
         return self.paths.parse_sql_units_with_branches
@@ -136,7 +137,7 @@ class MockDataLoader:
         Returns:
             Path to runs/{run_id}/parse/units directory
         """
-        return self.paths.parse_dir / "units"
+        return self.paths.parse_units_dir
 
     def get_parse_unit_path(self, sql_unit_id: str) -> Path:
         """Get path for a specific parse unit output file.
@@ -147,6 +148,7 @@ class MockDataLoader:
         Returns:
             Path to the unit JSON file (mock if available, else real path)
         """
-        mock_path = self.paths.mock_dir / "parse" / "units" / f"{sql_unit_id}.json"
-        real_path = self.paths.parse_dir / "units" / f"{sql_unit_id}.json"
+        unit_filename = f"{RunPaths.sanitize_unit_id(sql_unit_id)}.json"
+        mock_path = self.paths.mock_stage_dir("parse") / "units" / unit_filename
+        real_path = self.paths.parse_unit_file(sql_unit_id)
         return self._mock_first(mock_path, real_path)

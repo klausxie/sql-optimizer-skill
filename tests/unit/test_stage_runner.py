@@ -176,6 +176,25 @@ class TestStageRunnerRunAll:
 
             assert result.success is True
 
+    def test_run_all_forwards_use_mock_flag(self, monkeypatch: pytest.MonkeyPatch):
+        """run_all should pass the requested use_mock flag into each stage execution."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "sqlopt.yml"
+            config_path.write_text(yaml.dump({"config_version": "v1"}))
+            runner = StageRunner(str(config_path), base_dir=tmpdir)
+
+            seen: list[tuple[str, bool]] = []
+
+            def fake_run_stage(stage_name: str, use_mock: bool = False) -> None:
+                seen.append((stage_name, use_mock))
+
+            monkeypatch.setattr(runner, "run_stage", fake_run_stage)
+
+            result = runner.run_all(use_mock=True)
+
+            assert result.success is True
+            assert seen == [(stage, True) for stage in STAGE_ORDER]
+
 
 class TestStageRunnerGetStatus:
     """Tests for StageRunner.get_status() method."""
@@ -348,6 +367,76 @@ class TestStageRunnerConfigPropagation:
             assert captured["recognition_config"] is runner.config
             assert captured["optimize_config"] is runner.config
 
+    def test_runner_passes_base_dir_to_stage_constructors(self, monkeypatch: pytest.MonkeyPatch):
+        """Runner should forward its configured base_dir into stage constructors."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "sqlopt.yml"
+            config_path.write_text(yaml.dump({"config_version": "v1"}))
+            runner = StageRunner(str(config_path), base_dir=tmpdir, run_id="base-dir-pass-through")
+
+            captured: dict[str, object] = {}
+
+            class DummyInitStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["init_base_dir"] = kwargs.get("base_dir")
+
+                def run(self, **_kwargs):
+                    return None
+
+            class DummyParseStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["parse_base_dir"] = kwargs.get("base_dir")
+
+                def run(self, **_kwargs):
+                    return ParseOutput(sql_units_with_branches=[])
+
+            class DummyRecognitionStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["recognition_base_dir"] = kwargs.get("base_dir")
+
+                def run(self, **_kwargs):
+                    return RecognitionOutput(baselines=[])
+
+            class DummyOptimizeStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["optimize_base_dir"] = kwargs.get("base_dir")
+
+                def run(self, **_kwargs):
+                    return OptimizeOutput(proposals=[])
+
+            class DummyResultStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["result_base_dir"] = kwargs.get("base_dir")
+
+                def run(self, **_kwargs):
+                    return None
+
+            import sqlopt.stages.init as init_module
+            import sqlopt.stages.optimize as optimize_module
+            import sqlopt.stages.parse as parse_module
+            import sqlopt.stages.recognition as recognition_module
+            import sqlopt.stages.result as result_module
+
+            monkeypatch.setattr(init_module, "InitStage", DummyInitStage)
+            monkeypatch.setattr(parse_module, "ParseStage", DummyParseStage)
+            monkeypatch.setattr(recognition_module, "RecognitionStage", DummyRecognitionStage)
+            monkeypatch.setattr(optimize_module, "OptimizeStage", DummyOptimizeStage)
+            monkeypatch.setattr(result_module, "ResultStage", DummyResultStage)
+
+            runner._run_init_stage()  # noqa: SLF001
+            runner._run_parse_stage(use_mock=False)  # noqa: SLF001
+            runner._run_recognition_stage(use_mock=False)  # noqa: SLF001
+            runner._run_optimize_stage(use_mock=False)  # noqa: SLF001
+            runner._run_result_stage(use_mock=False)  # noqa: SLF001
+
+            assert captured == {
+                "init_base_dir": tmpdir,
+                "parse_base_dir": tmpdir,
+                "recognition_base_dir": tmpdir,
+                "optimize_base_dir": tmpdir,
+                "result_base_dir": tmpdir,
+            }
+
     def test_runner_passes_db_connector_to_recognition_and_optimize(self, monkeypatch: pytest.MonkeyPatch):
         """Downstream stages should receive the created DB connector explicitly."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -385,11 +474,10 @@ class TestStageRunnerConfigPropagation:
                 def run(self, **_kwargs):
                     return OptimizeOutput(proposals=[])
 
-            import sqlopt.common.db_connector as db_connector_module
             import sqlopt.stages.optimize as optimize_module
             import sqlopt.stages.recognition as recognition_module
 
-            monkeypatch.setattr(db_connector_module, "create_connector", lambda **_kwargs: sentinel_connector)
+            monkeypatch.setattr("sqlopt.stage_runner.create_db_connector_from_config", lambda *_args, **_kwargs: sentinel_connector)
             monkeypatch.setattr(recognition_module, "RecognitionStage", DummyRecognitionStage)
             monkeypatch.setattr(optimize_module, "OptimizeStage", DummyOptimizeStage)
 

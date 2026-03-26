@@ -52,8 +52,8 @@ def extract_table_names_from_sql(sql_text: str) -> list[str]:
 
 
 class InitStage(Stage[None, InitOutput]):
-    def __init__(self, config: SQLOptConfig | None = None, run_id: str | None = None) -> None:
-        super().__init__("init")
+    def __init__(self, config: SQLOptConfig | None = None, run_id: str | None = None, base_dir: str = "./runs") -> None:
+        super().__init__("init", base_dir=base_dir)
         self.config = config
         self.run_id = run_id
 
@@ -282,7 +282,7 @@ class InitStage(Stage[None, InitOutput]):
         return output
 
     def _write_output(self, output: InitOutput) -> None:
-        output_dir = Path("runs") / output.run_id / "init"
+        output_dir = self.resolve_run_paths(output.run_id).init_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # 1. sql_units.json - List[SQLUnit]
@@ -311,7 +311,7 @@ class InitStage(Stage[None, InitOutput]):
         field_distributions: list[FieldDistribution],
         run_id: str,
     ) -> None:
-        output_dir = Path("runs") / run_id / "init"
+        output_dir = self.resolve_run_paths(run_id).init_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         field_distributions_file = output_dir / "field_distributions.json"
         field_distributions_file.write_text(json.dumps([asdict(fd) for fd in field_distributions]), encoding="utf-8")
@@ -336,7 +336,7 @@ class InitStage(Stage[None, InitOutput]):
             field_distributions_count: Number of field distributions collected.
         """
         try:
-            output_dir = Path("runs") / output.run_id / "init"
+            output_dir = self.resolve_run_paths(output.run_id).init_dir
 
             file_size_bytes = 0
             for filename in [

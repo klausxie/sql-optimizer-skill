@@ -60,6 +60,16 @@ class TestRunPathsStageDirs:
         paths = RunPaths(run_id="run-123")
         assert paths.result_dir == paths.run_dir / "result"
 
+    def test_stage_dir_helper(self):
+        """Test stage_dir() returns the same directory as stage properties."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.stage_dir("recognition") == paths.recognition_dir
+
+    def test_mock_stage_dir_helper(self):
+        """Test mock_stage_dir() nests under mock/."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.mock_stage_dir("parse") == paths.mock_dir / "parse"
+
 
 class TestRunPathsFilePaths:
     """Test RunPaths file path properties."""
@@ -100,6 +110,16 @@ class TestRunPathsFilePaths:
         """Test result_report returns result_dir / report.json."""
         paths = RunPaths(run_id="run-123")
         assert paths.result_report == paths.result_dir / "report.json"
+
+    def test_stage_unit_file_sanitizes_id(self):
+        """Test stage_unit_file() sanitizes the unit identifier."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.stage_unit_file("parse", "foo/bar").name == "foo_bar.json"
+
+    def test_stage_index_file(self):
+        """Test stage_index_file() returns units/_index.json."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.stage_index_file("parse") == paths.parse_dir / "units" / "_index.json"
 
 
 class TestRunPathsEnsureDirs:

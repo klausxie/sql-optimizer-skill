@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from sqlopt.common.run_paths import RunPaths
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ContractFileManager:
@@ -16,7 +20,7 @@ class ContractFileManager:
         runs/{run_id}/{stage_name}/units/_index.json
     """
 
-    def __init__(self, run_id: str, stage_name: str) -> None:
+    def __init__(self, run_id: str, stage_name: str, base_dir: str = "./runs") -> None:
         """Initialize the file manager.
 
         Args:
@@ -25,7 +29,9 @@ class ContractFileManager:
         """
         self.run_id = run_id
         self.stage_name = stage_name
-        self.units_dir = Path("runs") / run_id / stage_name / "units"
+        self.base_dir = base_dir
+        self.paths = RunPaths(run_id, base_dir)
+        self.units_dir = self.paths.stage_units_dir(stage_name)
 
     def write_unit_file(self, unit_id: str, data: dict[str, Any]) -> Path:
         """Write a single unit's data to its own file.
@@ -119,4 +125,5 @@ class ContractFileManager:
         Returns:
             Sanitized filename-safe string
         """
-        return re.sub(r"[/\\?*:]", "_", unit_id)
+        safe_unit_id = RunPaths.sanitize_unit_id(unit_id)
+        return re.sub(r"[?*:]", "_", safe_unit_id)

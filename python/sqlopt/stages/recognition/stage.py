@@ -7,7 +7,6 @@ import json
 import logging
 import re
 import time
-from pathlib import Path
 from typing import Any, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor, TaskResult
@@ -15,6 +14,7 @@ from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.runtime_factory import create_db_connector_from_config
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.parse import ParseOutput
@@ -207,8 +207,9 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         use_mock: bool = True,
         config: SQLOptConfig | None = None,
         db_connector: Any | None = None,
+        base_dir: str = "./runs",
     ) -> None:
-        super().__init__("recognition")
+        super().__init__("recognition", base_dir=base_dir)
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
         self.use_mock = use_mock
@@ -233,7 +234,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             logger.warning("[RECOGNITION] No run_id provided, using stub data")
             return self._create_stub_output()
 
-        loader = MockDataLoader(rid, use_mock=mock)
+        loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         parse_file = loader.get_parse_sql_units_with_branches_path()
         logger.info(f"[RECOGNITION] Parse file: {parse_file}")
 
@@ -426,16 +427,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             return self.db_connector
 
         if self.config and self.config.db_host and self.config.db_port and self.config.db_name:
-            from sqlopt.common.db_connector import create_connector
-
-            self.db_connector = create_connector(
-                platform=self.config.db_platform,
-                host=self.config.db_host,
-                port=self.config.db_port,
-                db=self.config.db_name,
-                user=self.config.db_user or "",
-                password=self.config.db_password or "",
-            )
+            self.db_connector = create_db_connector_from_config(self.config)
         return self.db_connector
 
     def _disconnect_db_connector(self) -> None:
@@ -537,9 +529,9 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         Returns:
             dict with 'unit_count', 'file_size_bytes' keys
         """
-        output_dir = Path("runs") / run_id / "recognition"
+        output_dir = self.resolve_run_paths(run_id).recognition_dir
         output_dir.mkdir(parents=True, exist_ok=True)
-        file_manager = ContractFileManager(run_id, "recognition")
+        file_manager = ContractFileManager(run_id, "recognition", base_dir=self.base_dir)
 
         # Group baselines by sql_unit_id
         baselines_by_unit: dict[str, list[dict]] = {}
@@ -599,7 +591,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 file_size_bytes=file_stats["file_size_bytes"],
             )
             content = generate_summary_markdown(summary)
-            output_dir = Path("runs") / run_id / "recognition"
+            output_dir = self.resolve_run_paths(run_id).recognition_dir
             output_dir.mkdir(parents=True, exist_ok=True)
             summary_path = output_dir / "SUMMARY.md"
             summary_path.write_text(content, encoding="utf-8")

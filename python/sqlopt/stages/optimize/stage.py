@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any, Callable
 
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
@@ -13,6 +12,7 @@ from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.runtime_factory import create_db_connector_from_config
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
@@ -41,8 +41,9 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         use_mock: bool = True,
         config: SQLOptConfig | None = None,
         db_connector: Any | None = None,
+        base_dir: str = "./runs",
     ) -> None:
-        super().__init__("optimize")
+        super().__init__("optimize", base_dir=base_dir)
         self.run_id = run_id
         self.llm_provider = llm_provider or MockLLMProvider()
         self.use_mock = use_mock
@@ -68,7 +69,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             logger.warning("[OPTIMIZE] No run_id provided, using stub data")
             return self._create_stub_output()
 
-        loader = MockDataLoader(rid, use_mock=mock)
+        loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         baselines_file = loader.get_recognition_baselines_path()
         logger.info(f"[OPTIMIZE] Baselines file: {baselines_file}")
 
@@ -79,7 +80,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         baselines_data = RecognitionOutput.from_json(baselines_file.read_text(encoding="utf-8"))
         logger.info(f"[OPTIMIZE] Loaded {len(baselines_data.baselines)} baseline(s) from recognition stage")
 
-        loader = MockDataLoader(rid, use_mock=mock)
+        loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         table_schemas = self._load_table_schemas(loader)
         db_connector = self._get_db_connector()
 
@@ -293,16 +294,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             return self.db_connector
 
         if self.config and self.config.db_host and self.config.db_port and self.config.db_name:
-            from sqlopt.common.db_connector import create_connector
-
-            self.db_connector = create_connector(
-                platform=self.config.db_platform,
-                host=self.config.db_host,
-                port=self.config.db_port,
-                db=self.config.db_name,
-                user=self.config.db_user or "",
-                password=self.config.db_password or "",
-            )
+            self.db_connector = create_db_connector_from_config(self.config)
         return self.db_connector
 
     def _disconnect_db_connector(self) -> None:
@@ -446,7 +438,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         - runs/{run_id}/optimize/units/_index.json (unit ID list)
         - runs/{run_id}/optimize/proposals.json (backward compat)
         """
-        output_dir = Path("runs") / run_id / "optimize"
+        output_dir = self.resolve_run_paths(run_id).optimize_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Always write backward-compatible proposals.json
@@ -457,7 +449,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             logger.debug("[OPTIMIZE] No proposals to write, wrote empty proposals.json")
             return
 
-        file_manager = ContractFileManager(run_id, "optimize")
+        file_manager = ContractFileManager(run_id, "optimize", base_dir=self.base_dir)
 
         proposals_by_unit: dict[str, list[dict]] = {}
         for proposal in output.proposals:
@@ -532,7 +524,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 validated_count = 0
                 mismatch_count = 0
 
-            output_dir = Path("runs") / run_id / "optimize"
+            output_dir = self.resolve_run_paths(run_id).optimize_dir
             file_size_bytes = 0
             files_count = 0
 

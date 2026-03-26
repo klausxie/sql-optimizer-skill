@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Callable, Generic, TypeVar
 
+from sqlopt.common.run_paths import RunPaths
+
 Input = TypeVar("Input")
 Output = TypeVar("Output")
 
@@ -27,16 +29,21 @@ class Stage(ABC, Generic[Input, Output]):
         duration_seconds: Duration in seconds, or None if not timed.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, base_dir: str = "./runs") -> None:
         """Initialize the stage with a name.
 
         Args:
             name: Stage identifier (e.g., 'init', 'parse').
         """
         self.name = name
+        self.base_dir = base_dir
         self.started_at: str | None = None
         self.duration_seconds: float | None = None
         self._start_time: datetime | None = None
+
+    def resolve_run_paths(self, run_id: str) -> RunPaths:
+        """Build a RunPaths helper for the current stage context."""
+        return RunPaths(run_id, self.base_dir)
 
     def start(self) -> None:
         """Mark the stage as started, recording the start time."""
