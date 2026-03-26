@@ -92,6 +92,7 @@ def append_patch_verification(
     )
     replay_required = bool(verification_policy.require_replay_match and patch_target)
     replay_evidence_required = applicable is True and replay_required
+    template_replay_required = applicable is True and bool(template_ops) and replay_required
     xml_required = verification_policy.require_xml_parse
     xml_evidence_required = applicable is True and xml_required
     render_required = verification_policy.require_render_ok
@@ -183,7 +184,7 @@ def append_patch_verification(
         VerificationCheck(
             "template_replay_verified",
             (not template_ops) or replay_verified is True,
-            "error" if template_ops else "info",
+            "error" if template_replay_required else "info",
             None if (not template_ops) or replay_verified is True else "PATCH_TEMPLATE_REPLAY_NOT_VERIFIED",
         ),
         VerificationCheck(
@@ -247,10 +248,6 @@ def append_patch_verification(
         verification_status = "UNVERIFIED"
         verification_reason_code = "PATCH_FAMILY_SPEC_MISSING"
         verification_reason_message = "applicable patch family is not registered in the verification policy registry"
-    elif template_ops and replay_verified is not True:
-        verification_status = "UNVERIFIED"
-        verification_reason_code = "PATCH_TEMPLATE_REPLAY_NOT_VERIFIED"
-        verification_reason_message = "template patch path was considered without replay verification"
     elif replay_failure is not None and replay_failure.reason_code not in {None, "PATCH_DECISION_EVIDENCE_INCOMPLETE"}:
         verification_status = "UNVERIFIED"
         verification_reason_code = str(replay_failure.reason_code or "PATCH_TARGET_DRIFT")

@@ -106,7 +106,7 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "VERIFIED")
         self.assertEqual(rows[0]["reason_code"], "PATCH_SELECTED_SINGLE_PASS")
 
-    def test_template_ops_without_replay_are_recorded_unverified(self) -> None:
+    def test_template_ops_without_required_replay_do_not_hard_gate_verdict(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_unverified_") as td:
             run_dir = Path(td)
             patch = {
@@ -136,8 +136,11 @@ class PatchVerificationTest(unittest.TestCase):
             )
             rows = _read_ledger(run_dir)
 
-        self.assertEqual(rows[0]["status"], "UNVERIFIED")
-        self.assertEqual(rows[0]["reason_code"], "PATCH_TEMPLATE_REPLAY_NOT_VERIFIED")
+        self.assertEqual(rows[0]["status"], "VERIFIED")
+        self.assertEqual(rows[0]["reason_code"], "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE")
+        template_check = next(check for check in rows[0]["checks"] if check["name"] == "template_replay_verified")
+        self.assertEqual(template_check["severity"], "info")
+        self.assertFalse(template_check["ok"])
 
     def test_patch_verification_marks_replay_mismatch_unverified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_replay_mismatch_") as td:
