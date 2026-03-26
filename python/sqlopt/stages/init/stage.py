@@ -112,14 +112,13 @@ class InitStage(Stage[None, InitOutput]):
         file_mappings: dict[str, FileMapping] = {}
         total_statements = 0
         total_fragments = 0
-        for xml_path in mapper_files:
-            logger.debug(f"[INIT] Parsing: {xml_path}")
+        for idx, xml_path in enumerate(mapper_files):
+            logger.info(f"[INIT] Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
             statements, fragments = parse_mapper_file(xml_path)
             stmt_count = len(statements)
             frag_count = len(fragments)
             total_statements += stmt_count
             total_fragments += frag_count
-            logger.debug(f"[INIT]   Found {stmt_count} SQL statement(s) in {Path(xml_path).name}")
 
             file_mapping = FileMapping(xml_path=str(xml_path))
             for stmt in statements:
@@ -153,9 +152,9 @@ class InitStage(Stage[None, InitOutput]):
 
             file_mappings[str(xml_path)] = file_mapping
 
-        logger.info(f"[INIT] Extracted {total_statements} SQL unit(s) from {len(mapper_files)} mapper file(s)")
-        logger.info(f"[INIT] Extracted {total_fragments} SQL fragment(s) from {len(mapper_files)} mapper file(s)")
-        logger.info(f"[INIT] SQL units: {[u.sql_id for u in sql_units]}")
+        logger.info(
+            f"[INIT] {total_statements} SQL unit(s), {total_fragments} SQL fragment(s) from {len(mapper_files)} mapper file(s)"
+        )
 
         xml_mappings = XMLMapping(files=list(file_mappings.values()))
 

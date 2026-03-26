@@ -81,34 +81,17 @@ class ParseStage(Stage[None, ParseOutput]):
 
         units_with_branches: list[SQLUnitWithBranches] = []
         total_branches = 0
-        for sql_unit in init_data.sql_units:
+        logger.info(f"[PARSE] Expanding branches for {len(init_data.sql_units)} SQL unit(s)")
+        for idx, sql_unit in enumerate(init_data.sql_units):
             expanded = expander.expand(
                 sql_unit.sql_text,
                 default_namespace=_infer_namespace(sql_unit.id),
             )
             total_branches += len(expanded)
-            logger.debug(f"[PARSE]   {sql_unit.id}: expanded to {len(expanded)} branch(es)")
-            for exp in expanded:
-                logger.debug(f"[PARSE]     - {exp.path_id}: {exp.expanded_sql[:60]}...")
-            units_with_branches.append(
-                SQLUnitWithBranches(
-                    sql_unit_id=sql_unit.id,
-                    branches=[
-                        SQLBranch(
-                            path_id=exp.path_id,
-                            condition=exp.condition,
-                            expanded_sql=exp.expanded_sql,
-                            is_valid=exp.is_valid,
-                            risk_flags=exp.risk_flags,
-                            active_conditions=exp.active_conditions,
-                            risk_score=exp.risk_score,
-                            score_reasons=exp.score_reasons,
-                            branch_type="baseline_only" if exp.active_conditions == [] else "full_analysis",
-                        )
-                        for exp in expanded
-                    ],
-                )
-            )
+            # Progress logging
+            if len(init_data.sql_units) <= 10:
+                pct = (idx + 1) * 100 // len(init_data.sql_units) // 10
+                logger.info(f"[PARSE] Progress: {idx + 1}/{len(init_data.sql_units)} ({pct}%)")
 
         logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info("[PARSE] Parse stage completed")

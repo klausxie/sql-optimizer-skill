@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
@@ -10,6 +11,7 @@ from typing import Any, cast
 from sqlopt.common import save_json_file
 from sqlopt.common.config import SQLOptConfig, load_config
 from sqlopt.common.progress import STATUS_COMPLETED, STATUS_FAILED, ProgressTracker
+from sqlopt.common.progress_display import ProgressDisplay
 from sqlopt.common.run_paths import RunPaths
 
 logger = logging.getLogger(__name__)
@@ -57,15 +59,21 @@ class StageRunner:
 
         self.paths: RunPaths = RunPaths(self.run_id, base_dir)
         self.progress: ProgressTracker = ProgressTracker(self.run_id)
+        self.display: ProgressDisplay = ProgressDisplay()
         for stage in STAGE_ORDER:
             self.progress.register_stage(stage)
 
     def run_stage(self, stage_name: str, use_mock: bool = True) -> None:
-        logger.info(f"[RUNNER] Executing stage: {stage_name} (mock={use_mock})")
         if stage_name not in STAGE_ORDER:
             raise ValueError(f"Invalid stage '{stage_name}'. Must be one of: {STAGE_ORDER}")
+
+        stage_idx = STAGE_ORDER.index(stage_name) + 1
+        start_time = time.time()
+
+        self.display.update(stage_name, stage_idx, f"Starting...")
         self.paths.ensure_dirs()
         self.progress.start_stage(stage_name)
+
         try:
             if stage_name == "init":
                 self._run_init_stage()
@@ -77,11 +85,13 @@ class StageRunner:
                 self._run_optimize_stage(use_mock=use_mock)
             elif stage_name == "result":
                 self._run_result_stage(use_mock=use_mock)
+
+            elapsed = time.time() - start_time
             self.progress.complete_stage(stage_name)
-            logger.info(f"[RUNNER] Stage '{stage_name}' completed successfully")
+            self.display.finish(stage_name, elapsed)
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
-            logger.error(f"[RUNNER] Stage '{stage_name}' failed: {e}")
+            self.display.finish(stage_name, 0)
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
     def run_all(self) -> PipelineResult:
