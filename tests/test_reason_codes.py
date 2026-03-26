@@ -148,6 +148,7 @@ class TestReasonCodeRegistry:
         """Patch contract guard codes should be patch-surface degradable outcomes."""
         replay_missing = get_reason_code("PATCH_REPLAY_CONTRACT_MISSING")
         target_missing = get_reason_code("PATCH_TARGET_CONTRACT_MISSING")
+        family_missing = get_reason_code("PATCH_FAMILY_SPEC_MISSING")
 
         assert replay_missing is not None
         assert replay_missing.category == "patch"
@@ -156,3 +157,7 @@ class TestReasonCodeRegistry:
         assert target_missing is not None
         assert target_missing.category == "patch"
         assert target_missing.severity == "degradable"
+
+        assert family_missing is not None
+        assert family_missing.category == "patch"
+        assert family_missing.severity == "degradable"

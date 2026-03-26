@@ -99,6 +99,7 @@ def append_patch_verification(
     render_evidence_required = applicable is True and render_required
     sql_required = verification_policy.require_sql_parse
     sql_evidence_required = applicable is True and sql_required
+    syntax_aggregate_required = applicable is True and any((xml_required, render_required, sql_required))
     apply_required = verification_policy.require_apply_check
     apply_evidence_required = applicable is True and apply_required
     patch_target_ok = bool(patch_target) or not requires_patch_target
@@ -125,6 +126,11 @@ def append_patch_verification(
         sql_check_ok = not sql_evidence_required
     else:
         sql_check_ok = bool(sql_parse_ok) if sql_required else True
+    if syntax_ok is None:
+        syntax_aggregate_ok = True
+    else:
+        syntax_aggregate_ok = bool(syntax_ok) if syntax_aggregate_required else True
+    syntax_aggregate_reason = None if syntax_aggregate_ok else "PATCH_SYNTAX_INVALID"
     xml_reason = None if xml_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if xml_parse_ok is None else "PATCH_SYNTAX_INVALID")
     render_reason = (
         None if render_check_ok else ("PATCH_DECISION_EVIDENCE_INCOMPLETE" if render_ok is None else "PATCH_SYNTAX_INVALID")
@@ -200,6 +206,12 @@ def append_patch_verification(
             replay_check_reason,
         ),
         VerificationCheck(
+            "syntax_ok",
+            syntax_aggregate_ok,
+            "error" if syntax_aggregate_required else "info",
+            syntax_aggregate_reason,
+        ),
+        VerificationCheck(
             "xml_parse_ok",
             xml_check_ok,
             "error" if xml_required else "info",
@@ -235,7 +247,7 @@ def append_patch_verification(
     syntax_failure = next(
         (
             required_failures_by_name[name]
-            for name in ("xml_parse_ok", "render_ok", "sql_parse_ok")
+            for name in ("syntax_ok", "xml_parse_ok", "render_ok", "sql_parse_ok")
             if name in required_failures_by_name and required_failures_by_name[name].reason_code == "PATCH_SYNTAX_INVALID"
         ),
         None,
