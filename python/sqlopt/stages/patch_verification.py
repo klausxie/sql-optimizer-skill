@@ -80,7 +80,7 @@ def append_patch_verification(
     replay_reason_code = str(replay_result.get("driftReason") or "").strip() or None
     xml_parse_ok = syntax_result.get("xmlParseOk")
     render_ok = syntax_result.get("renderOk", syntax_result.get("renderedSqlPresent"))
-    sql_parse_ok = syntax_result.get("sqlParseOk", syntax_result.get("ok"))
+    sql_parse_ok = syntax_result.get("sqlParseOk")
     syntax_ok = syntax_result.get("ok")
     applicable = patch.get("applicable")
     selection_code = str(selection_reason.get("code") or "").strip()
