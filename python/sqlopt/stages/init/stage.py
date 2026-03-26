@@ -97,8 +97,14 @@ class InitStage(Stage[None, InitOutput]):
         # to compute total_work for cumulative progress
         all_table_names: set[str] = set()
         field_by_table: dict[str, set[str]] = {}
+        failed_files: list[str] = []
         for xml_path in mapper_files:
-            statements, _ = parse_mapper_file(xml_path)
+            try:
+                statements, _ = parse_mapper_file(xml_path)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[INIT] Failed to pre-scan mapper file %s: %s", xml_path, exc)
+                failed_files.append(str(xml_path))
+                continue
             for stmt in statements:
                 if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
                     continue
@@ -126,7 +132,13 @@ class InitStage(Stage[None, InitOutput]):
                     (idx + 1, total_work),
                 )
             logger.info(f"[INIT] Processing file {idx + 1}/{file_count}: {xml_path.name}")
-            statements, fragments = parse_mapper_file(xml_path)
+            try:
+                statements, fragments = parse_mapper_file(xml_path)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[INIT] Skipping mapper file %s due to parse failure: %s", xml_path, exc)
+                if str(xml_path) not in failed_files:
+                    failed_files.append(str(xml_path))
+                continue
             stmt_count = len(statements)
             frag_count = len(fragments)
             total_statements += stmt_count
@@ -264,6 +276,8 @@ class InitStage(Stage[None, InitOutput]):
             schema_extraction_success=schema_extraction_success,
             field_distributions_count=len(field_distributions),
         )
+        if failed_files:
+            logger.warning("[INIT] Skipped %d mapper file(s) due to parse errors", len(failed_files))
         logger.info("[INIT] Init stage completed")
         return output
 

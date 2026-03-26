@@ -360,7 +360,11 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         options = BatchOptions(
             max_workers=self.config.concurrency.max_workers if self.config else 4,
+            max_concurrent=self.config.concurrency.llm_max_concurrent if self.config else 4,
+            batch_size=self.config.concurrency.batch_size if self.config else 10,
             timeout_per_task=self.config.concurrency.timeout_per_task if self.config else 120,
+            retry_count=self.config.concurrency.retry_count if self.config else 3,
+            retry_delay=float(self.config.concurrency.retry_delay) if self.config else 1.0,
         )
         baselines: list[PerformanceBaseline] = []
         platform = self._get_platform()

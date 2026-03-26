@@ -348,6 +348,57 @@ class TestStageRunnerConfigPropagation:
             assert captured["recognition_config"] is runner.config
             assert captured["optimize_config"] is runner.config
 
+    def test_runner_passes_db_connector_to_recognition_and_optimize(self, monkeypatch: pytest.MonkeyPatch):
+        """Downstream stages should receive the created DB connector explicitly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "sqlopt.yml"
+            config_path.write_text(
+                yaml.dump(
+                    {
+                        "config_version": "v1",
+                        "db_platform": "postgresql",
+                        "db_host": "localhost",
+                        "db_port": 5432,
+                        "db_name": "sqlopt",
+                        "db_user": "postgres",
+                        "db_password": "postgres",
+                        "llm_enabled": False,
+                    }
+                )
+            )
+            runner = StageRunner(str(config_path), base_dir=tmpdir, run_id="db-pass-through")
+
+            sentinel_connector = object()
+            captured: dict[str, object] = {}
+
+            class DummyRecognitionStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["recognition_db_connector"] = kwargs.get("db_connector")
+
+                def run(self, **_kwargs):
+                    return RecognitionOutput(baselines=[])
+
+            class DummyOptimizeStage:
+                def __init__(self, *_args, **kwargs):
+                    captured["optimize_db_connector"] = kwargs.get("db_connector")
+
+                def run(self, **_kwargs):
+                    return OptimizeOutput(proposals=[])
+
+            import sqlopt.common.db_connector as db_connector_module
+            import sqlopt.stages.optimize as optimize_module
+            import sqlopt.stages.recognition as recognition_module
+
+            monkeypatch.setattr(db_connector_module, "create_connector", lambda **_kwargs: sentinel_connector)
+            monkeypatch.setattr(recognition_module, "RecognitionStage", DummyRecognitionStage)
+            monkeypatch.setattr(optimize_module, "OptimizeStage", DummyOptimizeStage)
+
+            runner._run_recognition_stage(use_mock=False)  # noqa: SLF001
+            runner._run_optimize_stage(use_mock=False)  # noqa: SLF001
+
+            assert captured["recognition_db_connector"] is sentinel_connector
+            assert captured["optimize_db_connector"] is sentinel_connector
+
 
 class TestStageOrder:
     """Tests for STAGE_ORDER constant."""

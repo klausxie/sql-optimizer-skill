@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, Callable
 
+from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.mock_data_loader import MockDataLoader
@@ -34,6 +36,7 @@ class ParseStage(Stage[None, ParseOutput]):
         use_mock: bool | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> ParseOutput:
+        start_time = time.time()
         rid = run_id or self.run_id
         mock = use_mock if use_mock is not None else self.use_mock
         logger.info("=" * 60)
@@ -90,21 +93,40 @@ class ParseStage(Stage[None, ParseOutput]):
             field_distributions=field_distributions,
         )
 
-        units_with_branches: list[SQLUnitWithBranches] = []
-        total_branches = 0
         logger.info(f"[PARSE] Expanding branches for {len(init_data.sql_units)} SQL unit(s)")
+        if self.config and self.config.concurrency.enabled and len(init_data.sql_units) > 1:
+            logger.info("[PARSE] Using concurrent branch expansion")
+            units_with_branches, failed_units = self._run_concurrent(init_data, expander, progress_callback)
+        else:
+            units_with_branches, failed_units = self._run_sequential(init_data, expander, progress_callback)
+
+        total_branches = sum(len(unit.branches) for unit in units_with_branches)
+
+        if progress_callback:
+            progress_callback(f"{len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
+        logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
+        logger.info("[PARSE] Parse stage completed")
+
+        output = ParseOutput(sql_units_with_branches=units_with_branches)
+        self._write_output(rid, output)
+        self._generate_summary(rid, output, total_branches, time.time() - start_time, failed_units)
+
+        return output
+
+    def _run_sequential(
+        self,
+        init_data: InitOutput,
+        expander: BranchExpander,
+        progress_callback: ProgressCallback | None,
+    ) -> tuple[list[SQLUnitWithBranches], int]:
+        units_with_branches: list[SQLUnitWithBranches] = []
+        failed_units = 0
+
         for idx, sql_unit in enumerate(init_data.sql_units):
-            expanded = expander.expand(
-                sql_unit.sql_text,
-                default_namespace=_infer_namespace(sql_unit.id),
-            )
-            total_branches += len(expanded)
-            units_with_branches.append(
-                SQLUnitWithBranches(
-                    sql_unit_id=sql_unit.id,
-                    branches=[_to_sql_branch(branch) for branch in expanded],
-                )
-            )
+            unit_with_branches, had_error = self._expand_sql_unit(expander, sql_unit.id, sql_unit.sql_text)
+            units_with_branches.append(unit_with_branches)
+            if had_error:
+                failed_units += 1
             if progress_callback:
                 progress_callback(
                     f"Processing SQL unit {idx + 1}/{len(init_data.sql_units)}: {sql_unit.id}",
@@ -114,16 +136,96 @@ class ParseStage(Stage[None, ParseOutput]):
                 pct = (idx + 1) * 100 // len(init_data.sql_units) // 10
                 logger.info(f"[PARSE] Progress: {idx + 1}/{len(init_data.sql_units)} ({pct}%)")
 
-        if progress_callback:
-            progress_callback(f"{len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
-        logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
-        logger.info("[PARSE] Parse stage completed")
+        return units_with_branches, failed_units
 
-        output = ParseOutput(sql_units_with_branches=units_with_branches)
-        self._write_output(rid, output)
-        self._generate_summary(rid, output, total_branches)
+    def _run_concurrent(
+        self,
+        init_data: InitOutput,
+        expander: BranchExpander,
+        progress_callback: ProgressCallback | None,
+    ) -> tuple[list[SQLUnitWithBranches], int]:
+        options = BatchOptions(
+            max_workers=self.config.concurrency.max_workers if self.config else 4,
+            max_concurrent=self.config.concurrency.max_workers if self.config else 4,
+            batch_size=self.config.concurrency.batch_size if self.config else 10,
+            timeout_per_task=self.config.concurrency.timeout_per_task if self.config else 300,
+            retry_count=self.config.concurrency.retry_count if self.config else 3,
+            retry_delay=float(self.config.concurrency.retry_delay) if self.config else 1.0,
+        )
+        tasks = [(sql_unit.id, sql_unit.sql_text) for sql_unit in init_data.sql_units]
 
-        return output
+        def process_task(task: tuple[str, str]) -> tuple[SQLUnitWithBranches, bool]:
+            sql_unit_id, sql_text = task
+            return self._expand_sql_unit(expander, sql_unit_id, sql_text)
+
+        units_with_branches: list[SQLUnitWithBranches] = []
+        failed_units = 0
+        total = len(tasks)
+
+        with ConcurrentExecutor(options) as executor:
+            results = executor.map(process_task, tasks)
+
+        for completed, result in enumerate(results, start=1):
+            if result.success and result.result is not None:
+                unit_with_branches, had_error = result.result
+                units_with_branches.append(unit_with_branches)
+                if had_error:
+                    failed_units += 1
+            else:
+                sql_unit_id, sql_text = result.item
+                logger.warning("[PARSE] Failed to expand %s after retries: %s", sql_unit_id, result.error)
+                unit_with_branches, _had_error = self._build_error_unit(sql_unit_id, sql_text, result.error)
+                units_with_branches.append(unit_with_branches)
+                failed_units += 1
+
+            if progress_callback:
+                progress_callback(
+                    f"Processing SQL unit {completed}/{total}: {units_with_branches[-1].sql_unit_id}",
+                    (completed, total),
+                )
+
+        return units_with_branches, failed_units
+
+    def _expand_sql_unit(
+        self,
+        expander: BranchExpander,
+        sql_unit_id: str,
+        sql_text: str,
+    ) -> tuple[SQLUnitWithBranches, bool]:
+        try:
+            expanded = expander.expand(
+                sql_text,
+                default_namespace=_infer_namespace(sql_unit_id),
+            )
+            return (
+                SQLUnitWithBranches(
+                    sql_unit_id=sql_unit_id,
+                    branches=[_to_sql_branch(branch) for branch in expanded],
+                ),
+                False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[PARSE] Failed to expand %s: %s", sql_unit_id, exc)
+            return self._build_error_unit(sql_unit_id, sql_text, str(exc))
+
+    def _build_error_unit(
+        self,
+        sql_unit_id: str,
+        sql_text: str,
+        error: str | None,
+    ) -> tuple[SQLUnitWithBranches, bool]:
+        error_branch = SQLBranch(
+            path_id="error",
+            condition=None,
+            expanded_sql=sql_text,
+            is_valid=False,
+            risk_flags=["parse_error"],
+            active_conditions=[],
+            risk_score=None,
+            score_reasons=[f"parse_error:{error or 'unknown'}"],
+            branch_type="error",
+        )
+        return SQLUnitWithBranches(sql_unit_id=sql_unit_id, branches=[error_branch]), True
 
     def _write_output(self, run_id: str | None, output: ParseOutput) -> None:
         """Write parse output to per-unit files and backward-compatible single file.
@@ -177,7 +279,14 @@ class ParseStage(Stage[None, ParseOutput]):
             f"+ index + compat file ({compat_bytes} bytes)"
         )
 
-    def _generate_summary(self, run_id: str | None, output: ParseOutput, total_branches: int) -> None:
+    def _generate_summary(
+        self,
+        run_id: str | None,
+        output: ParseOutput,
+        total_branches: int,
+        duration_seconds: float,
+        failed_units: int,
+    ) -> None:
         """Generate SUMMARY.md for the parse stage.
 
         Best-effort operation - errors are logged but don't block stage completion.
@@ -210,12 +319,15 @@ class ParseStage(Stage[None, ParseOutput]):
             summary = StageSummary(
                 stage_name="parse",
                 run_id=run_id,
-                duration_seconds=0.0,  # Duration not tracked in this stage yet
+                duration_seconds=duration_seconds,
                 sql_units_count=sql_units_count,
                 branches_count=total_branches,
                 files_count=files_count,
                 file_size_bytes=file_size,
-                warnings=[f"Invalid branches: {invalid_branches}"] if invalid_branches > 0 else [],
+                warnings=[
+                    *([f"Invalid branches: {invalid_branches}"] if invalid_branches > 0 else []),
+                    *([f"Units with expansion fallback: {failed_units}"] if failed_units > 0 else []),
+                ],
             )
 
             summary_content = generate_summary_markdown(summary)

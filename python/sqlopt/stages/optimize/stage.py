@@ -81,15 +81,16 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         loader = MockDataLoader(rid, use_mock=mock)
         table_schemas = self._load_table_schemas(loader)
+        db_connector = self._get_db_connector()
 
         proposals: list[OptimizationProposal] = []
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
 
         try:
-            if self.config.concurrency.enabled and self.db_connector is None:
+            if self.config.concurrency.enabled and db_connector is None:
                 proposals = self._run_concurrent(baselines_data.baselines, self._progress_callback, table_schemas)
             else:
-                if self.db_connector is not None and self.config.concurrency.enabled:
+                if db_connector is not None and self.config.concurrency.enabled:
                     logger.info("[OPTIMIZE] DB validation enabled, forcing sequential execution")
                 proposals = self._run_sequential(baselines_data.baselines, self._progress_callback, table_schemas)
         finally:
@@ -286,6 +287,23 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             logger.debug("[OPTIMIZE] Failed to load table schemas, using heuristics")
         return schemas
+
+    def _get_db_connector(self) -> Any | None:
+        if self.db_connector is not None:
+            return self.db_connector
+
+        if self.config and self.config.db_host and self.config.db_port and self.config.db_name:
+            from sqlopt.common.db_connector import create_connector
+
+            self.db_connector = create_connector(
+                platform=self.config.db_platform,
+                host=self.config.db_host,
+                port=self.config.db_port,
+                db=self.config.db_name,
+                user=self.config.db_user or "",
+                password=self.config.db_password or "",
+            )
+        return self.db_connector
 
     def _disconnect_db_connector(self) -> None:
         connector = self.db_connector

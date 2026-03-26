@@ -42,7 +42,7 @@ def test_progress_display_falls_back_to_ascii_for_gbk(monkeypatch) -> None:
     assert "Pipeline completed successfully (1.2s)" in output
     assert "█" not in output
     assert "░" not in output
-    assert "🎉" not in output
+    assert "✓" not in output
 
 
 def test_progress_display_uses_unicode_when_terminal_supports_it(monkeypatch) -> None:
@@ -55,3 +55,18 @@ def test_progress_display_uses_unicode_when_terminal_supports_it(monkeypatch) ->
 
     assert "█" in output or "░" in output
     assert "• Expanding branches" in output
+
+
+def test_progress_display_throttles_non_tty_updates(monkeypatch) -> None:
+    fake_stdout = _FakeStdout(encoding="utf-8", is_tty=False)
+    monkeypatch.setattr("sqlopt.common.progress_display.sys.stdout", fake_stdout)
+
+    display = ProgressDisplay(non_tty_emit_interval_seconds=60.0, non_tty_percent_step=50)
+    display.update("recognition", 3, "Step 1", (1, 100))
+    display.update("recognition", 3, "Step 2", (2, 100))
+    display.update("recognition", 3, "Step 3", (100, 100))
+
+    lines = [line for line in fake_stdout.getvalue().splitlines() if line.strip()]
+    assert len(lines) == 2
+    assert "Step 1" in lines[0]
+    assert "Step 3" in lines[1]

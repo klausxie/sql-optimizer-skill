@@ -153,3 +153,64 @@ class TestParseStage:
         assert index_file.exists()
         assert ParseOutput.from_json(compat_file.read_text(encoding="utf-8")).sql_units_with_branches == []
         assert json.loads(index_file.read_text(encoding="utf-8")) == []
+
+    def test_parse_stage_isolates_unit_failures_in_concurrent_mode(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """A single SQL unit failure should not abort the whole parse stage."""
+        monkeypatch.chdir(tmp_path)
+        run_dir = tmp_path / "runs" / "parse-concurrent-failure" / "init"
+        run_dir.mkdir(parents=True)
+        (run_dir / "sql_units.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "com.test.UserMapper.ok",
+                        "mapper_file": "UserMapper.xml",
+                        "sql_id": "ok",
+                        "sql_text": "<select id='ok'>SELECT * FROM users</select>",
+                        "statement_type": "SELECT",
+                    },
+                    {
+                        "id": "com.test.UserMapper.bad",
+                        "mapper_file": "UserMapper.xml",
+                        "sql_id": "bad",
+                        "sql_text": "<select id='bad'>SELECT * FROM broken</select>",
+                        "statement_type": "SELECT",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "sql_fragments.json").write_text("[]", encoding="utf-8")
+        (run_dir / "table_schemas.json").write_text("{}", encoding="utf-8")
+        (run_dir / "field_distributions.json").write_text("[]", encoding="utf-8")
+
+        original_expand = __import__(
+            "sqlopt.stages.parse.branch_expander",
+            fromlist=["BranchExpander"],
+        ).BranchExpander.expand
+
+        def failing_expand(self, sql_text, default_namespace=None):
+            if "broken" in sql_text:
+                raise RuntimeError("simulated branch explosion")
+            return original_expand(self, sql_text, default_namespace)
+
+        monkeypatch.setattr("sqlopt.stages.parse.branch_expander.BranchExpander.expand", failing_expand)
+
+        config = SQLOptConfig()
+        config.concurrency.enabled = True
+        config.concurrency.max_workers = 2
+        config.concurrency.batch_size = 2
+        stage = ParseStage(run_id="parse-concurrent-failure", use_mock=False, config=config)
+
+        output = stage.run()
+
+        assert len(output.sql_units_with_branches) == 2
+        bad_unit = next(unit for unit in output.sql_units_with_branches if unit.sql_unit_id.endswith(".bad"))
+        assert len(bad_unit.branches) == 1
+        assert bad_unit.branches[0].is_valid is False
+        assert bad_unit.branches[0].branch_type == "error"
+        assert "parse_error" in bad_unit.branches[0].risk_flags

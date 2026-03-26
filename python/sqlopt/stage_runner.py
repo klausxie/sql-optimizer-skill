@@ -94,19 +94,23 @@ class StageRunner:
             self.display.finish(stage_name, elapsed)
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
-            self.display.finish(stage_name, 0)
+            elapsed = time.time() - start_time
+            self.display.finish(stage_name, elapsed, success=False, details=str(e))
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
     def run_all(self) -> PipelineResult:
         logger.info("=" * 60)
         logger.info("[RUNNER] Starting full pipeline execution")
+        pipeline_start = time.time()
         self.paths.ensure_dirs()
+        self.display.start_pipeline(self.run_id)
         stage_results: dict[str, StageResult] = {}
         try:
             for stage in STAGE_ORDER:
                 self.run_stage(stage)
                 stage_results[stage] = StageResult(stage_name=stage, output={"status": "completed"})
             logger.info("[RUNNER] Full pipeline completed successfully")
+            self.display.finish_pipeline(success=True, elapsed=time.time() - pipeline_start)
             return PipelineResult(success=True, stage_results=stage_results)
         except RuntimeError as e:
             failed_stage = None
@@ -117,6 +121,7 @@ class StageRunner:
             if failed_stage:
                 stage_results[failed_stage] = StageResult(stage_name=failed_stage, error=str(e))
             logger.error(f"[RUNNER] Full pipeline failed at stage '{failed_stage}': {e}")
+            self.display.finish_pipeline(success=False, elapsed=time.time() - pipeline_start)
             return PipelineResult(success=False, stage_results=stage_results)
 
     def _run_init_stage(self, progress_cb: Any = None) -> None:
@@ -167,7 +172,13 @@ class StageRunner:
             logger.info("[RUNNER] LLM disabled - using mock mode")
 
         logger.info("[RUNNER] Initializing RecognitionStage...")
-        stage = RecognitionStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock, config=self.config)
+        stage = RecognitionStage(
+            self.run_id,
+            llm_provider=llm_provider,
+            use_mock=use_mock,
+            config=self.config,
+            db_connector=db_connector,
+        )
         result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.recognition_baselines)
         logger.info(f"[RUNNER] Recognition stage output: {self.paths.recognition_baselines}")
@@ -195,7 +206,13 @@ class StageRunner:
                 llm_provider = OpenCodeRunLLMProvider(db_connector=db_connector)
 
         logger.info("[RUNNER] Initializing OptimizeStage...")
-        stage = OptimizeStage(self.run_id, llm_provider=llm_provider, use_mock=use_mock, config=self.config)
+        stage = OptimizeStage(
+            self.run_id,
+            llm_provider=llm_provider,
+            use_mock=use_mock,
+            config=self.config,
+            db_connector=db_connector,
+        )
         result = stage.run(run_id=self.run_id, progress_callback=progress_cb)
         save_json_file(result, self.paths.optimize_proposals)
         logger.info(f"[RUNNER] Optimize stage output: {self.paths.optimize_proposals}")
