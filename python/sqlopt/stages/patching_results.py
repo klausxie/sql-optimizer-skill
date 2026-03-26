@@ -18,6 +18,9 @@ def skip_patch_result(
     patchability: dict | None = None,
     selection_evidence: dict | None = None,
     fallback_reason_codes: list[str] | None = None,
+    patch_target: dict | None = None,
+    replay_evidence: dict | None = None,
+    syntax_evidence: dict | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -45,6 +48,12 @@ def skip_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
+    if patch_target is not None:
+        patch["patchTarget"] = dict(patch_target)
+    if replay_evidence is not None:
+        patch["replayEvidence"] = dict(replay_evidence)
+    if syntax_evidence is not None:
+        patch["syntaxEvidence"] = dict(syntax_evidence)
     return patch
 
 
@@ -61,6 +70,9 @@ def selected_patch_result(
     patchability: dict | None = None,
     selection_evidence: dict | None = None,
     fallback_reason_codes: list[str] | None = None,
+    patch_target: dict | None = None,
+    replay_evidence: dict | None = None,
+    syntax_evidence: dict | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -86,4 +98,10 @@ def selected_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
+    if patch_target is not None:
+        patch["patchTarget"] = dict(patch_target)
+    if replay_evidence is not None:
+        patch["replayEvidence"] = dict(replay_evidence)
+    if syntax_evidence is not None:
+        patch["syntaxEvidence"] = dict(syntax_evidence)
     return patch

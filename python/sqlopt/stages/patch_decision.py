@@ -128,46 +128,53 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
     selection_reason = dict(patch.get("selectionReason") or {})
     reason_code = str(selection_reason.get("code") or "").strip()
     apply_check_error = patch.get("applyCheckError")
-    template_ops = [row for row in (acceptance.get("templateRewriteOps") or []) if isinstance(row, dict)]
-    replay_verified = (acceptance.get("rewriteMaterialization") or {}).get("replayVerified")
+    patch_target = dict(acceptance.get("patchTarget") or {})
+    template_ops = [
+        row
+        for row in ((patch_target.get("templateRewriteOps") if patch_target else acceptance.get("templateRewriteOps")) or [])
+        if isinstance(row, dict)
+    ]
+    rewrite_materialization = dict(
+        (patch_target.get("rewriteMaterialization") if patch_target else acceptance.get("rewriteMaterialization")) or {}
+    )
+    replay_verified = rewrite_materialization.get("replayVerified")
     semantic_gate_raw = acceptance.get("semanticEquivalence")
     semantic_gate = dict(semantic_gate_raw or {}) if isinstance(semantic_gate_raw, dict) else {}
-    semantic_gate_status = str(semantic_gate.get("status") or "PASS").strip().upper()
-    if isinstance(semantic_gate_raw, dict):
+    semantic_gate_status = str(patch_target.get("semanticGateStatus") or semantic_gate.get("status") or "PASS").strip().upper()
+    if patch_target:
+        semantic_gate_confidence = str(patch_target.get("semanticGateConfidence") or "LOW").strip().upper()
+    elif isinstance(semantic_gate_raw, dict):
         semantic_gate_confidence = str(semantic_gate.get("confidence") or "LOW").strip().upper()
     else:
         semantic_gate_confidence = "HIGH"
     semantic_evidence_level = str(semantic_gate.get("evidenceLevel") or "STRUCTURE").strip().upper()
-    selected_patch_strategy = dict(acceptance.get("selectedPatchStrategy") or {})
+    selected_patch_strategy = dict((patch_target.get("selectedPatchStrategy") if patch_target else acceptance.get("selectedPatchStrategy")) or {})
     dynamic_template = dict(acceptance.get("dynamicTemplate") or {})
     locator_stable = bool(((sql_unit.get("locators") or {}).get("statementId")))
     template_safe_path = bool(template_ops) and replay_verified is True
     structural_blockers = [reason_code] if reason_code and patch.get("applicable") is not True else []
 
+    review_only_codes = {
+        "PATCH_NOT_APPLICABLE",
+        "PATCH_TARGET_DRIFT",
+        "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+        "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+        "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
+        "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED",
+        "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED",
+        "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
+    }
     if patch.get("applicable") is True:
         delivery_outcome = {
-            "tier": "READY_TO_APPLY",
+            "tier": "AUTO_PATCH",
             "reasonCodes": [reason_code or "PATCH_SELECTED_SINGLE_PASS"],
             "summary": "patch is ready to apply",
         }
-    elif reason_code in {
-        "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
-        "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
-    }:
+    elif reason_code in review_only_codes:
         delivery_outcome = {
-            "tier": "PATCHABLE_WITH_REWRITE",
+            "tier": "REVIEW_ONLY",
             "reasonCodes": [reason_code],
-            "summary": "patch can likely land after template-aware mapper refactoring",
-        }
-    elif reason_code in {"PATCH_NOT_APPLICABLE", "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED"}:
-        delivery_outcome = {
-            "tier": "MANUAL_REVIEW",
-            "reasonCodes": [reason_code],
-            "summary": (
-                "rewrite is plausible, but the generated patch needs manual conflict resolution"
-                if reason_code == "PATCH_NOT_APPLICABLE"
-                else "template rewrite needs manual review before patch generation"
-            ),
+            "summary": "patch direction is retained for review, but automatic delivery is blocked",
         }
     elif reason_code == "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS":
         delivery_outcome = {
@@ -195,6 +202,8 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
         }
 
     patch["deliveryOutcome"] = delivery_outcome
+    if patch_target:
+        patch["patchTarget"] = patch_target
     patch["repairHints"] = build_patch_repair_hints(reason_code, apply_check_error, sql_unit)
     patch["patchability"] = {
         "applyCheckPassed": True if patch.get("applicable") is True else (False if patch.get("applicable") is False else None),

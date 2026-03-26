@@ -108,6 +108,10 @@ def replay_patch_target(
         template_after = str(statement_op.get("afterTemplate") or "")
     elif fragment_op is not None:
         template_after = str(fragment_op.get("afterTemplate") or "")
+    else:
+        target_sql = str(patch_target.get("targetSql") or "")
+        normalized_target_sql = normalize_sql_text(target_sql)
+        return ReplayResult(True, target_sql, normalized_target_sql, None)
 
     required_anchors = [str(anchor) for anchor in (replay_contract.get("requiredAnchors") or [])]
     if any(anchor not in template_after for anchor in required_anchors):

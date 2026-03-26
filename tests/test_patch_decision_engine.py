@@ -67,6 +67,15 @@ class PatchDecisionEngineTest(unittest.TestCase):
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "selectedCandidateId": "c1",
+            "patchTarget": {
+                "targetSql": "SELECT id FROM users",
+                "selectedCandidateId": "c1",
+                "semanticGateStatus": "PASS",
+                "semanticGateConfidence": "HIGH",
+                "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
+                "rewriteMaterialization": {"mode": "STATEMENT_TEMPLATE_SAFE", "replayVerified": True},
+                "templateRewriteOps": [],
+            },
         }
         patch, ctx = decide_patch_result(
             sql_unit=sql_unit,
