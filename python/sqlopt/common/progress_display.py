@@ -67,12 +67,12 @@ class ProgressDisplay:
 
         if sub_progress is not None:
             current, total = sub_progress
-            overall_pct = int((stage_idx - 1 + current / total) / self.total_stages * 100)
+            overall_pct = int((stage_idx - 1 + current / total) * 100 / self.total_stages)
             bar = self._render_bar(overall_pct, 100)
             parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), bar, f"{overall_pct}%"]
         else:
-            overall_pct = stage_idx * 100 // self.total_stages
-            bar = self._render_bar(stage_idx, self.total_stages)
+            overall_pct = (stage_idx - 1) * 100 // self.total_stages
+            bar = self._render_bar(overall_pct, 100)
             parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), bar, f"{overall_pct}%"]
 
         if message:

@@ -110,6 +110,29 @@ class InitStage(Stage[None, InitOutput]):
         mapper_files = find_mapper_files(project_root, globs)
         logger.info(f"[INIT] Found {len(mapper_files)} mapper file(s)")
 
+        # Pre-scan: extract table/field info from SQL text (fast, no DB calls)
+        # to compute total_work for cumulative progress
+        all_table_names: set[str] = set()
+        field_by_table: dict[str, set[str]] = {}
+        for xml_path in mapper_files:
+            statements, _ = parse_mapper_file(xml_path)
+            for stmt in statements:
+                if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
+                    continue
+                unit = _parsed_to_sqlunit(stmt)
+                table_names = extract_table_names_from_sql(unit.sql_text)
+                where_fields = extract_where_fields_from_sql(unit.sql_text)
+                all_table_names.update(table_names)
+                for tbl in table_names:
+                    if tbl not in field_by_table:
+                        field_by_table[tbl] = set()
+                    field_by_table[tbl].update(where_fields)
+
+        file_count = len(mapper_files)
+        table_count = len(all_table_names)
+        field_count = sum(len(c) for c in field_by_table.values())
+        total_work = file_count + table_count + field_count
+
         sql_units: list[SQLUnit] = []
         sql_fragments: list[SQLFragment] = []
         file_mappings: dict[str, FileMapping] = {}
@@ -118,10 +141,10 @@ class InitStage(Stage[None, InitOutput]):
         for idx, xml_path in enumerate(mapper_files):
             if progress_callback:
                 progress_callback(
-                    f"Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}",
-                    (idx + 1, len(mapper_files)),
+                    f"Processing file {idx + 1}/{file_count}: {xml_path.name}",
+                    (idx + 1, total_work),
                 )
-            logger.info(f"[INIT] Processing file {idx + 1}/{len(mapper_files)}: {xml_path.name}")
+            logger.info(f"[INIT] Processing file {idx + 1}/{file_count}: {xml_path.name}")
             statements, fragments = parse_mapper_file(xml_path)
             stmt_count = len(statements)
             frag_count = len(fragments)
@@ -171,13 +194,8 @@ class InitStage(Stage[None, InitOutput]):
         xml_mappings = XMLMapping(files=list(file_mappings.values()))
 
         table_schemas: dict = {}
-        all_table_names: set[str] = set()
         schema_extraction_success = False
         field_distributions: list[FieldDistribution] = []
-
-        for unit in sql_units:
-            table_names = extract_table_names_from_sql(unit.sql_text)
-            all_table_names.update(table_names)
 
         if all_table_names:
             db_connector: "DBConnector | None" = None
@@ -192,18 +210,6 @@ class InitStage(Stage[None, InitOutput]):
                     user=cfg.db_user or "",
                     password=cfg.db_password or "",
                 )
-                file_count = len(mapper_files)
-                table_count = len(all_table_names)
-                field_by_table: dict[str, set[str]] = {}
-                for unit in sql_units:
-                    table_names = extract_table_names_from_sql(unit.sql_text)
-                    where_fields = extract_where_fields_from_sql(unit.sql_text)
-                    for tbl in table_names:
-                        if tbl not in field_by_table:
-                            field_by_table[tbl] = set()
-                        field_by_table[tbl].update(where_fields)
-                field_count = sum(len(c) for c in field_by_table.values())
-                total_work = file_count + table_count + field_count
 
                 def make_schema_callback(offset: int) -> Callable[[str, tuple[int, int] | None], None] | None:
                     def wrapper(msg: str, sub: tuple[int, int] | None) -> None:
@@ -250,7 +256,6 @@ class InitStage(Stage[None, InitOutput]):
                             progress_callback=make_field_callback(field_offset),
                         )
                         field_distributions.extend(dists)
-                logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
                 logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")
