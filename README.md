@@ -23,7 +23,7 @@ SQL 优化工具，用于分析和优化 MyBatis XML 中的 SQL 语句。
 
 | 阶段 | 说明 | 输出 |
 |------|------|------|
-| **Init** | 扫描 MyBatis XML，提取 SQL 单元 | `sql_units.json` |
+| **Init** | 扫描 MyBatis XML，提取 SQL 单元 | `sql_units.json`, `field_distributions.json` |
 | **Parse** | 展开动态标签（if/include/foreach），生成执行分支 | `sql_units_with_branches.json` |
 | **Recognition** | 采集 SQL 执行计划，生成性能基线 | `baselines.json` |
 | **Optimize** | 基于规则 + LLM 生成优化建议 | `proposals.json` |
@@ -38,7 +38,8 @@ python/sqlopt/
 ├── common/                  # 公共模块
 │   ├── config.py           # 配置加载
 │   ├── run_paths.py        # 路径管理
-│   ├── progress.py         # 进度跟踪
+│   ├── progress.py         # 进度跟踪（内部）
+│   ├── progress_display.py # 用户友好的进度条显示（TTY/非TTY 模式）
 │   ├── errors.py           # 错误定义
 │   ├── llm_mock_generator.py  # LLM Mock 数据生成
 │   └── db_connector.py     # 数据库连接器
@@ -99,9 +100,18 @@ sqlopt run result
 sqlopt run 1 --config sqlopt.yml
 ```
 
+> **auto_latest 行为**: 对于非 Init 阶段（2-5），如果省略 `--run-id` 参数，`sqlopt` 会自动查找 `runs/` 目录下最新的运行目录并使用。只有 Init 阶段需要显式指定或自动创建新的 run-id。
+
 ### 4. 查看结果
 
 结果保存在 `runs/<run_id>/` 目录下。
+
+#### 输出文件
+
+各阶段除了输出 JSON 数据文件外，**Init 和 Result 阶段还会生成人类可读的 `SUMMARY.md` 报告**，便于快速查看分析结果：
+
+- `runs/<run_id>/init/SUMMARY.md` - Init 阶段的扫描摘要
+- `runs/<run_id>/result/SUMMARY.md` - Result 阶段的优化报告汇总
 
 ### 不安装直接运行
 
@@ -206,6 +216,8 @@ runs/<run_id>/
     ├── parse/sql_units_with_branches.json
     └── ...
 ```
+
+> **Per-unit 目录格式**: Parse/Recognition/Optimize 阶段除了生成主 JSON 文件外，还会输出 per-unit 文件到 `units/{id}.json` + `_index.json`，便于按 SQL 单元单独查看和管理。
 
 **使用方式**：将 mock 文件放到对应目录，阶段运行时会自动优先读取 mock 数据（默认启用）。
 

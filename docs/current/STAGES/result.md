@@ -1,32 +1,72 @@
 # Result Stage
 
-**Purpose**: Generate reports, create SQL patches.
+**Purpose**: Generate optimization reports, create SQL patches with unified diffs.
+
+## What It Does
+
+1. Loads proposals from Optimize stage
+2. Loads baselines from Recognition stage
+3. Generates human-readable report with recommendations
+4. Creates SQL patches via `difflib.unified_diff()`
 
 ## Input
 
 - `proposals.json` from Optimize stage
 - `baselines.json` from Recognition stage
 
-## Output
+## Output Files
 
 | File | Description |
 |------|-------------|
-| `report.json` | Optimization report |
-| `patches/` | Generated SQL patches |
+| `report.json` | Full optimization report with summary, details, risks |
+| `patches/` | Generated SQL patches (unified diff format) |
 | `SUMMARY.md` | Human-readable summary |
 
-## Report
+## Report Structure
 
-- Summary with key metrics
-- Per-unit recommendations
-- Risk assessment
+```json
+{
+  "summary": {
+    "total_units": 10,
+    "total_proposals": 25,
+    "high_confidence": 18,
+    "estimated_improvement": "30%"
+  },
+  "details": [
+    {
+      "sql_unit_id": "findUser",
+      "proposals": [
+        {
+          "path_id": "default",
+          "rationale": "Use covering index",
+          "confidence": 0.85
+        }
+      ]
+    }
+  ]
+}
+```
 
-## Patch
+## Patch Generation
 
-Uses `difflib.unified_diff()` to generate unified diff text for SQL changes.
+Uses Python's `difflib.unified_diff()` to generate unified diff text:
 
-## Key Classes
+```python
+# _create_patch() in result/stage.py
+diff = difflib.unified_diff(
+    original_sql.splitlines(keepends=True),
+    optimized_sql.splitlines(keepends=True),
+    fromfile='original.sql',
+    tofile='optimized.sql'
+)
+```
 
-- `ResultStage(Stage[None, ResultOutput])`
+Note: This generates plain diff text, NOT structured REPLACE/ADD/REMOVE/WRAP operations.
 
-See `python/sqlopt/stages/result/stage.py`
+## Stub Mode
+
+When `run_id=None`, generates stub report.
+
+## See Also
+
+- `python/sqlopt/stages/result/stage.py`
