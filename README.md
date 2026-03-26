@@ -7,6 +7,8 @@
 - 端到端流程：`run -> status/resume -> report -> apply`
 - 可恢复执行：支持中断后继续，支持 `report-rebuild`
 - 产物可追溯：`runs/<run-id>/` 下保留状态、报告与中间产物
+- proof-driven patching：`validate` 持久化 `patchTarget`，`patch_generate` 只消费该 contract
+- 自动补丁门槛：仅对 frozen safe-baseline families 输出 `AUTO_PATCH`，且必须同时通过 replay、syntax、`git apply --check`
 - 支持数据库：`postgresql`、`mysql`（5.6+，不含 MariaDB）
 
 ## 快速开始

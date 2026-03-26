@@ -110,6 +110,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertFalse(bool(state.get("report_rebuild_required")))
 
             report = read_json(run_dir / "overview" / "report.json")
+            verification_summary = read_json(run_dir / "pipeline" / "verification" / "summary.json")
             self.assertTrue(
                 {
                     "run_id",
@@ -123,6 +124,14 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                         "items",
                         "selection_scope",
                     }.issubset(set(report.keys()))
+            )
+            self.assertEqual(
+                ((verification_summary.get("coverage_by_phase") or {}).get("patch_generate") or {}).get("ratio"),
+                1.0,
+            )
+            self.assertEqual(
+                (((report.get("stats") or {}).get("verification") or {}).get("unverified_applicable_patch_count")),
+                0,
             )
             reason_counts = dict((report.get("stats") or {}).get("phase_reason_code_counts") or {})
 

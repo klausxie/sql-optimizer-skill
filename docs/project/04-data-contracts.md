@@ -139,6 +139,7 @@
 15. `deliveryReadiness`
 16. `decisionLayers`
 17. `dynamicTemplate`
+18. `patchTarget`
 
 ### 3.0 `decisionLayers`
 当前行为：
@@ -215,6 +216,49 @@
    - `mode`
    - `reasonCode`
    - `fallbackFrom`
+
+### 3.4.1 `patchTarget`
+当前行为：
+1. 仅当 validate 选出唯一 `PASS` candidate，且 family 位于 frozen auto-patch scope 内时才会持久化
+2. 这是 patch 阶段唯一允许消费的目标 contract
+3. `patch_generate` 不再用顶层 `rewrittenSql` 自由推导补丁，而是围绕 `patchTarget` 执行 replay/syntax/apply proof
+
+关键字段：
+1. `sqlKey`
+2. `selectedCandidateId`
+3. `targetSql`
+4. `targetSqlNormalized`
+5. `targetSqlFingerprint`
+6. `semanticGateStatus`
+7. `semanticGateConfidence`
+8. `selectedPatchStrategy`
+9. `family`
+10. `semanticEquivalence`
+11. `patchability`
+12. `rewriteMaterialization`
+13. `templateRewriteOps`
+14. `replayContract`
+15. `evidenceRefs`
+
+### 3.4.2 `PatchResult` proof fields
+当前行为：
+1. 当 patch 进入自动交付路径时，会额外写出 proof evidence
+2. 这些 evidence 会被 verification ledger 和 report 聚合
+
+关键字段：
+1. `patchTarget`
+2. `replayEvidence`
+   - `matchesTarget`
+   - `renderedSql`
+   - `normalizedRenderedSql`
+   - `driftReason`
+3. `syntaxEvidence`
+   - `ok`
+   - `xmlParseOk`
+   - `renderOk`
+   - `sqlParseOk`
+   - `renderedSqlPresent`
+   - `reasonCode`
 
 ### 3.5 `canonicalization`
 当前行为：

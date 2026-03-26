@@ -69,14 +69,30 @@ Default:
 
 ### 2.4 `patch_generate`
 Current:
-1. 优先消费 validate 已规划的 `selectedPatchStrategy`
-2. 当前策略选择由内部 planner 统一产出：
+1. 只消费 validate 已持久化的 `patchTarget`，不再在 patch 阶段重新选择 candidate 或 family
+2. 当前策略选择由内部 planner 统一产出并写入 `patchTarget.selectedPatchStrategy`：
    - `SAFE_WRAPPER_COLLAPSE`
    - `EXACT_TEMPLATE_EDIT`
-3. `templateRewriteOps` 仍是 patch_generate 的直接执行输入
-4. 只有当 `rewriteMaterialization.replayVerified=true` 时，才允许真正落地模板级 patch
-5. 若没有模板级计划，则回退到原有静态 SQL patch 路径
+3. `templateRewriteOps` 仍是 patch_generate 的直接执行输入，但必须来自 `patchTarget`
+4. 只有当 `rewriteMaterialization.replayVerified=true` 且 replay/syntax/apply evidence 完整时，才允许真正落地 `AUTO_PATCH`
+5. 若没有模板级计划，则仅允许走带 `patchTarget` 的静态 SQL patch 路径
 6. 对动态模板 statement，不允许直接用扁平 SQL 覆盖 mapper XML
+7. 第一阶段自动补丁 family scope 冻结为：
+   - `STATIC_STATEMENT_REWRITE`
+   - `STATIC_WRAPPER_COLLAPSE`
+   - `STATIC_CTE_INLINE`
+   - `STATIC_ALIAS_PROJECTION_CLEANUP`
+   - `STATIC_INCLUDE_WRAPPER_COLLAPSE`
+   - `DYNAMIC_COUNT_WRAPPER_COLLAPSE`
+   - `DYNAMIC_FILTER_WRAPPER_COLLAPSE`
+   - `DYNAMIC_FILTER_SELECT_LIST_CLEANUP`
+   - `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP`
+   - `REDUNDANT_GROUP_BY_WRAPPER`
+   - `REDUNDANT_HAVING_WRAPPER`
+   - `REDUNDANT_DISTINCT_WRAPPER`
+   - `GROUP_BY_FROM_ALIAS_CLEANUP`
+   - `GROUP_BY_HAVING_FROM_ALIAS_CLEANUP`
+   - `DISTINCT_FROM_ALIAS_CLEANUP`
 
 Current dynamic template paths:
 1. `DYNAMIC_STATEMENT_TEMPLATE_EDIT`

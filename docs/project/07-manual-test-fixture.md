@@ -275,11 +275,20 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 3. `demo.user.advanced.listUsersFilteredWrapped#v15`
    - `DYNAMIC_FILTER_WRAPPER_COLLAPSE`
 4. `demo.user.advanced.listUsersRecentPagedWrapped#v16`
-   - `STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE`
+   - `STATIC_INCLUDE_WRAPPER_COLLAPSE`
 5. `demo.user.advanced.listUsersFilteredAliased#v17`
    - `DYNAMIC_FILTER_SELECT_LIST_CLEANUP`
 6. `demo.user.advanced.listUsersFilteredTableAliased#v18`
    - `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP`
+
+proof-driven patch 验收补充：
+
+1. `applicable: true` 的 patch 必须同时带有：
+   - `patchTarget.family`
+   - `replayEvidence.matchesTarget=true`
+   - `syntaxEvidence.ok=true`
+2. `overview/report.json.stats.verification.unverified_applicable_patch_count`
+   - 当前应保持 `0`
 
 当前已收干净的 dynamic blocked baseline：
 
@@ -311,7 +320,6 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
    - `DYNAMIC_COUNT_WRAPPER_COLLAPSE`
    - `STATIC_INCLUDE_WRAPPER_COLLAPSE`
    - `DYNAMIC_FILTER_WRAPPER_COLLAPSE`
-   - `STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE`
    - `DYNAMIC_FILTER_SELECT_LIST_CLEANUP`
    - `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP`
 3. `stats.dynamic_safe_baseline_blocked_count`
