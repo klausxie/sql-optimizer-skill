@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlopt.patch_families.registry import lookup_patch_family_spec
 from sqlopt.adapters.scanner_java import run_scan
 from sqlopt.contracts import ContractValidator
 from sqlopt.io_utils import read_jsonl, write_jsonl
@@ -40,10 +41,103 @@ SEMANTIC_TARGETS = {"PASS", "UNCERTAIN", "BLOCKED", "FAIL"}
 PATCHABILITY_TARGETS = {"READY", "REVIEW", "BLOCKED"}
 VALIDATE_EVIDENCE_MODES = {"compare_disabled", "exact_match_improved", "rowcount_mismatch"}
 BLOCKER_FAMILIES = {"READY", "SECURITY", "SEMANTIC", "TEMPLATE_UNSUPPORTED"}
+_DYNAMIC_BLOCKED_DELIVERY_CLASSES = {"SAFE_BASELINE_BLOCKED", "SAFE_BASELINE_NO_DIFF"}
 
 
 def load_fixture_scenarios() -> list[dict]:
     return json.loads(SCENARIO_MATRIX.read_text(encoding="utf-8"))
+
+
+def registered_patch_family_spec(family: str | None) -> object | None:
+    normalized_family = str(family or "").strip()
+    if not normalized_family:
+        return None
+    return lookup_patch_family_spec(normalized_family)
+
+
+def dynamic_blocked_neighbor_families(scenarios: list[dict]) -> set[str]:
+    blocked_families: set[str] = set()
+    for row in scenarios:
+        family = str(row.get("targetDynamicBaselineFamily") or "").strip()
+        delivery_class = str(row.get("targetDynamicDeliveryClass") or "").strip().upper()
+        if delivery_class not in _DYNAMIC_BLOCKED_DELIVERY_CLASSES:
+            continue
+        spec = registered_patch_family_spec(family)
+        if spec is not None:
+            blocked_families.add(str(spec.family))
+    return blocked_families
+
+
+def fixture_dynamic_registered_families(scenarios: list[dict]) -> set[str]:
+    registered_families: set[str] = set()
+    for row in scenarios:
+        spec = registered_patch_family_spec(row.get("targetDynamicBaselineFamily"))
+        if spec is not None:
+            registered_families.add(str(spec.family))
+    return registered_families
+
+
+def fixture_registered_families(scenarios: list[dict]) -> set[str]:
+    registered_families = fixture_dynamic_registered_families(scenarios)
+    for row in scenarios:
+        spec = registered_patch_family_spec(row.get("targetRegisteredFamily"))
+        if spec is not None:
+            registered_families.add(str(spec.family))
+    return registered_families
+
+
+def fixture_registered_blocked_neighbor_families(scenarios: list[dict]) -> set[str]:
+    blocked_families = set(dynamic_blocked_neighbor_families(scenarios))
+    for row in scenarios:
+        if row.get("targetPatchStrategy"):
+            continue
+        scenario_class = str(row.get("scenarioClass") or "").strip().upper()
+        patchability = str(row.get("targetPatchability") or "").strip().upper()
+        if scenario_class not in {"PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED", "PATCH_BLOCKED_SEMANTIC"} and patchability not in {
+            "REVIEW",
+            "BLOCKED",
+        }:
+            continue
+        spec = registered_patch_family_spec(row.get("targetRegisteredFamily"))
+        if spec is not None:
+            blocked_families.add(str(spec.family))
+    return blocked_families
+
+
+def patch_meets_registered_fixture_obligations(patch: dict, scenario: dict) -> bool:
+    target_registered_family = str(scenario.get("targetRegisteredFamily") or "").strip()
+    target_dynamic_family = str(scenario.get("targetDynamicBaselineFamily") or "").strip()
+    tracked_family = target_registered_family or target_dynamic_family
+    spec = registered_patch_family_spec(tracked_family)
+    if spec is None:
+        return True
+
+    patch_target_family = str(((patch.get("patchTarget") or {}).get("family")) or "").strip()
+    applicable = patch.get("applicable") is True
+    dynamic_delivery_class = str(scenario.get("targetDynamicDeliveryClass") or "").strip().upper()
+
+    if target_registered_family and applicable and patch_target_family != str(spec.family):
+        return False
+    if dynamic_delivery_class == "READY_DYNAMIC_PATCH":
+        if not applicable or patch_target_family != str(spec.family):
+            return False
+    if not applicable:
+        return True
+
+    if spec.fixture_obligations.replay_assertions_required and spec.verification.require_replay_match:
+        if ((patch.get("replayEvidence") or {}).get("matchesTarget")) is not True:
+            return False
+
+    if spec.fixture_obligations.verification_assertions_required:
+        syntax_evidence = patch.get("syntaxEvidence") or {}
+        if spec.verification.require_xml_parse and syntax_evidence.get("xmlParseOk") is not True:
+            return False
+        if spec.verification.require_render_ok and syntax_evidence.get("renderOk") is not True:
+            return False
+        if spec.verification.require_sql_parse and syntax_evidence.get("sqlParseOk") is not True:
+            return False
+
+    return True
 
 
 def summarize_fixture_scenarios(scenarios: list[dict]) -> dict[str, object]:

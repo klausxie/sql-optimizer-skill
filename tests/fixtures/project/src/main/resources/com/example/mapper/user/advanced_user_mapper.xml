@@ -222,4 +222,16 @@
         FROM users u
         ORDER BY u.status
     </select>
+
+    <select id="listUsersProjectedAliases" resultType="map">
+        SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
+        FROM users
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersProjectedQualifiedAliases" resultType="map">
+        SELECT u.id AS id, u.name AS name, u.email AS email, u.status AS status, u.created_at AS created_at, u.updated_at AS updated_at
+        FROM users u
+        ORDER BY u.created_at DESC
+    </select>
 </mapper>

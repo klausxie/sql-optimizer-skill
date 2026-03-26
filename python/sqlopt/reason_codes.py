@@ -353,6 +353,13 @@ REASON_CODES = {
         description="Patch target contract missing",
         user_message="The persisted patch target contract is missing, so patch generation cannot continue automatically.",
     ),
+    "PATCH_FAMILY_SPEC_MISSING": ReasonCode(
+        code="PATCH_FAMILY_SPEC_MISSING",
+        category="patch",
+        severity="degradable",
+        description="Patch family verification spec missing",
+        user_message="The patch family is not registered for verification policy checks, so automatic verification cannot continue.",
+    ),
     "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS": ReasonCode(
         code="PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
         category="patch",
