@@ -41,6 +41,29 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
         }
         self.assertTrue(required_blocked_neighbor_families <= fixture_registered_blocked_neighbor_families(scenarios))
 
+    def test_fixture_registered_blocked_neighbor_helper_excludes_ready_static_registered_rows(self) -> None:
+        ready_only_scenarios = [
+            {
+                "sqlKey": "demo.user.advanced.listUsersProjectedAliases#v20",
+                "scenarioClass": "PATCH_READY_STATEMENT",
+                "targetPatchStrategy": "EXACT_TEMPLATE_EDIT",
+                "targetRegisteredFamily": "STATIC_ALIAS_PROJECTION_CLEANUP",
+            }
+        ]
+        self.assertEqual(fixture_registered_blocked_neighbor_families(ready_only_scenarios), set())
+
+        scenarios = ready_only_scenarios + [
+            {
+                "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
+                "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
+                "targetPatchStrategy": None,
+                "targetRegisteredFamily": "STATIC_ALIAS_PROJECTION_CLEANUP",
+            },
+        ]
+
+        blocked_neighbor_families = fixture_registered_blocked_neighbor_families(scenarios)
+        self.assertEqual(blocked_neighbor_families, {"STATIC_ALIAS_PROJECTION_CLEANUP"})
+
     def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
         scenarios = load_fixture_scenarios()
         ready_dynamic_families = {

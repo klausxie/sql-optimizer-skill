@@ -25,7 +25,27 @@ from .canonicalization_support import SELECT_DIRECT_RE, cleanup_redundant_select
 from ...patch_contracts import build_patch_target_contract, semantic_confidence_rank
 from ...patch_families.registry import lookup_patch_family_spec
 
-_QUALIFIED_REFERENCE_RE = re.compile(r"\b[a-z_][a-z0-9_]*\.", flags=re.IGNORECASE)
+_SINGLE_TABLE_ALIAS_RE = re.compile(
+    r"^\s*from\s+(?P<table>[a-z_][a-z0-9_\.]*)(?:\s+(?:as\s+)?(?P<alias>[a-z_][a-z0-9_]*))?(?P<suffix>.*)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_FROM_ALIAS_RESERVED = {
+    "where",
+    "order",
+    "limit",
+    "offset",
+    "fetch",
+    "group",
+    "having",
+    "join",
+    "left",
+    "right",
+    "inner",
+    "outer",
+    "cross",
+    "union",
+    "on",
+}
 
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -175,9 +195,11 @@ def _classify_static_alias_projection_cleanup(
     if not aliases_changed:
         return False, None
 
-    if any(
-        _QUALIFIED_REFERENCE_RE.search(fragment)
-        for fragment in (original_select, original_from, rewritten_select, rewritten_from)
+    if _uses_single_table_alias_qualifier(
+        original_select=original_select,
+        original_from=original_from,
+        rewritten_select=rewritten_select,
+        rewritten_from=rewritten_from,
     ):
         return True, None
     if rewritten_from != original_from:
@@ -185,6 +207,41 @@ def _classify_static_alias_projection_cleanup(
     if normalize_sql(cleaned_select) != rewritten_select:
         return True, None
     return True, "STATIC_ALIAS_PROJECTION_CLEANUP"
+
+
+def _extract_single_table_alias(from_clause: str) -> str | None:
+    match = _SINGLE_TABLE_ALIAS_RE.match(normalize_sql(from_clause))
+    if match is None:
+        return None
+    alias = str(match.group("alias") or "").strip().lower()
+    if not alias or alias in _FROM_ALIAS_RESERVED:
+        return None
+    return alias
+
+
+def _uses_single_table_alias_qualifier(
+    *,
+    original_select: str,
+    original_from: str,
+    rewritten_select: str,
+    rewritten_from: str,
+) -> bool:
+    aliases = {
+        alias
+        for alias in (
+            _extract_single_table_alias(original_from),
+            _extract_single_table_alias(rewritten_from),
+        )
+        if alias
+    }
+    for alias in aliases:
+        qualifier = f"{alias}."
+        if any(
+            qualifier in fragment.lower()
+            for fragment in (original_select, original_from, rewritten_select, rewritten_from)
+        ):
+            return True
+    return False
 
 
 def _apply_static_alias_projection_cleanup_guard(

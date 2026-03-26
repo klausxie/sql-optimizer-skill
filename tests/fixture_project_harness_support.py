@@ -91,6 +91,13 @@ def fixture_registered_blocked_neighbor_families(scenarios: list[dict]) -> set[s
     for row in scenarios:
         if row.get("targetPatchStrategy"):
             continue
+        scenario_class = str(row.get("scenarioClass") or "").strip().upper()
+        patchability = str(row.get("targetPatchability") or "").strip().upper()
+        if scenario_class not in {"PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED", "PATCH_BLOCKED_SEMANTIC"} and patchability not in {
+            "REVIEW",
+            "BLOCKED",
+        }:
+            continue
         spec = registered_patch_family_spec(row.get("targetRegisteredFamily"))
         if spec is not None:
             blocked_families.add(str(spec.family))

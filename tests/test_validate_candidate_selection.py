@@ -334,6 +334,56 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(patch_target["family"], "STATIC_ALIAS_PROJECTION_CLEANUP")
         self.assertEqual(patch_target["selectedPatchStrategy"]["strategyType"], "EXACT_TEMPLATE_EDIT")
 
+    def test_validate_allows_schema_qualified_table_for_static_alias_projection_cleanup(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersProjectedAliasesSchemaQualified#v22",
+            "sql": "SELECT id AS id, name AS name FROM app.users ORDER BY created_at DESC",
+            "statementType": "SELECT",
+        }
+        proposal = {
+            "llmCandidates": [
+                {
+                    "id": "c1",
+                    "rewrittenSql": "SELECT id, name FROM app.users ORDER BY created_at DESC",
+                    "rewriteStrategy": "REMOVE_REDUNDANT_PROJECTION_ALIASES",
+                }
+            ],
+            "suggestions": [],
+        }
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+        def fake_semantics(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+                "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+            }
+
+        def fake_plan(_cfg, _orig, _rewritten, _dir):
+            return {
+                "checked": True,
+                "method": "sql_explain_json_compare",
+                "beforeSummary": {"totalCost": 10.0},
+                "afterSummary": {"totalCost": 8.0},
+                "reasonCodes": ["TOTAL_COST_REDUCED"],
+                "improved": True,
+                "evidenceRefs": [],
+            }
+
+        with tempfile.TemporaryDirectory(prefix="validate_static_alias_schema_qualified_") as td:
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        contract = result.to_contract()
+        self.assertEqual(contract["patchTarget"]["family"], "STATIC_ALIAS_PROJECTION_CLEANUP")
+        self.assertNotEqual((contract.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH")
+
     def test_validate_blocks_qualified_alias_neighbor_from_static_alias_projection_cleanup(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
