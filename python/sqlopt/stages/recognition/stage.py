@@ -128,7 +128,32 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             logger.warning(f"[RECOGNITION] Parse file not found: {parse_file}, using stub data")
             return self._create_stub_output()
 
-        parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
+        if parse_file.is_dir():
+            units_dir = loader.get_parse_units_dir()
+            index_file = units_dir / "_index.json"
+            if index_file.exists():
+                import json
+
+                index_data = json.loads(index_file.read_text(encoding="utf-8"))
+                unit_ids = index_data if isinstance(index_data, list) else index_data.get("unit_ids", [])
+                all_branches = []
+                for uid in unit_ids:
+                    unit_file = units_dir / f"{uid}.json"
+                    if unit_file.exists():
+                        from sqlopt.contracts.parse import SQLUnitWithBranches
+
+                        unit_data = json.loads(unit_file.read_text(encoding="utf-8"))
+                        unit = SQLUnitWithBranches.from_json(json.dumps(unit_data))
+                        all_branches.append(unit)
+                parse_data = ParseOutput(sql_units_with_branches=all_branches)
+                logger.info(
+                    f"[RECOGNITION] Loaded {len(parse_data.sql_units_with_branches)} SQL unit(s) from per-unit files"
+                )
+            else:
+                logger.warning(f"[RECOGNITION] Per-unit format detected but _index.json not found, using stub data")
+                return self._create_stub_output()
+        else:
+            parse_data = ParseOutput.from_json(parse_file.read_text(encoding="utf-8"))
         logger.info(f"[RECOGNITION] Loaded {len(parse_data.sql_units_with_branches)} SQL unit(s) from parse stage")
 
         table_schemas: dict[str, TableSchema] | None = None
