@@ -247,6 +247,25 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertEqual(assessment.dynamic_capability_tier, "REVIEW_REQUIRED")
         self.assertEqual(assessment.dynamic_blocking_reason, "FOREACH_INCLUDE_PREDICATE")
 
+    def test_static_alias_projection_cleanup_keeps_exact_template_edit_available(self) -> None:
+        assessment = assess_patch_safety_model(
+            RewriteFacts(
+                effective_change=True,
+                template_anchor_stable=True,
+                semantic=SemanticRewriteFacts(
+                    status="PASS",
+                    confidence="HIGH",
+                    evidence_level="DB_FINGERPRINT",
+                    fingerprint_strength="EXACT",
+                    hard_conflicts=[],
+                ),
+            )
+        )
+
+        self.assertTrue(assessment.eligible)
+        self.assertIn("EXACT_TEMPLATE_EDIT", assessment.allowed_capabilities)
+        self.assertIsNone(assessment.blocking_reason)
+
     def test_dynamic_static_include_no_effective_diff_exposes_specific_blocker(self) -> None:
         assessment = assess_patch_safety_model(
             RewriteFacts(

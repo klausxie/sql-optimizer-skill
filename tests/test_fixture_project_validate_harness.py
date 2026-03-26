@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
+
 from .fixture_project_harness_support import (
     BLOCKER_FAMILIES,
     FIXTURE_PROJECT,
@@ -20,6 +22,17 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):
+    def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
+        scenarios = load_fixture_scenarios()
+        ready_dynamic_families = {
+            str(scenario["targetDynamicBaselineFamily"])
+            for scenario in scenarios
+            if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH"
+            and str(scenario.get("targetDynamicBaselineFamily") or "").strip()
+        }
+        self.assertTrue(ready_dynamic_families)
+        self.assertTrue(ready_dynamic_families <= FROZEN_AUTO_PATCH_FAMILIES)
+
     def test_fixture_scenario_matrix_has_validate_harness_contract(self) -> None:
         scenarios = load_fixture_scenarios()
         self.assertGreaterEqual(len(scenarios), 20)

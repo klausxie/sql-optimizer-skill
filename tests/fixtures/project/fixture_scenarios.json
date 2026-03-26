@@ -229,7 +229,7 @@
     "targetPatchMustContain": [],
     "targetPatchMustNotContain": [],
     "targetBlockerFamily": "TEMPLATE_UNSUPPORTED",
-    "targetDynamicBaselineFamily": "STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE",
+    "targetDynamicBaselineFamily": "STATIC_INCLUDE_WRAPPER_COLLAPSE",
     "targetDynamicDeliveryClass": "SAFE_BASELINE_BLOCKED",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "DYNAMIC_TEMPLATE"
@@ -840,7 +840,7 @@
       ") recent_users"
     ],
     "targetBlockerFamily": "READY",
-    "targetDynamicBaselineFamily": "STATIC_INCLUDE_PAGED_WRAPPER_COLLAPSE",
+    "targetDynamicBaselineFamily": "STATIC_INCLUDE_WRAPPER_COLLAPSE",
     "targetDynamicDeliveryClass": "READY_DYNAMIC_PATCH",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "DYNAMIC_TEMPLATE"
