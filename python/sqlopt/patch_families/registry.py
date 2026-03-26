@@ -7,7 +7,7 @@ from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAP
 
 
 def _canonicalize_family_id(family: str) -> str:
-    return str(family or "").strip()
+    return str(family or "").strip().upper()
 
 
 def _build_patch_family_registry(

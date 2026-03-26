@@ -69,6 +69,14 @@ def test_non_canonical_family_registration_fails_fast() -> None:
         _build_patch_family_registry((replace(spec, family=f" {spec.family} "),))
 
 
+def test_lowercase_family_registration_fails_fast() -> None:
+    spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
+    assert spec is not None
+
+    with pytest.raises(ValueError, match="NON_CANONICAL_PATCH_FAMILY: STATIC_INCLUDE_WRAPPER_COLLAPSE"):
+        _build_patch_family_registry((replace(spec, family=spec.family.lower()),))
+
+
 def test_registry_imports_concrete_spec_modules_directly() -> None:
     source = inspect.getsource(registry_module)
 
