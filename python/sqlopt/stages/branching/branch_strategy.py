@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar, List
 
 if TYPE_CHECKING:
-    from sqlopt.stages.branching.sql_node import IfSqlNode
+    from sqlopt.contracts.init import FieldDistribution
 
 
 class BranchGenerationStrategy(ABC):
@@ -310,6 +310,7 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
         self,
         condition_weights: dict[str, float] | None = None,
         table_metadata: dict[str, dict] | None = None,
+        field_distributions: dict[str, list["FieldDistribution"]] | None = None,
     ) -> None:
         """Initialize ladder strategy.
 
@@ -319,9 +320,11 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
             table_metadata: Dict mapping table_name -> metadata dict with:
                 - size: "large" | "medium" | "small"
                 - indexes: list of indexed columns
+            field_distributions: Dict mapping table_name -> list of FieldDistribution
         """
         self.condition_weights = condition_weights or {}
         self.table_metadata = table_metadata or {}
+        self.field_distributions = field_distributions or {}
 
     def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
         """Generate ladder-sampled combinations.
@@ -536,6 +539,7 @@ def create_strategy(
     seed: int | None = None,
     condition_weights: dict[str, float] | None = None,
     table_metadata: dict[str, dict] | None = None,
+    field_distributions: dict[str, list["FieldDistribution"]] | None = None,
 ) -> BranchGenerationStrategy:
     """Factory function to create a branch generation strategy.
 
@@ -565,5 +569,6 @@ def create_strategy(
         return strategy_class(
             condition_weights=condition_weights,
             table_metadata=table_metadata,
+            field_distributions=field_distributions,
         )
     return strategy_class()

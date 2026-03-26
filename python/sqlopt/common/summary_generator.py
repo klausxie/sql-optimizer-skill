@@ -204,6 +204,37 @@ def generate_init_summary_markdown(
         lines.append(f"| WHERE字段分布 | {field_distributions_count} |")
         lines.append("")
 
+    # Parse strategy suggestions based on condition complexity
+    lines.append("## Parse Strategy Suggestions")
+    lines.append("")
+    lines.append("| SQL Unit | Conditions | Suggested Strategy |")
+    lines.append("|----------|------------|-------------------|")
+
+    def _count_conditions(sql_text: str) -> int:
+        """Count <if test=\"...\"> patterns in SQL text."""
+        import re
+
+        if_pattern = r'<if\s+test\s*=\s*["\']([^"\']+)["\']'
+        return len(re.findall(if_pattern, sql_text, re.IGNORECASE))
+
+    def _suggest_strategy(cond_count: int) -> str:
+        """Suggest parse strategy based on condition count."""
+        if cond_count <= 3:
+            return "all_combinations"
+        elif cond_count <= 8:
+            return "ladder"
+        else:
+            return "pairwise"
+
+    for unit in output.sql_units[:20]:  # Limit to first 20 for readability
+        cond_count = _count_conditions(unit.sql_text)
+        suggested = _suggest_strategy(cond_count)
+        lines.append(f"| `{unit.sql_id}` | {cond_count} | {suggested} |")
+
+    if len(output.sql_units) > 20:
+        lines.append(f"| ... | ... | ... (还有 {len(output.sql_units) - 20} 个SQL单元) |")
+    lines.append("")
+
     # Statistics summary
     lines.append("## 统计信息")
     lines.append("")

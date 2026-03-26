@@ -132,6 +132,8 @@ class PostgreSQLConnector(DBConnector):
                 password=self.password,
             )
             self._conn.autocommit = False
+            with self._conn.cursor() as cursor:
+                cursor.execute("SET TRANSACTION READ ONLY")
 
     def disconnect(self) -> None:
         """Close database connection."""
@@ -163,7 +165,14 @@ class PostgreSQLConnector(DBConnector):
             if result and "QUERY PLAN" in result:
                 query_plan = result["QUERY PLAN"]
                 if isinstance(query_plan, list) and len(query_plan) > 0:
-                    return dict(query_plan[0])
+                    plan_dict = dict(query_plan[0])
+                    actual_time_ms = plan_dict.get("Plan", {}).get("Actual Total Time")
+                    estimated_cost = plan_dict.get("Plan", {}).get("Total Cost", 0.0)
+                    return {
+                        "plan": plan_dict,
+                        "actual_time_ms": actual_time_ms,
+                        "estimated_cost": estimated_cost,
+                    }
                 return {}
             return {}
 
@@ -227,6 +236,8 @@ class MySQLConnector(DBConnector):
                 cursorclass=pymysql.cursors.DictCursor,
             )
             self._conn.autocommit = False
+            with self._conn.cursor() as cursor:
+                cursor.execute("SET SESSION TRANSACTION READ ONLY")
 
     def disconnect(self) -> None:
         """Close database connection."""
@@ -251,7 +262,7 @@ class MySQLConnector(DBConnector):
             sql: SQL query to explain
 
         Returns:
-            dict: EXPLAIN output as dictionary
+            dict: EXPLAIN output as dictionary with plan, actual_time_ms, estimated_cost
         """
         self.connect()
         if self._conn is None or not self._conn.open:
@@ -263,8 +274,18 @@ class MySQLConnector(DBConnector):
             cursor.execute(explain_sql)
             result = cursor.fetchone()
             if result:
-                return dict(result)
-            return {}
+                result_dict = dict(result)
+                actual_time_ms = None
+                estimated_cost = 0.0
+                query_block = result_dict.get("query_block", {})
+                if isinstance(query_block, dict):
+                    estimated_cost = query_block.get("cost", estimated_cost)
+                return {
+                    "plan": result_dict,
+                    "actual_time_ms": actual_time_ms,
+                    "estimated_cost": estimated_cost,
+                }
+            return {"plan": {}, "actual_time_ms": None, "estimated_cost": 0.0}
 
     def execute_query(self, sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute query and return results.

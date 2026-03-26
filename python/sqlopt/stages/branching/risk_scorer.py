@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sqlopt.stages.branching.branch_strategy import LadderSamplingStrategy
 from sqlopt.stages.branching.dimension_extractor import BranchDimension
+
+if TYPE_CHECKING:
+    from sqlopt.contracts.init import FieldDistribution
+
+    __all__ = ["SQLDeltaRiskScorer"]
 
 
 @dataclass
@@ -12,9 +18,18 @@ class SQLDeltaRiskScorer:
     """Score branch dimensions using their SQL fragment delta."""
 
     table_metadata: dict[str, dict] | None = None
+    field_distributions: dict[str, list["FieldDistribution"]] | None = None
 
     def __post_init__(self) -> None:
-        self._strategy = LadderSamplingStrategy(table_metadata=self.table_metadata or {})
+        self._strategy = LadderSamplingStrategy(
+            table_metadata=self.table_metadata or {},
+            field_distributions=self.field_distributions,
+        )
+
+    def set_field_distributions(self, field_distributions: dict[str, list["FieldDistribution"]] | None) -> None:
+        """Set field distributions for risk scoring."""
+        self.field_distributions = field_distributions
+        self._strategy.field_distributions = field_distributions or {}
 
     def score_dimension(self, dimension: BranchDimension) -> float:
         score, _reasons = self.score_sql(dimension.sql_fragment or dimension.condition)
@@ -24,6 +39,8 @@ class SQLDeltaRiskScorer:
     def score_sql(self, sql: str) -> tuple[float, list[str]]:
         text = sql.strip()
         score = self._strategy._get_condition_weight(text) if text else 0.0
+        # Add weight adjustments from field distributions
+        score += self._compute_field_distribution_weights(text)
         reasons = self._collect_reasons(text)
         return score, reasons
 
@@ -81,6 +98,8 @@ class SQLDeltaRiskScorer:
 
         metadata_reasons = self._collect_metadata_reasons(sql_lower)
         reasons.extend(metadata_reasons)
+        fd_reasons = self._collect_field_distribution_reasons(sql_lower)
+        reasons.extend(fd_reasons)
         return self._dedupe(reasons)
 
     def _collect_metadata_reasons(self, sql_lower: str) -> list[str]:
@@ -96,6 +115,51 @@ class SQLDeltaRiskScorer:
                 reasons.append(f"table:{table_name}:large")
             elif size == "medium":
                 reasons.append(f"table:{table_name}:medium")
+        return reasons
+
+    def _compute_field_distribution_weights(self, sql: str) -> float:
+        if not self.field_distributions:
+            return 0.0
+        sql_lower = sql.strip().lower()
+        weight_adjustment = 0.0
+        for table_name, distributions in self.field_distributions.items():
+            if table_name not in sql_lower:
+                continue
+            for dist in distributions:
+                col_name = dist.column_name.lower()
+                if col_name not in sql_lower:
+                    continue
+                total_rows = dist.distinct_count + dist.null_count
+                null_ratio = dist.null_count / max(total_rows, 1)
+                if null_ratio > 0.1:
+                    weight_adjustment += 2.0
+                if dist.distinct_count < 10:
+                    weight_adjustment += 1.0
+                if dist.top_values and len(dist.top_values) > 0:
+                    top_value_count = dist.top_values[0].get("count", 0)
+                    if total_rows > 0 and top_value_count / total_rows > 0.8:
+                        weight_adjustment += 2.0
+        return weight_adjustment
+
+    def _collect_field_distribution_reasons(self, sql_lower: str) -> list[str]:
+        if not self.field_distributions:
+            return []
+
+        reasons: list[str] = []
+        for table_name, distributions in self.field_distributions.items():
+            if table_name not in sql_lower:
+                continue
+            for dist in distributions:
+                col_name = dist.column_name.lower()
+                if col_name not in sql_lower:
+                    continue
+                null_ratio = dist.null_count / max(dist.distinct_count + dist.null_count, 1)
+                if null_ratio > 0.1:
+                    reasons.append(f"field_null_high:{col_name}")
+                if dist.distinct_count < 10:
+                    reasons.append(f"field_low_card:{col_name}")
+                if dist.top_values and len(dist.top_values) > 0:
+                    reasons.append(f"field_skewed:{col_name}")
         return reasons
 
     def _dedupe(self, values: list[str]) -> list[str]:
