@@ -780,6 +780,26 @@ Example output:
         """Check if running on Windows."""
         return sys.platform == "win32" or os.name == "nt"
 
+    @staticmethod
+    def _opencode_env() -> dict[str, str]:
+        """Build environment for opencode subprocess.
+
+        Sets XDG_DATA_HOME and XDG_CONFIG_HOME to ensure opencode
+        can find its configuration and state directories.
+        """
+        env = os.environ.copy()
+        cwd = Path.cwd()
+        if not env.get("XDG_DATA_HOME"):
+            env["XDG_DATA_HOME"] = str((cwd / ".opencode-data").resolve())
+        data_home = Path(env["XDG_DATA_HOME"])
+        data_home.mkdir(parents=True, exist_ok=True)
+        if not env.get("XDG_CONFIG_HOME"):
+            home = Path(env.get("HOME") or str(Path.home()))
+            opencode_cfg = home / ".opencode"
+            if opencode_cfg.exists():
+                env["XDG_CONFIG_HOME"] = str(opencode_cfg)
+        return env
+
     def _get_opencode_cmd(self) -> list[str]:
         """Get the command to run opencode CLI.
 
@@ -825,6 +845,8 @@ Example output:
                 text=True,
                 encoding="utf-8",
                 timeout=120,
+                env=self._opencode_env(),
+                cwd=str(Path.cwd()),
             )
             if result.returncode != 0:
                 return f'{{"error": "opencode run failed: {result.stderr}"}}'
