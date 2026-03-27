@@ -71,6 +71,19 @@ _COLUMN_NEQ_VALUE_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Pattern to match LIMIT 0 (returns empty)
+_LIMIT_ZERO_RE = re.compile(
+    r"\bLIMIT\s+0\s*($|;|\))",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match LIMIT with very large number (effectively no limit)
+# Matches LIMIT followed by numbers >= 1 billion
+_LIMIT_LARGE_RE = re.compile(
+    r"\bLIMIT\s+(\d{10,}|\d{1,9}[0-9]{3,})\s*($|;|\))",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -189,6 +202,14 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_IN_LIST_SIMPLIFICATION"
+
+    # Check for LIMIT optimization (removing LIMIT 0 or very large LIMIT)
+    if _classify_static_limit_optimization(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_LIMIT_OPTIMIZATION"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -319,6 +340,43 @@ def _classify_static_in_list_simplification(
                 rewritten_value = neq_match.group(3).strip()
                 if rewritten_value == not_in_value:
                     return True
+
+    return False
+
+
+def _classify_static_limit_optimization(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if the transformation removes useless LIMIT (0 or very large number)."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for LIMIT 0 removal (original has LIMIT 0, rewritten has no LIMIT or empty result)
+    limit_zero_match = _LIMIT_ZERO_RE.search(normalized_original)
+    if limit_zero_match:
+        # If rewritten doesn't have LIMIT, it's a valid optimization
+        if "LIMIT" not in normalized_rewritten.upper():
+            return True
+        # Or if it has LIMIT 0 as well (no change), still counts as optimization attempt
+        if _LIMIT_ZERO_RE.search(normalized_rewritten):
+            return True
+
+    # Check for LIMIT with very large number removal
+    limit_large_match = _LIMIT_LARGE_RE.search(normalized_original)
+    if limit_large_match:
+        # If rewritten doesn't have LIMIT, it's a valid optimization
+        if "LIMIT" not in normalized_rewritten.upper():
+            return True
 
     return False
 

@@ -7,6 +7,7 @@ from .specs.frozen_baselines import FROZEN_BASELINE_SPECS
 from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC
 from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC
 from .specs.static_in_list_simplification import STATIC_IN_LIST_SIMPLIFICATION_SPEC
+from .specs.static_limit_optimization import STATIC_LIMIT_OPTIMIZATION_SPEC
 
 
 def _canonicalize_family_id(family: str) -> str:
@@ -31,6 +32,7 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC,
     STATIC_ALIAS_PROJECTION_CLEANUP_SPEC,
     STATIC_IN_LIST_SIMPLIFICATION_SPEC,
+    STATIC_LIMIT_OPTIMIZATION_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
     DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC,
     *FROZEN_BASELINE_SPECS,
