@@ -11,6 +11,7 @@ from .specs.static_limit_optimization import STATIC_LIMIT_OPTIMIZATION_SPEC
 from .specs.static_order_by_simplification import STATIC_ORDER_BY_SIMPLIFICATION_SPEC
 from .specs.static_or_simplification import STATIC_OR_SIMPLIFICATION_SPEC
 from .specs.static_distinct_on_simplification import STATIC_DISTINCT_ON_SIMPLIFICATION_SPEC
+from .specs.static_subquery_wrapper_collapse import STATIC_SUBQUERY_WRAPPER_COLLAPSE_SPEC
 
 
 def _canonicalize_family_id(family: str) -> str:
@@ -39,6 +40,7 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_ORDER_BY_SIMPLIFICATION_SPEC,
     STATIC_OR_SIMPLIFICATION_SPEC,
     STATIC_DISTINCT_ON_SIMPLIFICATION_SPEC,
+    STATIC_SUBQUERY_WRAPPER_COLLAPSE_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
     DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC,
     *FROZEN_BASELINE_SPECS,

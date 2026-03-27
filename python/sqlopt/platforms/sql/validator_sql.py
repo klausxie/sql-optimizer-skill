@@ -103,6 +103,12 @@ _DISTINCT_ON_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Pattern to match simple subquery wrapper: SELECT ... FROM (SELECT ... ) alias
+_SUBQUERY_WRAPPER_RE = re.compile(
+    r"\bFROM\s+\(\s*SELECT\s+[^)]+\s+FROM\s+",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -253,6 +259,14 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_DISTINCT_ON_SIMPLIFICATION"
+
+    # Check for subquery wrapper collapse
+    if _classify_static_subquery_wrapper_collapse(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_SUBQUERY_WRAPPER_COLLAPSE"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -508,6 +522,35 @@ def _classify_static_distinct_on_simplification(
                 return True
         # Or if DISTINCT is removed entirely
         elif "DISTINCT" not in normalized_rewritten.upper():
+            return True
+
+    return False
+
+
+def _classify_static_subquery_wrapper_collapse(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if subquery wrapper is collapsed."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for subquery wrapper in original
+    subquery_match = _SUBQUERY_WRAPPER_RE.search(normalized_original)
+    if subquery_match:
+        # If rewritten has fewer nested SELECTs, it's collapsed
+        original_select_count = normalized_original.upper().count("SELECT")
+        rewritten_select_count = normalized_rewritten.upper().count("SELECT")
+        if rewritten_select_count < original_select_count:
             return True
 
     return False
