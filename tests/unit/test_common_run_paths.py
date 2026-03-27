@@ -87,9 +87,7 @@ class TestRunPathsFilePaths:
     def test_parse_sql_units_with_branches(self):
         """Test parse_sql_units_with_branches returns correct path."""
         paths = RunPaths(run_id="run-123")
-        assert (
-            paths.parse_sql_units_with_branches == paths.parse_dir / "sql_units_with_branches.json"
-        )
+        assert paths.parse_sql_units_with_branches == paths.parse_dir / "sql_units_with_branches.json"
 
     def test_parse_risks(self):
         """Test parse_risks returns parse_dir / risks.json."""
@@ -110,6 +108,36 @@ class TestRunPathsFilePaths:
         """Test result_report returns result_dir / report.json."""
         paths = RunPaths(run_id="run-123")
         assert paths.result_report == paths.result_dir / "report.json"
+
+    def test_result_units_dir(self):
+        """Test result_units_dir returns result_dir / units."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_units_dir == paths.result_dir / "units"
+
+    def test_result_units_index(self):
+        """Test result_units_index returns result_units_dir / _index.json."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_units_index == paths.result_units_dir / "_index.json"
+
+    def test_result_unit_patch(self):
+        """Test result_unit_patch returns correct .patch file path."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_unit_patch("unit-1") == paths.result_units_dir / "unit-1.patch"
+
+    def test_result_unit_patch_sanitizes_id(self):
+        """Test result_unit_patch sanitizes unit identifier."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_unit_patch("foo/bar").name == "foo_bar.patch"
+
+    def test_result_unit_meta(self):
+        """Test result_unit_meta returns correct .meta.json file path."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_unit_meta("unit-1") == paths.result_units_dir / "unit-1.meta.json"
+
+    def test_result_unit_meta_sanitizes_id(self):
+        """Test result_unit_meta sanitizes unit identifier."""
+        paths = RunPaths(run_id="run-123")
+        assert paths.result_unit_meta("foo/bar").name == "foo_bar.meta.json"
 
     def test_stage_unit_file_sanitizes_id(self):
         """Test stage_unit_file() sanitizes the unit identifier."""

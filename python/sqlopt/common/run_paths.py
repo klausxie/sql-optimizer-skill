@@ -220,6 +220,24 @@ class RunPaths:
         """Path to final report JSON file."""
         return self.stage_file("result", "report.json")
 
+    @property
+    def result_units_dir(self) -> Path:
+        """Directory for per-unit patch files."""
+        return self.result_dir / "units"
+
+    @property
+    def result_units_index(self) -> Path:
+        """Index file listing all unit IDs with patches."""
+        return self.result_units_dir / "_index.json"
+
+    def result_unit_patch(self, unit_id: str) -> Path:
+        """Path to a specific unit's .patch file."""
+        return self.result_units_dir / f"{self.sanitize_unit_id(unit_id)}.patch"
+
+    def result_unit_meta(self, unit_id: str) -> Path:
+        """Path to a specific unit's .meta.json file."""
+        return self.result_units_dir / f"{self.sanitize_unit_id(unit_id)}.meta.json"
+
     def ensure_dirs(self) -> None:
         """Create all stage directories if they don't exist.
 
