@@ -15,7 +15,9 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
-from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.common.summary_generator import (
+    generate_recognition_summary_markdown,
+)
 from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
@@ -293,7 +295,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         duration_seconds = time.time() - start_time
         logger.info(f"[RECOGNITION] Generated {len(baselines)} baseline(s)")
-        output = RecognitionOutput(baselines=baselines)
+        output = RecognitionOutput(baselines=baselines, run_id=rid)
         file_stats = self._write_output(rid, output)
         self._write_summary(rid, output, duration_seconds, file_stats)
         logger.info("[RECOGNITION] Recognition stage completed")
@@ -580,17 +582,12 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
     def _write_summary(self, run_id: str, output: RecognitionOutput, duration_seconds: float, file_stats: dict) -> None:
         try:
-            unique_units = {b.sql_unit_id for b in output.baselines}
-            summary = StageSummary(
-                stage_name="recognition",
-                run_id=run_id,
+            content = generate_recognition_summary_markdown(
+                output=output,
                 duration_seconds=duration_seconds,
-                sql_units_count=len(unique_units),
-                branches_count=len(output.baselines),
-                files_count=file_stats["unit_count"] + 2,
                 file_size_bytes=file_stats["file_size_bytes"],
+                files_count=file_stats["unit_count"] + 2,
             )
-            content = generate_summary_markdown(summary)
             output_dir = self.resolve_run_paths(run_id).recognition_dir
             output_dir.mkdir(parents=True, exist_ok=True)
             summary_path = output_dir / "SUMMARY.md"

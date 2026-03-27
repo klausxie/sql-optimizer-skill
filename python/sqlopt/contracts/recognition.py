@@ -31,10 +31,12 @@ class PerformanceBaseline:
 @dataclass
 class RecognitionOutput:
     baselines: List[PerformanceBaseline]
+    run_id: str = "unknown"
 
     def to_json(self) -> str:
         data = {
             "baselines": [asdict(baseline) for baseline in self.baselines],
+            "run_id": self.run_id,
         }
         return json.dumps(data)
 
@@ -42,4 +44,5 @@ class RecognitionOutput:
     def from_json(cls, json_str: str) -> RecognitionOutput:
         data = json.loads(json_str)
         baselines = [PerformanceBaseline(**b) for b in data["baselines"]]
-        return cls(baselines=baselines)
+        run_id = data.get("run_id", "unknown")
+        return cls(baselines=baselines, run_id=run_id)

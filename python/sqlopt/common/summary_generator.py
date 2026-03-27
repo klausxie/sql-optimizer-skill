@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 
 
 def truncate_text(text: str, max_chars: int = 1024) -> str:
@@ -392,6 +393,207 @@ def generate_summary_markdown(summary: StageSummary) -> str:
 
     lines.append("---")
     lines.append(f"*由 SQL Optimizer 生成 - 阶段: {summary.stage_name}*")
+
+    result = "\n".join(lines)
+
+    max_output_size = 50 * 1024
+    if len(result) > max_output_size:
+        result = result[:max_output_size] + "\n\n... (output truncated to 50KB)"
+
+    return result
+
+
+def _cost_category(cost: float) -> str:
+    """Categorize a cost value into low/medium/high."""
+    if cost == 0.0:
+        return "unknown"
+    if cost < 100.0:
+        return "low"
+    if cost < 1000.0:
+        return "medium"
+    return "high"
+
+
+def _extract_sql_preview(sql: str, max_len: int = 80) -> str:
+    """Extract a short preview of a SQL statement."""
+    sql = sql.strip()
+    if len(sql) <= max_len:
+        return sql
+    return sql[:max_len] + "..."
+
+
+def generate_recognition_summary_markdown(
+    output: RecognitionOutput,
+    duration_seconds: float,
+    file_size_bytes: int,
+    files_count: int,
+) -> str:
+    """Generate a valuable RECOGNITION stage SUMMARY with baseline analysis.
+
+    Args:
+        output: RecognitionOutput containing all PerformanceBaseline records.
+        duration_seconds: Total execution time in seconds.
+        file_size_bytes: Total size of output files in bytes.
+        files_count: Number of output files written.
+
+    Returns:
+        Markdown-formatted SUMMARY.md with actionable insights.
+    """
+    baselines = output.baselines
+    lines: list[str] = []
+
+    lines.append("# RECOGNITION 阶段报告")
+    lines.append("")
+    lines.append(f"**运行ID:** `{getattr(output, 'run_id', 'unknown')}`")
+    lines.append(f"**耗时:** {duration_seconds:.2f} 秒")
+    lines.append("")
+
+    # --- Execution overview ---
+    total = len(baselines)
+    success = sum(1 for b in baselines if b.execution_error is None)
+    failed = total - success
+    error_rate = (failed / total * 100) if total > 0 else 0.0
+
+    with_plan = sum(1 for b in baselines if b.plan is not None)
+    with_time = sum(1 for b in baselines if b.actual_time_ms is not None)
+    with_signature = sum(1 for b in baselines if b.result_signature is not None)
+
+    lines.append("## 执行概览")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| 总分支数 | {total} |")
+    lines.append(f"| ✅ 成功 | {success} |")
+    lines.append(f"| ❌ 失败 | {failed} |")
+    lines.append(f"| 失败率 | {error_rate:.1f}% |")
+    lines.append(f"| 有执行计划 | {with_plan} |")
+    lines.append(f"| 有实际耗时 | {with_time} |")
+    lines.append(f"| 有结果签名 | {with_signature} |")
+    lines.append("")
+
+    # --- Cost distribution ---
+    costs = [b.estimated_cost for b in baselines if b.estimated_cost > 0]
+    if costs:
+        cost_min = min(costs)
+        cost_max = max(costs)
+        cost_avg = sum(costs) / len(costs)
+
+        cost_buckets: dict[str, int] = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
+        for b in baselines:
+            cat = _cost_category(b.estimated_cost)
+            if cat != "unknown":
+                cost_buckets[cat] += 1
+            elif b.estimated_cost == 0 and b.execution_error is None:
+                cost_buckets["unknown"] += 1
+
+        lines.append("## 成本分布")
+        lines.append("")
+        lines.append("| 成本区间 | 分支数 |")
+        lines.append("|----------|--------|")
+        lines.append(f"| 🔴 高 (>1000) | {cost_buckets['high']} |")
+        lines.append(f"| 🟡 中 (100-1000) | {cost_buckets['medium']} |")
+        lines.append(f"| 🟢 低 (<100) | {cost_buckets['low']} |")
+        lines.append(f"| ⚪ 未知 (=0) | {cost_buckets['unknown']} |")
+        lines.append("")
+        lines.append(f"**成本范围:** {cost_min:.2f} ~ {cost_max:.2f}，均值 {cost_avg:.2f}")
+        lines.append("")
+
+    # --- Slow branches Top N ---
+    valid_branches = [b for b in baselines if b.execution_error is None and b.plan is not None]
+    slow_branches = sorted(valid_branches, key=lambda b: b.estimated_cost, reverse=True)[:10]
+
+    if slow_branches:
+        lines.append("## 慢分支 Top 10（按 estimated_cost）")
+        lines.append("")
+        lines.append("| # | SQL Unit | Branch | Cost | Actual(ms) | Rows Returned |")
+        lines.append("|---|----------|--------|------|-------------|---------------|")
+        for i, b in enumerate(slow_branches, 1):
+            actual_ms = f"{b.actual_time_ms:.1f}" if b.actual_time_ms else "-"
+            rows_ret = str(b.rows_returned) if b.rows_returned is not None else "-"
+            lines.append(
+                f"| {i} | `{b.sql_unit_id}` | `{b.path_id}` | {b.estimated_cost:.2f} | {actual_ms} | {rows_ret} |"
+            )
+        lines.append("")
+        lines.append(f"**Top SQL:** `{_extract_sql_preview(slow_branches[0].original_sql, 80)}`")
+        lines.append("")
+
+    # --- Branch type distribution ---
+    branch_types: dict[str, int] = {}
+    for b in baselines:
+        bt = b.branch_type or "normal"
+        branch_types[bt] = branch_types.get(bt, 0) + 1
+
+    lines.append("## 分支类型分布")
+    lines.append("")
+    for bt, cnt in sorted(branch_types.items(), key=lambda x: -x[1]):
+        icon = "🔴" if bt == "error" else "🔵" if bt == "baseline_only" else "🟢"
+        lines.append(f"- {icon} **{bt}**: {cnt} 条")
+    lines.append("")
+
+    # --- Per SQL unit summary ---
+    units_map: dict[str, list[PerformanceBaseline]] = {}
+    for b in baselines:
+        if b.sql_unit_id not in units_map:
+            units_map[b.sql_unit_id] = []
+        units_map[b.sql_unit_id].append(b)
+
+    lines.append(f"## SQL Unit 概览（共 {len(units_map)} 个 Unit）")
+    lines.append("")
+    lines.append("| Unit | 分支数 | 成功率 | 最高 Cost | 平均 Cost |")
+    lines.append("|------|--------|--------|----------|----------|")
+
+    unit_summaries: list[tuple[str, int, str, float, float]] = []
+    for unit_id, unit_bs in units_map.items():
+        total_branches = len(unit_bs)
+        unit_success = sum(1 for b in unit_bs if b.execution_error is None)
+        unit_success_rate = (unit_success / total_branches * 100) if total_branches > 0 else 0
+        unit_costs = [b.estimated_cost for b in unit_bs if b.estimated_cost > 0]
+        max_cost = max(unit_costs) if unit_costs else 0.0
+        avg_cost = (sum(unit_costs) / len(unit_costs)) if unit_costs else 0.0
+        unit_summaries.append((unit_id, total_branches, f"{unit_success_rate:.0f}%", max_cost, avg_cost))
+
+    unit_summaries.sort(key=lambda x: x[3], reverse=True)
+    for unit_id, total_branches, success_rate, max_cost, avg_cost in unit_summaries:
+        lines.append(f"| `{unit_id}` | {total_branches} | {success_rate} | {max_cost:.2f} | {avg_cost:.2f} |")
+    lines.append("")
+
+    # --- Actual time distribution (if available) ---
+    timed_bs = [b for b in baselines if b.actual_time_ms is not None]
+    if timed_bs:
+        times = [b.actual_time_ms for b in timed_bs]
+        lines.append("## 实际执行时间分布")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
+        lines.append(f"| 有耗时分支 | {len(timed_bs)} |")
+        lines.append(f"| 最快 | {min(times):.2f} ms |")
+        lines.append(f"| 最慢 | {max(times):.2f} ms |")
+        lines.append(f"| 平均 | {sum(times) / len(times):.2f} ms |")
+        lines.append("")
+
+    # --- Execution errors ---
+    error_bs = [b for b in baselines if b.execution_error is not None]
+    if error_bs:
+        lines.append(f"## 执行错误（共 {len(error_bs)} 条）")
+        lines.append("")
+        lines.extend(f"- **`{b.sql_unit_id}`.`{b.path_id}`**: `{b.execution_error}`" for b in error_bs[:10])
+        if len(error_bs) > 10:
+            lines.append(f"- ... 还有 {len(error_bs) - 10} 条错误")
+        lines.append("")
+
+    # --- Statistics ---
+    lines.append("## 统计信息")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| SQL Unit 数 | {len(units_map)} |")
+    lines.append(f"| 分支总数 | {total} |")
+    lines.append(f"| 输出文件数 | {files_count} |")
+    lines.append(f"| 输出大小 | {file_size_bytes:,} 字节 |")
+    lines.append("")
+
+    lines.append("---")
+    lines.append("*由 SQL Optimizer 生成 - RECOGNITION 阶段*")
 
     result = "\n".join(lines)
 
