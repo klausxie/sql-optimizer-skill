@@ -66,3 +66,15 @@ def test_config_based_classification_for_limit():
     )
     result = classify_patch_family(ctx)
     assert result == "STATIC_LIMIT_OPTIMIZATION"
+
+
+def test_config_distinct_on_simplification():
+    """STATIC_DISTINCT_ON_SIMPLIFICATION can be classified via config."""
+    ctx = ClassificationContext(
+        original_sql="SELECT DISTINCT ON (id) id, name FROM users",
+        rewritten_sql="SELECT DISTINCT id, name FROM users",
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+    result = classify_patch_family(ctx)
+    assert result == "STATIC_DISTINCT_ON_SIMPLIFICATION"

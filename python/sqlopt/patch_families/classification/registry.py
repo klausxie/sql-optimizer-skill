@@ -40,6 +40,12 @@ _CONFIG: dict[str, ClassificationConfig] = {
         ],
         rewritten_patterns=[],  # removed
     ),
+    "STATIC_DISTINCT_ON_SIMPLIFICATION": ClassificationConfig(
+        family="STATIC_DISTINCT_ON_SIMPLIFICATION",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\bSELECT\s+DISTINCT\s+ON\s*\("],
+        rewritten_patterns=[r"\bSELECT\s+DISTINCT\s+"],
+    ),
 }
 
 
