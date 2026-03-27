@@ -120,6 +120,11 @@ class InitStage(Stage[None, InitOutput]):
         field_count = sum(len(c) for c in field_by_table.values())
         total_work = file_count + table_count + field_count
 
+        if progress_callback:
+            progress_callback(
+                f"Found {file_count} mapper file(s), will extract {table_count} table(s), {field_count} field(s)"
+            )
+
         sql_units: list[SQLUnit] = []
         sql_fragments: list[SQLFragment] = []
         file_mappings: dict[str, FileMapping] = {}
@@ -219,6 +224,8 @@ class InitStage(Stage[None, InitOutput]):
                     return wrapper
 
                 logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
+                if progress_callback:
+                    progress_callback(f"Extracting schemas for {len(all_table_names)} table(s)")
                 table_schemas = extract_table_schemas(
                     table_names=list(all_table_names),
                     db_connector=db_connector,
@@ -229,6 +236,8 @@ class InitStage(Stage[None, InitOutput]):
                 schema_extraction_success = True
 
                 logger.info("[INIT] Extracting WHERE field distributions")
+                if progress_callback:
+                    progress_callback(f"Extracting distributions for {table_count} tables, {field_count} fields")
                 field_offset = file_count + table_count
                 for tbl, cols in field_by_table.items():
                     if tbl not in table_schemas:
