@@ -170,6 +170,14 @@ def _dynamic_statement_features(sql_unit: dict[str, Any]) -> list[str]:
     return out
 
 
+def _has_non_include_dynamic_features(row: dict[str, Any]) -> bool:
+    for raw in (row.get("dynamicFeatures") or []):
+        feature = str(raw or "").strip().upper()
+        if feature and feature != "INCLUDE":
+            return True
+    return False
+
+
 def _build_dynamic_template_facts(
     sql_unit: dict[str, Any],
     *,
@@ -192,7 +200,7 @@ def _build_dynamic_template_facts(
         if ref and ref not in include_fragment_refs:
             include_fragment_refs.append(ref)
 
-    include_dynamic_subtree = any(bool((row or {}).get("dynamicFeatures")) for row in include_fragments)
+    include_dynamic_subtree = any(_has_non_include_dynamic_features(row) for row in include_fragments)
     include_property_bindings = any(bool((row or {}).get("properties")) for row in include_bindings)
     feature_set = set(statement_features)
     template_sql = str(sql_unit.get("templateSql") or "")

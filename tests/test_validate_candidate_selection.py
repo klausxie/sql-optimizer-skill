@@ -11,6 +11,19 @@ from sqlopt.platforms.sql.validator_sql import validate_proposal
 
 
 class ValidateCandidateSelectionTest(unittest.TestCase):
+    def assert_patch_planning_omitted(self, contract: dict) -> None:
+        for field in (
+            "patchTarget",
+            "selectedPatchStrategy",
+            "patchability",
+            "rewriteMaterialization",
+            "templateRewriteOps",
+            "patchStrategyCandidates",
+            "dynamicTemplate",
+            "deliveryReadiness",
+        ):
+            self.assertNotIn(field, contract)
+
     def test_selects_best_improved_candidate_by_cost(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {
@@ -64,11 +77,10 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result.get("selectedCandidateId"), "c2")
         self.assertEqual(result.get("selectedCandidateSource"), "llm")
         self.assertEqual(result.get("selectionRationale", {}).get("strategy"), "PATCHABILITY_FIRST")
-        self.assertEqual(result.get("deliveryReadiness", {}).get("tier"), "READY")
-        self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("tier"), "READY")
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "PASS")
         self.assertGreaterEqual(len(result.get("candidateEvaluations") or []), 2)
         self.assertEqual((result.get("equivalence") or {}).get("keySetHash", {}).get("status"), "MATCH")
+        self.assert_patch_planning_omitted(result.to_contract())
 
     def test_prefers_more_patchable_candidate_before_best_cost(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
@@ -185,7 +197,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result["rewrittenSql"], sql_unit["sql"])
         self.assertIn("VALIDATE_PLACEHOLDER_SEMANTICS_MISMATCH_WARN", result.get("warnings", []))
 
-    def test_validate_emits_rewrite_materialization_for_static_sql(self) -> None:
+    def test_validation_result_contract_omits_patch_planning_fields(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {"llmCandidates": [], "suggestions": []}
         config = {"db": {}, "validate": {}, "patch": {}, "policy": {}}
@@ -193,8 +205,9 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="validate_materialization_") as td:
             result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td), fragment_catalog={})
 
-        self.assertEqual(result["rewriteMaterialization"]["mode"], "STATEMENT_SQL")
-        self.assertEqual(result["templateRewriteOps"], [])
+        contract = result.to_contract()
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(contract["status"], "NEED_MORE_PARAMS")
 
     def test_validate_persists_patch_target_contract_for_ready_family(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_") as td:
@@ -275,14 +288,13 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                     fragment_catalog=fragment_catalog,
                 )
 
-        patch_target = result.to_contract()["patchTarget"]
-        self.assertEqual(patch_target["family"], "STATIC_INCLUDE_WRAPPER_COLLAPSE")
-        self.assertEqual(patch_target["targetSql"], "SELECT COUNT(*) FROM users")
-        self.assertEqual(patch_target["semanticGateStatus"], "PASS")
-        self.assertEqual(patch_target["semanticGateConfidence"], "HIGH")
-        self.assertEqual(patch_target["replayContract"]["expectedRenderedSql"], "SELECT COUNT(*) FROM users")
-        self.assertTrue(patch_target["targetSqlNormalized"])
-        self.assertTrue(patch_target["targetSqlFingerprint"])
+        contract = result.to_contract()
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(contract["rewrittenSql"], "SELECT COUNT(*) FROM users")
+        self.assertEqual(
+            (((contract.get("rewriteFacts") or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("baselineFamily"),
+            "STATIC_INCLUDE_WRAPPER_COLLAPSE",
+        )
 
     def test_validate_persists_static_alias_projection_cleanup_patch_target_for_ready_alias_only_case(self) -> None:
         sql_unit = {
@@ -330,9 +342,9 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             ):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
-        patch_target = result.to_contract()["patchTarget"]
-        self.assertEqual(patch_target["family"], "STATIC_ALIAS_PROJECTION_CLEANUP")
-        self.assertEqual(patch_target["selectedPatchStrategy"]["strategyType"], "EXACT_TEMPLATE_EDIT")
+        contract = result.to_contract()
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(contract["rewrittenSql"], "SELECT id, name, email FROM users ORDER BY created_at DESC")
 
     def test_validate_allows_schema_qualified_table_for_static_alias_projection_cleanup(self) -> None:
         sql_unit = {
@@ -381,8 +393,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertEqual(contract["patchTarget"]["family"], "STATIC_ALIAS_PROJECTION_CLEANUP")
-        self.assertNotEqual((contract.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(contract["rewrittenSql"], "SELECT id, name FROM app.users ORDER BY created_at DESC")
 
     def test_validate_blocks_qualified_alias_neighbor_from_static_alias_projection_cleanup(self) -> None:
         sql_unit = {
@@ -431,9 +443,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertIsNone(contract.get("patchTarget"))
-        self.assertIsNone(contract.get("selectedPatchStrategy"))
-        self.assertEqual((contract.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(contract["rewrittenSql"], "SELECT u.id, u.name, u.email FROM users u ORDER BY u.created_at DESC")
 
     def test_validate_requires_registered_family_spec_before_persisting_patch_target(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_missing_spec_") as td:
@@ -514,7 +525,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                     fragment_catalog=fragment_catalog,
                 )
 
-        self.assertIsNone(result.to_contract().get("patchTarget"))
+        self.assert_patch_planning_omitted(result.to_contract())
 
     def test_validate_persists_dynamic_filter_select_list_cleanup_patch_target(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_ready_") as td:
@@ -594,8 +605,11 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertEqual((contract.get("patchTarget") or {}).get("family"), "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
-        self.assertEqual((contract.get("selectedPatchStrategy") or {}).get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(
+            (((contract.get("rewriteFacts") or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("baselineFamily"),
+            "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
+        )
 
     def test_validate_blocks_dynamic_filter_select_list_cleanup_for_qualified_projection_neighbor(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_blocked_") as td:
@@ -677,10 +691,11 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertIsNone(contract.get("patchTarget"))
-        self.assertIsNone(contract.get("selectedPatchStrategy"))
-        self.assertEqual((contract.get("dynamicTemplate") or {}).get("baselineFamily"), "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
-        self.assertEqual((contract.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(
+            (((contract.get("rewriteFacts") or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("baselineFamily"),
+            "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
+        )
 
     def test_validate_uses_registered_acceptance_policy_for_confidence_gate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_acceptance_policy_") as td:
@@ -762,7 +777,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             ):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
-        self.assertIsNone(result.to_contract().get("patchTarget"))
+        self.assert_patch_planning_omitted(result.to_contract())
 
     def test_validate_persists_dynamic_filter_from_alias_cleanup_for_single_table_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_from_alias_ready_") as td:
@@ -842,8 +857,11 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertEqual((contract.get("patchTarget") or {}).get("family"), "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP")
-        self.assertEqual((contract.get("selectedPatchStrategy") or {}).get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(
+            (((contract.get("rewriteFacts") or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("baselineFamily"),
+            "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+        )
 
     def test_validate_blocks_dynamic_filter_from_alias_cleanup_when_predicate_rewrite_is_required(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_from_alias_blocked_") as td:
@@ -923,10 +941,11 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
-        self.assertIsNone(contract.get("patchTarget"))
-        self.assertIsNone(contract.get("selectedPatchStrategy"))
-        self.assertEqual((contract.get("dynamicTemplate") or {}).get("baselineFamily"), "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP")
-        self.assertEqual((contract.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE")
+        self.assert_patch_planning_omitted(contract)
+        self.assertEqual(
+            (((contract.get("rewriteFacts") or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("baselineFamily"),
+            "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+        )
 
     def test_validate_rejects_text_fallback_candidate(self) -> None:
         sql_unit = {
@@ -951,7 +970,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(result.get("feedback", {}).get("reason_code"), "VALIDATE_EQUIVALENCE_MISMATCH")
-        self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("tier"), "BLOCKED")
+        self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("status"), "FAIL")
 
     def test_prefers_canonical_count_star_when_patchability_ties(self) -> None:
         sql_unit = {

@@ -12,31 +12,30 @@ from ..models import (
 )
 
 
-DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
-    family="DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+GROUP_BY_HAVING_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
+    family="GROUP_BY_HAVING_FROM_ALIAS_CLEANUP",
     status="FROZEN_AUTO_PATCH",
-    stage="MVP_ENVELOPE",
+    stage="MVP_AGGREGATION",
     scope=PatchFamilyScope(
         statement_types=("SELECT",),
         requires_template_preserving=True,
-        dynamic_shape_families=("IF_GUARDED_FILTER_STATEMENT",),
-        forbid_features=("CHOOSE", "BIND", "FOREACH", "SET", "JOIN"),
+        aggregation_shape_families=("GROUP_BY", "HAVING"),
         patch_surface="STATEMENT_BODY",
     ),
     acceptance=PatchFamilyAcceptancePolicy(
         semantic_required_status="PASS",
-        semantic_min_confidence="HIGH",
+        semantic_min_confidence="MEDIUM",
     ),
     patch_target_policy=PatchFamilyPatchTargetPolicy(
-        selected_patch_strategy="DYNAMIC_STATEMENT_TEMPLATE_EDIT",
+        selected_patch_strategy="EXACT_TEMPLATE_EDIT",
         requires_replay_contract=True,
-        materialization_modes=("STATEMENT_TEMPLATE_SAFE",),
+        materialization_modes=("STATEMENT_SQL",),
         target_type="STATEMENT",
         target_ref_policy="SQL_UNIT",
     ),
     replay=PatchFamilyReplayPolicy(
-        required_template_ops=("replace_statement_body",),
-        render_mode="STATEMENT_TEMPLATE_SAFE",
+        required_template_ops=(),
+        render_mode="STATEMENT_SQL",
     ),
     verification=PatchFamilyVerificationPolicy(
         require_replay_match=True,
@@ -45,11 +44,7 @@ DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
         require_sql_parse=True,
         require_apply_check=True,
     ),
-    blockers=PatchFamilyBlockingPolicy(
-        block_on_choose=True,
-        block_on_bind=True,
-        block_on_foreach=True,
-    ),
+    blockers=PatchFamilyBlockingPolicy(),
     fixture_obligations=PatchFamilyFixtureObligations(
         ready_case_required=True,
         blocked_neighbor_required=True,

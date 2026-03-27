@@ -64,8 +64,138 @@ def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
     assert from_spec.status == "FROZEN_AUTO_PATCH"
     assert select_spec.acceptance.semantic_min_confidence == "HIGH"
     assert from_spec.acceptance.semantic_min_confidence == "HIGH"
+    assert select_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert from_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert select_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert from_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert select_spec.patch_target_policy.target_type == "STATEMENT"
+    assert from_spec.patch_target_policy.target_type == "STATEMENT"
+    assert select_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert from_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert select_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
+    assert from_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
     assert select_spec.fixture_obligations.blocked_neighbor_required is True
     assert from_spec.fixture_obligations.blocked_neighbor_required is True
+
+
+def test_aggregation_baseline_specs_are_explicit_registry_entries() -> None:
+    group_by_spec = lookup_patch_family_spec("REDUNDANT_GROUP_BY_WRAPPER")
+    having_spec = lookup_patch_family_spec("REDUNDANT_HAVING_WRAPPER")
+    distinct_wrapper_spec = lookup_patch_family_spec("REDUNDANT_DISTINCT_WRAPPER")
+    group_by_alias_spec = lookup_patch_family_spec("GROUP_BY_FROM_ALIAS_CLEANUP")
+    group_by_having_alias_spec = lookup_patch_family_spec("GROUP_BY_HAVING_FROM_ALIAS_CLEANUP")
+    distinct_alias_spec = lookup_patch_family_spec("DISTINCT_FROM_ALIAS_CLEANUP")
+
+    assert group_by_spec is not None
+    assert having_spec is not None
+    assert distinct_wrapper_spec is not None
+    assert group_by_alias_spec is not None
+    assert group_by_having_alias_spec is not None
+    assert distinct_alias_spec is not None
+
+    assert group_by_spec.stage == "MVP_AGGREGATION"
+    assert having_spec.stage == "MVP_AGGREGATION"
+    assert distinct_wrapper_spec.stage == "MVP_AGGREGATION"
+    assert group_by_alias_spec.stage == "MVP_AGGREGATION"
+    assert group_by_having_alias_spec.stage == "MVP_AGGREGATION"
+    assert distinct_alias_spec.stage == "MVP_AGGREGATION"
+
+    assert group_by_spec.scope.aggregation_shape_families == ("GROUP_BY",)
+    assert having_spec.scope.aggregation_shape_families == ("HAVING",)
+    assert distinct_wrapper_spec.scope.aggregation_shape_families == ("DISTINCT",)
+    assert group_by_alias_spec.scope.aggregation_shape_families == ("GROUP_BY",)
+    assert group_by_having_alias_spec.scope.aggregation_shape_families == ("GROUP_BY", "HAVING")
+    assert distinct_alias_spec.scope.aggregation_shape_families == ("DISTINCT",)
+
+    assert group_by_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert having_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert distinct_wrapper_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert group_by_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert group_by_having_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert distinct_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+
+    assert group_by_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert having_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert distinct_wrapper_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert group_by_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert group_by_having_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert distinct_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+
+    assert group_by_spec.replay.required_template_ops == ()
+    assert having_spec.replay.required_template_ops == ()
+    assert distinct_wrapper_spec.replay.required_template_ops == ()
+    assert group_by_alias_spec.replay.required_template_ops == ()
+    assert group_by_having_alias_spec.replay.required_template_ops == ()
+    assert distinct_alias_spec.replay.required_template_ops == ()
+    assert group_by_spec.replay.render_mode == "STATEMENT_SQL"
+    assert having_spec.replay.render_mode == "STATEMENT_SQL"
+    assert distinct_wrapper_spec.replay.render_mode == "STATEMENT_SQL"
+    assert group_by_alias_spec.replay.render_mode == "STATEMENT_SQL"
+    assert group_by_having_alias_spec.replay.render_mode == "STATEMENT_SQL"
+    assert distinct_alias_spec.replay.render_mode == "STATEMENT_SQL"
+
+    assert group_by_spec.fixture_obligations.blocked_neighbor_required is True
+    assert having_spec.fixture_obligations.blocked_neighbor_required is True
+    assert distinct_wrapper_spec.fixture_obligations.blocked_neighbor_required is True
+    assert group_by_alias_spec.fixture_obligations.blocked_neighbor_required is True
+    assert group_by_having_alias_spec.fixture_obligations.blocked_neighbor_required is True
+    assert distinct_alias_spec.fixture_obligations.blocked_neighbor_required is True
+
+
+def test_remaining_thin_baseline_specs_are_explicit_registry_entries() -> None:
+    statement_spec = lookup_patch_family_spec("STATIC_STATEMENT_REWRITE")
+    wrapper_spec = lookup_patch_family_spec("STATIC_WRAPPER_COLLAPSE")
+    cte_spec = lookup_patch_family_spec("STATIC_CTE_INLINE")
+    dynamic_count_spec = lookup_patch_family_spec("DYNAMIC_COUNT_WRAPPER_COLLAPSE")
+    dynamic_filter_spec = lookup_patch_family_spec("DYNAMIC_FILTER_WRAPPER_COLLAPSE")
+
+    assert statement_spec is not None
+    assert wrapper_spec is not None
+    assert cte_spec is not None
+    assert dynamic_count_spec is not None
+    assert dynamic_filter_spec is not None
+
+    assert statement_spec.stage == "MVP_STATIC_BASELINE"
+    assert wrapper_spec.stage == "MVP_STATIC_BASELINE"
+    assert cte_spec.stage == "MVP_STATIC_BASELINE"
+    assert dynamic_count_spec.stage == "MVP_DYNAMIC_BASELINE"
+    assert dynamic_filter_spec.stage == "MVP_DYNAMIC_BASELINE"
+
+    assert statement_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert wrapper_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert cte_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert dynamic_count_spec.scope.dynamic_shape_families == ("IF_GUARDED_COUNT_WRAPPER",)
+    assert dynamic_filter_spec.scope.dynamic_shape_families == ("IF_GUARDED_FILTER_STATEMENT",)
+
+    assert statement_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert wrapper_spec.patch_target_policy.selected_patch_strategy == "SAFE_WRAPPER_COLLAPSE"
+    assert cte_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert dynamic_count_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert dynamic_filter_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+
+    assert statement_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert wrapper_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE",)
+    assert cte_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert dynamic_count_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert dynamic_filter_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+
+    assert statement_spec.replay.required_template_ops == ()
+    assert wrapper_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert cte_spec.replay.required_template_ops == ()
+    assert dynamic_count_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert dynamic_filter_spec.replay.required_template_ops == ("replace_statement_body",)
+
+    assert statement_spec.replay.render_mode == "STATEMENT_SQL"
+    assert wrapper_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE"
+    assert cte_spec.replay.render_mode == "STATEMENT_SQL"
+    assert dynamic_count_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
+    assert dynamic_filter_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
+
+    assert statement_spec.fixture_obligations.blocked_neighbor_required is False
+    assert wrapper_spec.fixture_obligations.blocked_neighbor_required is False
+    assert cte_spec.fixture_obligations.blocked_neighbor_required is False
+    assert dynamic_count_spec.fixture_obligations.blocked_neighbor_required is False
+    assert dynamic_filter_spec.fixture_obligations.blocked_neighbor_required is False
 
 
 def test_duplicate_family_registration_fails_fast() -> None:
@@ -108,6 +238,17 @@ def test_registry_imports_concrete_spec_modules_directly() -> None:
     assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in registry_source
     assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in registry_source
     assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.static_statement_rewrite import STATIC_STATEMENT_REWRITE_SPEC" in registry_source
+    assert "from .specs.static_wrapper_collapse import STATIC_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.static_cte_inline import STATIC_CTE_INLINE_SPEC" in registry_source
+    assert "from .specs.dynamic_count_wrapper_collapse import DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.dynamic_filter_wrapper_collapse import DYNAMIC_FILTER_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.redundant_distinct_wrapper import REDUNDANT_DISTINCT_WRAPPER_SPEC" in registry_source
+    assert "from .specs.redundant_group_by_wrapper import REDUNDANT_GROUP_BY_WRAPPER_SPEC" in registry_source
+    assert "from .specs.redundant_having_wrapper import REDUNDANT_HAVING_WRAPPER_SPEC" in registry_source
+    assert "from .specs.group_by_from_alias_cleanup import GROUP_BY_FROM_ALIAS_CLEANUP_SPEC" in registry_source
+    assert "from .specs.group_by_having_from_alias_cleanup import GROUP_BY_HAVING_FROM_ALIAS_CLEANUP_SPEC" in registry_source
+    assert "from .specs.distinct_from_alias_cleanup import DISTINCT_FROM_ALIAS_CLEANUP_SPEC" in registry_source
     assert "from .frozen_baselines import FROZEN_BASELINE_SPECS" not in specs_source
     assert "from .static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" not in specs_source
     assert "from .static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" not in specs_source

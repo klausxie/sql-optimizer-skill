@@ -23,13 +23,12 @@ DEFAULT_VERIFICATION_POLICY = PatchFamilyVerificationPolicy(
 def _resolve_verification_policy(
     *,
     applicable: Any,
-    patch_target: dict[str, Any],
+    family: str,
 ) -> tuple[PatchFamilyVerificationPolicy, bool]:
-    family = str((patch_target or {}).get("family") or "").strip()
     spec = lookup_patch_family_spec(family) if family else None
     return (
         spec.verification if spec is not None else DEFAULT_VERIFICATION_POLICY,
-        applicable is True and bool(patch_target) and spec is None,
+        applicable is True and bool(family) and spec is None,
     )
 
 
@@ -54,6 +53,7 @@ def append_patch_verification(
     validator: ContractValidator,
     patch: dict[str, Any],
     acceptance: dict[str, Any],
+    proof_patch_target: dict[str, Any] | None = None,
     status: str,
     semantic_gate_status: str,
     semantic_gate_confidence: str,
@@ -64,16 +64,11 @@ def append_patch_verification(
 ) -> None:
     paths = canonical_paths(run_dir)
     selection_reason = dict(patch.get("selectionReason") or {})
-    patch_target = dict(patch.get("patchTarget") or acceptance.get("patchTarget") or {})
-    template_ops = [
-        row
-        for row in ((patch_target.get("templateRewriteOps") if patch_target else acceptance.get("templateRewriteOps")) or [])
-        if isinstance(row, dict)
-    ]
-    rewrite_materialization = dict(
-        (patch_target.get("rewriteMaterialization") if patch_target else acceptance.get("rewriteMaterialization")) or {}
-    )
+    patch_target = dict(proof_patch_target or {})
+    template_ops = [row for row in (patch_target.get("templateRewriteOps") or []) if isinstance(row, dict)]
+    rewrite_materialization = dict(patch_target.get("rewriteMaterialization") or {})
     replay_verified = rewrite_materialization.get("replayVerified")
+    family = str((patch_target or {}).get("family") or "").strip()
     replay_result = dict(patch.get("replayEvidence") or {})
     syntax_result = dict(patch.get("syntaxEvidence") or {})
     replay_matches_target = replay_result.get("matchesTarget")
@@ -88,7 +83,7 @@ def append_patch_verification(
     requires_patch_target = applicable is True
     verification_policy, family_spec_missing = _resolve_verification_policy(
         applicable=applicable,
-        patch_target=patch_target,
+        family=family,
     )
     replay_required = bool(verification_policy.require_replay_match and patch_target)
     replay_evidence_required = applicable is True and replay_required

@@ -2,6 +2,33 @@ from __future__ import annotations
 
 from typing import Any
 
+from .patch_build import PatchBuildResult
+from .patch_select import PatchSelectionContext
+
+BUILD_FAILURE_REASON_CODES = {
+    "PATCH_LOCATOR_AMBIGUOUS",
+    "PATCH_NO_EFFECTIVE_CHANGE",
+    "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
+    "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
+    "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+    "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+    "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_CONFLICT_NO_CLEAR_WINNER",
+    "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+    "PATCH_SEMANTIC_CONFIDENCE_LOW",
+    "PATCH_VALIDATION_BLOCKED_SECURITY",
+}
+PROOF_FAILURE_REASON_CODES = {
+    "PATCH_TARGET_DRIFT",
+    "PATCH_ARTIFACT_INVALID",
+    "PATCH_XML_PARSE_FAILED",
+    "PATCH_SQL_PARSE_FAILED",
+    "PATCH_TARGET_CONTRACT_MISSING",
+    "PATCH_FAMILY_SPEC_MISSING",
+}
+
 LLM_ASSIST_REASON_CODES = {
     "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
     "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
@@ -124,32 +151,25 @@ def build_patch_repair_hints(reason_code: str, apply_check_error: str | None, sq
     return []
 
 
-def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], acceptance: dict[str, Any]) -> dict[str, Any]:
+def attach_patch_diagnostics(
+    patch: dict[str, Any],
+    sql_unit: dict[str, Any],
+    selection: PatchSelectionContext,
+    build: PatchBuildResult,
+) -> dict[str, Any]:
     selection_reason = dict(patch.get("selectionReason") or {})
     reason_code = str(selection_reason.get("code") or "").strip()
     apply_check_error = patch.get("applyCheckError")
-    patch_target = dict(acceptance.get("patchTarget") or {})
-    template_ops = [
-        row
-        for row in ((patch_target.get("templateRewriteOps") if patch_target else acceptance.get("templateRewriteOps")) or [])
-        if isinstance(row, dict)
-    ]
-    rewrite_materialization = dict(
-        (patch_target.get("rewriteMaterialization") if patch_target else acceptance.get("rewriteMaterialization")) or {}
-    )
+    template_ops = [row for row in build.template_rewrite_ops if isinstance(row, dict)]
+    rewrite_materialization = dict(build.rewrite_materialization or {})
     replay_verified = rewrite_materialization.get("replayVerified")
-    semantic_gate_raw = acceptance.get("semanticEquivalence")
-    semantic_gate = dict(semantic_gate_raw or {}) if isinstance(semantic_gate_raw, dict) else {}
-    semantic_gate_status = str(patch_target.get("semanticGateStatus") or semantic_gate.get("status") or "PASS").strip().upper()
-    if patch_target:
-        semantic_gate_confidence = str(patch_target.get("semanticGateConfidence") or "LOW").strip().upper()
-    elif isinstance(semantic_gate_raw, dict):
-        semantic_gate_confidence = str(semantic_gate.get("confidence") or "LOW").strip().upper()
-    else:
-        semantic_gate_confidence = "HIGH"
+    semantic_gate = dict(selection.semantic_equivalence or {})
+    semantic_gate_status = str(selection.semantic_gate_status or semantic_gate.get("status") or "PASS").strip().upper()
+    semantic_gate_confidence = str(selection.semantic_gate_confidence or semantic_gate.get("confidence") or "LOW").strip().upper()
     semantic_evidence_level = str(semantic_gate.get("evidenceLevel") or "STRUCTURE").strip().upper()
-    selected_patch_strategy = dict((patch_target.get("selectedPatchStrategy") if patch_target else acceptance.get("selectedPatchStrategy")) or {})
-    dynamic_template = dict(acceptance.get("dynamicTemplate") or {})
+    selected_patch_strategy = dict(build.selected_patch_strategy or {})
+    patch_family = str(build.family or "").strip() or None
+    dynamic_template = dict(selection.dynamic_template or {})
     locator_stable = bool(((sql_unit.get("locators") or {}).get("statementId")))
     template_safe_path = bool(template_ops) and replay_verified is True
     structural_blockers = [reason_code] if reason_code and patch.get("applicable") is not True else []
@@ -164,7 +184,13 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
         "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED",
         "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
     }
-    if patch.get("applicable") is True:
+    if patch.get("deliveryStage") == "PROOF_FAILED" or reason_code in PROOF_FAILURE_REASON_CODES:
+        delivery_outcome = {
+            "tier": "REVIEW_ONLY",
+            "reasonCodes": [reason_code] if reason_code else [],
+            "summary": "patch passed apply checks but proof verification failed",
+        }
+    elif patch.get("applicable") is True:
         delivery_outcome = {
             "tier": "AUTO_PATCH",
             "reasonCodes": [reason_code or "PATCH_SELECTED_SINGLE_PASS"],
@@ -202,8 +228,21 @@ def attach_patch_diagnostics(patch: dict[str, Any], sql_unit: dict[str, Any], ac
         }
 
     patch["deliveryOutcome"] = delivery_outcome
-    if patch_target:
-        patch["patchTarget"] = patch_target
+    if patch_family is not None:
+        patch["patchFamily"] = patch_family
+    patch["artifactKind"] = str(patch.get("artifactKind") or build.artifact_kind)
+    if reason_code in PROOF_FAILURE_REASON_CODES:
+        patch["deliveryStage"] = "PROOF_FAILED"
+        patch["failureClass"] = "PROOF_FAILURE"
+    elif patch.get("applicable") is False:
+        patch["deliveryStage"] = "APPLICABILITY_FAILED"
+        patch["failureClass"] = "APPLICABILITY_FAILURE"
+    elif reason_code in BUILD_FAILURE_REASON_CODES:
+        patch["deliveryStage"] = "BUILD_FAILED"
+        patch["failureClass"] = "BUILD_FAILURE"
+    elif patch.get("applicable") is True:
+        patch["deliveryStage"] = "APPLY_READY"
+        patch["failureClass"] = None
     patch["repairHints"] = build_patch_repair_hints(reason_code, apply_check_error, sql_unit)
     patch["patchability"] = {
         "applyCheckPassed": True if patch.get("applicable") is True else (False if patch.get("applicable") is False else None),

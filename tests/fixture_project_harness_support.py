@@ -104,6 +104,13 @@ def fixture_registered_blocked_neighbor_families(scenarios: list[dict]) -> set[s
     return blocked_families
 
 
+def patch_apply_ready(patch: dict) -> bool:
+    delivery_stage = str(patch.get("deliveryStage") or "").strip().upper()
+    if delivery_stage:
+        return delivery_stage == "APPLY_READY"
+    return patch.get("applicable") is True
+
+
 def patch_meets_registered_fixture_obligations(patch: dict, scenario: dict) -> bool:
     target_registered_family = str(scenario.get("targetRegisteredFamily") or "").strip()
     target_dynamic_family = str(scenario.get("targetDynamicBaselineFamily") or "").strip()
@@ -112,8 +119,8 @@ def patch_meets_registered_fixture_obligations(patch: dict, scenario: dict) -> b
     if spec is None:
         return True
 
-    patch_target_family = str(((patch.get("patchTarget") or {}).get("family")) or "").strip()
-    applicable = patch.get("applicable") is True
+    patch_target_family = str(patch.get("patchFamily") or "").strip()
+    applicable = patch_apply_ready(patch)
     dynamic_delivery_class = str(scenario.get("targetDynamicDeliveryClass") or "").strip().upper()
 
     if target_registered_family and applicable and patch_target_family != str(spec.family):
@@ -242,7 +249,7 @@ def validate_blocker_family(result: dict) -> str:
 
 
 def patch_blocker_family(patch: dict) -> str:
-    if patch.get("strategyType") or patch.get("applicable") is True:
+    if patch.get("strategyType") or patch_apply_ready(patch):
         return "READY"
     reason_code = str(((patch.get("selectionReason") or {}).get("code") or "")).strip().upper()
     if reason_code == "PATCH_VALIDATION_BLOCKED_SECURITY":
@@ -372,7 +379,7 @@ def run_fixture_validate_harness() -> tuple[list[dict], list[dict], list[dict], 
 
 
 def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list[dict], list[dict], object]:
-    scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, _fragment_catalog = run_fixture_validate_harness()
+    scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, fragment_catalog = run_fixture_validate_harness()
     validator = ContractValidator(ROOT)
 
     with tempfile.TemporaryDirectory(prefix="sqlopt_fixture_patch_") as td:
@@ -380,6 +387,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
         paths = canonical_paths(run_dir)
         paths.ensure_layout()
         write_jsonl(paths.acceptance_path, acceptance_rows)
+        write_jsonl(paths.scan_fragments_path, list(fragment_catalog.values()))
 
         patch_config = {
             "project": {"root_path": str(ROOT)},

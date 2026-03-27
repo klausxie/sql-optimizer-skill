@@ -3,70 +3,8 @@
   "title": "AcceptanceResult",
   "type": "object",
   "required": ["sqlKey", "status", "equivalence", "perfComparison", "securityChecks"],
-  "$defs": {
-    "PatchReplayContract": {
-      "type": "object",
-      "required": [
-        "replayMode",
-        "requiredTemplateOps",
-        "expectedRenderedSql",
-        "expectedRenderedSqlNormalized",
-        "expectedFingerprint",
-        "requiredAnchors",
-        "requiredIncludes",
-        "requiredPlaceholderShape",
-        "dialectSyntaxCheckRequired"
-      ],
-      "properties": {
-        "replayMode": {"type": "string"},
-        "requiredTemplateOps": {"type": "array", "items": {"type": "string"}},
-        "expectedRenderedSql": {"type": "string"},
-        "expectedRenderedSqlNormalized": {"type": "string"},
-        "expectedFingerprint": {"type": ["string", "object"]},
-        "requiredAnchors": {"type": "array", "items": {"type": "string"}},
-        "requiredIncludes": {"type": "array", "items": {"type": "string"}},
-        "requiredPlaceholderShape": {"type": ["string", "array"], "items": {"type": "string"}},
-        "dialectSyntaxCheckRequired": {"type": "boolean"}
-      }
-    },
-    "PatchTargetContract": {
-      "type": "object",
-      "required": [
-        "sqlKey",
-        "selectedCandidateId",
-        "targetSql",
-        "targetSqlNormalized",
-        "targetSqlFingerprint",
-        "semanticGateStatus",
-        "semanticGateConfidence",
-        "selectedPatchStrategy",
-        "family",
-        "semanticEquivalence",
-        "patchability",
-        "rewriteMaterialization",
-        "templateRewriteOps",
-        "replayContract",
-        "evidenceRefs"
-      ],
-      "properties": {
-        "sqlKey": {"type": "string"},
-        "selectedCandidateId": {"type": "string"},
-        "targetSql": {"type": "string"},
-        "targetSqlNormalized": {"type": "string"},
-        "targetSqlFingerprint": {"type": "string"},
-        "semanticGateStatus": {"type": "string"},
-        "semanticGateConfidence": {"type": "string"},
-        "selectedPatchStrategy": {"type": "object"},
-        "family": {"type": "string"},
-        "semanticEquivalence": {"type": "object"},
-        "patchability": {"type": "object"},
-        "rewriteMaterialization": {"type": "object"},
-        "templateRewriteOps": {"type": "array", "items": {"type": "object"}},
-        "replayContract": {"$ref": "#/$defs/PatchReplayContract"},
-        "evidenceRefs": {"type": "array", "items": {"type": "string"}}
-      }
-    }
-  },
+  "additionalProperties": false,
+  "$defs": {},
   "properties": {
     "sqlKey": {"type": "string"},
     "status": {"type": "string"},
@@ -101,7 +39,6 @@
     "feedback": {"type": ["object", "null"]},
     "rewriteStrategy": {"type": "string"},
     "rewriteIntent": {"type": ["object", "null"]},
-    "rewriteMaterialization": {"type": ["object", "null"]},
     "semanticRisk": {"type": "string"},
     "regressionSignals": {"type": "array"},
     "decisionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
@@ -114,30 +51,13 @@
     "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
     "selectionReason": {"type": ["object", "null"]},
     "selectionRationale": {"type": ["object", "null"]},
-    "deliveryReadiness": {"type": ["object", "null"]},
     "decisionLayers": {"type": ["object", "null"]},
     "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
-    "templateRewriteOps": {"type": ["array", "null"], "items": {"type": "object"}},
     "repairability": {"type": ["object", "null"]},
     "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
     "rewriteSafetyLevel": {"type": ["string", "null"]},
-    "patchability": {"type": ["object", "null"]},
-    "selectedPatchStrategy": {"type": ["object", "null"]},
-    "dynamicTemplate": {
-      "type": ["object", "null"],
-      "properties": {
-        "present": {"type": ["boolean", "null"]},
-        "shapeFamily": {"type": ["string", "null"]},
-        "capabilityTier": {"type": ["string", "null"]},
-        "patchSurface": {"type": ["string", "null"]},
-        "baselineFamily": {"type": ["string", "null"]},
-        "blockingReason": {"type": ["string", "null"]},
-        "deliveryClass": {"type": ["string", "null"]}
-      }
-    },
     "canonicalization": {"type": ["object", "null"]},
     "rewriteFacts": {"type": ["object", "null"]},
-    "patchStrategyCandidates": {"type": ["array", "null"], "items": {"type": "object"}},
     "canonicalizationAssessment": {"type": ["array", "null"], "items": {"type": "object"}},
     "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
     "semanticEquivalence": {
@@ -158,7 +78,6 @@
         "coverage": {"type": ["object", "null"]},
         "evidence": {"type": ["object", "null"]}
       }
-    },
-    "patchTarget": {"$ref": "#/$defs/PatchTargetContract"}
+    }
   }
 }

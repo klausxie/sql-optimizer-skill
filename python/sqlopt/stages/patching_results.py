@@ -21,6 +21,9 @@ def skip_patch_result(
     patch_target: dict | None = None,
     replay_evidence: dict | None = None,
     syntax_evidence: dict | None = None,
+    artifact_kind: str | None = None,
+    delivery_stage: str | None = None,
+    failure_class: str | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -35,6 +38,9 @@ def skip_patch_result(
     }
     if selected_candidate_id is not None:
         patch["selectedCandidateId"] = selected_candidate_id
+    patch_family = str((patch_target or {}).get("family") or "").strip()
+    if patch_family:
+        patch["patchFamily"] = patch_family
     if applicable is not None:
         patch["applicable"] = applicable
         patch["applyCheckError"] = apply_check_error
@@ -48,12 +54,16 @@ def skip_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
-    if patch_target is not None:
-        patch["patchTarget"] = dict(patch_target)
     if replay_evidence is not None:
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:
         patch["syntaxEvidence"] = dict(syntax_evidence)
+    if artifact_kind is not None:
+        patch["artifactKind"] = artifact_kind
+    if delivery_stage is not None:
+        patch["deliveryStage"] = delivery_stage
+    if failure_class is not None:
+        patch["failureClass"] = failure_class
     return patch
 
 
@@ -73,6 +83,9 @@ def selected_patch_result(
     patch_target: dict | None = None,
     replay_evidence: dict | None = None,
     syntax_evidence: dict | None = None,
+    artifact_kind: str | None = None,
+    delivery_stage: str | None = None,
+    failure_class: str | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -88,6 +101,9 @@ def selected_patch_result(
         "applicable": True,
         "applyCheckError": None,
     }
+    patch_family = str((patch_target or {}).get("family") or "").strip()
+    if patch_family:
+        patch["patchFamily"] = patch_family
     if delivery_outcome is not None:
         patch["deliveryOutcome"] = delivery_outcome
     if repair_hints is not None:
@@ -98,10 +114,14 @@ def selected_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
-    if patch_target is not None:
-        patch["patchTarget"] = dict(patch_target)
     if replay_evidence is not None:
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:
         patch["syntaxEvidence"] = dict(syntax_evidence)
+    if artifact_kind is not None:
+        patch["artifactKind"] = artifact_kind
+    if delivery_stage is not None:
+        patch["deliveryStage"] = delivery_stage
+    if failure_class is not None:
+        patch["failureClass"] = failure_class
     return patch

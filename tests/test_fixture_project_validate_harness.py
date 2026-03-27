@@ -15,12 +15,9 @@ from .fixture_project_harness_support import (
     fixture_registered_blocked_neighbor_families,
     fixture_registered_families,
     load_fixture_scenarios,
-    patchability_bucket,
-    primary_blocker,
     registered_patch_family_spec,
     run_fixture_validate_harness,
     semantic_gate_bucket,
-    validate_blocker_family,
 )
 
 
@@ -97,32 +94,6 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
             result = acceptance_by_key[sql_key]
             self.assertEqual(str(result["status"]), str(scenario["targetValidateStatus"]), sql_key)
             self.assertEqual(semantic_gate_bucket(result), str(scenario["targetSemanticGate"]), sql_key)
-            self.assertEqual(patchability_bucket(result), str(scenario["targetPatchability"]), sql_key)
-            self.assertEqual(validate_blocker_family(result), str(scenario["targetBlockerFamily"]), sql_key)
-            self.assertEqual(
-                ((result.get("selectedPatchStrategy") or {}).get("strategyType")),
-                scenario["targetPatchStrategy"],
-                sql_key,
-            )
-            if scenario.get("targetDynamicBaselineFamily") is not None:
-                self.assertEqual(
-                    ((result.get("dynamicTemplate") or {}).get("baselineFamily")),
-                    scenario["targetDynamicBaselineFamily"],
-                    sql_key,
-                )
-            if scenario.get("targetDynamicDeliveryClass") is not None:
-                self.assertEqual(
-                    ((result.get("dynamicTemplate") or {}).get("deliveryClass")),
-                    scenario["targetDynamicDeliveryClass"],
-                    sql_key,
-                )
-            if scenario.get("targetRegisteredFamily") is not None and scenario.get("targetPatchStrategy") is not None:
-                self.assertEqual(
-                    ((result.get("patchTarget") or {}).get("family")),
-                    scenario["targetRegisteredFamily"],
-                    sql_key,
-                )
-            self.assertEqual(primary_blocker(result), scenario["targetPrimaryBlocker"], sql_key)
             rewrite_facts = result.get("rewriteFacts") or {}
             dynamic_template = rewrite_facts.get("dynamicTemplate") or {}
             aggregation_query = rewrite_facts.get("aggregationQuery") or {}
@@ -141,12 +112,7 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_COUNT_WRAPPER", sql_key)
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
-                self.assertEqual((result.get("patchTarget") or {}).get("family"), "DYNAMIC_COUNT_WRAPPER_COLLAPSE", sql_key)
-                self.assertEqual(
-                    (((result.get("patchTarget") or {}).get("replayContract") or {}).get("expectedRenderedSql")),
-                    result.get("rewrittenSql"),
-                    sql_key,
-                )
+                self.assertEqual(dynamic_profile.get("baselineFamily"), "DYNAMIC_COUNT_WRAPPER_COLLAPSE", sql_key)
             if sql_key == "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "STATIC_INCLUDE_ONLY", sql_key)
@@ -173,15 +139,12 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
                 self.assertEqual(dynamic_profile.get("baselineFamily"), "DYNAMIC_FILTER_SELECT_LIST_CLEANUP", sql_key)
-                self.assertEqual((result.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS", sql_key)
-                self.assertIsNone(result.get("patchTarget"), sql_key)
             if sql_key == "demo.user.advanced.listUsersFilteredAliasedChoose#v23":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_FILTER_STATEMENT", sql_key)
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "REVIEW_REQUIRED", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "WHERE_CLAUSE", sql_key)
                 self.assertIsNone(dynamic_profile.get("baselineFamily"), sql_key)
-                self.assertIsNone(result.get("patchTarget"), sql_key)
             if sql_key == "demo.user.advanced.listUsersFilteredTableAliased#v18":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_FILTER_STATEMENT", sql_key)
@@ -194,13 +157,10 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
                 self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
                 self.assertEqual(dynamic_profile.get("baselineFamily"), "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP", sql_key)
-                self.assertEqual((result.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE", sql_key)
-                self.assertIsNone(result.get("patchTarget"), sql_key)
             if sql_key == "demo.order.harness.findOrdersByNos#v1":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "FOREACH_IN_PREDICATE", sql_key)
                 self.assertEqual(dynamic_profile.get("capabilityTier"), "REVIEW_REQUIRED", sql_key)
-                self.assertEqual((result.get("patchability") or {}).get("dynamicBlockingReason"), "FOREACH_INCLUDE_PREDICATE", sql_key)
             if sql_key == "demo.user.advanced.listDistinctUserStatuses#v11":
                 self.assertEqual(aggregation_query.get("distinctPresent"), True, sql_key)
                 self.assertEqual(aggregation_query.get("distinctRelaxationCandidate"), True, sql_key)
@@ -245,13 +205,6 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
                 self.assertEqual(aggregation_query.get("distinctPresent"), True, sql_key)
                 self.assertEqual(capability_profile.get("safeBaselineFamily"), "DISTINCT_FROM_ALIAS_CLEANUP", sql_key)
                 self.assertEqual(capability_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
-            if sql_key == "demo.user.advanced.listUsersProjectedAliases#v20":
-                self.assertEqual((result.get("patchTarget") or {}).get("family"), "STATIC_ALIAS_PROJECTION_CLEANUP", sql_key)
-                self.assertEqual((result.get("selectedPatchStrategy") or {}).get("strategyType"), "EXACT_TEMPLATE_EDIT", sql_key)
-            if sql_key == "demo.user.advanced.listUsersProjectedQualifiedAliases#v21":
-                self.assertIsNone(result.get("patchTarget"), sql_key)
-                self.assertIsNone(result.get("selectedPatchStrategy"), sql_key)
-                self.assertEqual((result.get("patchability") or {}).get("blockingReason"), "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH", sql_key)
             if sql_key == "demo.order.harness.listOrderAmountWindowRanks#v7":
                 self.assertEqual(aggregation_query.get("windowPresent"), True, sql_key)
                 self.assertEqual(aggregation_query.get("windowFunctions"), ["ROW_NUMBER"], sql_key)

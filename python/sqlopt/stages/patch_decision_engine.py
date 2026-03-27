@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from ..run_paths import canonical_paths
+from .patch_build import PatchBuildResult
+from .patch_select import PatchSelectionContext
 
 @dataclass(frozen=True)
 class PatchDecisionContext:
@@ -18,9 +21,15 @@ class PatchDecisionContext:
     candidates_evaluated: int
 
 
-def _patch_target(acceptance: dict[str, Any]) -> dict[str, Any]:
-    payload = acceptance.get("patchTarget")
-    return dict(payload) if isinstance(payload, dict) else {}
+_TEMPLATE_TAG_PATTERN = re.compile(r"</?(if|where|set|trim|foreach|choose|when|otherwise|bind|include)\b")
+
+
+def _artifact_kind_for_patch_text(build: PatchBuildResult, patch_text: str) -> str:
+    if build.artifact_kind == "FRAGMENT":
+        return "FRAGMENT"
+    if _TEMPLATE_TAG_PATTERN.search(patch_text):
+        return "TEMPLATE"
+    return "STATEMENT"
 
 
 def _acceptance_reason_code(acceptance: dict[str, Any]) -> str | None:
@@ -53,74 +62,22 @@ def _selection_evidence(
     acceptance: dict[str, Any],
 ) -> dict[str, Any]:
     repairability = dict(acceptance.get("repairability") or {})
-    patch_target = _patch_target(acceptance)
     return {
         "acceptanceStatus": status,
         "acceptanceReasonCode": _acceptance_reason_code(acceptance),
-        "semanticGateStatus": patch_target.get("semanticGateStatus") or semantic_gate_status,
-        "semanticGateConfidence": patch_target.get("semanticGateConfidence") or semantic_gate_confidence,
+        "semanticGateStatus": semantic_gate_status,
+        "semanticGateConfidence": semantic_gate_confidence,
         "repairabilityStatus": str(repairability.get("status") or "").strip().upper() or None,
         "rewriteSafetyLevel": str(acceptance.get("rewriteSafetyLevel") or "").strip().upper() or None,
     }
-
-
-def _dynamic_template_summary(acceptance: dict[str, Any]) -> dict[str, Any]:
-    summary = acceptance.get("dynamicTemplate")
-    if isinstance(summary, dict):
-        return dict(summary)
-    rewrite_facts = dict(acceptance.get("rewriteFacts") or {})
-    dynamic_template = dict(rewrite_facts.get("dynamicTemplate") or {})
-    profile = dict(dynamic_template.get("capabilityProfile") or {})
-    patchability = dict(acceptance.get("patchability") or {})
-    if not dynamic_template:
-        return {}
-    return {
-        "present": bool(dynamic_template.get("present")),
-        "shapeFamily": str(profile.get("shapeFamily") or "").strip() or None,
-        "capabilityTier": str(profile.get("capabilityTier") or "").strip() or None,
-        "patchSurface": str(profile.get("patchSurface") or "").strip() or None,
-        "blockingReason": (
-            str(patchability.get("dynamicBlockingReason") or "").strip()
-            or str(profile.get("blockerFamily") or "").strip()
-            or None
-        ),
-    }
-
-
-def _semantic_gate_status(acceptance: dict[str, Any]) -> str:
-    patch_target = _patch_target(acceptance)
-    target_status = str(patch_target.get("semanticGateStatus") or "").strip().upper()
-    if target_status in {"PASS", "FAIL", "UNCERTAIN"}:
-        return target_status
-    gate = acceptance.get("semanticEquivalence")
-    if not isinstance(gate, dict):
-        # Backward-compatibility for historical acceptance artifacts.
-        return "PASS"
-    status = str(gate.get("status") or "").strip().upper()
-    if status in {"PASS", "FAIL", "UNCERTAIN"}:
-        return status
-    return "UNCERTAIN"
-
-
-def _semantic_gate_confidence(acceptance: dict[str, Any]) -> str:
-    patch_target = _patch_target(acceptance)
-    target_confidence = str(patch_target.get("semanticGateConfidence") or "").strip().upper()
-    if target_confidence in {"LOW", "MEDIUM", "HIGH"}:
-        return target_confidence
-    gate = acceptance.get("semanticEquivalence")
-    if not isinstance(gate, dict):
-        # Backward-compatibility for historical acceptance artifacts.
-        return "HIGH"
-    confidence = str(gate.get("confidence") or "").strip().upper()
-    if confidence in {"LOW", "MEDIUM", "HIGH"}:
-        return confidence
-    return "LOW"
 
 
 def decide_patch_result(
     *,
     sql_unit: dict[str, Any],
     acceptance: dict[str, Any],
+    selection: PatchSelectionContext,
+    build: PatchBuildResult,
     run_dir: Path,
     acceptance_rows: list[dict[str, Any]],
     project_root: Path,
@@ -135,8 +92,8 @@ def decide_patch_result(
     build_unified_patch: Callable[[Path, str, str, str], tuple[str | None, int]],
 ) -> tuple[dict[str, Any], PatchDecisionContext]:
     status = acceptance["status"]
-    semantic_gate_status = _semantic_gate_status(acceptance)
-    semantic_gate_confidence = _semantic_gate_confidence(acceptance)
+    semantic_gate_status = selection.semantic_gate_status
+    semantic_gate_confidence = selection.semantic_gate_confidence
     sql_key = sql_unit["sqlKey"]
     statement_key = statement_key_fn(sql_key)
     same_statement = [row for row in acceptance_rows if statement_key_fn(str(row.get("sqlKey", ""))) == statement_key]
@@ -151,7 +108,7 @@ def decide_patch_result(
         semantic_gate_confidence=semantic_gate_confidence,
         acceptance=acceptance,
     )
-    dynamic_template = _dynamic_template_summary(acceptance)
+    dynamic_template = dict(selection.dynamic_template or {})
 
     ctx = PatchDecisionContext(
         status=status,
@@ -260,14 +217,16 @@ def decide_patch_result(
     original_sql = str(sql_unit.get("sql") or "")
     dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
     dynamic_trace = sql_unit.get("dynamicTrace") or {}
-    patch_target = _patch_target(acceptance)
-    rewritten_sql = str(patch_target.get("targetSql") or acceptance.get("rewrittenSql") or "").strip()
+    rewritten_sql = selection.rewritten_sql
     template_acceptance = dict(acceptance)
-    if patch_target:
-        template_acceptance["selectedCandidateId"] = patch_target.get("selectedCandidateId")
-        template_acceptance["selectedPatchStrategy"] = patch_target.get("selectedPatchStrategy")
-        template_acceptance["templateRewriteOps"] = list(patch_target.get("templateRewriteOps") or [])
-        template_acceptance["rewriteMaterialization"] = dict(patch_target.get("rewriteMaterialization") or {})
+    if selection.selected_candidate_id is not None:
+        template_acceptance["selectedCandidateId"] = selection.selected_candidate_id
+    if build.selected_patch_strategy is not None:
+        template_acceptance["selectedPatchStrategy"] = dict(build.selected_patch_strategy)
+    if build.template_rewrite_ops:
+        template_acceptance["templateRewriteOps"] = [dict(row) for row in build.template_rewrite_ops if isinstance(row, dict)]
+    if build.rewrite_materialization is not None:
+        template_acceptance["rewriteMaterialization"] = dict(build.rewrite_materialization)
     formatted_rewritten_sql = format_sql_for_patch(rewritten_sql)
 
     if (not dynamic_features) and normalize_sql_text(original_sql) == normalize_sql_text(rewritten_sql):
@@ -320,8 +279,9 @@ def decide_patch_result(
             patch_text=template_patch_text,
             changed_lines=template_changed_lines,
             candidates_evaluated=candidates_evaluated,
-            selected_candidate_id=patch_target.get("selectedCandidateId") or acceptance.get("selectedCandidateId"),
-            patch_target=patch_target or None,
+            selected_candidate_id=selection.selected_candidate_id,
+            patch_target=None,
+            artifact_kind=_artifact_kind_for_patch_text(build, template_patch_text),
             no_effect_message="rewritten template has no diff",
             workdir=project_root,
         )
@@ -376,18 +336,6 @@ def decide_patch_result(
         )
         return patch, ctx
 
-    if status == "PASS" and not patch_target:
-        patch = skip_patch_result(
-            sql_key=sql_key,
-            statement_key=statement_key,
-            reason_code="PATCH_TARGET_CONTRACT_MISSING",
-            reason_message="acceptance payload is missing persisted patchTarget contract",
-            candidates_evaluated=candidates_evaluated,
-            selection_evidence=selection_evidence,
-            fallback_reason_codes=fallback_reason_codes,
-        )
-        return patch, ctx
-
     patch_sql = formatted_rewritten_sql or rewritten_sql
     patch_text, changed_lines = build_unified_patch(xml_path, statement_id, statement_type, patch_sql)
     if patch_text is None:
@@ -409,8 +357,9 @@ def decide_patch_result(
         patch_text=patch_text,
         changed_lines=changed_lines,
         candidates_evaluated=candidates_evaluated,
-        selected_candidate_id=patch_target.get("selectedCandidateId") or acceptance.get("selectedCandidateId"),
-        patch_target=patch_target or None,
+        selected_candidate_id=selection.selected_candidate_id,
+        patch_target=None,
+        artifact_kind="STATEMENT",
         no_effect_message="rewritten sql has no diff",
         workdir=project_root,
     )

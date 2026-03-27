@@ -158,6 +158,40 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "STATEMENT_BODY")
         self.assertTrue(model.dynamic_template.capability_profile.template_preserving_candidate)
 
+    def test_build_rewrite_facts_model_treats_nested_static_include_tree_as_static_include_only(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.countUser#v2",
+            "sql": "select count(1) from ( SELECT id, name, email, status, created_at, updated_at FROM users ) tmp",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user",
+            "statementId": "countUser",
+            "templateSql": 'select count(1) from (<include refid="userBaseQuery" />) tmp',
+            "dynamicFeatures": ["INCLUDE"],
+            "dynamicTrace": {
+                "statementFeatures": ["INCLUDE"],
+                "includeFragments": [
+                    {"ref": "demo.user.userBaseQuery", "dynamicFeatures": ["INCLUDE"]},
+                    {"ref": "demo.user.UserBaseColumns", "dynamicFeatures": []},
+                ],
+            },
+            "includeBindings": [{"ref": "demo.user.userBaseQuery", "properties": [], "bindingHash": "base"}],
+            "primaryFragmentTarget": "demo.user.userBaseQuery",
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT COUNT(*) FROM users",
+            {},
+            {"evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}]},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertFalse(model.dynamic_template.include_dynamic_subtree)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "STATIC_INCLUDE_ONLY")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertEqual(model.dynamic_template.capability_profile.baseline_family, "STATIC_INCLUDE_WRAPPER_COLLAPSE")
+
     def test_build_rewrite_facts_model_marks_static_include_with_properties_as_fragment_dependent(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listUsersWithBoundInclude#v1",

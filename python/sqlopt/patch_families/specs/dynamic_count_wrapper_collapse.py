@@ -12,20 +12,19 @@ from ..models import (
 )
 
 
-DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
-    family="DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC = PatchFamilySpec(
+    family="DYNAMIC_COUNT_WRAPPER_COLLAPSE",
     status="FROZEN_AUTO_PATCH",
-    stage="MVP_ENVELOPE",
+    stage="MVP_DYNAMIC_BASELINE",
     scope=PatchFamilyScope(
         statement_types=("SELECT",),
         requires_template_preserving=True,
-        dynamic_shape_families=("IF_GUARDED_FILTER_STATEMENT",),
-        forbid_features=("CHOOSE", "BIND", "FOREACH", "SET", "JOIN"),
+        dynamic_shape_families=("IF_GUARDED_COUNT_WRAPPER",),
         patch_surface="STATEMENT_BODY",
     ),
     acceptance=PatchFamilyAcceptancePolicy(
         semantic_required_status="PASS",
-        semantic_min_confidence="HIGH",
+        semantic_min_confidence="MEDIUM",
     ),
     patch_target_policy=PatchFamilyPatchTargetPolicy(
         selected_patch_strategy="DYNAMIC_STATEMENT_TEMPLATE_EDIT",
@@ -45,14 +44,10 @@ DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
         require_sql_parse=True,
         require_apply_check=True,
     ),
-    blockers=PatchFamilyBlockingPolicy(
-        block_on_choose=True,
-        block_on_bind=True,
-        block_on_foreach=True,
-    ),
+    blockers=PatchFamilyBlockingPolicy(),
     fixture_obligations=PatchFamilyFixtureObligations(
         ready_case_required=True,
-        blocked_neighbor_required=True,
+        blocked_neighbor_required=False,
         replay_assertions_required=True,
         verification_assertions_required=True,
     ),

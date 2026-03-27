@@ -41,51 +41,11 @@ class PatchApplicabilityTest(unittest.TestCase):
             "sqlKey": "demo.user.listUsersSorted#v1",
             "status": "PASS",
             "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC",
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
             "selectedCandidateId": "c-pass-1",
-            "patchTarget": {
-                "sqlKey": "demo.user.listUsersSorted#v1",
-                "selectedCandidateId": "c-pass-1",
-                "targetSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                "targetSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                "targetSqlFingerprint": "demo-fingerprint",
-                "semanticGateStatus": "PASS",
-                "semanticGateConfidence": "HIGH",
-                "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
-                "family": "STATIC_STATEMENT_REWRITE",
-                "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
-                "patchability": {"eligible": True},
-                "rewriteMaterialization": {
-                    "mode": "STATEMENT_SQL",
-                    "replayVerified": True,
-                    "replayContract": {
-                        "replayMode": "STATEMENT_SQL",
-                        "requiredTemplateOps": [],
-                        "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                        "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                        "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
-                        "requiredAnchors": [],
-                        "requiredIncludes": [],
-                        "requiredPlaceholderShape": [],
-                        "dialectSyntaxCheckRequired": False,
-                    },
-                },
-                "templateRewriteOps": [],
-                "replayContract": {
-                    "replayMode": "STATEMENT_SQL",
-                    "requiredTemplateOps": [],
-                    "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                    "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                    "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
-                    "requiredAnchors": [],
-                    "requiredIncludes": [],
-                    "requiredPlaceholderShape": [],
-                    "dialectSyntaxCheckRequired": False,
-                },
-                "evidenceRefs": [],
-            },
         }
 
     def test_patch_marked_applicable_when_git_apply_check_passes(self) -> None:
@@ -123,10 +83,6 @@ class PatchApplicabilityTest(unittest.TestCase):
                 **self._base_acceptance(),
                 "rewrittenSql": "SELECT id, name FROM users WHERE deleted = 0 AND status = #{status} ORDER BY created_at DESC",
             }
-            acceptance["patchTarget"]["targetSql"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["targetSqlNormalized"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["replayContract"]["expectedRenderedSql"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["replayContract"]["expectedRenderedSqlNormalized"] = acceptance["rewrittenSql"]
             (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
@@ -263,11 +219,11 @@ class PatchApplicabilityTest(unittest.TestCase):
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
             self.assertEqual(
                 patch_row.get("selectionReason", {}).get("code"),
-                "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+                "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
             )
             self.assertEqual(patch_row.get("patchFiles"), [])
-            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
-            self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MAPPER_REFACTOR")
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "BLOCKED")
+            self.assertEqual(patch_row.get("repairHints", []), [])
 
     def test_patch_not_applicable_when_git_apply_check_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_not_applicable_") as td:
@@ -296,9 +252,12 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertIn("patch does not apply", str(patch_row.get("applyCheckError")))
         self.assertEqual(patch_row.get("patchFiles"), [])
         self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
+        self.assertEqual(patch_row.get("artifactKind"), "STATEMENT")
+        self.assertEqual(patch_row.get("deliveryStage"), "APPLICABILITY_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "APPLICABILITY_FAILURE")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "GIT_CONFLICT")
 
-    def test_patch_prefers_statement_template_ops_from_validate(self) -> None:
+    def test_patch_rejects_statement_template_ops_from_validate_without_patch_owned_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_stmt_template_ops_") as td:
             run_dir = Path(td)
             mapper = run_dir / "demo_mapper.xml"
@@ -356,13 +315,11 @@ class PatchApplicabilityTest(unittest.TestCase):
                 return_value=subprocess.CompletedProcess(args=["git"], returncode=0, stdout="", stderr=""),
             ):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
-                patch_text = Path(patch_row["patchFiles"][0]).read_text(encoding="utf-8")
 
-            self.assertFalse(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_SELECTED_SINGLE_PASS")
-            self.assertIn("<include refid=\"BaseWhere\" />", patch_text)
-            self.assertIn("SELECT id, name", patch_text)
-            self.assertIn("FROM users", patch_text)
+            self.assertTrue(patch_row["diffSummary"].get("skipped", False))
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED")
+            self.assertEqual(patch_row.get("patchFiles"), [])
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
     def test_patch_uses_dynamic_template_specific_reason_when_available(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_reason_") as td:
@@ -426,9 +383,9 @@ class PatchApplicabilityTest(unittest.TestCase):
             patch_row.get("selectionReason", {}).get("code"),
             "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
         )
-        self.assertEqual(patch_row.get("dynamicTemplateBlockingReason"), "FOREACH_INCLUDE_PREDICATE")
+        self.assertEqual(patch_row.get("dynamicTemplateBlockingReason"), "FOREACH_COLLECTION_PREDICATE")
 
-    def test_patch_applies_fragment_template_ops_from_validate(self) -> None:
+    def test_patch_rejects_fragment_template_ops_from_validate_without_patch_owned_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_fragment_ops_") as td:
             run_dir = Path(td)
             mapper = run_dir / "demo_mapper.xml"
@@ -509,14 +466,11 @@ class PatchApplicabilityTest(unittest.TestCase):
                 return_value=subprocess.CompletedProcess(args=["git"], returncode=0, stdout="", stderr=""),
             ):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
-                patch_text = Path(patch_row["patchFiles"][0]).read_text(encoding="utf-8")
 
-            self.assertFalse(patch_row["diffSummary"].get("skipped", False))
-            self.assertIn("WHERE status = #{status}", patch_text)
-            self.assertIn("ORDER BY created_at DESC", patch_text)
-            self.assertNotIn("WHERE status = #{status} ORDER BY created_at DESC", patch_text)
-            self.assertIn("\n+    ORDER BY created_at DESC", patch_text)
-            self.assertNotIn("\n+ORDER BY created_at DESC", patch_text)
+            self.assertTrue(patch_row["diffSummary"].get("skipped", False))
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE")
+            self.assertEqual(patch_row.get("patchFiles"), [])
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
     def test_template_patch_is_blocked_when_duplicate_clause_detected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dup_clause_") as td:
@@ -580,6 +534,9 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED")
         self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
+        self.assertEqual(patch_row.get("artifactKind"), "TEMPLATE")
+        self.assertEqual(patch_row.get("deliveryStage"), "BUILD_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "BUILD_FAILURE")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MANUAL_PATCH")
 
     def test_patch_is_skipped_when_placeholder_semantics_mismatch(self) -> None:
@@ -649,7 +606,7 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(
             patch_row.get("selectionReason", {}).get("code"),
-            "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+            "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
         )
         self.assertEqual(patch_row.get("patchFiles"), [])
 

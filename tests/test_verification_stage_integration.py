@@ -250,55 +250,20 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             run_dir = Path(td)
             (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
             xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+            xml_text = xml_path.read_text(encoding="utf-8")
+            statement_open = '<select id="listUsersProjected" resultType="map">'
+            statement_start = xml_text.index(statement_open) + len(statement_open)
+            statement_end = xml_text.index("</select>", statement_start)
             rewritten_sql = "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC"
             acceptance = {
                 "sqlKey": "demo.user.advanced.listUsersProjected#v1",
                 "status": "PASS",
                 "rewrittenSql": rewritten_sql,
+                "selectedCandidateId": "c1",
+                "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
                 "equivalence": {"checked": True},
                 "perfComparison": {"checked": True, "reasonCodes": []},
                 "securityChecks": {"dollar_substitution_removed": True},
-                "patchTarget": {
-                    "sqlKey": "demo.user.advanced.listUsersProjected#v1",
-                    "selectedCandidateId": "c1",
-                    "targetSql": rewritten_sql,
-                    "targetSqlNormalized": rewritten_sql,
-                    "targetSqlFingerprint": "demo-fingerprint",
-                    "semanticGateStatus": "PASS",
-                    "semanticGateConfidence": "HIGH",
-                    "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
-                    "family": "STATIC_STATEMENT_REWRITE",
-                    "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
-                    "patchability": {"eligible": True},
-                    "rewriteMaterialization": {
-                        "mode": "STATEMENT_TEMPLATE_SAFE",
-                        "replayVerified": True,
-                        "replayContract": {
-                            "replayMode": "STATEMENT_TEMPLATE_SAFE",
-                            "requiredTemplateOps": ["replace_statement_body"],
-                            "expectedRenderedSql": rewritten_sql,
-                            "expectedRenderedSqlNormalized": rewritten_sql,
-                            "expectedFingerprint": {"kind": "normalized_sql", "value": rewritten_sql},
-                            "requiredAnchors": [],
-                            "requiredIncludes": [],
-                            "requiredPlaceholderShape": [],
-                            "dialectSyntaxCheckRequired": False,
-                        },
-                    },
-                    "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": rewritten_sql}],
-                    "replayContract": {
-                        "replayMode": "STATEMENT_TEMPLATE_SAFE",
-                        "requiredTemplateOps": ["replace_statement_body"],
-                        "expectedRenderedSql": rewritten_sql,
-                        "expectedRenderedSqlNormalized": rewritten_sql,
-                        "expectedFingerprint": {"kind": "normalized_sql", "value": rewritten_sql},
-                        "requiredAnchors": [],
-                        "requiredIncludes": [],
-                        "requiredPlaceholderShape": [],
-                        "dialectSyntaxCheckRequired": False,
-                    },
-                    "evidenceRefs": [],
-                },
             }
             (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n",
@@ -317,7 +282,10 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                         "templateSql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
                         "parameterMappings": [],
                         "paramExample": {},
-                        "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 1, "endOffset": 10}},
+                        "locators": {
+                            "statementId": "listUsersProjected",
+                            "range": {"startOffset": statement_start, "endOffset": statement_end},
+                        },
                         "riskFlags": [],
                         "dynamicFeatures": [],
                     },
