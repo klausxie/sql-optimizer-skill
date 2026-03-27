@@ -535,14 +535,13 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
     @staticmethod
     def _load_sql_units(loader: MockDataLoader) -> dict[str, SQLUnit]:
-        """Load SQL units from init stage to get xml_context (sql_text)."""
         units: dict[str, SQLUnit] = {}
         units_file = loader.get_init_sql_units_path()
         if not units_file.exists():
             return units
         try:
             units_data = json.loads(units_file.read_text(encoding="utf-8"))
-            for item in units_data.get("sql_units", []):
+            for item in units_data:
                 unit = SQLUnit(**item)
                 units[unit.id] = unit
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
@@ -566,7 +565,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 index_path = parse_path / "_index.json"
                 if index_path.exists():
                     index_data = json.loads(index_path.read_text(encoding="utf-8"))
-                    unit_ids = index_data.get("unit_ids", [])
+                    # ContractFileManager.write_index() writes a list directly
+                    unit_ids = index_data if isinstance(index_data, list) else index_data.get("unit_ids", [])
                     for uid in unit_ids:
                         unit_file = parse_path / f"{uid}.json"
                         if unit_file.exists():
@@ -836,3 +836,20 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[OPTIMIZE] Failed to generate SUMMARY.md: {e}")
+
+    @staticmethod
+    def _create_stub_output() -> OptimizeOutput:
+        proposal = OptimizationProposal(
+            sql_unit_id="stub-1",
+            path_id="p1",
+            original_sql="SELECT * FROM users",
+            optimized_sql="SELECT id, name FROM users",
+            rationale="Reduce columns to improve performance",
+            confidence=0.9,
+            before_metrics={"estimated_cost": 100.0},
+            after_metrics={"estimated_cost": 50.0},
+            result_equivalent=True,
+            validation_status="estimated_only",
+            gain_ratio=0.5,
+        )
+        return OptimizeOutput(proposals=[proposal])

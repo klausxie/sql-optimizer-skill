@@ -78,7 +78,16 @@ class ValidatingOptimizeProvider:
         self.optimization_calls: list[str] = []
         self.baseline_calls: list[str] = []
 
-    def generate_optimization(self, sql: str, description: str = "") -> str:
+    def generate_optimization(
+        self,
+        sql: str,
+        description: str = "",
+        *,
+        xml_context: str | None = None,  # noqa: ARG002
+        table_schema: str | None = None,  # noqa: ARG002
+        branch_condition: str | None = None,  # noqa: ARG002
+    ) -> str:
+        _ = xml_context, table_schema, branch_condition
         self.optimization_calls.append(sql)
         return json.dumps(
             {
