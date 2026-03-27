@@ -113,15 +113,21 @@ class ResultStage(Stage[None, ResultOutput]):
         logger.info(f"[RESULT] Patch-ready proposals: {len(patch_candidates)}")
 
         patches: list[Patch] = []
+        unit_ids: list[str] = []
         for proposal in patch_candidates:
             sql_unit = sql_unit_map.get(proposal.sql_unit_id)
             if sql_unit is None:
                 logger.debug(f"[RESULT]   Skipping {proposal.sql_unit_id} - not found in init data")
                 continue
 
-            patch = self._create_patch(proposal, sql_unit.sql_text)
+            patch = self._create_patch(proposal, sql_unit.sql_text, sql_unit)
             patches.append(patch)
+            unit_ids.append(proposal.sql_unit_id)
+            self._write_unit_patch(proposal.sql_unit_id, patch)
+            self._write_unit_meta(proposal.sql_unit_id, proposal, sql_unit)
             logger.info("[RESULT]   [OK] %s: %s...", proposal.sql_unit_id, proposal.rationale[:50])
+
+        self._write_units_index(unit_ids)
 
         report = self._create_report(optimize_data.proposals, patch_candidates, patches, baseline_only_risks)
         logger.info(f"[RESULT] Report summary: {report.summary}")
@@ -149,15 +155,16 @@ class ResultStage(Stage[None, ResultOutput]):
         return output
 
     @staticmethod
-    def _create_patch(proposal: OptimizationProposal, original_xml: str) -> Patch:
+    def _create_patch(proposal: OptimizationProposal, original_xml: str, sql_unit: InitOutput.SQLUnit) -> Patch:
         """Create a Patch from an optimization proposal.
 
         Args:
             proposal: The optimization proposal
             original_xml: Original SQL XML content
+            sql_unit: The SQL unit containing mapper file path
 
         Returns:
-            Patch with diff
+            Patch with diff in Git Patch format
         """
         if proposal.actions:
             patched_xml = XmlPatchEngine.apply_actions(proposal.actions, original_xml)
@@ -171,8 +178,8 @@ class ResultStage(Stage[None, ResultOutput]):
             difflib.unified_diff(
                 original_lines,
                 patched_lines,
-                fromfile="original",
-                tofile="optimized",
+                fromfile=sql_unit.mapper_file,
+                tofile=sql_unit.mapper_file,
                 lineterm="",
             )
         )
@@ -184,6 +191,39 @@ class ResultStage(Stage[None, ResultOutput]):
             patched_xml=patched_xml,
             diff=diff,
         )
+
+    def _write_unit_patch(self, unit_id: str, patch: Patch) -> None:
+        """Write a single unit's .patch file."""
+        paths = self.resolve_run_paths(self.run_id or "stub-run")
+        patch_file = paths.result_unit_patch(unit_id)
+        patch_file.parent.mkdir(parents=True, exist_ok=True)
+        patch_file.write_text(patch.diff, encoding="utf-8")
+
+    def _write_unit_meta(self, unit_id: str, proposal: OptimizationProposal, sql_unit: InitOutput.SQLUnit) -> None:
+        """Write a single unit's .meta.json file."""
+        paths = self.resolve_run_paths(self.run_id or "stub-run")
+        action = proposal.actions[0] if proposal.actions else None
+        meta = {
+            "sql_unit_id": unit_id,
+            "sql_id": sql_unit.sql_id,
+            "mapper_file": sql_unit.mapper_file,
+            "xpath": proposal.unit_summary.unit_xpath if proposal.unit_summary else "",
+            "operation": action.operation if action else "UNKNOWN",
+            "confidence": proposal.confidence,
+            "rationale": proposal.rationale,
+            "original_snippet": action.original_snippet if action else "",
+            "rewritten_snippet": action.rewritten_snippet if action else "",
+            "issue_type": action.issue_type if action else None,
+        }
+        meta_file = paths.result_unit_meta(unit_id)
+        meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _write_units_index(self, unit_ids: list[str]) -> None:
+        """Write index file listing all unit IDs."""
+        paths = self.resolve_run_paths(self.run_id or "stub-run")
+        index = {"units": unit_ids}
+        paths.result_units_dir.mkdir(parents=True, exist_ok=True)
+        paths.result_units_index.write_text(json.dumps(index, indent=2), encoding="utf-8")
 
     def _create_report(
         self,
