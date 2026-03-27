@@ -85,6 +85,12 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         expected_strategy_counts = Counter(str(row["targetPatchStrategy"]) for row in scenarios if row["targetPatchStrategy"])
         expected_security_count = sum(1 for row in scenarios if row["scenarioClass"] == "PATCH_BLOCKED_SECURITY")
         expected_wrapper_count = sum(1 for row in scenarios if row["targetPatchStrategy"] == "SAFE_WRAPPER_COLLAPSE")
+        expected_blocked_sql_count = sum(
+            1
+            for row in scenarios
+            if str(row["targetValidateStatus"]).upper() != "PASS"
+            or str(row["targetSemanticGate"]).upper() != "PASS"
+        )
         expected_family_counts = Counter(str(row["targetBlockerFamily"]) for row in scenarios)
         expected_aggregation_shape_counts = Counter()
         expected_aggregation_constraint_counts = Counter()
@@ -138,7 +144,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(stats["patch_strategy_counts"], dict(expected_strategy_counts))
         self.assertEqual(stats["dollar_substitution_count"], expected_security_count)
         self.assertEqual(stats["wrapper_collapse_recovered_count"], expected_wrapper_count)
-        self.assertEqual(stats["blocked_sql_count"], len(scenarios) - expected_status_counts["PASS"])
+        self.assertEqual(stats["blocked_sql_count"], expected_blocked_sql_count)
         self.assertEqual(stats["blocker_family_counts"], dict(expected_family_counts))
         self.assertEqual(stats["aggregation_shape_counts"], dict(expected_aggregation_shape_counts))
         self.assertEqual(stats["aggregation_constraint_counts"], dict(expected_aggregation_constraint_counts))
@@ -183,6 +189,26 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_baseline_family"],
+            "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_delivery_class"],
+            "SAFE_BASELINE_BLOCKED",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose#v23"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose#v23"]["dynamic_delivery_class"],
+            "REVIEW_ONLY",
+        )
+        self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredTableAliased#v18"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
@@ -193,6 +219,14 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredTableAliased#v18"]["dynamic_delivery_class"],
             "READY_DYNAMIC_PATCH",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_delivery_class"],
+            "REVIEW_ONLY",
         )
         self.assertEqual(sql_rows["demo.order.harness.findOrdersByNos#v1"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
         self.assertEqual(

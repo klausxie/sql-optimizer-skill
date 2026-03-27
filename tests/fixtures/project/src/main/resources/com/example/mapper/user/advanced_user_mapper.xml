@@ -234,4 +234,48 @@
         FROM users u
         ORDER BY u.created_at DESC
     </select>
+
+    <select id="listUsersFilteredQualifiedAliases" resultType="map">
+        SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, users.created_at AS created_at, users.updated_at AS updated_at
+        FROM users
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersFilteredAliasedChoose" resultType="map">
+        SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
+        FROM users
+        <where>
+            <choose>
+                <when test="status != null and status != ''">
+                    status = #{status}
+                </when>
+                <otherwise>
+                    status != 'DELETED'
+                </otherwise>
+            </choose>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersFilteredPredicateAliased" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users u
+        <where>
+            <if test="status != null and status != ''">
+                AND u.status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND u.created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY u.created_at DESC
+    </select>
 </mapper>

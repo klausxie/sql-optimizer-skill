@@ -516,6 +516,172 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
         self.assertIsNone(result.to_contract().get("patchTarget"))
 
+    def test_validate_persists_dynamic_filter_select_list_cleanup_patch_target(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_ready_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredAliased">
+    SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
+    FROM users
+    <where>
+      <if test="status != null and status != ''">AND status = #{status}</if>
+      <if test="createdAfter != null">AND created_at &gt;= #{createdAfter}</if>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            sql_unit = {
+                "sqlKey": "demo.user.advanced.listUsersFilteredAliased#v17",
+                "sql": (
+                    "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
+                    "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+                ),
+                "statementType": "SELECT",
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredAliased",
+                "templateSql": (
+                    "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
+                    "FROM users <where> <if test=\"status != null and status != ''\">AND status = #{status}</if> "
+                    "<if test=\"createdAfter != null\">AND created_at &gt;= #{createdAfter}</if> </where> ORDER BY created_at DESC"
+                ),
+                "dynamicFeatures": ["WHERE", "IF"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+            }
+            proposal = {
+                "llmCandidates": [
+                    {
+                        "id": "c1",
+                        "rewrittenSql": (
+                            "SELECT id, name, email, status, created_at, updated_at "
+                            "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+                        ),
+                        "rewriteStrategy": "REMOVE_REDUNDANT_SELECT_ALIASES",
+                    }
+                ],
+                "suggestions": [],
+            }
+            config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+            def fake_semantics(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_semantic_compare_v2",
+                    "rowCount": {"status": "MATCH"},
+                    "keySetHash": {"status": "MATCH"},
+                    "rowSampleHash": {"status": "MATCH"},
+                    "evidenceRefs": [],
+                    "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+                }
+
+            def fake_plan(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_explain_json_compare",
+                    "beforeSummary": {"totalCost": 10.0},
+                    "afterSummary": {"totalCost": 8.0},
+                    "reasonCodes": ["TOTAL_COST_REDUCED"],
+                    "improved": True,
+                    "evidenceRefs": [],
+                }
+
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        contract = result.to_contract()
+        self.assertEqual((contract.get("patchTarget") or {}).get("family"), "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
+        self.assertEqual((contract.get("selectedPatchStrategy") or {}).get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
+
+    def test_validate_blocks_dynamic_filter_select_list_cleanup_for_qualified_projection_neighbor(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_blocked_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredQualifiedAliases">
+    SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, users.created_at AS created_at, users.updated_at AS updated_at
+    FROM users
+    <where>
+      <if test="status != null and status != ''">AND status = #{status}</if>
+      <if test="createdAfter != null">AND created_at &gt;= #{createdAfter}</if>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            sql_unit = {
+                "sqlKey": "demo.user.advanced.listUsersFilteredQualifiedAliases#v22",
+                "sql": (
+                    "SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, "
+                    "users.created_at AS created_at, users.updated_at AS updated_at "
+                    "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+                ),
+                "statementType": "SELECT",
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredQualifiedAliases",
+                "templateSql": (
+                    "SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, "
+                    "users.created_at AS created_at, users.updated_at AS updated_at "
+                    "FROM users <where> <if test=\"status != null and status != ''\">AND status = #{status}</if> "
+                    "<if test=\"createdAfter != null\">AND created_at &gt;= #{createdAfter}</if> </where> ORDER BY created_at DESC"
+                ),
+                "dynamicFeatures": ["WHERE", "IF"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+            }
+            proposal = {
+                "llmCandidates": [
+                    {
+                        "id": "c1",
+                        "rewrittenSql": (
+                            "SELECT id, name, email, status, created_at, updated_at "
+                            "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+                        ),
+                        "rewriteStrategy": "REMOVE_REDUNDANT_SELECT_ALIASES",
+                    }
+                ],
+                "suggestions": [],
+            }
+            config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
+
+            def fake_semantics(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_semantic_compare_v2",
+                    "rowCount": {"status": "MATCH"},
+                    "keySetHash": {"status": "MATCH"},
+                    "rowSampleHash": {"status": "MATCH"},
+                    "evidenceRefs": [],
+                    "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+                }
+
+            def fake_plan(_cfg, _orig, _rewritten, _dir):
+                return {
+                    "checked": True,
+                    "method": "sql_explain_json_compare",
+                    "beforeSummary": {"totalCost": 10.0},
+                    "afterSummary": {"totalCost": 8.0},
+                    "reasonCodes": ["TOTAL_COST_REDUCED"],
+                    "improved": True,
+                    "evidenceRefs": [],
+                }
+
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", side_effect=fake_semantics), patch(
+                "sqlopt.platforms.sql.validator_sql.compare_plan", side_effect=fake_plan
+            ):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
+
+        contract = result.to_contract()
+        self.assertIsNone(contract.get("patchTarget"))
+        self.assertIsNone(contract.get("selectedPatchStrategy"))
+        self.assertEqual((contract.get("dynamicTemplate") or {}).get("baselineFamily"), "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
+        self.assertEqual((contract.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS")
+
     def test_validate_uses_registered_acceptance_policy_for_confidence_gate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_acceptance_policy_") as td:
             sql_unit = {
