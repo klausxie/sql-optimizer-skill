@@ -3,13 +3,7 @@
 from __future__ import annotations
 
 from .models import ClassificationConfig, ClassificationContext
-
-
-def classify_patch_family(ctx: ClassificationContext) -> str | None:
-    """主分类函数，暂时返回 None"""
-    # TODO: 实现配置匹配逻辑
-    return None
-
+from .registry import classify_patch_family
 
 __all__ = [
     "ClassificationConfig",

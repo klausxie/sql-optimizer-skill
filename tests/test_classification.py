@@ -42,3 +42,27 @@ def test_classify_patch_family_is_callable():
     result = classify_patch_family(ctx)
     # Stub returns None - full implementation will return family name
     assert result is None or isinstance(result, str)
+
+
+def test_config_based_classification_for_in_list():
+    """STATIC_IN_LIST_SIMPLIFICATION can be classified via config."""
+    ctx = ClassificationContext(
+        original_sql="SELECT * FROM users WHERE id IN (1)",
+        rewritten_sql="SELECT * FROM users WHERE id = 1",
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+    result = classify_patch_family(ctx)
+    assert result == "STATIC_IN_LIST_SIMPLIFICATION"
+
+
+def test_config_based_classification_for_limit():
+    """STATIC_LIMIT_OPTIMIZATION can be classified via config."""
+    ctx = ClassificationContext(
+        original_sql="SELECT * FROM users LIMIT 0",
+        rewritten_sql="SELECT * FROM users",
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+    result = classify_patch_family(ctx)
+    assert result == "STATIC_LIMIT_OPTIMIZATION"
