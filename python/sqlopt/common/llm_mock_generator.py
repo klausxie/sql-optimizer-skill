@@ -20,15 +20,26 @@ class LLMProviderBase(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    def generate_optimization(self, sql: str, description: str = "") -> str:
+    def generate_optimization(
+        self,
+        sql: str,
+        description: str = "",
+        *,
+        xml_context: str | None = None,
+        table_schema: str | None = None,
+        branch_condition: str | None = None,
+    ) -> str:
         """Generate optimization proposal for SQL.
 
         Args:
             sql: Original SQL query
             description: Description of desired optimization
+            xml_context: Raw MyBatis XML template with <if> tags
+            table_schema: Table schema information
+            branch_condition: Branch condition from <if> tag
 
         Returns:
-            JSON string matching OptimizationProposal schema
+            JSON string matching OptimizationProposal schema with actions array
         """
 
     @abstractmethod
@@ -86,16 +97,17 @@ class MockLLMProvider(LLMProviderBase):
         hash_value = hashlib.md5(sql.encode(), usedforsecurity=False).hexdigest()[:8]
         return f"{prefix}{hash_value}" if prefix else hash_value
 
-    def generate_optimization(self, sql: str, description: str = "") -> str:
-        """Generate mock optimization proposal based on description.
-
-        Args:
-            sql: Original SQL query
-            description: Description of desired optimization
-
-        Returns:
-            JSON string matching OptimizationProposal schema
-        """
+    def generate_optimization(
+        self,
+        sql: str,
+        description: str = "",
+        *,
+        xml_context: str | None = None,
+        table_schema: str | None = None,
+        branch_condition: str | None = None,
+    ) -> str:
+        """Generate mock optimization proposal based on description."""
+        _ = xml_context, table_schema, branch_condition  # Context params unused in mock
         sql_unit_id = f"unit_{self._generate_deterministic_id(sql, '')}"
         path_id = f"path_{self._generate_deterministic_id(sql + description, '')}"
 
@@ -492,8 +504,16 @@ class OpenAILLMProvider(LLMProviderBase):
             self._client = openai.OpenAI(api_key=self.api_key)
         return self._client
 
-    def generate_optimization(self, sql: str, description: str = "") -> str:
-        prompt = self._build_optimization_prompt(sql, description)
+    def generate_optimization(
+        self,
+        sql: str,
+        description: str = "",
+        *,
+        xml_context: str | None = None,
+        table_schema: str | None = None,
+        branch_condition: str | None = None,
+    ) -> str:
+        prompt = self._build_optimization_prompt(sql, description, xml_context, table_schema, branch_condition)
         response = self._get_client().chat.completions.create(
             model=self.model,
             messages=[
@@ -510,28 +530,70 @@ class OpenAILLMProvider(LLMProviderBase):
         return self._parse_optimization_response(content, sql)
 
     @staticmethod
-    def _build_optimization_prompt(sql: str, description: str) -> str:
-        return f"""Analyze this SQL query and suggest an optimized version.
+    def _build_optimization_prompt(
+        sql: str,
+        description: str,
+        xml_context: str | None,
+        table_schema: str | None,
+        branch_condition: str | None,
+    ) -> str:
+        ctx_parts = ["Analyze this SQL query and generate XML modification actions."]
+        ctx_parts.append(f"\n## Original SQL (Expanded Branch)\n{sql}")
+        if branch_condition:
+            ctx_parts.append(f"\n## Branch Condition\n{branch_condition}")
+        if xml_context:
+            ctx_parts.append(f"\n## XML Template Context\n{xml_context}")
+        if table_schema:
+            ctx_parts.append(f"\n## Table Schema\n{table_schema}")
+        if description:
+            ctx_parts.append(f"\n## Optimization Hint\n{description}")
 
-Original SQL:
-{sql}
-
-{"Optimization hint: " + description if description else ""}
-
-Return a JSON object with these fields:
-- sql_unit_id: a short unique identifier
-- path_id: a path identifier
-- optimized_sql: the optimized SQL query
-- rationale: explanation of why this optimization helps
-- confidence: confidence score between 0.0 and 1.0
+        ctx_parts.append("""
+Return a JSON object with an "actions" array. Each action must have:
+- action_id: unique identifier (e.g., "act_001")
+- operation: one of REPLACE, ADD, REMOVE, WRAP
+- xpath: XPath expression targeting the XML element to modify
+- target_tag: The XML tag name being targeted (e.g., "if", "where", "select")
+- original_snippet: The original XML fragment (None for ADD)
+- rewritten_snippet: The new XML fragment (None for REMOVE)
+- sql_fragment: The specific SQL text affected
+- rationale: explanation of why this change helps
+- confidence: confidence score 0.0-1.0
+- path_id: Which branch this applies to (None = all branches)
+- issue_type: Type of issue (e.g., "PREFIX_WILDCARD", "MISSING_LIMIT")
 
 Example output:
-{{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
+{"actions": [{"action_id": "act_001", "operation": "REPLACE", "xpath": "/mapper/select/where/if[@test='name != null']", "target_tag": "if", "original_snippet": "LIKE '%' || #{name}", "rewritten_snippet": "LIKE #{name}", "sql_fragment": "LIKE '%' || #{name}", "rationale": "Prefix wildcard prevents index usage", "confidence": 0.95, "path_id": "path_xyz", "issue_type": "PREFIX_WILDCARD"}]}
+""")
+        return "\n".join(ctx_parts)
 
     @staticmethod
     def _parse_optimization_response(content: str, original_sql: str) -> str:
         try:
             data = json.loads(content)
+            actions = data.get("actions", [])
+            if actions:
+                avg_confidence = sum(a.get("confidence", 0.8) for a in actions) / len(actions) if actions else 0.8
+                combined_rationale = "; ".join(a.get("rationale", "") for a in actions if a.get("rationale"))
+                first_path_id = next((a.get("path_id") for a in actions if a.get("path_id")), None)
+                return json.dumps(
+                    {
+                        "sql_unit_id": data.get(
+                            "sql_unit_id",
+                            f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                        ),
+                        "path_id": first_path_id
+                        or data.get(
+                            "path_id",
+                            f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                        ),
+                        "original_sql": original_sql,
+                        "optimized_sql": original_sql,
+                        "rationale": combined_rationale or data.get("rationale", "LLM optimization"),
+                        "confidence": avg_confidence,
+                        "actions": actions,
+                    }
+                )
             return json.dumps(
                 {
                     "sql_unit_id": data.get(
@@ -662,29 +724,56 @@ class OpenCodeRunLLMProvider(LLMProviderBase):
         self.model = model
         self._mock = MockLLMProvider()
 
-    def generate_optimization(self, sql: str, description: str = "") -> str:
-        prompt = self._build_optimization_prompt(sql, description)
+    def generate_optimization(
+        self,
+        sql: str,
+        description: str = "",
+        *,
+        xml_context: str | None = None,
+        table_schema: str | None = None,
+        branch_condition: str | None = None,
+    ) -> str:
+        prompt = self._build_optimization_prompt(sql, description, xml_context, table_schema, branch_condition)
         json_output = self._call_opencode(prompt)
         return self._parse_response(json_output, sql)
 
     @staticmethod
-    def _build_optimization_prompt(sql: str, description: str) -> str:
-        return f"""Analyze this SQL query and suggest an optimized version.
+    def _build_optimization_prompt(
+        sql: str,
+        description: str,
+        xml_context: str | None,
+        table_schema: str | None,
+        branch_condition: str | None,
+    ) -> str:
+        ctx_parts = ["Analyze this SQL query and generate XML modification actions."]
+        ctx_parts.append(f"\n## Original SQL (Expanded Branch)\n{sql}")
+        if branch_condition:
+            ctx_parts.append(f"\n## Branch Condition\n{branch_condition}")
+        if xml_context:
+            ctx_parts.append(f"\n## XML Template Context\n{xml_context}")
+        if table_schema:
+            ctx_parts.append(f"\n## Table Schema\n{table_schema}")
+        if description:
+            ctx_parts.append(f"\n## Optimization Hint\n{description}")
 
-Original SQL:
-{sql}
-
-{"Optimization hint: " + description if description else ""}
-
-Return a JSON object with these fields:
-- sql_unit_id: a short unique identifier
-- path_id: a path identifier
-- optimized_sql: the optimized SQL query
-- rationale: explanation of why this optimization helps
-- confidence: confidence score between 0.0 and 1.0
+        ctx_parts.append("""
+Return a JSON object with an "actions" array. Each action must have:
+- action_id: unique identifier (e.g., "act_001")
+- operation: one of REPLACE, ADD, REMOVE, WRAP
+- xpath: XPath expression targeting the XML element to modify
+- target_tag: The XML tag name being targeted (e.g., "if", "where", "select")
+- original_snippet: The original XML fragment (None for ADD)
+- rewritten_snippet: The new XML fragment (None for REMOVE)
+- sql_fragment: The specific SQL text affected
+- rationale: explanation of why this change helps
+- confidence: confidence score 0.0-1.0
+- path_id: Which branch this applies to (None = all branches)
+- issue_type: Type of issue (e.g., "PREFIX_WILDCARD", "MISSING_LIMIT")
 
 Example output:
-{{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
+{"actions": [{"action_id": "act_001", "operation": "REPLACE", "xpath": "/mapper/select/where/if[@test='name != null']", "target_tag": "if", "original_snippet": "LIKE '%' || #{name}", "rewritten_snippet": "LIKE #{name}", "sql_fragment": "LIKE '%' || #{name}", "rationale": "Prefix wildcard prevents index usage", "confidence": 0.95, "path_id": "path_xyz", "issue_type": "PREFIX_WILDCARD"}]}
+""")
+        return "\n".join(ctx_parts)
 
     @staticmethod
     def _is_windows() -> bool:
@@ -747,8 +836,6 @@ Example output:
 
     @staticmethod
     def _parse_response(json_output: str, original_sql: str) -> str:
-        # Find the LAST text event that contains JSON with optimized_sql
-        # OpenCode returns multiple text events - we want the final one with the actual response
         text_events: list[str] = []
         for line in json_output.strip().split("\n"):
             if not line.strip():
@@ -763,10 +850,8 @@ Example output:
                 continue
 
         content = None
-        # Search from the end to find the event with optimized_sql
         for text in reversed(text_events):
-            if "optimized_sql" in text:
-                # Extract JSON from code block
+            if "actions" in text or "optimized_sql" in text:
                 if "```json" in text:
                     start = text.find("```json") + 7
                     end = text.rfind("```")
@@ -774,7 +859,7 @@ Example output:
                         text = text[start:end]
                 try:
                     candidate = json.loads(text.strip())
-                    if isinstance(candidate, dict) and "optimized_sql" in candidate:
+                    if isinstance(candidate, dict) and ("actions" in candidate or "optimized_sql" in candidate):
                         content = candidate
                         break
                 except json.JSONDecodeError:
@@ -800,6 +885,30 @@ Example output:
                     "optimized_sql": original_sql,
                     "rationale": f"OpenCodeRun error: {content['error']}",
                     "confidence": 0.0,
+                }
+            )
+
+        actions = content.get("actions", [])
+        if actions:
+            avg_confidence = sum(a.get("confidence", 0.8) for a in actions) / len(actions) if actions else 0.8
+            combined_rationale = "; ".join(a.get("rationale", "") for a in actions if a.get("rationale"))
+            first_path_id = next((a.get("path_id") for a in actions if a.get("path_id")), None)
+            return json.dumps(
+                {
+                    "sql_unit_id": content.get(
+                        "sql_unit_id",
+                        f"unit_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    ),
+                    "path_id": first_path_id
+                    or content.get(
+                        "path_id",
+                        f"path_{hashlib.md5(original_sql.encode(), usedforsecurity=False).hexdigest()[:8]}",
+                    ),
+                    "original_sql": original_sql,
+                    "optimized_sql": original_sql,
+                    "rationale": combined_rationale or content.get("rationale", "OpenCodeRun optimization"),
+                    "confidence": avg_confidence,
+                    "actions": actions,
                 }
             )
         return json.dumps(
