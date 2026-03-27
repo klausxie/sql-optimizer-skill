@@ -45,7 +45,9 @@ The shared gate must accept only statements that satisfy all of the following:
 1. statement type is `SELECT`
 2. dynamic template is present
 3. dynamic structure is a single `<where>` containing flat sibling `<if>` nodes
-4. outer static envelope may include `ORDER BY` and `LIMIT`
+4. outer static envelope may be either:
+   - a direct statement body with optional static `ORDER BY` and `LIMIT`
+   - a single static subquery shell around the same dynamic `<where>/<if>` body, with optional static `ORDER BY` and `LIMIT`
 5. patch surface stays `STATEMENT_BODY`
 6. rewrite path remains template-preserving
 
@@ -95,7 +97,7 @@ This family only cleans redundant aliases in the static `FROM` envelope while pr
 Allowed:
 
 1. single-table alias cleanup
-2. alias cleanup around a single subquery shell
+2. alias cleanup around a single subquery shell that already passed the shared gate
 
 Blocked:
 
@@ -137,8 +139,14 @@ The family must be derived during validate-side family classification, not guess
 The derivation order is:
 
 1. shared shape gate
-2. family-specific classifier
+2. mutually exclusive family-specific classifiers
 3. patch target persistence
+
+The classifier contract is:
+
+1. `DYNAMIC_FILTER_SELECT_LIST_CLEANUP` and `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP` are mutually exclusive
+2. if a candidate appears to require both select-list cleanup and from-alias cleanup in the same rewrite, it is out of scope for this iteration
+3. such combined cases must block explicitly rather than choosing one family heuristically
 
 If the shared gate passes but the family classifier fails, the system must not fall back to a broader generic dynamic rewrite family.
 
@@ -149,12 +157,13 @@ Both families must preserve the same proof contract:
 1. `<where>` node remains present
 2. `<if>` node count remains unchanged
 3. `<if>` node order remains unchanged
-4. placeholder shape remains unchanged
-5. replayed rendered SQL matches target rewritten SQL
-6. XML parse passes
-7. render passes
-8. SQL parse passes
-9. apply-check passes
+4. normalized `<if>` predicate bodies remain text-identical before and after rewrite
+5. placeholder shape remains unchanged
+6. replayed rendered SQL matches target rewritten SQL
+7. XML parse passes
+8. render passes
+9. SQL parse passes
+10. apply-check passes
 
 This design does not introduce family-specific verifier engines. It binds these families to the existing proof chain through explicit shared obligations.
 
@@ -180,12 +189,14 @@ Minimum requirement per family:
 2. two blocked neighbors
 3. replay assertions for ready patch rows
 4. syntax / verification assertions for ready patch rows
+5. blocked-neighbor assertions that prove the case did not fall back to a broader family
 
 This means the rollout is not complete if the family spec exists but the fixture harness cannot prove:
 
 1. the ready case resolves to the registered family
 2. the blocked-neighbor requirement is satisfied
 3. the ready patch row meets replay and verification obligations
+4. the blocked rows emit an explicit blocker and do not persist as another broader auto-patch family
 
 ## Recommended Implementation Order
 
