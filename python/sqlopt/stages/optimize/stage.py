@@ -15,7 +15,7 @@ from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
 from sqlopt.common.summary_generator import generate_optimize_summary_markdown
-from sqlopt.contracts.init import TableSchema
+from sqlopt.contracts.init import SQLUnit, TableSchema
 from sqlopt.contracts.optimize import (
     ActionConflict,
     OptimizationAction,
@@ -23,6 +23,7 @@ from sqlopt.contracts.optimize import (
     OptimizeOutput,
     UnitActionSummary,
 )
+from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
 from sqlopt.stages.recognition.stage import (
@@ -89,8 +90,12 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         table_schemas = self._load_table_schemas(loader)
+        sql_units = self._load_sql_units(loader)
+        branch_conditions = self._load_parse_output(loader)
         db_connector = self._get_db_connector()
         self._table_schemas = table_schemas
+        self._sql_units = sql_units
+        self._branch_conditions = branch_conditions
 
         proposals: list[OptimizationProposal] = []
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
@@ -122,7 +127,6 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         baselines: list[PerformanceBaseline],
         progress_callback: ProgressCallback | None,
     ) -> list[OptimizationProposal]:
-        # Group baselines by sql_unit_id
         unit_map: dict[str, list[PerformanceBaseline]] = collections.defaultdict(list)
         for baseline in baselines:
             unit_map[baseline.sql_unit_id].append(baseline)
@@ -136,21 +140,36 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             unit_proposals: list[OptimizationProposal] = []
             unit_baselines = unit_map[unit_id]
 
+            xml_context = self._sql_units.get(unit_id)
+            table_schema = str(self._table_schemas.get(unit_id, ""))
+
             for baseline in unit_baselines:
                 if baseline.plan is None:
                     key = f"{baseline.sql_unit_id}.{baseline.path_id}"
                     logger.debug(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                     continue
 
+                branch_condition = self._branch_conditions.get(unit_id, {}).get(baseline.path_id)
+
                 try:
                     logger.debug(f"[OPTIMIZE]   Generating optimization for {baseline.sql_unit_id}.{baseline.path_id}")
-                    proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
+                    proposal_json = self.llm_provider.generate_optimization(
+                        baseline.original_sql,
+                        "",
+                        xml_context=xml_context.sql_text if xml_context else None,
+                        table_schema=table_schema,
+                        branch_condition=branch_condition,
+                    )
                     proposal_data = json.loads(proposal_json)
                     validation = self._validate_optimized_sql(
                         baseline=baseline,
                         optimized_sql=proposal_data["optimized_sql"],
                         table_schemas=self._table_schemas,
                     )
+
+                    actions = None
+                    if proposal_data.get("actions"):
+                        actions = [OptimizationAction.from_dict(a) for a in proposal_data["actions"]]
 
                     proposal = OptimizationProposal(
                         sql_unit_id=baseline.sql_unit_id,
@@ -165,6 +184,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                         validation_status=validation["validation_status"],
                         validation_error=validation["validation_error"],
                         gain_ratio=validation["gain_ratio"],
+                        actions=actions,
                     )
                     unit_proposals.append(proposal)
                     proposals.append(proposal)
@@ -184,10 +204,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     )
                     continue
 
+            if unit_proposals:
+                unit_summary = self.aggregate_unit_actions(unit_id, unit_proposals)
+                for proposal in unit_proposals:
+                    proposal.unit_summary = unit_summary
+                self._write_unit_file(rid, unit_id, unit_proposals)
+
             unit_elapsed = time.time() - unit_start
             logger.info(f"[OPTIMIZE] Unit {unit_id} done in {unit_elapsed:.1f}s ({len(unit_proposals)} proposals)")
-            if unit_proposals:
-                self._write_unit_file(rid, unit_id, unit_proposals)
 
             if progress_callback:
                 progress_callback(
@@ -219,7 +243,21 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             for unit_idx, (unit_id, unit_baselines) in enumerate(unit_map.items()):
                 unit_start = time.time()
-                futures = {executor.submit(self._process_baseline, baseline): baseline for baseline in unit_baselines}
+
+                xml_context = self._sql_units.get(unit_id)
+                table_schema = str(self._table_schemas.get(unit_id, ""))
+                branch_conditions = self._branch_conditions.get(unit_id, {})
+
+                futures = {
+                    executor.submit(
+                        self._process_baseline,
+                        baseline,
+                        xml_context.sql_text if xml_context else None,
+                        table_schema,
+                        branch_conditions.get(baseline.path_id),
+                    ): baseline
+                    for baseline in unit_baselines
+                }
                 unit_proposals: list[OptimizationProposal] = []
 
                 while futures:
@@ -231,10 +269,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                             unit_proposals.append(result)
                             proposals.append(result)
 
+                if unit_proposals:
+                    unit_summary = self.aggregate_unit_actions(unit_id, unit_proposals)
+                    for proposal in unit_proposals:
+                        proposal.unit_summary = unit_summary
+                    self._write_unit_file(rid, unit_id, unit_proposals)
+
                 unit_elapsed = time.time() - unit_start
                 logger.info(f"[OPTIMIZE] Unit {unit_id} done in {unit_elapsed:.1f}s ({len(unit_proposals)} proposals)")
-                if unit_proposals:
-                    self._write_unit_file(rid, unit_id, unit_proposals)
 
                 if progress_callback:
                     progress_callback(
@@ -246,8 +288,10 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
     def _write_unit_file(self, run_id: str, unit_id: str, proposals: list[OptimizationProposal]) -> None:
         file_manager = ContractFileManager(run_id, "optimize", base_dir=self.base_dir)
+        unit_summary = proposals[0].unit_summary if proposals else None
         unit_data = {
             "sql_unit_id": unit_id,
+            "unit_summary": unit_summary.to_dict() if unit_summary else None,
             "proposals": [
                 {
                     "sql_unit_id": p.sql_unit_id,
@@ -262,21 +306,40 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     "validation_status": p.validation_status,
                     "validation_error": p.validation_error,
                     "gain_ratio": p.gain_ratio,
+                    "actions": [a.to_dict() for a in p.actions] if p.actions else None,
+                    "unit_summary": p.unit_summary.to_dict() if p.unit_summary else None,
                 }
                 for p in proposals
             ],
         }
         file_manager.write_unit_file(unit_id, unit_data)
 
-    def _process_baseline(self, baseline: PerformanceBaseline) -> OptimizationProposal | None:
+    def _process_baseline(
+        self,
+        baseline: PerformanceBaseline,
+        xml_context: str | None,
+        table_schema: str,
+        branch_condition: str | None,
+    ) -> OptimizationProposal | None:
         try:
-            proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
+            proposal_json = self.llm_provider.generate_optimization(
+                baseline.original_sql,
+                "",
+                xml_context=xml_context,
+                table_schema=table_schema,
+                branch_condition=branch_condition,
+            )
             proposal_data = json.loads(proposal_json)
             validation = self._validate_optimized_sql(
                 baseline=baseline,
                 optimized_sql=proposal_data["optimized_sql"],
                 table_schemas=self._table_schemas,
             )
+
+            actions = None
+            if proposal_data.get("actions"):
+                actions = [OptimizationAction.from_dict(a) for a in proposal_data["actions"]]
+
             return OptimizationProposal(
                 sql_unit_id=baseline.sql_unit_id,
                 path_id=baseline.path_id,
@@ -290,6 +353,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 validation_status=validation["validation_status"],
                 validation_error=validation["validation_error"],
                 gain_ratio=validation["gain_ratio"],
+                actions=actions,
             )
         except Exception as e:  # noqa: BLE001
             logger.warning(
@@ -469,6 +533,58 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             logger.debug("[OPTIMIZE] Failed to load table schemas, using heuristics")
         return schemas
 
+    @staticmethod
+    def _load_sql_units(loader: MockDataLoader) -> dict[str, SQLUnit]:
+        """Load SQL units from init stage to get xml_context (sql_text)."""
+        units: dict[str, SQLUnit] = {}
+        units_file = loader.get_init_sql_units_path()
+        if not units_file.exists():
+            return units
+        try:
+            units_data = json.loads(units_file.read_text(encoding="utf-8"))
+            for item in units_data.get("sql_units", []):
+                unit = SQLUnit(**item)
+                units[unit.id] = unit
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            logger.debug("[OPTIMIZE] Failed to load SQL units")
+        return units
+
+    @staticmethod
+    def _load_parse_output(loader: MockDataLoader) -> dict[str, dict[str, str]]:
+        """Load parse output to get branch conditions.
+
+        Returns:
+            Dict mapping sql_unit_id -> (dict mapping path_id -> condition)
+        """
+        branch_conditions: dict[str, dict[str, str]] = {}
+        parse_path = loader.get_parse_sql_units_with_branches_path()
+        if not parse_path.exists():
+            return branch_conditions
+        try:
+            if parse_path.is_dir():
+                # New per-unit format: load from units directory
+                index_path = parse_path / "_index.json"
+                if index_path.exists():
+                    index_data = json.loads(index_path.read_text(encoding="utf-8"))
+                    unit_ids = index_data.get("unit_ids", [])
+                    for uid in unit_ids:
+                        unit_file = parse_path / f"{uid}.json"
+                        if unit_file.exists():
+                            unit_data = json.loads(unit_file.read_text(encoding="utf-8"))
+                            branch_conditions[uid] = {}
+                            for branch in unit_data.get("branches", []):
+                                branch_conditions[uid][branch["path_id"]] = branch.get("condition")
+            else:
+                # Legacy single-file format
+                parse_data = ParseOutput.from_json(parse_path.read_text(encoding="utf-8"))
+                for unit in parse_data.sql_units_with_branches:
+                    branch_conditions[unit.sql_unit_id] = {}
+                    for branch in unit.branches:
+                        branch_conditions[unit.sql_unit_id][branch.path_id] = branch.condition
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            logger.debug("[OPTIMIZE] Failed to load parse output for branch conditions")
+        return branch_conditions
+
     def _get_db_connector(self) -> Any | None:
         if self.db_connector is not None:
             return self.db_connector
@@ -633,9 +749,11 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         file_manager = ContractFileManager(run_id, "optimize", base_dir=self.base_dir)
 
         proposals_by_unit: dict[str, list[dict]] = {}
+        unit_summaries: dict[str, UnitActionSummary] = {}
         for proposal in output.proposals:
             if proposal.sql_unit_id not in proposals_by_unit:
                 proposals_by_unit[proposal.sql_unit_id] = []
+                unit_summaries[proposal.sql_unit_id] = proposal.unit_summary
             proposals_by_unit[proposal.sql_unit_id].append(
                 {
                     "sql_unit_id": proposal.sql_unit_id,
@@ -650,6 +768,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     "validation_status": proposal.validation_status,
                     "validation_error": proposal.validation_error,
                     "gain_ratio": proposal.gain_ratio,
+                    "actions": [a.to_dict() for a in proposal.actions] if proposal.actions else None,
+                    "unit_summary": proposal.unit_summary.to_dict() if proposal.unit_summary else None,
                 }
             )
 
@@ -658,6 +778,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         for unit_id, proposals in proposals_by_unit.items():
             unit_data = {
                 "sql_unit_id": unit_id,
+                "unit_summary": unit_summaries[unit_id].to_dict() if unit_summaries.get(unit_id) else None,
                 "proposals": proposals,
             }
             path = file_manager.write_unit_file(unit_id, unit_data)
