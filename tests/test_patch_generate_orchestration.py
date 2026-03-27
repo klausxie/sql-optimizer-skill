@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from sqlopt.contracts import ContractValidator
 from sqlopt.stages import patch_generate
+from sqlopt.stages.patching_render import build_unified_patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -325,16 +326,52 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "securityChecks": {},
         }
         run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
-            "sql": "SELECT * FROM users",
-            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
-            "namespace": "com.example.mapper.user.user_mapper",
-            "locators": {"statementId": "listUsersSorted", "range": {"startOffset": 0, "endOffset": 1}},
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
         }
+        artifact_patch, changed_lines = build_unified_patch(xml_path, "listUsersProjected", "select", "SELECT name FROM users")
+        self.assertIsNotNone(artifact_patch)
+        self.assertGreater(changed_lines, 0)
 
-        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=("diff", 1, None)):
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(artifact_patch, changed_lines, None)):
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
+        self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
+
+    def test_patch_generate_blocks_when_patch_artifact_drifts_from_target(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        artifact_patch, changed_lines = build_unified_patch(xml_path, "listUsersProjected", "select", "SELECT email FROM users")
+        self.assertIsNotNone(artifact_patch)
+        self.assertGreater(changed_lines, 0)
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(artifact_patch, changed_lines, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
                 patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 

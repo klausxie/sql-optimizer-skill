@@ -8,6 +8,7 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
+from ..verification.patch_artifact import materialize_patch_artifact as _materialize_patch_artifact
 from ..verification.patch_replay import replay_patch_target as _replay_patch_target
 from ..verification.patch_syntax import verify_patch_syntax as _verify_patch_syntax
 from .patching_render import (
@@ -122,18 +123,22 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
     patch_target = dict(acceptance.get("patchTarget") or {})
 
     if patch.get("applicable") is True and patch_target:
+        selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
+        patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
+        artifact_result = _materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
         replay_result = _replay_patch_target(
             sql_unit=sql_unit,
             patch_target=patch_target,
             fragment_catalog=fragment_catalog,
+            patch_text=patch_text,
+            artifact=artifact_result,
         )
-        selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
-        patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
         syntax_result = _verify_patch_syntax(
             sql_unit=sql_unit,
             patch_target=patch_target,
             patch_text=patch_text,
             replay_result=replay_result,
+            artifact=artifact_result,
         )
         patch["patchTarget"] = patch_target
         patch["replayEvidence"] = {

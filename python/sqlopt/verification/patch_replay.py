@@ -8,11 +8,14 @@ from typing import Any
 
 from ..platforms.sql.template_rendering import (
     collect_fragments,
+    find_statement_node,
     normalize_sql_text,
     qualify_ref,
+    render_logical_text,
     render_fragment_body_sql,
     render_template_body_sql,
 )
+from .patch_artifact import PatchArtifactResult, materialize_patch_artifact
 
 _PLACEHOLDER_RE = re.compile(r"(?:#|\$)\{[^}]+\}")
 _STATEMENT_REPLAY_MODES = {
@@ -77,6 +80,17 @@ def _if_inner_template(node: ET.Element) -> str:
     return "".join(parts)
 
 
+def _node_inner_template(node: ET.Element) -> str:
+    parts: list[str] = []
+    if node.text:
+        parts.append(node.text)
+    for child in list(node):
+        parts.append(ET.tostring(child, encoding="unicode"))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
 def _collect_normalized_if_bodies(template: str) -> list[str]:
     try:
         wrapper = ET.fromstring(f"<root>{template}</root>")
@@ -128,11 +142,55 @@ def _render_fragment_sql(
     return render_fragment_body_sql(template, namespace, xml_path, fragment_catalog)
 
 
+def _render_statement_sql_from_artifact(artifact: PatchArtifactResult, sql_unit: dict[str, Any]) -> str | None:
+    if artifact.root is None:
+        return None
+    xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+    namespace = str(sql_unit.get("namespace") or "").strip()
+    statement_id = str(((sql_unit.get("locators") or {}) if isinstance(sql_unit.get("locators"), dict) else {}).get("statementId") or sql_unit.get("statementId") or "").strip()
+    if not statement_id:
+        return None
+    statement = find_statement_node(artifact.root, statement_id)
+    if statement is None:
+        return None
+    fragments = collect_fragments(artifact.root, namespace, xml_path)
+    return normalize_sql_text(render_logical_text(statement, namespace, xml_path, fragments))
+
+
+def _render_fragment_sql_from_artifact(
+    artifact: PatchArtifactResult,
+    sql_unit: dict[str, Any],
+    target_ref: str | None,
+) -> str | None:
+    if artifact.root is None:
+        return None
+    xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+    namespace = str(sql_unit.get("namespace") or "").strip()
+    target_ref = str(target_ref or "").strip()
+    if not target_ref:
+        return None
+    fragments = collect_fragments(artifact.root, namespace, xml_path)
+    fragment_node = next(
+        (
+            node
+            for node in artifact.root
+            if str(node.tag).rsplit("}", 1)[-1].lower() == "sql"
+            and qualify_ref(namespace, node.attrib.get("id")) == target_ref
+        ),
+        None,
+    )
+    if fragment_node is None:
+        return None
+    return render_template_body_sql(_node_inner_template(fragment_node), namespace, xml_path, fragments)
+
+
 def replay_patch_target(
     *,
     sql_unit: dict[str, Any],
     patch_target: dict[str, Any],
     fragment_catalog: dict[str, dict[str, Any]],
+    patch_text: str = "",
+    artifact: PatchArtifactResult | None = None,
 ) -> ReplayResult:
     replay_contract = patch_target.get("replayContract") or {}
     ops = [row for row in (patch_target.get("templateRewriteOps") or []) if isinstance(row, dict)]
@@ -179,8 +237,25 @@ def replay_patch_target(
     if required_if_bodies is not None and list(required_if_bodies) != _collect_normalized_if_bodies(template_after):
         return ReplayResult(False, None, None, "PATCH_DYNAMIC_IF_BODY_DRIFT")
 
+    artifact_result: PatchArtifactResult | None = None
+    if str(patch_text or "").strip():
+        artifact_result = artifact or materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
+        if artifact_result.applied is not True:
+            return ReplayResult(False, None, None, artifact_result.reason_code or "PATCH_ARTIFACT_INVALID")
+        if artifact_result.xml_parse_ok is not True:
+            return ReplayResult(False, None, None, artifact_result.reason_code or "PATCH_XML_PARSE_FAILED")
+
     rendered_sql: str | None
-    if replay_mode in _FRAGMENT_REPLAY_MODES and fragment_op is not None:
+    if artifact_result is not None:
+        if replay_mode in _FRAGMENT_REPLAY_MODES and fragment_op is not None:
+            rendered_sql = _render_fragment_sql_from_artifact(
+                artifact_result,
+                sql_unit,
+                fragment_op.get("targetRef"),
+            )
+        else:
+            rendered_sql = _render_statement_sql_from_artifact(artifact_result, sql_unit)
+    elif replay_mode in _FRAGMENT_REPLAY_MODES and fragment_op is not None:
         rendered_sql = _render_fragment_sql(
             template_after,
             sql_unit,

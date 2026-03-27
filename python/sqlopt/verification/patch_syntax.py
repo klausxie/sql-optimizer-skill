@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .patch_artifact import PatchArtifactResult, materialize_patch_artifact
+
 
 @dataclass(frozen=True)
 class PatchSyntaxResult:
@@ -32,19 +34,27 @@ def verify_patch_syntax(
     patch_target: dict[str, Any],
     patch_text: str,
     replay_result: Any,
+    artifact: PatchArtifactResult | None = None,
 ) -> PatchSyntaxResult:
+    artifact_result = artifact
+    if artifact_result is None and str(patch_text or "").strip():
+        artifact_result = materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
     if getattr(replay_result, "matches_target", False) is not True:
         return PatchSyntaxResult(
             ok=False,
-            xml_parse_ok=True,
+            xml_parse_ok=bool(getattr(artifact_result, "xml_parse_ok", False)),
             render_ok=bool(getattr(replay_result, "normalized_rendered_sql", None)),
             sql_parse_ok=bool(getattr(replay_result, "normalized_rendered_sql", None)),
             rendered_sql_present=bool(getattr(replay_result, "normalized_rendered_sql", None)),
-            reason_code=str(getattr(replay_result, "drift_reason", None) or "PATCH_TARGET_DRIFT"),
+            reason_code=str(
+                getattr(replay_result, "drift_reason", None)
+                or getattr(artifact_result, "reason_code", None)
+                or "PATCH_TARGET_DRIFT"
+            ),
         )
     xml_path = Path(str(sql_unit.get("xmlPath") or ""))
-    xml_parse_ok = False
-    if xml_path.exists():
+    xml_parse_ok = bool(getattr(artifact_result, "xml_parse_ok", False))
+    if artifact_result is None and xml_path.exists():
         try:
             ET.parse(xml_path)
             xml_parse_ok = True
@@ -60,5 +70,5 @@ def verify_patch_syntax(
         render_ok=render_ok,
         sql_parse_ok=sql_parse_ok,
         rendered_sql_present=rendered_sql_present,
-        reason_code=None if ok else "PATCH_SYNTAX_INVALID",
+        reason_code=None if ok else str(getattr(artifact_result, "reason_code", None) or "PATCH_SYNTAX_INVALID"),
     )

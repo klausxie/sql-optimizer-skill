@@ -250,6 +250,10 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             run_dir = Path(td)
             (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
             xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+            xml_text = xml_path.read_text(encoding="utf-8")
+            statement_open = '<select id="listUsersProjected" resultType="map">'
+            statement_start = xml_text.index(statement_open) + len(statement_open)
+            statement_end = xml_text.index("</select>", statement_start)
             rewritten_sql = "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC"
             acceptance = {
                 "sqlKey": "demo.user.advanced.listUsersProjected#v1",
@@ -317,7 +321,10 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                         "templateSql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
                         "parameterMappings": [],
                         "paramExample": {},
-                        "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 1, "endOffset": 10}},
+                        "locators": {
+                            "statementId": "listUsersProjected",
+                            "range": {"startOffset": statement_start, "endOffset": statement_end},
+                        },
                         "riskFlags": [],
                         "dynamicFeatures": [],
                     },
