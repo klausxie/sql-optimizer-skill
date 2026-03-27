@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from .models import PatchFamilySpec
+from .specs.distinct_from_alias_cleanup import DISTINCT_FROM_ALIAS_CLEANUP_SPEC
 from .specs.dynamic_filter_from_alias_cleanup import DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC
 from .specs.dynamic_filter_select_list_cleanup import DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC
 from .specs.frozen_baselines import FROZEN_BASELINE_SPECS
+from .specs.group_by_from_alias_cleanup import GROUP_BY_FROM_ALIAS_CLEANUP_SPEC
+from .specs.group_by_having_from_alias_cleanup import GROUP_BY_HAVING_FROM_ALIAS_CLEANUP_SPEC
+from .specs.redundant_distinct_wrapper import REDUNDANT_DISTINCT_WRAPPER_SPEC
+from .specs.redundant_group_by_wrapper import REDUNDANT_GROUP_BY_WRAPPER_SPEC
+from .specs.redundant_having_wrapper import REDUNDANT_HAVING_WRAPPER_SPEC
 from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC
 from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC
 from .specs.static_in_list_simplification import STATIC_IN_LIST_SIMPLIFICATION_SPEC
@@ -53,6 +59,12 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_NULL_COMPARISON_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
     DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC,
+    REDUNDANT_DISTINCT_WRAPPER_SPEC,
+    REDUNDANT_GROUP_BY_WRAPPER_SPEC,
+    REDUNDANT_HAVING_WRAPPER_SPEC,
+    GROUP_BY_FROM_ALIAS_CLEANUP_SPEC,
+    GROUP_BY_HAVING_FROM_ALIAS_CLEANUP_SPEC,
+    DISTINCT_FROM_ALIAS_CLEANUP_SPEC,
     *FROZEN_BASELINE_SPECS,
 )
 

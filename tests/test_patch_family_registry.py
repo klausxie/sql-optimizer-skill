@@ -68,6 +68,43 @@ def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
     assert from_spec.fixture_obligations.blocked_neighbor_required is True
 
 
+def test_aggregation_baseline_specs_are_explicit_registry_entries() -> None:
+    group_by_spec = lookup_patch_family_spec("REDUNDANT_GROUP_BY_WRAPPER")
+    having_spec = lookup_patch_family_spec("REDUNDANT_HAVING_WRAPPER")
+    distinct_wrapper_spec = lookup_patch_family_spec("REDUNDANT_DISTINCT_WRAPPER")
+    group_by_alias_spec = lookup_patch_family_spec("GROUP_BY_FROM_ALIAS_CLEANUP")
+    group_by_having_alias_spec = lookup_patch_family_spec("GROUP_BY_HAVING_FROM_ALIAS_CLEANUP")
+    distinct_alias_spec = lookup_patch_family_spec("DISTINCT_FROM_ALIAS_CLEANUP")
+
+    assert group_by_spec is not None
+    assert having_spec is not None
+    assert distinct_wrapper_spec is not None
+    assert group_by_alias_spec is not None
+    assert group_by_having_alias_spec is not None
+    assert distinct_alias_spec is not None
+
+    assert group_by_spec.stage == "MVP_AGGREGATION"
+    assert having_spec.stage == "MVP_AGGREGATION"
+    assert distinct_wrapper_spec.stage == "MVP_AGGREGATION"
+    assert group_by_alias_spec.stage == "MVP_AGGREGATION"
+    assert group_by_having_alias_spec.stage == "MVP_AGGREGATION"
+    assert distinct_alias_spec.stage == "MVP_AGGREGATION"
+
+    assert group_by_spec.scope.aggregation_shape_families == ("GROUP_BY",)
+    assert having_spec.scope.aggregation_shape_families == ("HAVING",)
+    assert distinct_wrapper_spec.scope.aggregation_shape_families == ("DISTINCT",)
+    assert group_by_alias_spec.scope.aggregation_shape_families == ("GROUP_BY",)
+    assert group_by_having_alias_spec.scope.aggregation_shape_families == ("GROUP_BY", "HAVING")
+    assert distinct_alias_spec.scope.aggregation_shape_families == ("DISTINCT",)
+
+    assert group_by_spec.fixture_obligations.blocked_neighbor_required is True
+    assert having_spec.fixture_obligations.blocked_neighbor_required is True
+    assert distinct_wrapper_spec.fixture_obligations.blocked_neighbor_required is True
+    assert group_by_alias_spec.fixture_obligations.blocked_neighbor_required is True
+    assert group_by_having_alias_spec.fixture_obligations.blocked_neighbor_required is True
+    assert distinct_alias_spec.fixture_obligations.blocked_neighbor_required is True
+
+
 def test_duplicate_family_registration_fails_fast() -> None:
     spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
     assert spec is not None
@@ -108,6 +145,12 @@ def test_registry_imports_concrete_spec_modules_directly() -> None:
     assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in registry_source
     assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in registry_source
     assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.redundant_distinct_wrapper import REDUNDANT_DISTINCT_WRAPPER_SPEC" in registry_source
+    assert "from .specs.redundant_group_by_wrapper import REDUNDANT_GROUP_BY_WRAPPER_SPEC" in registry_source
+    assert "from .specs.redundant_having_wrapper import REDUNDANT_HAVING_WRAPPER_SPEC" in registry_source
+    assert "from .specs.group_by_from_alias_cleanup import GROUP_BY_FROM_ALIAS_CLEANUP_SPEC" in registry_source
+    assert "from .specs.group_by_having_from_alias_cleanup import GROUP_BY_HAVING_FROM_ALIAS_CLEANUP_SPEC" in registry_source
+    assert "from .specs.distinct_from_alias_cleanup import DISTINCT_FROM_ALIAS_CLEANUP_SPEC" in registry_source
     assert "from .frozen_baselines import FROZEN_BASELINE_SPECS" not in specs_source
     assert "from .static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" not in specs_source
     assert "from .static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" not in specs_source
