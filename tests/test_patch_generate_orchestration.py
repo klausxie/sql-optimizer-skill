@@ -82,6 +82,62 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         )
         return run_dir
 
+    def _dynamic_filter_wrapper_unit(self) -> tuple[dict, Path]:
+        td = tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_wrapper_")
+        self.addCleanup(td.cleanup)
+        xml_path = Path(td.name) / "demo_mapper.xml"
+        xml_path.write_text(
+            """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredWrapped">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM (
+      SELECT id, name, email, status, created_at, updated_at
+      FROM users
+      <where>
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        <if test="createdAfter != null">
+          AND created_at &gt;= #{createdAfter}
+        </if>
+      </where>
+    ) filtered_users
+    ORDER BY created_at DESC
+  </select>
+</mapper>""",
+            encoding="utf-8",
+        )
+        content = xml_path.read_text(encoding="utf-8")
+        statement_open = '<select id="listUsersFilteredWrapped">'
+        statement_start = content.index(statement_open) + len(statement_open)
+        statement_end = content.index("</select>", statement_start)
+        return (
+            {
+                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped#v15",
+                "sql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM ( "
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "WHERE status = #{status} AND created_at >= #{createdAfter} "
+                    ") filtered_users ORDER BY created_at DESC"
+                ),
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredWrapped",
+                "templateSql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM ( "
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "<where> <if test=\"status != null and status != ''\"> AND status = #{status} </if> "
+                    "<if test=\"createdAfter != null\"> AND created_at &gt;= #{createdAfter} </if> </where> "
+                    ") filtered_users ORDER BY created_at DESC"
+                ),
+                "dynamicFeatures": ["WHERE", "IF"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+                "locators": {"statementId": "listUsersFilteredWrapped", "range": {"startOffset": statement_start, "endOffset": statement_end}},
+                "statementType": "SELECT",
+            },
+            xml_path,
+        )
+
     def _validator(self) -> ContractValidator:
         return ContractValidator(ROOT)
 
@@ -322,6 +378,37 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertTrue(patch_row["applicable"])
         self.assertEqual(patch_row.get("strategyType"), "EXACT_TEMPLATE_EDIT")
         self.assertEqual((patch_row.get("patchTarget") or {}).get("targetSql"), "SELECT id FROM users")
+
+    def test_patch_generate_builds_template_ops_without_acceptance_materialization(self) -> None:
+        unit, _ = self._dynamic_filter_wrapper_unit()
+        acceptance = self._thin_acceptance(
+            rewritten_sql="SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+        )
+        acceptance["sqlKey"] = unit["sqlKey"]
+        run_dir = self._prepare_run_dir(acceptance)
+
+        with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+            patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertTrue(patch_row["applicable"])
+        self.assertEqual((patch_row.get("patchTarget") or {}).get("selectedPatchStrategy", {}).get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
+        self.assertEqual((patch_row.get("patchTarget") or {}).get("rewriteMaterialization", {}).get("mode"), "STATEMENT_TEMPLATE_SAFE")
+        self.assertEqual(((patch_row.get("patchTarget") or {}).get("templateRewriteOps") or [])[0].get("op"), "replace_statement_body")
+
+    def test_patch_generate_derives_replay_contract_in_patch_stage(self) -> None:
+        unit, _ = self._dynamic_filter_wrapper_unit()
+        acceptance = self._thin_acceptance(
+            rewritten_sql="SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+        )
+        acceptance["sqlKey"] = unit["sqlKey"]
+        run_dir = self._prepare_run_dir(acceptance)
+
+        with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+            patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertTrue((patch_row.get("replayEvidence") or {}).get("matchesTarget"))
+        self.assertTrue((patch_row.get("syntaxEvidence") or {}).get("ok"))
+        self.assertTrue(((patch_row.get("patchTarget") or {}).get("replayContract") or {}).get("requiredTemplateOps"))
 
     def test_patch_generate_blocks_when_replay_target_drift_exists(self) -> None:
         acceptance = {

@@ -8,9 +8,7 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
-from ..verification.patch_artifact import materialize_patch_artifact as _materialize_patch_artifact
-from ..verification.patch_replay import replay_patch_target as _replay_patch_target
-from ..verification.patch_syntax import verify_patch_syntax as _verify_patch_syntax
+from .patch_build import build_patch_plan as _build_patch_plan
 from .patching_render import (
     build_unified_patch as _build_unified_patch,
     normalize_sql_text as _normalize_sql_text,
@@ -27,6 +25,7 @@ from .patch_finalize import finalize_generated_patch as _finalize_generated_patc
 from .patch_formatting import detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops
 from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
 from .patch_formatting import format_template_ops_for_patch as _format_template_ops_for_patch
+from .patch_proof import prove_patch_plan as _prove_patch_plan
 from .patch_select import build_patch_selection_context as _build_patch_selection_context
 from .patch_select import enrich_acceptance_for_patch as _enrich_acceptance_for_patch
 from .patch_generate_llm import (
@@ -111,6 +110,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         fragment_catalog=fragment_catalog,
         config=config,
     )
+    build = _build_patch_plan(selection)
     acceptance_for_patch = _enrich_acceptance_for_patch(acceptance, selection)
 
     patch, decision_ctx = _decide_patch_result(
@@ -130,36 +130,26 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         build_unified_patch=_build_unified_patch,
     )
     sql_key = decision_ctx.sql_key
-    patch_target = dict(patch.get("patchTarget") or acceptance_for_patch.get("patchTarget") or {})
 
-    if patch.get("applicable") is True and patch_target:
+    if patch.get("applicable") is True:
         selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
         patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
-        artifact_result = _materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
-        replay_result = _replay_patch_target(
+        proof = _prove_patch_plan(
             sql_unit=sql_unit,
-            patch_target=patch_target,
+            acceptance=acceptance,
+            selection=selection,
+            build=build,
             fragment_catalog=fragment_catalog,
             patch_text=patch_text,
-            artifact=artifact_result,
         )
-        syntax_result = _verify_patch_syntax(
-            sql_unit=sql_unit,
-            patch_target=patch_target,
-            patch_text=patch_text,
-            replay_result=replay_result,
-            artifact=artifact_result,
-        )
-        patch["patchTarget"] = patch_target
-        patch["replayEvidence"] = {
-            "matchesTarget": replay_result.matches_target,
-            "renderedSql": replay_result.rendered_sql,
-            "normalizedRenderedSql": replay_result.normalized_rendered_sql,
-            "driftReason": replay_result.drift_reason,
-        }
-        patch["syntaxEvidence"] = syntax_result.to_dict()
-        if replay_result.matches_target is not True or syntax_result.ok is not True:
-            reason_code = replay_result.drift_reason or syntax_result.reason_code or "PATCH_TARGET_DRIFT"
+        if proof.patch_target is not None:
+            patch["patchTarget"] = proof.patch_target
+        if proof.replay_evidence:
+            patch["replayEvidence"] = proof.replay_evidence
+        if proof.syntax_evidence:
+            patch["syntaxEvidence"] = proof.syntax_evidence
+        if proof.ok is not True:
+            reason_code = proof.reason_code or "PATCH_TARGET_DRIFT"
             reason_message = "generated patch does not replay back to the persisted patch target"
             patch = _skip_patch_result(
                 sql_key=decision_ctx.sql_key,
@@ -167,10 +157,10 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 reason_code=reason_code,
                 reason_message=reason_message,
                 candidates_evaluated=decision_ctx.candidates_evaluated,
-                selected_candidate_id=patch_target.get("selectedCandidateId"),
-                patch_target=patch_target,
-                replay_evidence=patch["replayEvidence"],
-                syntax_evidence=patch["syntaxEvidence"],
+                selected_candidate_id=(proof.patch_target or {}).get("selectedCandidateId"),
+                patch_target=proof.patch_target,
+                replay_evidence=patch.get("replayEvidence"),
+                syntax_evidence=patch.get("syntaxEvidence"),
             )
 
     patch = _attach_patch_diagnostics(patch, sql_unit, acceptance_for_patch)

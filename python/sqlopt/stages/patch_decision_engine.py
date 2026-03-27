@@ -376,18 +376,6 @@ def decide_patch_result(
         )
         return patch, ctx
 
-    if status == "PASS" and not patch_target:
-        patch = skip_patch_result(
-            sql_key=sql_key,
-            statement_key=statement_key,
-            reason_code="PATCH_TARGET_CONTRACT_MISSING",
-            reason_message="acceptance payload is missing persisted patchTarget contract",
-            candidates_evaluated=candidates_evaluated,
-            selection_evidence=selection_evidence,
-            fallback_reason_codes=fallback_reason_codes,
-        )
-        return patch, ctx
-
     patch_sql = formatted_rewritten_sql or rewritten_sql
     patch_text, changed_lines = build_unified_patch(xml_path, statement_id, statement_type, patch_sql)
     if patch_text is None:
