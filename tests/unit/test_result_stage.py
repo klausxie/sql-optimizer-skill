@@ -34,9 +34,7 @@ class TestResultStageRun:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
@@ -128,9 +126,7 @@ class TestResultStageRun:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             original_cwd = str(Path.cwd())
             try:
@@ -188,9 +184,7 @@ class TestResultStageRun:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
@@ -261,9 +255,7 @@ class TestResultStageRun:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
@@ -403,7 +395,14 @@ class TestCreatePatch:
             try:
                 os.chdir(tmpdir)
                 stage = ResultStage()
-                patch = stage._create_patch(proposal, original_xml)  # noqa: SLF001
+                sql_unit = SQLUnit(
+                    id="sql-1",
+                    mapper_file="src/main/resources/mappers/UserMapper.xml",
+                    sql_id="findUser",
+                    sql_text=original_xml,
+                    statement_type="SELECT",
+                )
+                patch = stage._create_patch(proposal, original_xml, sql_unit)
 
                 assert isinstance(patch, Patch)
                 assert patch.sql_unit_id == "sql-1"
@@ -412,8 +411,7 @@ class TestCreatePatch:
 
                 assert "---" in patch.diff
                 assert "+++" in patch.diff
-                assert "original" in patch.diff
-                assert "optimized" in patch.diff
+                assert "UserMapper.xml" in patch.diff
             finally:
                 os.chdir(original_cwd)
 
@@ -728,9 +726,7 @@ class TestResultOutputFields:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
@@ -777,9 +773,7 @@ class TestResultOutputFields:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
@@ -825,9 +819,7 @@ class TestResultOutputFields:
                 ),
             ]
             optimize_output = OptimizeOutput(proposals=proposals)
-            (optimize_dir / "proposals.json").write_text(
-                optimize_output.to_json(), encoding="utf-8"
-            )
+            (optimize_dir / "proposals.json").write_text(optimize_output.to_json(), encoding="utf-8")
 
             init_dir = runs_dir / "init"
             init_dir.mkdir(parents=True)
