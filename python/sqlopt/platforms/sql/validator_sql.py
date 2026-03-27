@@ -97,6 +97,12 @@ _OR_SAME_COLUMN_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Pattern to match DISTINCT ON (PostgreSQL) that can be simplified to DISTINCT
+_DISTINCT_ON_RE = re.compile(
+    r"\bSELECT\s+DISTINCT\s+ON\s*\([^)]+\)",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -239,6 +245,14 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_OR_SIMPLIFICATION"
+
+    # Check for DISTINCT ON simplification
+    if _classify_static_distinct_on_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_DISTINCT_ON_SIMPLIFICATION"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -461,6 +475,39 @@ def _classify_static_or_simplification(
         column = or_match.group(1)
         in_pattern = re.compile(rf"\b{re.escape(column)}\s+IN\s*\(", flags=re.IGNORECASE)
         if in_pattern.search(normalized_rewritten):
+            return True
+
+    return False
+
+
+def _classify_static_distinct_on_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if DISTINCT ON is simplified or removed."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for DISTINCT ON in original
+    distinct_on_match = _DISTINCT_ON_RE.search(normalized_original)
+    if distinct_on_match:
+        # If rewritten has DISTINCT (without ON), it's simplified
+        distinct_pattern = re.compile(r"\bSELECT\s+DISTINCT\s+", flags=re.IGNORECASE)
+        if distinct_pattern.search(normalized_rewritten):
+            # Make sure it's not DISTINCT ON anymore
+            if not _DISTINCT_ON_RE.search(normalized_rewritten):
+                return True
+        # Or if DISTINCT is removed entirely
+        elif "DISTINCT" not in normalized_rewritten.upper():
             return True
 
     return False
