@@ -379,6 +379,118 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
 
+    def test_patch_generate_blocks_when_patch_targets_different_xml_file(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        other_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "simple_user_mapper.xml"
+        foreign_patch, changed_lines = build_unified_patch(other_path, "findUsers", "select", "SELECT id FROM users")
+        self.assertIsNotNone(foreign_patch)
+        self.assertGreater(changed_lines, 0)
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(foreign_patch, changed_lines, None)):
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_ARTIFACT_TARGET_MISMATCH")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_ARTIFACT_TARGET_MISMATCH")
+
+    def test_patch_generate_blocks_when_patch_artifact_hunk_is_invalid(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        invalid_patch = (
+            f"--- a/{xml_path.as_posix()}\n"
+            f"+++ b/{xml_path.as_posix()}\n"
+            "@@ -999,0 +999,1 @@\n"
+            "+<broken />\n"
+        )
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(invalid_patch, 1, None)):
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_ARTIFACT_INVALID")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_ARTIFACT_INVALID")
+
+    def test_patch_generate_blocks_when_patch_artifact_breaks_xml(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id FROM users",
+            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        original = xml_path.read_text(encoding="utf-8")
+        statement_open = '<select id="listUsersProjected" resultType="map">'
+        statement_start = original.index(statement_open) + len(statement_open)
+        statement_end = original.index("</select>", statement_start)
+        invalid_xml_patch, changed_lines, error = patch_generate._build_template_plan_patch(
+            {
+                "xmlPath": str(xml_path),
+                "locators": {"range": {"startOffset": statement_start, "endOffset": statement_end}},
+            },
+            {
+                "rewriteMaterialization": {"mode": "STATEMENT_TEMPLATE_SAFE", "replayVerified": True},
+                "templateRewriteOps": [{"op": "replace_statement_body", "afterTemplate": '<if test="broken">'}],
+            },
+            run_dir,
+        )
+        self.assertIsNone(error)
+        self.assertIsNotNone(invalid_xml_patch)
+        self.assertGreater(changed_lines, 0)
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(invalid_xml_patch, changed_lines, None)):
+            with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_XML_PARSE_FAILED")
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_XML_PARSE_FAILED")
+
 
 if __name__ == "__main__":
     unittest.main()

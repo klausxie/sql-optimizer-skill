@@ -66,9 +66,19 @@ def _apply_unified_diff(original_text: str, patch_text: str) -> str:
         match = _HUNK_RE.match(header)
         if match is None:
             raise ValueError("invalid unified diff hunk header")
-        old_start = max(0, int(match.group("old_start")) - 1)
+        old_start_number = int(match.group("old_start"))
+        old_count = int(match.group("old_count") or "1")
+        new_count = int(match.group("new_count") or "1")
+        if old_count == 0:
+            if old_start_number < 1 or old_start_number > len(original_lines) + 1:
+                raise ValueError("hunk start beyond source length")
+        elif old_start_number < 1 or old_start_number > len(original_lines):
+            raise ValueError("hunk start beyond source length")
+        old_start = max(0, old_start_number - 1)
         patched_lines.extend(original_lines[original_index:old_start])
         original_index = old_start
+        consumed_old = 0
+        produced_new = 0
         cursor += 1
 
         while cursor < len(patch_lines) and not patch_lines[cursor].startswith("@@ "):
@@ -83,15 +93,21 @@ def _apply_unified_diff(original_text: str, patch_text: str) -> str:
                     raise ValueError("context mismatch while applying patch artifact")
                 patched_lines.append(content)
                 original_index += 1
+                consumed_old += 1
+                produced_new += 1
             elif marker == "-":
                 if original_index >= len(original_lines) or original_lines[original_index] != content:
                     raise ValueError("removal mismatch while applying patch artifact")
                 original_index += 1
+                consumed_old += 1
             elif marker == "+":
                 patched_lines.append(content)
+                produced_new += 1
             else:
                 raise ValueError("unsupported unified diff line")
             cursor += 1
+        if consumed_old != old_count or produced_new != new_count:
+            raise ValueError("hunk line counts do not match header")
 
     patched_lines.extend(original_lines[original_index:])
     patched_text = "\n".join(patched_lines)
