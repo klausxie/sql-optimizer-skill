@@ -225,8 +225,12 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_baseline_family"],
+            "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+        )
+        self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_delivery_class"],
-            "REVIEW_ONLY",
+            "SAFE_BASELINE_BLOCKED",
         )
         self.assertEqual(sql_rows["demo.order.harness.findOrdersByNos#v1"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
         self.assertEqual(

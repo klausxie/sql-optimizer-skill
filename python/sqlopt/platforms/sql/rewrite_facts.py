@@ -48,6 +48,26 @@ _PROHIBITED_WRAPPER_PATTERNS = (
     (r"\bfetch\b", "FETCH_PRESENT"),
 )
 _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH = "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH"
+_FROM_ALIAS_CANDIDATE_RE = re.compile(
+    r"^\s*from\s+(?P<table>[a-z_][a-z0-9_\.]*)\s+(?:as\s+)?(?P<alias>[a-z_][a-z0-9_]*)(?P<suffix>.*)?$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_FROM_ALIAS_RESERVED = {
+    "where",
+    "order",
+    "limit",
+    "offset",
+    "fetch",
+    "group",
+    "having",
+    "join",
+    "left",
+    "right",
+    "inner",
+    "outer",
+    "full",
+    "cross",
+}
 
 
 def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
@@ -72,6 +92,18 @@ def _wrapper_template_match(template_sql: str) -> re.Match[str] | None:
 
 def _dynamic_count_wrapper_template_match(template_sql: str) -> re.Match[str] | None:
     return _DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE.match(str(template_sql or "").strip())
+
+
+def _has_single_table_from_alias_candidate(from_suffix: str) -> bool:
+    normalized = normalize_sql_text(from_suffix)
+    match = _FROM_ALIAS_CANDIDATE_RE.match(normalized)
+    if match is None:
+        return False
+    alias = str(match.group("alias") or "").strip().lower()
+    if not alias or alias in _FROM_ALIAS_RESERVED:
+        return False
+    suffix = str(match.group("suffix") or "").strip().lower()
+    return not suffix or suffix.startswith(("where ", "order by ", "limit ", "offset ", "fetch ", "<"))
 
 
 def _render_primary_fragment(sql_unit: dict[str, Any], fragment_catalog: dict[str, dict[str, Any]]) -> tuple[str | None, dict[str, Any] | None]:
@@ -216,7 +248,8 @@ def _build_dynamic_template_facts(
         elif direct_select is not None and direct_from is not None and not (feature_set & {"CHOOSE", "TRIM", "BIND"}):
             _cleaned_select, aliases_changed = cleanup_redundant_select_aliases(direct_select)
             _cleaned_from, from_alias_changed = cleanup_redundant_from_alias(direct_from, select_text=direct_select)
-            if aliases_changed and from_alias_changed:
+            from_alias_candidate = _has_single_table_from_alias_candidate(direct_from)
+            if aliases_changed and (from_alias_changed or from_alias_candidate):
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "REVIEW_REQUIRED"
                 blocker_family = _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH
@@ -228,7 +261,7 @@ def _build_dynamic_template_facts(
                 blockers = []
                 template_preserving_candidate = True
                 baseline_family = "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
-            elif from_alias_changed:
+            elif from_alias_changed or from_alias_candidate:
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "SAFE_BASELINE"
                 blocker_family = None

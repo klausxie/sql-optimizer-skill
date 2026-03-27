@@ -407,6 +407,63 @@ class DynamicCandidateIntentTest(unittest.TestCase):
         self.assertIn("FROM users <where>", str(assessment.rebuilt_template))
         self.assertNotIn("FROM users u", str(assessment.rebuilt_template))
 
+    def test_dynamic_filter_from_alias_cleanup_blocks_if_predicate_rewrite_requirement(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="dynamic_filter_from_alias_predicate_block_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredPredicateAliased">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM users u
+    <where>
+      <if test="status != null and status != ''">
+        AND u.status = #{status}
+      </if>
+      <if test="createdAfter != null">
+        AND u.created_at &gt;= #{createdAfter}
+      </if>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            sql_unit = {
+                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased#v24",
+                "sql": (
+                    "SELECT id, name, email, status, created_at, updated_at "
+                    "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY created_at DESC"
+                ),
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredPredicateAliased",
+                "templateSql": (
+                    "SELECT id, name, email, status, created_at, updated_at "
+                    "FROM users u <where> <if test=\"status != null and status != ''\"> AND u.status = #{status} </if> "
+                    "<if test=\"createdAfter != null\"> AND u.created_at &gt;= #{createdAfter} </if> </where> ORDER BY created_at DESC"
+                ),
+                "dynamicFeatures": ["WHERE", "IF"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+            }
+            rewrite_facts = build_rewrite_facts_model(
+                sql_unit,
+                "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC",
+                {},
+                {"evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}]},
+                {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+            )
+
+            assessment = assess_dynamic_candidate_intent_model(
+                sql_unit,
+                str(sql_unit["sql"]),
+                "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC",
+                rewrite_facts,
+            )
+
+        self.assertEqual(rewrite_facts.dynamic_template.capability_profile.baseline_family, "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP")
+        self.assertEqual(assessment.intent, "UNSAFE_DYNAMIC_REWRITE")
+        self.assertEqual(assessment.blocking_reason, "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE")
+
     def test_dynamic_filter_combined_cleanup_does_not_fall_back_to_template_preserving_intent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="dynamic_filter_combined_cleanup_") as td:
             xml_path = Path(td) / "demo_mapper.xml"

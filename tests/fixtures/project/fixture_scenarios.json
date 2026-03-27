@@ -1270,13 +1270,13 @@
     "targetSemanticGate": "UNCERTAIN",
     "targetPatchability": "REVIEW",
     "targetPatchStrategy": null,
-    "targetRegisteredFamily": "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
+    "targetDynamicBaselineFamily": "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
     "targetPrimaryBlocker": "SEMANTIC_GATE_UNCERTAIN",
     "targetPatchReasonCode": "PATCH_CONFLICT_NO_CLEAR_WINNER",
     "targetPatchMustContain": [],
     "targetPatchMustNotContain": [],
     "targetBlockerFamily": "TEMPLATE_UNSUPPORTED",
-    "targetDynamicDeliveryClass": "REVIEW_ONLY",
+    "targetDynamicDeliveryClass": "SAFE_BASELINE_BLOCKED",
     "roadmapStage": "BASELINE",
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   }

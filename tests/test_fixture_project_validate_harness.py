@@ -191,9 +191,10 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
             if sql_key == "demo.user.advanced.listUsersFilteredPredicateAliased#v24":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
                 self.assertEqual(dynamic_profile.get("shapeFamily"), "IF_GUARDED_FILTER_STATEMENT", sql_key)
-                self.assertEqual(dynamic_profile.get("capabilityTier"), "REVIEW_REQUIRED", sql_key)
-                self.assertEqual(dynamic_profile.get("patchSurface"), "WHERE_CLAUSE", sql_key)
-                self.assertIsNone(dynamic_profile.get("baselineFamily"), sql_key)
+                self.assertEqual(dynamic_profile.get("capabilityTier"), "SAFE_BASELINE", sql_key)
+                self.assertEqual(dynamic_profile.get("patchSurface"), "STATEMENT_BODY", sql_key)
+                self.assertEqual(dynamic_profile.get("baselineFamily"), "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP", sql_key)
+                self.assertEqual((result.get("patchability") or {}).get("dynamicBlockingReason"), "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE", sql_key)
                 self.assertIsNone(result.get("patchTarget"), sql_key)
             if sql_key == "demo.order.harness.findOrdersByNos#v1":
                 self.assertEqual(dynamic_template.get("present"), True, sql_key)
