@@ -40,11 +40,13 @@ class OptimizeOutput:
     """Output contract for the optimize operation."""
 
     proposals: List[OptimizationProposal]
+    run_id: str = "unknown"
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
         data = {
             "proposals": [asdict(p) for p in self.proposals],
+            "run_id": self.run_id,
         }
         return json.dumps(data)
 
@@ -53,4 +55,4 @@ class OptimizeOutput:
         """Deserialize from JSON string."""
         data = json.loads(json_str)
         proposals = [OptimizationProposal(**p) for p in data["proposals"]]
-        return cls(proposals=proposals)
+        return cls(proposals=proposals, run_id=data.get("run_id", "unknown"))

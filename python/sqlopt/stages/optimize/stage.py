@@ -13,7 +13,7 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
-from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.common.summary_generator import generate_optimize_summary_markdown
 from sqlopt.contracts.init import TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
@@ -98,7 +98,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             self._disconnect_db_connector()
 
         logger.info(f"[OPTIMIZE] Generated {len(proposals)} proposal(s)")
-        output = OptimizeOutput(proposals=proposals)
+        output = OptimizeOutput(proposals=proposals, run_id=rid)
         self._write_output(rid, output)
         logger.info(f"[OPTIMIZE] Output written to: runs/{rid}/optimize/proposals.json")
 
@@ -122,9 +122,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     (idx + 1, len(baselines)),
                 )
             if baseline.plan is None:
-                logger.info(
-                    f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
-                )
+                key = f"{baseline.sql_unit_id}.{baseline.path_id}"
+                logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                 continue
 
             try:
@@ -178,9 +177,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         tasks = []
         for baseline in baselines:
             if baseline.plan is None:
-                logger.info(
-                    f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {baseline.sql_unit_id}.{baseline.path_id}"
-                )
+                key = f"{baseline.sql_unit_id}.{baseline.path_id}"
+                logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                 continue
             tasks.append(baseline)
 
@@ -197,6 +195,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         proposals: list[OptimizationProposal] = []
         total = len(tasks)
+
         def process_task(baseline: PerformanceBaseline) -> OptimizationProposal:
             proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
             proposal_data = json.loads(proposal_json)
@@ -274,7 +273,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     validation_status="validated",
                     gain_ratio=0.8,
                 )
-            ]
+            ],
+            run_id="stub",
         )
 
     def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
@@ -506,23 +506,6 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         """
         try:
             duration_seconds = time.time() - start_time
-            proposals = output.proposals
-
-            proposals_count = len(proposals)
-            avg_confidence = 0.0
-            high_confidence_count = 0
-            low_confidence_count = 0
-
-            if proposals:
-                confidences = [p.confidence for p in proposals]
-                avg_confidence = sum(confidences) / len(confidences)
-                high_confidence_count = sum(1 for c in confidences if c >= 0.7)
-                low_confidence_count = sum(1 for c in confidences if c < 0.7)
-                validated_count = sum(1 for p in proposals if p.validation_status == "validated")
-                mismatch_count = sum(1 for p in proposals if p.validation_status == "result_mismatch")
-            else:
-                validated_count = 0
-                mismatch_count = 0
 
             output_dir = self.resolve_run_paths(run_id).optimize_dir
             file_size_bytes = 0
@@ -534,26 +517,17 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                         file_size_bytes += file_path.stat().st_size
                         files_count += 1
 
-            warnings = [
-                f"High confidence proposals (>=0.7): {high_confidence_count}",
-                f"Low confidence proposals (<0.7): {low_confidence_count}",
-                f"Average confidence: {avg_confidence:.2f}",
-                f"Validated proposals: {validated_count}",
-                f"Result mismatches: {mismatch_count}",
-            ]
-
-            summary = StageSummary(
-                stage_name="optimize",
+            output_with_run_id = OptimizeOutput(
+                proposals=output.proposals,
                 run_id=run_id,
-                duration_seconds=duration_seconds,
-                sql_units_count=proposals_count,
-                branches_count=0,  # Optimize stage doesn't produce branches
-                files_count=files_count,
-                file_size_bytes=file_size_bytes,
-                warnings=warnings,
             )
 
-            markdown = generate_summary_markdown(summary)
+            markdown = generate_optimize_summary_markdown(
+                output=output_with_run_id,
+                duration_seconds=duration_seconds,
+                file_size_bytes=file_size_bytes,
+                files_count=files_count,
+            )
             summary_path = output_dir / "SUMMARY.md"
             summary_path.write_text(markdown, encoding="utf-8")
             logger.info(f"[OPTIMIZE] SUMMARY.md written to: {summary_path}")

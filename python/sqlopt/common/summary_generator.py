@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 from sqlopt.contracts.init import InitOutput
+from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.contracts.parse import ParseOutput
 
@@ -792,6 +793,190 @@ def generate_parse_summary_markdown(
 
     lines.append("---")
     lines.append("*由 SQL Optimizer 生成 - PARSE 阶段*")
+
+    result = "\n".join(lines)
+
+    max_output_size = 50 * 1024
+    if len(result) > max_output_size:
+        result = result[:max_output_size] + "\n\n... (output truncated to 50KB)"
+
+    return result
+
+
+def generate_optimize_summary_markdown(
+    output: OptimizeOutput,
+    duration_seconds: float,
+    file_size_bytes: int,
+    files_count: int,
+) -> str:
+    """Generate a valuable OPTIMIZE stage SUMMARY with proposal analysis.
+
+    Args:
+        output: OptimizeOutput containing all OptimizationProposal records.
+        duration_seconds: Total execution time in seconds.
+        file_size_bytes: Total size of output files in bytes.
+        files_count: Number of output files written.
+
+    Returns:
+        Markdown-formatted SUMMARY.md with actionable insights.
+    """
+    proposals = output.proposals
+    lines: list[str] = []
+
+    lines.append("# OPTIMIZE 阶段报告")
+    lines.append("")
+    lines.append(f"**运行ID:** `{getattr(output, 'run_id', 'unknown')}`")
+    lines.append(f"**耗时:** {duration_seconds:.2f} 秒")
+    lines.append("")
+
+    total_proposals = len(proposals)
+    validated = sum(1 for p in proposals if p.validation_status == "validated")
+    mismatched = sum(1 for p in proposals if p.validation_status == "result_mismatch")
+    pending = sum(1 for p in proposals if p.validation_status is None)
+
+    high_conf = sum(1 for p in proposals if p.confidence >= 0.8)
+    medium_conf = sum(1 for p in proposals if 0.5 <= p.confidence < 0.8)
+    low_conf = sum(1 for p in proposals if p.confidence < 0.5)
+
+    with_gain = sum(1 for p in proposals if p.gain_ratio is not None and p.gain_ratio > 0)
+    lines.append("## 执行概览")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| 优化建议总数 | {total_proposals} |")
+    lines.append(f"| ✅ 验证通过 | {validated} |")
+    lines.append(f"| ❌ 结果不匹配 | {mismatched} |")
+    lines.append(f"| ⏳ 待验证 | {pending} |")
+    lines.append(f"| 🔵 高置信度 (>=0.8) | {high_conf} |")
+    lines.append(f"| 🟡 中置信度 (0.5-0.8) | {medium_conf} |")
+    lines.append(f"| 🔴 低置信度 (<0.5) | {low_conf} |")
+    lines.append(f"| 📈 有效增益 | {with_gain} |")
+    lines.append("")
+
+    if proposals:
+        confidences = [p.confidence for p in proposals]
+        lines.append("## 置信度分布")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
+        lines.append(f"| 最高置信度 | {max(confidences):.3f} |")
+        lines.append(f"| 最低置信度 | {min(confidences):.3f} |")
+        lines.append(f"| 平均置信度 | {sum(confidences) / len(confidences):.3f} |")
+        lines.append("")
+
+    gain_ratios = [p.gain_ratio for p in proposals if p.gain_ratio is not None and p.gain_ratio > 0]
+    if gain_ratios:
+        lines.append("## 增益分布（仅有效增益）")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
+        lines.append(f"| 有效增益建议数 | {len(gain_ratios)} |")
+        lines.append(f"| 最大增益 | {max(gain_ratios):.3f}x |")
+        lines.append(f"| 最小增益 | {min(gain_ratios):.3f}x |")
+        lines.append(f"| 平均增益 | {sum(gain_ratios) / len(gain_ratios):.3f}x |")
+        lines.append("")
+
+    top_gain_proposals = sorted(
+        [p for p in proposals if p.gain_ratio is not None and p.gain_ratio > 0],
+        key=lambda p: p.gain_ratio or 0.0,
+        reverse=True,
+    )[:10]
+
+    if top_gain_proposals:
+        lines.append("## 高增益建议 Top 10（按 gain_ratio）")
+        lines.append("")
+        lines.append("| # | SQL Unit | Branch | Confidence | Gain |")
+        lines.append("|---|----------|--------|------------|------|")
+        for i, p in enumerate(top_gain_proposals, 1):
+            gain_str = f"{p.gain_ratio:.2f}x" if p.gain_ratio else "-"
+            lines.append(f"| {i} | `{p.sql_unit_id}` | `{p.path_id}` | {p.confidence:.2f} | {gain_str} |")
+        lines.append("")
+        top = top_gain_proposals[0]
+        lines.append(f"**最优建议:** `{_extract_sql_preview(top.optimized_sql, 80)}`")
+        lines.append(
+            f"**理由:** {top.rationale[:200]}..." if len(top.rationale) > 200 else f"**理由:** {top.rationale}"
+        )
+        lines.append("")
+
+    high_conf_proposals = sorted(
+        [p for p in proposals if p.confidence >= 0.8],
+        key=lambda p: p.confidence,
+        reverse=True,
+    )[:10]
+
+    if high_conf_proposals:
+        lines.append("## 高置信度建议 Top 10（>=0.8）")
+        lines.append("")
+        lines.append("| # | SQL Unit | Branch | Confidence | Status |")
+        lines.append("|---|----------|--------|------------|--------|")
+        for i, p in enumerate(high_conf_proposals, 1):
+            status_icon = (
+                "✅"
+                if p.validation_status == "validated"
+                else "❌"
+                if p.validation_status == "result_mismatch"
+                else "⏳"
+            )
+            lines.append(f"| {i} | `{p.sql_unit_id}` | `{p.path_id}` | {p.confidence:.2f} | {status_icon} |")
+        lines.append("")
+
+    mismatched_proposals = [p for p in proposals if p.validation_status == "result_mismatch"]
+    if mismatched_proposals:
+        lines.append(f"## 结果不匹配建议（共 {len(mismatched_proposals)} 条）")
+        lines.append("")
+        for p in mismatched_proposals[:5]:
+            lines.append(f"- **`{p.sql_unit_id}`.`{p.path_id}`** (置信度: {p.confidence:.2f})")
+            lines.append(f"  - 原始SQL: `{_extract_sql_preview(p.original_sql, 60)}`")
+            lines.append(f"  - 理由: {p.rationale[:150]}...")
+        if len(mismatched_proposals) > 5:
+            lines.append(f"- ... 还有 {len(mismatched_proposals) - 5} 条")
+        lines.append("")
+
+    units_map: dict[str, list[OptimizationProposal]] = {}
+    for p in proposals:
+        if p.sql_unit_id not in units_map:
+            units_map[p.sql_unit_id] = []
+        units_map[p.sql_unit_id].append(p)
+
+    lines.append(f"## SQL Unit 概览（共 {len(units_map)} 个 Unit）")
+    lines.append("")
+    lines.append("| Unit | 建议数 | 平均置信度 | 验证状态 |")
+    lines.append("|------|--------|------------|----------|")
+
+    unit_summaries: list[tuple[str, int, float, str]] = []
+    for unit_id, unit_ps in units_map.items():
+        avg_conf = sum(p.confidence for p in unit_ps) / len(unit_ps)
+        unit_validated = sum(1 for p in unit_ps if p.validation_status == "validated")
+        unit_mismatched = sum(1 for p in unit_ps if p.validation_status == "result_mismatch")
+        if unit_mismatched > 0:
+            status = f"❌ {unit_mismatched} 不匹配"
+        elif unit_validated == len(unit_ps):
+            status = "✅ 全部通过"
+        elif unit_validated > 0:
+            status = f"🟡 {unit_validated} 通过"
+        else:
+            status = "⏳ 待验证"
+        unit_summaries.append((unit_id, len(unit_ps), avg_conf, status))
+
+    unit_summaries.sort(key=lambda x: x[2], reverse=True)
+    for unit_id, proposal_cnt, avg_conf, status in unit_summaries:
+        lines.append(f"| `{unit_id}` | {proposal_cnt} | {avg_conf:.2f} | {status} |")
+    lines.append("")
+
+    lines.append("## 统计信息")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| SQL Unit 数 | {len(units_map)} |")
+    lines.append(f"| 优化建议总数 | {total_proposals} |")
+    lines.append(f"| 验证通过 | {validated} |")
+    lines.append(f"| 结果不匹配 | {mismatched} |")
+    lines.append(f"| 输出文件数 | {files_count} |")
+    lines.append(f"| 输出大小 | {file_size_bytes:,} 字节 |")
+    lines.append("")
+
+    lines.append("---")
+    lines.append("*由 SQL Optimizer 生成 - OPTIMIZE 阶段*")
 
     result = "\n".join(lines)
 
