@@ -27,6 +27,8 @@ from .patch_finalize import finalize_generated_patch as _finalize_generated_patc
 from .patch_formatting import detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops
 from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
 from .patch_formatting import format_template_ops_for_patch as _format_template_ops_for_patch
+from .patch_select import build_patch_selection_context as _build_patch_selection_context
+from .patch_select import enrich_acceptance_for_patch as _enrich_acceptance_for_patch
 from .patch_generate_llm import (
     generate_template_patch_suggestion as _generate_template_patch_suggestion,
     attach_llm_suggestion_to_patch as _attach_llm_suggestion,
@@ -103,9 +105,17 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         if candidate_root.exists():
             project_root = candidate_root
 
-    patch, decision_ctx = _decide_patch_result(
+    selection = _build_patch_selection_context(
         sql_unit=sql_unit,
         acceptance=acceptance,
+        fragment_catalog=fragment_catalog,
+        config=config,
+    )
+    acceptance_for_patch = _enrich_acceptance_for_patch(acceptance, selection)
+
+    patch, decision_ctx = _decide_patch_result(
+        sql_unit=sql_unit,
+        acceptance=acceptance_for_patch,
         run_dir=run_dir,
         acceptance_rows=acceptance_rows,
         project_root=project_root,
@@ -120,7 +130,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         build_unified_patch=_build_unified_patch,
     )
     sql_key = decision_ctx.sql_key
-    patch_target = dict(acceptance.get("patchTarget") or {})
+    patch_target = dict(patch.get("patchTarget") or acceptance_for_patch.get("patchTarget") or {})
 
     if patch.get("applicable") is True and patch_target:
         selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
@@ -163,7 +173,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 syntax_evidence=patch["syntaxEvidence"],
             )
 
-    patch = _attach_patch_diagnostics(patch, sql_unit, acceptance)
+    patch = _attach_patch_diagnostics(patch, sql_unit, acceptance_for_patch)
 
     # Phase 5: LLM 模板辅助（可选）
     patch_cfg = (config or {}).get("patch", {}) or {}
@@ -184,7 +194,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 llm_cfg = (config or {}).get("llm", {}) or {}
                 llm_suggestion = _generate_template_patch_suggestion(
                     sql_unit=sql_unit,
-                    acceptance=acceptance,
+                    acceptance=acceptance_for_patch,
                     patch_result=patch,
                     llm_cfg=llm_cfg,
                 )
@@ -201,7 +211,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         run_dir=run_dir,
         validator=validator,
         patch=patch,
-        acceptance=acceptance,
+        acceptance=acceptance_for_patch,
         status=decision_ctx.status,
         semantic_gate_status=decision_ctx.semantic_gate_status,
         semantic_gate_confidence=decision_ctx.semantic_gate_confidence,

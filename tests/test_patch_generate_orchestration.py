@@ -14,6 +14,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PatchGenerateOrchestrationTest(unittest.TestCase):
+    def _thin_acceptance(self, *, rewritten_sql: str = "SELECT id FROM users") -> dict:
+        return {
+            "sqlKey": "demo.user.find#v1",
+            "status": "PASS",
+            "rewrittenSql": rewritten_sql,
+            "selectedCandidateId": "c1",
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+        }
+
     def _patch_target(self, *, target_sql: str = "SELECT id FROM users", after_template: str = "SELECT id FROM users") -> dict:
         return {
             "sqlKey": "demo.user.find#v1",
@@ -206,7 +218,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         template_mock.assert_called_once()
         unified_mock.assert_not_called()
-        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE")
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED")
 
     def test_semantic_gate_not_pass_short_circuits_generation(self) -> None:
         acceptance = {
@@ -293,27 +305,23 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         patch_file = run_dir / "pipeline" / "patch_generate" / "files" / "demo.user.find#v1.patch"
         self.assertFalse(patch_file.exists())
 
-    def test_patch_generate_rejects_when_patch_target_missing(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+    def test_patch_generate_recomputes_patch_plan_from_thin_acceptance(self) -> None:
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
-            "sql": "SELECT * FROM users",
-            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
-            "locators": {"statementId": "listUsersSorted"},
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
         }
 
         patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
-        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_CONTRACT_MISSING")
+        self.assertTrue(patch_row["applicable"])
+        self.assertEqual(patch_row.get("strategyType"), "EXACT_TEMPLATE_EDIT")
+        self.assertEqual((patch_row.get("patchTarget") or {}).get("targetSql"), "SELECT id FROM users")
 
     def test_patch_generate_blocks_when_replay_target_drift_exists(self) -> None:
         acceptance = {
