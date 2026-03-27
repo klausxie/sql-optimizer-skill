@@ -9,6 +9,7 @@ from typing import Any
 from ..platforms.sql.template_rendering import (
     collect_fragments,
     find_statement_node,
+    fragment_key,
     normalize_sql_text,
     qualify_ref,
     render_logical_text,
@@ -170,12 +171,16 @@ def _render_fragment_sql_from_artifact(
     if not target_ref:
         return None
     fragments = collect_fragments(artifact.root, namespace, xml_path)
+    target_candidates = {target_ref}
     fragment_node = next(
         (
             node
             for node in artifact.root
             if str(node.tag).rsplit("}", 1)[-1].lower() == "sql"
-            and qualify_ref(namespace, node.attrib.get("id")) == target_ref
+            and (
+                (qualified_ref := qualify_ref(namespace, node.attrib.get("id"))) in target_candidates
+                or fragment_key(xml_path, qualified_ref) in target_candidates
+            )
         ),
         None,
     )

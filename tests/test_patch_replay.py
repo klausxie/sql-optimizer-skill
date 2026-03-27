@@ -4,6 +4,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
+from sqlopt.stages.patching_render import build_range_patch
 from sqlopt.verification.patch_replay import replay_patch_target
 
 
@@ -277,3 +278,68 @@ def test_replay_patch_target_rejects_if_body_drift() -> None:
 
     assert result.matches_target is False
     assert result.drift_reason == "PATCH_DYNAMIC_IF_BODY_DRIFT"
+
+
+def test_replay_patch_target_uses_fragment_artifact_output_for_fragment_ops() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user">
+  <sql id="BaseWhere">WHERE status = #{status}</sql>
+  <select id="findUsers">SELECT * FROM users <include refid="BaseWhere" /></select>
+</mapper>"""
+    ) as xml_path:
+        original = xml_path.read_text(encoding="utf-8")
+        fragment_body = "WHERE status = #{status}"
+        start = original.index(fragment_body)
+        end = start + len(fragment_body)
+        patch_text, changed_lines = build_range_patch(
+            xml_path,
+            {"startOffset": start, "endOffset": end},
+            "WHERE status = #{status} AND active = 1",
+        )
+        assert patch_text is not None
+        assert changed_lines > 0
+        fragment_key = f"{xml_path.resolve()}::demo.user.BaseWhere"
+
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user",
+                "statementId": "findUsers",
+            },
+            patch_target={
+                "targetSql": "WHERE status = #{status} AND active = 1",
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_fragment_body",
+                        "targetRef": fragment_key,
+                        "afterTemplate": "WHERE status = #{status} AND active = 1",
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "FRAGMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_fragment_body"],
+                    "expectedRenderedSql": "WHERE status = #{status} AND active = 1",
+                    "expectedRenderedSqlNormalized": "WHERE status = #{status} AND active = 1",
+                    "expectedFingerprint": {
+                        "kind": "normalized_sql",
+                        "value": "WHERE status = #{status} AND active = 1",
+                    },
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{status}"],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            fragment_catalog={
+                fragment_key: {
+                    "fragmentKey": fragment_key,
+                    "xmlPath": str(xml_path),
+                    "namespace": "demo.user",
+                    "templateSql": fragment_body,
+                }
+            },
+            patch_text=patch_text,
+        )
+
+    assert result.matches_target is True
+    assert result.drift_reason is None
