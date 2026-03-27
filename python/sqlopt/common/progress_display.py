@@ -74,7 +74,9 @@ class ProgressDisplay:
         sys.stdout.write(f"{text}\n")
         sys.stdout.flush()
 
-    def _should_emit_non_tty(self, stage: str, percent: int, message: str, sub_progress: tuple[int, int] | None) -> bool:
+    def _should_emit_non_tty(
+        self, stage: str, percent: int, message: str, sub_progress: tuple[int, int] | None
+    ) -> bool:
         """Throttle non-TTY output for large projects."""
         if stage not in self._last_non_tty_emit_at:
             return True
@@ -98,20 +100,12 @@ class ProgressDisplay:
             return None
 
         current, total = sub_progress
-        details = [f"{current}/{total}"]
         started_at = self._stage_start.get(stage)
         if started_at is None:
-            return " | ".join(details)
+            return None
 
         elapsed = max(time.time() - started_at, 0.001)
-        details.append(f"{elapsed:.1f}s")
-        if current > 0:
-            rate = current / elapsed
-            details.append(f"{rate:.1f}/s")
-            if total > current and rate > 0:
-                eta_seconds = (total - current) / rate
-                details.append(f"ETA {eta_seconds:.1f}s")
-        return " | ".join(details)
+        return f"{elapsed:.1f}s elapsed"
 
     def update(
         self,
@@ -127,12 +121,9 @@ class ProgressDisplay:
 
         if sub_progress is not None and sub_progress[1] > 0:
             current, total = sub_progress
-            overall_pct = int((stage_idx - 1 + current / total) * 100 / self.total_stages)
+            parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), f"({current}/{total})"]
         else:
-            overall_pct = (stage_idx - 1) * 100 // self.total_stages
-
-        bar = self._render_bar(overall_pct, 100)
-        parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper(), bar, f"{overall_pct}%"]
+            parts = [f"[{stage_idx}/{self.total_stages}]", stage.upper()]
 
         if message:
             parts.append(f"{self._message_separator()} {self._truncate(message)}")
@@ -147,10 +138,10 @@ class ProgressDisplay:
             sys.stdout.flush()
             return
 
-        if self._should_emit_non_tty(stage, overall_pct, message, sub_progress):
+        if self._should_emit_non_tty(stage, 0, message, sub_progress):
             self._write_line(line)
             self._last_non_tty_emit_at[stage] = time.time()
-            self._last_percent_emitted[stage] = overall_pct
+            self._last_percent_emitted[stage] = 0
 
     def finish(
         self,
