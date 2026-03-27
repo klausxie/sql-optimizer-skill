@@ -90,6 +90,13 @@ _ORDER_BY_CONSTANT_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Pattern to match column = value OR column = value (same column, multiple values)
+# This matches: id = 1 OR id = 2, name = 'a' OR name = 'b'
+_OR_SAME_COLUMN_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s*=\s*([^'\s]+|'[^']*')\s+OR\s+\1\s*=\s*\2",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -224,6 +231,14 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_ORDER_BY_SIMPLIFICATION"
+
+    # Check for OR simplification (same column OR -> IN)
+    if _classify_static_or_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_OR_SIMPLIFICATION"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -417,6 +432,35 @@ def _classify_static_order_by_simplification(
     if order_by_match:
         # If rewritten doesn't have ORDER BY, it's a valid optimization
         if "ORDER" not in normalized_rewritten.upper():
+            return True
+
+    return False
+
+
+def _classify_static_or_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if the transformation converts OR to IN for same column."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for same-column OR -> IN transformation
+    or_match = _OR_SAME_COLUMN_RE.search(normalized_original)
+    if or_match:
+        # Check if rewritten has IN for the same column
+        column = or_match.group(1)
+        in_pattern = re.compile(rf"\b{re.escape(column)}\s+IN\s*\(", flags=re.IGNORECASE)
+        if in_pattern.search(normalized_rewritten):
             return True
 
     return False
