@@ -11,13 +11,7 @@ from ..models import (
     PatchFamilyVerificationPolicy,
 )
 
-_FROZEN_BASELINE_FAMILIES = (
-    "STATIC_STATEMENT_REWRITE",
-    "STATIC_WRAPPER_COLLAPSE",
-    "STATIC_CTE_INLINE",
-    "DYNAMIC_COUNT_WRAPPER_COLLAPSE",
-    "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-)
+_FROZEN_BASELINE_FAMILIES = ()
 
 
 def _thin_frozen_spec(family: str) -> PatchFamilySpec:

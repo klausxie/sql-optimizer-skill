@@ -105,6 +105,38 @@ def test_aggregation_baseline_specs_are_explicit_registry_entries() -> None:
     assert distinct_alias_spec.fixture_obligations.blocked_neighbor_required is True
 
 
+def test_remaining_thin_baseline_specs_are_explicit_registry_entries() -> None:
+    statement_spec = lookup_patch_family_spec("STATIC_STATEMENT_REWRITE")
+    wrapper_spec = lookup_patch_family_spec("STATIC_WRAPPER_COLLAPSE")
+    cte_spec = lookup_patch_family_spec("STATIC_CTE_INLINE")
+    dynamic_count_spec = lookup_patch_family_spec("DYNAMIC_COUNT_WRAPPER_COLLAPSE")
+    dynamic_filter_spec = lookup_patch_family_spec("DYNAMIC_FILTER_WRAPPER_COLLAPSE")
+
+    assert statement_spec is not None
+    assert wrapper_spec is not None
+    assert cte_spec is not None
+    assert dynamic_count_spec is not None
+    assert dynamic_filter_spec is not None
+
+    assert statement_spec.stage == "MVP_STATIC_BASELINE"
+    assert wrapper_spec.stage == "MVP_STATIC_BASELINE"
+    assert cte_spec.stage == "MVP_STATIC_BASELINE"
+    assert dynamic_count_spec.stage == "MVP_DYNAMIC_BASELINE"
+    assert dynamic_filter_spec.stage == "MVP_DYNAMIC_BASELINE"
+
+    assert statement_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert wrapper_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert cte_spec.scope.patch_surface == "STATEMENT_BODY"
+    assert dynamic_count_spec.scope.dynamic_shape_families == ("IF_GUARDED_COUNT_WRAPPER",)
+    assert dynamic_filter_spec.scope.dynamic_shape_families == ("IF_GUARDED_FILTER_STATEMENT",)
+
+    assert statement_spec.fixture_obligations.blocked_neighbor_required is False
+    assert wrapper_spec.fixture_obligations.blocked_neighbor_required is False
+    assert cte_spec.fixture_obligations.blocked_neighbor_required is False
+    assert dynamic_count_spec.fixture_obligations.blocked_neighbor_required is False
+    assert dynamic_filter_spec.fixture_obligations.blocked_neighbor_required is False
+
+
 def test_duplicate_family_registration_fails_fast() -> None:
     spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
     assert spec is not None
@@ -145,6 +177,11 @@ def test_registry_imports_concrete_spec_modules_directly() -> None:
     assert "from .specs.frozen_baselines import FROZEN_BASELINE_SPECS" in registry_source
     assert "from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" in registry_source
     assert "from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.static_statement_rewrite import STATIC_STATEMENT_REWRITE_SPEC" in registry_source
+    assert "from .specs.static_wrapper_collapse import STATIC_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.static_cte_inline import STATIC_CTE_INLINE_SPEC" in registry_source
+    assert "from .specs.dynamic_count_wrapper_collapse import DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC" in registry_source
+    assert "from .specs.dynamic_filter_wrapper_collapse import DYNAMIC_FILTER_WRAPPER_COLLAPSE_SPEC" in registry_source
     assert "from .specs.redundant_distinct_wrapper import REDUNDANT_DISTINCT_WRAPPER_SPEC" in registry_source
     assert "from .specs.redundant_group_by_wrapper import REDUNDANT_GROUP_BY_WRAPPER_SPEC" in registry_source
     assert "from .specs.redundant_having_wrapper import REDUNDANT_HAVING_WRAPPER_SPEC" in registry_source
