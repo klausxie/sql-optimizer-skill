@@ -27,12 +27,15 @@ DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC = PatchFamilySpec(
         semantic_min_confidence="MEDIUM",
     ),
     patch_target_policy=PatchFamilyPatchTargetPolicy(
-        selected_patch_strategy="EXISTING_PIPELINE",
+        selected_patch_strategy="DYNAMIC_STATEMENT_TEMPLATE_EDIT",
         requires_replay_contract=True,
+        materialization_modes=("STATEMENT_TEMPLATE_SAFE",),
+        target_type="STATEMENT",
+        target_ref_policy="SQL_UNIT",
     ),
     replay=PatchFamilyReplayPolicy(
-        required_template_ops=("existing_pipeline",),
-        render_mode="EXISTING_PIPELINE",
+        required_template_ops=("replace_statement_body",),
+        render_mode="STATEMENT_TEMPLATE_SAFE",
     ),
     verification=PatchFamilyVerificationPolicy(
         require_replay_match=True,

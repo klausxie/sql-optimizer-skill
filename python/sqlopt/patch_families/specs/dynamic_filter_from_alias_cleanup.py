@@ -30,10 +30,13 @@ DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC = PatchFamilySpec(
     patch_target_policy=PatchFamilyPatchTargetPolicy(
         selected_patch_strategy="DYNAMIC_STATEMENT_TEMPLATE_EDIT",
         requires_replay_contract=True,
+        materialization_modes=("STATEMENT_TEMPLATE_SAFE",),
+        target_type="STATEMENT",
+        target_ref_policy="SQL_UNIT",
     ),
     replay=PatchFamilyReplayPolicy(
         required_template_ops=("replace_statement_body",),
-        render_mode="EXISTING_PIPELINE",
+        render_mode="STATEMENT_TEMPLATE_SAFE",
     ),
     verification=PatchFamilyVerificationPolicy(
         require_replay_match=True,

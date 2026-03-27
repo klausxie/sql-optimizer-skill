@@ -64,6 +64,16 @@ def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
     assert from_spec.status == "FROZEN_AUTO_PATCH"
     assert select_spec.acceptance.semantic_min_confidence == "HIGH"
     assert from_spec.acceptance.semantic_min_confidence == "HIGH"
+    assert select_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert from_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert select_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert from_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert select_spec.patch_target_policy.target_type == "STATEMENT"
+    assert from_spec.patch_target_policy.target_type == "STATEMENT"
+    assert select_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert from_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert select_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
+    assert from_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
     assert select_spec.fixture_obligations.blocked_neighbor_required is True
     assert from_spec.fixture_obligations.blocked_neighbor_required is True
 
@@ -97,6 +107,33 @@ def test_aggregation_baseline_specs_are_explicit_registry_entries() -> None:
     assert group_by_having_alias_spec.scope.aggregation_shape_families == ("GROUP_BY", "HAVING")
     assert distinct_alias_spec.scope.aggregation_shape_families == ("DISTINCT",)
 
+    assert group_by_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert having_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert distinct_wrapper_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert group_by_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert group_by_having_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert distinct_alias_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+
+    assert group_by_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert having_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert distinct_wrapper_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert group_by_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert group_by_having_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert distinct_alias_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+
+    assert group_by_spec.replay.required_template_ops == ()
+    assert having_spec.replay.required_template_ops == ()
+    assert distinct_wrapper_spec.replay.required_template_ops == ()
+    assert group_by_alias_spec.replay.required_template_ops == ()
+    assert group_by_having_alias_spec.replay.required_template_ops == ()
+    assert distinct_alias_spec.replay.required_template_ops == ()
+    assert group_by_spec.replay.render_mode == "STATEMENT_SQL"
+    assert having_spec.replay.render_mode == "STATEMENT_SQL"
+    assert distinct_wrapper_spec.replay.render_mode == "STATEMENT_SQL"
+    assert group_by_alias_spec.replay.render_mode == "STATEMENT_SQL"
+    assert group_by_having_alias_spec.replay.render_mode == "STATEMENT_SQL"
+    assert distinct_alias_spec.replay.render_mode == "STATEMENT_SQL"
+
     assert group_by_spec.fixture_obligations.blocked_neighbor_required is True
     assert having_spec.fixture_obligations.blocked_neighbor_required is True
     assert distinct_wrapper_spec.fixture_obligations.blocked_neighbor_required is True
@@ -129,6 +166,30 @@ def test_remaining_thin_baseline_specs_are_explicit_registry_entries() -> None:
     assert cte_spec.scope.patch_surface == "STATEMENT_BODY"
     assert dynamic_count_spec.scope.dynamic_shape_families == ("IF_GUARDED_COUNT_WRAPPER",)
     assert dynamic_filter_spec.scope.dynamic_shape_families == ("IF_GUARDED_FILTER_STATEMENT",)
+
+    assert statement_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert wrapper_spec.patch_target_policy.selected_patch_strategy == "SAFE_WRAPPER_COLLAPSE"
+    assert cte_spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert dynamic_count_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+    assert dynamic_filter_spec.patch_target_policy.selected_patch_strategy == "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
+
+    assert statement_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert wrapper_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE",)
+    assert cte_spec.patch_target_policy.materialization_modes == ("STATEMENT_SQL",)
+    assert dynamic_count_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+    assert dynamic_filter_spec.patch_target_policy.materialization_modes == ("STATEMENT_TEMPLATE_SAFE",)
+
+    assert statement_spec.replay.required_template_ops == ()
+    assert wrapper_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert cte_spec.replay.required_template_ops == ()
+    assert dynamic_count_spec.replay.required_template_ops == ("replace_statement_body",)
+    assert dynamic_filter_spec.replay.required_template_ops == ("replace_statement_body",)
+
+    assert statement_spec.replay.render_mode == "STATEMENT_SQL"
+    assert wrapper_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE"
+    assert cte_spec.replay.render_mode == "STATEMENT_SQL"
+    assert dynamic_count_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
+    assert dynamic_filter_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
 
     assert statement_spec.fixture_obligations.blocked_neighbor_required is False
     assert wrapper_spec.fixture_obligations.blocked_neighbor_required is False

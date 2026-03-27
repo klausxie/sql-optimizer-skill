@@ -27,12 +27,15 @@ REDUNDANT_HAVING_WRAPPER_SPEC = PatchFamilySpec(
         semantic_min_confidence="MEDIUM",
     ),
     patch_target_policy=PatchFamilyPatchTargetPolicy(
-        selected_patch_strategy="EXISTING_PIPELINE",
+        selected_patch_strategy="EXACT_TEMPLATE_EDIT",
         requires_replay_contract=True,
+        materialization_modes=("STATEMENT_SQL",),
+        target_type="STATEMENT",
+        target_ref_policy="SQL_UNIT",
     ),
     replay=PatchFamilyReplayPolicy(
-        required_template_ops=("existing_pipeline",),
-        render_mode="EXISTING_PIPELINE",
+        required_template_ops=(),
+        render_mode="STATEMENT_SQL",
     ),
     verification=PatchFamilyVerificationPolicy(
         require_replay_match=True,
