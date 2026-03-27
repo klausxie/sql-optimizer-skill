@@ -7,7 +7,7 @@ import json
 import logging
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
@@ -16,7 +16,13 @@ from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
 from sqlopt.common.summary_generator import generate_optimize_summary_markdown
 from sqlopt.contracts.init import TableSchema
-from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
+from sqlopt.contracts.optimize import (
+    ActionConflict,
+    OptimizationAction,
+    OptimizationProposal,
+    OptimizeOutput,
+    UnitActionSummary,
+)
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
 from sqlopt.stages.recognition.stage import (
@@ -294,26 +300,161 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             )
             return None
 
+    def detect_conflicts(self, actions: list[OptimizationAction]) -> list[ActionConflict]:
+        """Detect conflicts between actions with overlapping XPath.
+
+        Conflict types:
+        - overlap: same xpath, different operations
+        - contradict: REPLACE vs REMOVE on same xpath
+        - redundant: multiple REPLACE on same xpath
+
+        Resolution: higher confidence wins
+        """
+        if not actions:
+            return []
+
+        # Group actions by xpath
+        xpath_groups: dict[str, list[OptimizationAction]] = collections.defaultdict(list)
+        for action in actions:
+            xpath_groups[action.xpath].append(action)
+
+        conflicts: list[ActionConflict] = []
+
+        for xpath, xpath_actions in xpath_groups.items():
+            if len(xpath_actions) < 2:
+                continue
+
+            # Compare all pairs
+            for i in range(len(xpath_actions)):
+                for j in range(i + 1, len(xpath_actions)):
+                    action_a = xpath_actions[i]
+                    action_b = xpath_actions[j]
+
+                    conflict_type = self._classify_conflict(action_a, action_b)
+                    if conflict_type is None:
+                        continue
+
+                    # Resolution: higher confidence wins
+                    if action_a.confidence >= action_b.confidence:
+                        resolution: Literal["a_wins", "b_wins", "merged", "dropped"] = "a_wins"
+                    else:
+                        resolution = "b_wins"
+
+                    conflict = ActionConflict(
+                        xpath=xpath,
+                        action_a=action_a,
+                        action_b=action_b,
+                        conflict_type=conflict_type,
+                        resolution=resolution,
+                    )
+                    conflicts.append(conflict)
+
+        return conflicts
+
     @staticmethod
-    def _create_stub_output() -> OptimizeOutput:
-        return OptimizeOutput(
-            proposals=[
-                OptimizationProposal(
-                    sql_unit_id="stub-1",
-                    path_id="p1",
-                    original_sql="SELECT * FROM users",
-                    optimized_sql="SELECT id, name FROM users",
-                    rationale="Reduce columns to improve performance",
-                    confidence=0.9,
-                    before_metrics={"estimated_cost": 100.0, "actual_time_ms": 50.0},
-                    after_metrics={"estimated_cost": 20.0, "actual_time_ms": 10.0},
-                    result_equivalent=True,
-                    validation_status="validated",
-                    gain_ratio=0.8,
-                )
-            ],
-            run_id="stub",
+    def _classify_conflict(
+        action_a: OptimizationAction,
+        action_b: OptimizationAction,
+    ) -> Literal["overlap", "contradict", "redundant"] | None:
+        """Classify the conflict type between two actions on the same xpath.
+
+        Returns None if no conflict (same operation on same xpath).
+        """
+        # Same operation = no conflict for ADD (both add to same spot)
+        if action_a.operation == action_b.operation:
+            if action_a.operation == "ADD":
+                return None  # Multiple ADDs to same xpath is allowed
+            if action_a.operation == "REPLACE" and action_a.rewritten_snippet == action_b.rewritten_snippet:
+                return None  # Same replacement is not a conflict
+            return "overlap"
+
+        # Contradict: REPLACE vs REMOVE
+        operations = {action_a.operation, action_b.operation}
+        if operations == {"REPLACE", "REMOVE"}:
+            return "contradict"
+
+        # Redundant: multiple REPLACE (handled above as overlap)
+        if operations == {"REPLACE"}:
+            return "redundant"
+
+        return "overlap"
+
+    def aggregate_unit_actions(
+        self,
+        sql_unit_id: str,
+        proposals: list[OptimizationProposal],
+    ) -> UnitActionSummary:
+        """Aggregate branch-level proposals into unit-level action summary.
+
+        Collects all actions across branches of the same SQL unit, detects
+        and resolves conflicts, and builds branch coverage.
+        """
+        # Collect all actions from all branch proposals
+        all_actions: list[OptimizationAction] = []
+        branch_coverage: dict[str, bool] = {}
+
+        for proposal in proposals:
+            # Mark branch as covered if it has actions
+            branch_coverage[proposal.path_id] = False
+
+            if proposal.actions:
+                all_actions.extend(proposal.actions)
+                branch_coverage[proposal.path_id] = True
+
+        # Detect and resolve conflicts
+        conflicts = self.detect_conflicts(all_actions)
+
+        # Resolve conflicts: keep only winning actions
+        resolved_actions = self._resolve_conflicts(all_actions, conflicts)
+
+        # Calculate overall confidence as weighted average
+        overall_confidence = self._calculate_overall_confidence(resolved_actions)
+
+        return UnitActionSummary(
+            sql_unit_id=sql_unit_id,
+            actions=resolved_actions,
+            conflicts=conflicts,
+            branch_coverage=branch_coverage,
+            overall_confidence=overall_confidence,
         )
+
+    @staticmethod
+    def _resolve_conflicts(
+        actions: list[OptimizationAction],
+        conflicts: list[ActionConflict],
+    ) -> list[OptimizationAction]:
+        """Resolve conflicts by keeping only winning actions."""
+        if not conflicts:
+            return actions
+
+        # Track xpath -> winning action
+        xpath_winners: dict[str, OptimizationAction] = {}
+
+        for conflict in conflicts:
+            winner = conflict.action_a if conflict.resolution == "a_wins" else conflict.action_b
+            xpath = conflict.xpath
+            if xpath not in xpath_winners or winner.confidence > xpath_winners[xpath].confidence:
+                xpath_winners[xpath] = winner
+
+        # Build resolved list: keep one action per xpath
+        xpath_actions: dict[str, OptimizationAction] = {}
+        for action in actions:
+            if action.xpath not in xpath_actions:
+                xpath_actions[action.xpath] = action
+
+        # Apply winners
+        xpath_actions.update(xpath_winners)
+
+        return list(xpath_actions.values())
+
+    @staticmethod
+    def _calculate_overall_confidence(actions: list[OptimizationAction]) -> float:
+        """Calculate weighted average confidence across actions."""
+        if not actions:
+            return 0.0
+
+        total_confidence = sum(a.confidence for a in actions)
+        return total_confidence / len(actions)
 
     @staticmethod
     def _load_table_schemas(loader: MockDataLoader) -> dict[str, TableSchema]:
