@@ -15,6 +15,7 @@ from sqlopt.common.run_paths import RunPaths
 from sqlopt.stage_runner import StageRunner
 
 GIT_CMD = shutil.which("git") or "git"
+PATCH_CMD = shutil.which("patch") or "patch"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -158,8 +159,9 @@ def apply(unit_id: str, run_id: str, dry_run: bool) -> None:
     click.echo(f"Patch: {unit_id}")
     click.echo(f"Mapper: {mapper_file}")
 
+    # Validate patch with --dry-run
     result = subprocess.run(  # noqa: S603
-        [GIT_CMD, "apply", "--verbose", "--check", patch_file],
+        [PATCH_CMD, "-p1", "-i", str(patch_file), "--dry-run"],
         capture_output=True,
         text=True,
     )
@@ -174,15 +176,18 @@ def apply(unit_id: str, run_id: str, dry_run: bool) -> None:
         click.echo("--- End Preview ---")
         return
 
-    subprocess.run([GIT_CMD, "stash"], capture_output=True)  # noqa: S603
-    result = subprocess.run([GIT_CMD, "apply", patch_file], capture_output=True, text=True)  # noqa: S603
+    # Apply patch directly (no stash needed - patch creates .orig backup)
+    result = subprocess.run(  # noqa: S603
+        [PATCH_CMD, "-p1", "-i", str(patch_file)],
+        capture_output=True,
+        text=True,
+    )
     if result.returncode != 0:
         click.echo(f"Error: Failed to apply patch:\n{result.stderr}", err=True)
-        subprocess.run([GIT_CMD, "stash", "pop"], capture_output=True)  # noqa: S603
         sys.exit(1)
 
     click.echo(f"Patch applied successfully to: {mapper_file}")
-    click.echo("Run `git stash drop` to remove backup or `git stash pop` to restore original.")
+    click.echo("A .orig backup file was created (remove manually if not needed).")
 
 
 @click.command("diff")

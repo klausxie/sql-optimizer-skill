@@ -144,6 +144,7 @@ class FileMapping:
     xml_path: str
     fragments: List[FragmentMapping] = field(default_factory=list)
     statements: List[StatementMapping] = field(default_factory=list)
+    file_content: str = ""
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -159,6 +160,7 @@ class FileMapping:
             xml_path=data["xml_path"],
             fragments=fragments,
             statements=statements,
+            file_content=data.get("file_content", ""),
         )
 
 

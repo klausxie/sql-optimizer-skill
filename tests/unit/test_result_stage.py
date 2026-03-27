@@ -407,7 +407,7 @@ class TestCreatePatch:
                 assert isinstance(patch, Patch)
                 assert patch.sql_unit_id == "sql-1"
                 assert patch.original_xml == original_xml
-                assert patch.patched_xml == "SELECT id, name FROM users"
+                assert patch.patched_xml == "<select id='findUser'>SELECT id, name FROM users</select>"
 
                 assert "---" in patch.diff
                 assert "+++" in patch.diff
@@ -423,7 +423,7 @@ class TestCreatePatch:
                 sql_unit_id="sql-1",
                 path_id="path-1",
                 original_sql="SELECT id FROM users",
-                optimized_sql=original_xml,
+                optimized_sql="SELECT id FROM users",
                 rationale="No change needed",
                 confidence=0.85,
             )
@@ -432,7 +432,14 @@ class TestCreatePatch:
             try:
                 os.chdir(tmpdir)
                 stage = ResultStage()
-                patch = stage._create_patch(proposal, original_xml)  # noqa: SLF001
+                sql_unit = SQLUnit(
+                    id="sql-1",
+                    mapper_file="src/main/resources/mappers/UserMapper.xml",
+                    sql_id="findUser",
+                    sql_text=original_xml,
+                    statement_type="SELECT",
+                )
+                patch = stage._create_patch(proposal, original_xml, sql_unit)
 
                 assert isinstance(patch, Patch)
                 assert patch.diff == ""

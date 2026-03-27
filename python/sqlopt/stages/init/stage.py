@@ -144,12 +144,16 @@ class InitStage(Stage[None, InitOutput]):
                 if str(xml_path) not in failed_files:
                     failed_files.append(str(xml_path))
                 continue
+            try:
+                file_content = xml_path.read_text(encoding="utf-8")
+            except OSError:
+                file_content = ""
             stmt_count = len(statements)
             frag_count = len(fragments)
             total_statements += stmt_count
             total_fragments += frag_count
 
-            file_mapping = FileMapping(xml_path=str(xml_path))
+            file_mapping = FileMapping(xml_path=str(xml_path), file_content=file_content)
             for stmt in statements:
                 if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
                     logger.debug(f"[INIT]   Skipping {stmt.statement_type} statement: {stmt.statement_id}")

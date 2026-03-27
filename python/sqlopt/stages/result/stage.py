@@ -6,6 +6,7 @@ import difflib
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
@@ -91,6 +92,19 @@ class ResultStage(Stage[None, ResultOutput]):
 
         sql_unit_map = {unit.id: unit for unit in init_data.sql_units}
 
+        xml_mappings_file = loader.get_init_xml_mappings_path()
+        file_content_map: dict[str, str] = {}
+        if xml_mappings_file.exists():
+            try:
+                from sqlopt.contracts.init import XMLMapping
+
+                xml_mappings_data = XMLMapping.from_json(xml_mappings_file.read_text(encoding="utf-8"))
+                for fm in xml_mappings_data.files:
+                    file_content_map[Path(fm.xml_path).name] = fm.file_content
+                logger.info(f"[RESULT] Loaded {len(file_content_map)} file(s) with content for patching")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"[RESULT] Failed to load xml_mappings for patching: {e}")
+
         baselines_file = loader.get_recognition_baselines_path()
         baseline_only_risks: list[str] = []
         if baselines_file.exists():
@@ -119,7 +133,8 @@ class ResultStage(Stage[None, ResultOutput]):
                 logger.debug(f"[RESULT]   Skipping {proposal.sql_unit_id} - not found in init data")
                 continue
 
-            patch = self._create_patch(proposal, sql_unit.sql_text, sql_unit)
+            original_xml = file_content_map.get(sql_unit.mapper_file, sql_unit.sql_text)
+            patch = self._create_patch(proposal, original_xml, sql_unit)
             patches.append(patch)
             unit_ids.append(proposal.sql_unit_id)
             self._write_unit_patch(proposal.sql_unit_id, patch)
@@ -154,40 +169,48 @@ class ResultStage(Stage[None, ResultOutput]):
         return output
 
     @staticmethod
-    def _create_patch(proposal: OptimizationProposal, original_xml: str, sql_unit: InitOutput.SQLUnit) -> Patch:
+    def _create_patch(
+        proposal: OptimizationProposal, original_file_content: str, sql_unit: InitOutput.SQLUnit | None = None
+    ) -> Patch:
         """Create a Patch from an optimization proposal.
 
         Args:
             proposal: The optimization proposal
-            original_xml: Original SQL XML content
+            original_file_content: Original full mapper XML file content
             sql_unit: The SQL unit containing mapper file path
 
         Returns:
             Patch with diff in Git Patch format
         """
-        if proposal.actions:
-            patched_xml = XmlPatchEngine.apply_actions(proposal.actions, original_xml)
-        else:
-            patched_xml = proposal.optimized_sql
+        patched_content = original_file_content
 
-        original_lines = original_xml.splitlines(keepends=True)
-        patched_lines = patched_xml.splitlines(keepends=True)
+        if proposal.actions:
+            patched_content = XmlPatchEngine.apply_text_replacement(proposal.actions, original_file_content)
+        elif proposal.optimized_sql and proposal.original_sql:
+            patched_content = original_file_content.replace(proposal.original_sql, proposal.optimized_sql)
+
+        original_for_diff = (
+            original_file_content if original_file_content.endswith("\n") else original_file_content + "\n"
+        )
+        patched_for_diff = patched_content if patched_content.endswith("\n") else patched_content + "\n"
+
+        original_lines = original_for_diff.splitlines(keepends=True)
+        patched_lines = patched_for_diff.splitlines(keepends=True)
 
         diff_lines = list(
             difflib.unified_diff(
                 original_lines,
                 patched_lines,
-                fromfile=sql_unit.mapper_file,
-                tofile=sql_unit.mapper_file,
-                lineterm="",
+                fromfile=f"a/{sql_unit.mapper_file}" if sql_unit else "a/mapper.xml",
+                tofile=f"b/{sql_unit.mapper_file}" if sql_unit else "b/mapper.xml",
             )
         )
-        diff = "\n".join(diff_lines) if diff_lines else ""
+        diff = "".join(diff_lines) if diff_lines else ""
 
         return Patch(
             sql_unit_id=proposal.sql_unit_id,
-            original_xml=original_xml,
-            patched_xml=patched_xml,
+            original_xml=original_file_content,
+            patched_xml=patched_content,
             diff=diff,
         )
 
@@ -504,8 +527,8 @@ class ResultStage(Stage[None, ResultOutput]):
                 if index_file.exists():
                     index_data = json.loads(index_file.read_text(encoding="utf-8"))
                     for unit_id in index_data.get("units", []):
-                        meta_file = units_dir / f"{self.sanitize_unit_id(unit_id)}.meta.json"
-                        patch_file = units_dir / f"{self.sanitize_unit_id(unit_id)}.patch"
+                        meta_file = units_dir / f"{unit_id}.meta.json"
+                        patch_file = units_dir / f"{unit_id}.patch"
                         if meta_file.exists():
                             meta = json.loads(meta_file.read_text(encoding="utf-8"))
                             patch_content = ""

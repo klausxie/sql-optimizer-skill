@@ -56,6 +56,39 @@ class XmlPatchEngine:
         return XmlPatchEngine._element_to_string(tree, xml_string)
 
     @staticmethod
+    def apply_text_replacement(actions: list[OptimizationAction], original_file_content: str) -> str:
+        """Apply text replacement directly on original file content.
+
+        This avoids ET serialization issues by doing string replacement
+        of SQL snippets in the original file content.
+
+        Args:
+            actions: List of OptimizationAction to apply.
+            original_file_content: Original full mapper XML file content.
+
+        Returns:
+            Modified file content with SQL text replaced.
+        """
+        if not actions:
+            return original_file_content
+
+        result = original_file_content
+        for action in actions:
+            if action.operation == "REPLACE" and action.rewritten_snippet:
+                if action.original_snippet:
+                    result = result.replace(action.original_snippet, action.rewritten_snippet)
+                elif action.sql_fragment:
+                    result = result.replace(action.sql_fragment, action.rewritten_snippet)
+            elif action.operation == "ADD" and action.rewritten_snippet:
+                pass
+            elif action.operation == "REMOVE" and action.original_snippet:
+                result = result.replace(action.original_snippet, "")
+            elif action.operation == "WRAP" and action.rewritten_snippet and action.original_snippet:
+                result = result.replace(action.original_snippet, action.rewritten_snippet)
+
+        return result
+
+    @staticmethod
     def _extract_namespaces(root: ET.Element) -> dict[str, str]:
         """Extract namespace map from root element."""
         namespaces: dict[str, str] = {}
@@ -195,12 +228,6 @@ class XmlPatchEngine:
             if part == "..":
                 continue
 
-            # If xpath starts with root tag matching current element, skip it
-            if first and XmlPatchEngine._local_name(current.tag) == part:
-                first = False
-                continue
-            first = False
-
             attr_match: Optional[tuple[str, str]] = None
             tag_part = part
             if "[" in part and "]" in part:
@@ -210,6 +237,24 @@ class XmlPatchEngine:
                     attr_name = attr_expr.split("@")[1].split("=")[0].strip()
                     attr_value = attr_expr.split("=")[1].strip("'\"")
                     attr_match = (attr_name, attr_value)
+
+            # If xpath starts with root tag matching current element, check match
+            if first and XmlPatchEngine._local_name(current.tag) == tag_part:
+                first = False
+                # Check attribute condition on current element
+                if attr_match is None or current.get(attr_match[0]) == attr_match[1]:
+                    # XPath fully matched current element (no children to traverse)
+                    if not attr_match:
+                        # No attr condition or matched - check if there are more parts
+                        if len([p for p in parts if p and p != "."]) == 1:
+                            return current
+                    else:
+                        return current
+                # Tag matched but attr didn't match
+                if attr_match and current.get(attr_match[0]) != attr_match[1]:
+                    return None
+                continue
+            first = False
 
             found: Optional[ET.Element] = None
             for child in current:
