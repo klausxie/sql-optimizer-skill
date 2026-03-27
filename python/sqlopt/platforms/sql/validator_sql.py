@@ -84,6 +84,12 @@ _LIMIT_LARGE_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Pattern to match ORDER BY with useless expressions (constants, literals)
+_ORDER_BY_CONSTANT_RE = re.compile(
+    r"\bORDER\s+BY\s+(\d+|NULL|'[^']*'|\"[^\"]*\"|[\d\.]+)(\s*,\s*(\d+|NULL|'[^']*'|\"[^\"]*\"|[\d\.]+))*($|;|\)|LIMIT)",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -210,6 +216,14 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_LIMIT_OPTIMIZATION"
+
+    # Check for ORDER BY simplification (removing constant ORDER BY)
+    if _classify_static_order_by_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_ORDER_BY_SIMPLIFICATION"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -376,6 +390,33 @@ def _classify_static_limit_optimization(
     if limit_large_match:
         # If rewritten doesn't have LIMIT, it's a valid optimization
         if "LIMIT" not in normalized_rewritten.upper():
+            return True
+
+    return False
+
+
+def _classify_static_order_by_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if the transformation removes useless ORDER BY (constant expressions)."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for ORDER BY with constant expressions (numbers, strings, NULL)
+    order_by_match = _ORDER_BY_CONSTANT_RE.search(normalized_original)
+    if order_by_match:
+        # If rewritten doesn't have ORDER BY, it's a valid optimization
+        if "ORDER" not in normalized_rewritten.upper():
             return True
 
     return False
