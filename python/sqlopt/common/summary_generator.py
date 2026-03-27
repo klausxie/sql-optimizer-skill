@@ -703,7 +703,7 @@ def generate_parse_summary_markdown(
     lines.append("|------|------|")
     lines.append(f"| 各单元理论上限之和 | {sum_theoretical} |")
     lines.append(f"| 实际生成分支 | {total_branch_count} |")
-    lines.append(f"| 覆盖率 | {coverage_pct:.1f}% |")
+    lines.append(f"| 覆盖率 | {coverage_pct:.2f}% |")
     if strategy == "ladder" or strategy == "pairwise":
         lines.append(f"| 策略说明 | {strategy} 策略有意不生成全组合，控制分支数 |")
     lines.append("")

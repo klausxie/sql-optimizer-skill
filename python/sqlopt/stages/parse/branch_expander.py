@@ -40,6 +40,49 @@ class ExpandedBranch:
     branch_type: str | None = None
 
 
+def count_conditions_from_sql(sql_text: str) -> int:
+    """Count unique <if test="..."> conditions in raw SQL text.
+
+    Fast heuristic: just count <if test= patterns without parsing.
+    """
+    import re
+
+    if not sql_text:
+        return 0
+    pattern = r'<if\s+test\s*=\s*["\']([^"\']+)["\']'
+    matches = re.findall(pattern, sql_text, re.IGNORECASE)
+    return len(set(matches))
+
+
+def adaptive_max_branches(cond_count: int) -> tuple[int, str]:
+    """Determine max branches and strategy based on condition count.
+
+    Args:
+        cond_count: Number of independent conditions in the SQL unit.
+
+    Returns:
+        Tuple of (max_branches, strategy_name):
+        - If 2^cond_count <= 100: (2^cond_count, "all_combinations") - full coverage
+        - If 2^cond_count > 100: adaptive cap with "ladder" strategy
+            * 7 conditions -> (100, "ladder")
+            * 8 conditions -> (150, "ladder")
+            * 9 conditions -> (180, "ladder")
+            * 10+ conditions -> (200, "ladder")  # cap at 200
+    """
+    if cond_count <= 0:
+        return (1, "all_combinations")
+    theoretical = 2**cond_count
+    if theoretical <= 100:
+        return (theoretical, "all_combinations")
+    if cond_count == 7:
+        return (100, "ladder")
+    if cond_count == 8:
+        return (150, "ladder")
+    if cond_count == 9:
+        return (180, "ladder")
+    return (200, "ladder")
+
+
 class BranchExpander:
     """Expands MyBatis XML SQL into branch combinations.
 
@@ -76,19 +119,9 @@ class BranchExpander:
         self,
         sql_text: str,
         default_namespace: str | None = None,
+        max_branches_override: int | None = None,
     ) -> List[ExpandedBranch]:
-        """Expand SQL text into branch combinations.
-
-        Parses the MyBatis XML SQL using XMLLanguageDriver and generates
-        branch combinations using BranchGenerator.
-
-        Args:
-            sql_text: MyBatis XML SQL string with dynamic tags.
-            default_namespace: Optional mapper namespace for resolving local includes.
-
-        Returns:
-            List of ExpandedBranch objects representing all possible branches.
-        """
+        """Expand SQL text into branch combinations."""
         try:
             from sqlopt.stages.branching.branch_generator import BranchGenerator
             from sqlopt.stages.branching.xml_language_driver import XMLLanguageDriver
@@ -98,9 +131,26 @@ class BranchExpander:
                 fragments=self.fragments,
                 default_namespace=default_namespace,
             )
-            generator = BranchGenerator(
+            tmp_gen = BranchGenerator(
                 strategy=self.strategy,
                 max_branches=self.max_branches,
+                table_metadata=self.table_metadata,
+                field_distributions=self.field_distributions,
+            )
+            cond_count = len(tmp_gen._collect_if_nodes(sql_node))
+            max_br, adaptive_strategy = adaptive_max_branches(cond_count)
+            if max_branches_override is not None:
+                effective_max = max_branches_override
+                effective_strategy = self.strategy
+            elif cond_count == 0:
+                effective_max = self.max_branches
+                effective_strategy = self.strategy
+            else:
+                effective_max = min(max_br, self.max_branches)
+                effective_strategy = adaptive_strategy
+            generator = BranchGenerator(
+                strategy=effective_strategy,
+                max_branches=effective_max,
                 table_metadata=self.table_metadata,
                 field_distributions=self.field_distributions,
             )
