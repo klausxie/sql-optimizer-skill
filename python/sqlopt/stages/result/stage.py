@@ -147,7 +147,8 @@ class ResultStage(Stage[None, ResultOutput]):
         logger.info("[RESULT] Result stage completed")
         return output
 
-    def _create_patch(self, proposal: OptimizationProposal, original_xml: str) -> Patch:
+    @staticmethod
+    def _create_patch(proposal: OptimizationProposal, original_xml: str) -> Patch:
         """Create a Patch from an optimization proposal.
 
         Args:
@@ -246,8 +247,7 @@ class ResultStage(Stage[None, ResultOutput]):
 
         risks: list[str] = []
         risks.extend(
-            f"{proposal.sql_unit_id}.{proposal.path_id} result mismatch after optimization"
-            for proposal in mismatches
+            f"{proposal.sql_unit_id}.{proposal.path_id} result mismatch after optimization" for proposal in mismatches
         )
         risks.extend(
             f"{proposal.sql_unit_id}.{proposal.path_id} validation failed: {proposal.validation_error or 'unknown error'}"
@@ -279,7 +279,8 @@ class ResultStage(Stage[None, ResultOutput]):
             recommendations=recommendations,
         )
 
-    def _should_generate_patch(self, proposal: OptimizationProposal) -> bool:
+    @staticmethod
+    def _should_generate_patch(proposal: OptimizationProposal) -> bool:
         if proposal.validation_status is None:
             return proposal.confidence > 0.7
         if proposal.validation_status != "validated":
@@ -288,26 +289,31 @@ class ResultStage(Stage[None, ResultOutput]):
             return False
         return not (proposal.gain_ratio is not None and proposal.gain_ratio <= 0)
 
-    def _is_verified_improvement(self, proposal: OptimizationProposal) -> bool:
+    @staticmethod
+    def _is_verified_improvement(proposal: OptimizationProposal) -> bool:
         if proposal.validation_status == "validated" and proposal.result_equivalent is not False:
             return proposal.gain_ratio is None or proposal.gain_ratio > 0
         return False
 
-    def _needs_more_validation(self, proposal: OptimizationProposal) -> bool:
+    @staticmethod
+    def _needs_more_validation(proposal: OptimizationProposal) -> bool:
         if proposal.validation_status is None:
             return proposal.confidence > 0.7
         return proposal.validation_status in {"estimated_only", "explained_only", "validated_without_baseline"}
 
-    def _is_result_mismatch(self, proposal: OptimizationProposal) -> bool:
+    @staticmethod
+    def _is_result_mismatch(proposal: OptimizationProposal) -> bool:
         return proposal.validation_status == "result_mismatch" or proposal.result_equivalent is False
 
-    def _is_validation_failure(self, proposal: OptimizationProposal) -> bool:
+    @staticmethod
+    def _is_validation_failure(proposal: OptimizationProposal) -> bool:
         return proposal.validation_status == "validation_failed"
 
     def _sort_by_impact(self, proposals: list[OptimizationProposal]) -> list[OptimizationProposal]:
         return sorted(proposals, key=self._proposal_impact_score, reverse=True)
 
-    def _proposal_impact_score(self, proposal: OptimizationProposal) -> float:
+    @staticmethod
+    def _proposal_impact_score(proposal: OptimizationProposal) -> float:
         before_metrics = proposal.before_metrics or {}
         baseline_metric = before_metrics.get("actual_time_ms")
         if baseline_metric is None:
@@ -317,7 +323,8 @@ class ResultStage(Stage[None, ResultOutput]):
         gain_ratio = proposal.gain_ratio or 0.0
         return float(baseline_metric or 0.0) * max(gain_ratio, 0.0)
 
-    def _format_ranked_items(self, proposals: list[OptimizationProposal]) -> list[str]:
+    @staticmethod
+    def _format_ranked_items(proposals: list[OptimizationProposal]) -> list[str]:
         lines: list[str] = []
         for proposal in proposals:
             gain = f"{proposal.gain_ratio:.2%}" if proposal.gain_ratio is not None else "n/a"
@@ -327,7 +334,8 @@ class ResultStage(Stage[None, ResultOutput]):
             )
         return lines
 
-    def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
+    @staticmethod
+    def _load_table_schemas(loader: MockDataLoader) -> dict[str, TableSchema]:
         schemas: dict[str, TableSchema] = {}
         try:
             schemas_file = loader.get_init_table_schemas_path()
@@ -339,8 +347,8 @@ class ResultStage(Stage[None, ResultOutput]):
             logger.warning(f"[RESULT] Failed to load table schemas: {e}")
         return schemas
 
+    @staticmethod
     def _analyze_baseline_only_branches(
-        self,
         baselines: list[PerformanceBaseline],
         sql_unit_map: dict[str, InitOutput.SQLUnit],
         table_schemas: dict[str, TableSchema],
@@ -371,7 +379,8 @@ class ResultStage(Stage[None, ResultOutput]):
                 risks.append(f"[{baseline.sql_unit_id}.{baseline.path_id}] LOW: baseline only, no obvious issues")
         return risks
 
-    def _create_stub_output(self) -> ResultOutput:
+    @staticmethod
+    def _create_stub_output() -> ResultOutput:
         """Create stub output when no run_id is available.
 
         Returns:

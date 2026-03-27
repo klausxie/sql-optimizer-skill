@@ -38,7 +38,6 @@ class BranchGenerationStrategy(ABC):
             List of condition combinations. Each combination is a list of
             condition strings that should be evaluated as TRUE.
         """
-        pass
 
 
 class AllCombinationsStrategy(BranchGenerationStrategy):
@@ -367,7 +366,7 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
             for j in range(i + 1, n):
                 w_i = self._get_condition_weight(conditions[i])
                 w_j = self._get_condition_weight(conditions[j])
-                pairwise_weights[(i, j)] = w_i + w_j
+                pairwise_weights[i, j] = w_i + w_j
 
         # Sort pairs by weight descending
         sorted_pairs = sorted(pairwise_weights.keys(), key=lambda p: pairwise_weights[p], reverse=True)
@@ -387,7 +386,7 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
                     w_i = self._get_condition_weight(conditions[i])
                     w_j = self._get_condition_weight(conditions[j])
                     w_k = self._get_condition_weight(conditions[k])
-                    triple_weights[(i, j, k)] = w_i + w_j + w_k
+                    triple_weights[i, j, k] = w_i + w_j + w_k
 
         # Add top triples
         sorted_triples = sorted(triple_weights.keys(), key=lambda t: triple_weights[t], reverse=True)
@@ -506,7 +505,8 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
 
         return weight
 
-    def _extract_column_names(self, condition: str) -> set[str]:
+    @staticmethod
+    def _extract_column_names(condition: str) -> set[str]:
         """Extract column names from OGNL condition string."""
         cleaned = re.sub(r"#\{[^}]+\}", "", condition)
         cleaned = re.sub(r"\$\{[^}]+\}", "", cleaned)
@@ -521,7 +521,8 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
 
         return column_names
 
-    def _condition_references_table(self, condition_lower: str, table_name: str) -> bool:
+    @staticmethod
+    def _condition_references_table(condition_lower: str, table_name: str) -> bool:
         """Check if condition references a table."""
         if table_name in condition_lower:
             return True

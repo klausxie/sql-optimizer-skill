@@ -29,7 +29,8 @@ class ProgressDisplay:
         self._is_tty = sys.stdout.isatty()
         self._supports_unicode = self._can_encode("█░✓✗•")
 
-    def _can_encode(self, text: str) -> bool:
+    @staticmethod
+    def _can_encode(text: str) -> bool:
         """Return whether stdout can safely encode the given text."""
         encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
         try:
@@ -38,7 +39,8 @@ class ProgressDisplay:
             return False
         return True
 
-    def _truncate(self, text: str, max_len: int = 80) -> str:
+    @staticmethod
+    def _truncate(text: str, max_len: int = 80) -> str:
         """Truncate text to fit terminal width."""
         if len(text) <= max_len:
             return text
@@ -69,7 +71,8 @@ class ProgressDisplay:
         """Return a separator that works in the active terminal encoding."""
         return "•" if self._supports_unicode else "-"
 
-    def _write_line(self, text: str = "") -> None:
+    @staticmethod
+    def _write_line(text: str = "") -> None:
         """Write a line to stdout without relying on print()."""
         sys.stdout.write(f"{text}\n")
         sys.stdout.flush()

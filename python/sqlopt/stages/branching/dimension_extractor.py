@@ -5,7 +5,6 @@ from itertools import count
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sqlopt.stages.branching.fragment_registry import FragmentRegistry
     from sqlopt.stages.branching.sql_node import SqlNode
 
 

@@ -143,10 +143,7 @@ class ConcurrentExecutor(Generic[T, R]):
             return 0.0
         return base_delay * math.pow(2, attempt - 1)
 
-    def _format_timeout_error(self, timeout_seconds: float, elapsed_ms: float) -> str:
-        timeout_label = (
-            f"{int(timeout_seconds)}s"
-            if float(timeout_seconds).is_integer()
-            else f"{timeout_seconds:.3f}s"
-        )
+    @staticmethod
+    def _format_timeout_error(timeout_seconds: float, elapsed_ms: float) -> str:
+        timeout_label = f"{int(timeout_seconds)}s" if float(timeout_seconds).is_integer() else f"{timeout_seconds:.3f}s"
         return f"task exceeded timeout {timeout_label} (elapsed={elapsed_ms:.1f}ms)"

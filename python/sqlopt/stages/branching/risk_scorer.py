@@ -167,12 +167,14 @@ class SQLDeltaRiskScorer:
                         reasons.append(f"field_skewed:{col_name}")
         return reasons
 
-    def _get_total_rows(self, dist: "FieldDistribution") -> int:
+    @staticmethod
+    def _get_total_rows(dist: "FieldDistribution") -> int:
         if getattr(dist, "total_count", 0):
             return dist.total_count
         return dist.distinct_count + dist.null_count
 
-    def _dedupe(self, values: list[str]) -> list[str]:
+    @staticmethod
+    def _dedupe(values: list[str]) -> list[str]:
         ordered: list[str] = []
         seen: set[str] = set()
         for value in values:

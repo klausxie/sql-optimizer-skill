@@ -35,6 +35,10 @@ done <<< "$STAGED_FILES"
 if [ "$HAS_PYTHON" = true ]; then
     echo "Running ruff on Python files..."
     ruff check $STAGED_FILES || { echo "ruff failed"; exit 1; }
+
+    echo "Checking method order (CLASS-003)..."
+    PY_FILES=$(echo "$STAGED_FILES" | grep "\.py$" | tr '\n' ' ')
+    python3 "$(dirname "$0")/check_method_order.py" $PY_FILES || { echo "Method order check failed"; exit 1; }
 fi
 
 if [ "$HAS_JS" = true ]; then

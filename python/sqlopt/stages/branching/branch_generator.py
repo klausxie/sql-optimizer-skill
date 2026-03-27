@@ -4,7 +4,7 @@ This module provides the BranchGenerator class which generates all possible
 SQL branches from MyBatis dynamic SQL nodes (if, choose, etc.).
 """
 
-# ruff: noqa: I001,F401,RUF003,RET507,PIE810,SIM102,PERF401,ARG002,SIM108,SIM114,RUF005
+# ruff: noqa: I001, F401, RUF003, RET507, PIE810, SIM102, PERF401, SIM108, SIM114, RUF005
 
 from __future__ import annotations
 
@@ -177,13 +177,9 @@ class BranchGenerator:
 
                         # 分析位置
                         # 前缀通配符特征: 字符串以 '% 开头
-                        starts_with_percent = expression.startswith(
-                            "'%"
-                        ) or expression.startswith('"%')
+                        starts_with_percent = expression.startswith("'%") or expression.startswith('"%')
                         # 后缀通配符特征: 字符串以 %' 结尾
-                        ends_with_percent = expression.endswith(
-                            "%'"
-                        ) or expression.endswith('"%')
+                        ends_with_percent = expression.endswith("%'") or expression.endswith('"%')
 
                         # 前缀通配符: "'%' + name + '%'" - 两端都有通配符
                         # 后缀通配符: "name + '%'" - 只有结尾有通配符
@@ -202,12 +198,8 @@ class BranchGenerator:
                         # 例如: CONCAT('%', name) 或 CONCAT('%', name, '%')
                         # CONCAT 函数内的通配符同样会导致全表扫描
                         # 匹配 CONCAT(..., '%', ...) 模式
-                        concat_wildcard_pattern = (
-                            r"CONCAT\s*\([^)]*['\"][%][^)]*['\"][^)]*\)"
-                        )
-                        if re.search(
-                            concat_wildcard_pattern, expression, re.IGNORECASE
-                        ):
+                        concat_wildcard_pattern = r"CONCAT\s*\([^)]*['\"][%][^)]*['\"][^)]*\)"
+                        if re.search(concat_wildcard_pattern, expression, re.IGNORECASE):
                             if "prefix_wildcard" not in risk_flags:
                                 risk_flags.append("concat_wildcard")
 
@@ -280,11 +272,7 @@ class BranchGenerator:
             set(),
         )
         deduped = self._dedupe_condition_combinations(raw_combinations)
-        return [
-            combo
-            for combo in deduped
-            if not self._is_obviously_mutex_conflict(set(combo))
-        ]
+        return [combo for combo in deduped if not self._is_obviously_mutex_conflict(set(combo))]
 
     def _enumerate_valid_condition_combinations_recursive(
         self,
@@ -310,24 +298,18 @@ class BranchGenerator:
             )
             combinations = [[]]
             for child_combo in child_combinations:
-                combinations.append(
-                    self._merge_condition_lists([sql_node.test], child_combo)
-                )
+                combinations.append(self._merge_condition_lists([sql_node.test], child_combo))
             return self._dedupe_condition_combinations(combinations)
 
         if isinstance(sql_node, ChooseSqlNode):
             combinations: List[List[str]] = []
             for when_node in sql_node.if_sql_nodes:
-                child_combinations = (
-                    self._enumerate_valid_condition_combinations_recursive(
-                        when_node.contents,
-                        include_stack,
-                    )
+                child_combinations = self._enumerate_valid_condition_combinations_recursive(
+                    when_node.contents,
+                    include_stack,
                 )
                 for child_combo in child_combinations:
-                    combinations.append(
-                        self._merge_condition_lists([when_node.test], child_combo)
-                    )
+                    combinations.append(self._merge_condition_lists([when_node.test], child_combo))
 
             if sql_node.default_sql_node is not None:
                 combinations.extend(
@@ -357,18 +339,14 @@ class BranchGenerator:
         if isinstance(sql_node, MixedSqlNode):
             combinations: List[List[str]] = [[]]
             for child in sql_node.contents:
-                child_combinations = (
-                    self._enumerate_valid_condition_combinations_recursive(
-                        child,
-                        include_stack,
-                    )
+                child_combinations = self._enumerate_valid_condition_combinations_recursive(
+                    child,
+                    include_stack,
                 )
                 merged: List[List[str]] = []
                 for base_combo in combinations:
                     for child_combo in child_combinations:
-                        merged.append(
-                            self._merge_condition_lists(base_combo, child_combo)
-                        )
+                        merged.append(self._merge_condition_lists(base_combo, child_combo))
                 combinations = self._dedupe_condition_combinations(merged)
             return combinations
 
@@ -394,8 +372,8 @@ class BranchGenerator:
 
         return [[]]
 
+    @staticmethod
     def _merge_condition_lists(
-        self,
         left: List[str],
         right: List[str],
     ) -> List[str]:
@@ -407,8 +385,8 @@ class BranchGenerator:
                 merged.append(condition)
         return merged
 
+    @staticmethod
     def _dedupe_condition_combinations(
-        self,
         combinations: List[List[str]],
     ) -> List[List[str]]:
         deduped: List[List[str]] = []
@@ -453,8 +431,8 @@ class BranchGenerator:
 
         return selected or valid_combinations[: self.max_branches]
 
+    @staticmethod
     def _match_valid_combination(
-        self,
         target: List[str],
         valid_combinations: List[List[str]],
     ) -> List[str] | None:
@@ -504,7 +482,8 @@ class BranchGenerator:
 
         return branches
 
-    def _normalize_sql(self, sql: str) -> str:
+    @staticmethod
+    def _normalize_sql(sql: str) -> str:
         return " ".join(sql.split())
 
     def _collect_conditions(self, sql_node: SqlNode) -> List[str]:
@@ -520,9 +499,7 @@ class BranchGenerator:
         self._collect_conditions_recursive(sql_node, conditions)
         return conditions
 
-    def _collect_conditions_recursive(
-        self, sql_node: SqlNode, conditions: List[str]
-    ) -> None:
+    def _collect_conditions_recursive(self, sql_node: SqlNode, conditions: List[str]) -> None:
         """Internal recursive helper for condition collection."""
         from sqlopt.stages.branching.sql_node import (
             IfSqlNode,
@@ -552,9 +529,7 @@ class BranchGenerator:
                 if when_node.contents:
                     self._collect_conditions_recursive(when_node.contents, conditions)
             if sql_node.default_sql_node and sql_node.default_sql_node.contents:
-                self._collect_conditions_recursive(
-                    sql_node.default_sql_node.contents, conditions
-                )
+                self._collect_conditions_recursive(sql_node.default_sql_node.contents, conditions)
             return
 
         if isinstance(sql_node, IncludeSqlNode):
@@ -595,9 +570,7 @@ class BranchGenerator:
         self._collect_choose_nodes_recursive(sql_node, choose_nodes)
         return choose_nodes
 
-    def _collect_choose_nodes_recursive(
-        self, sql_node: SqlNode, choose_nodes: List
-    ) -> None:
+    def _collect_choose_nodes_recursive(self, sql_node: SqlNode, choose_nodes: List) -> None:
         """Internal recursive helper for choose node collection."""
         from sqlopt.stages.branching.sql_node import (
             ChooseSqlNode,
@@ -706,8 +679,8 @@ class BranchGenerator:
 
         return branches
 
+    @staticmethod
     def _create_mutex_branch_sql(
-        self,
         sql_node: SqlNode,
         choose_node,
         when_index: int,
@@ -742,8 +715,8 @@ class BranchGenerator:
         # Wrap in MixedSqlNode
         return MixedSqlNode([modified_choose])
 
+    @staticmethod
     def _create_otherwise_branch_sql(
-        self,
         sql_node: SqlNode,
         choose_node,
     ) -> SqlNode:
@@ -797,9 +770,7 @@ class BranchGenerator:
             active_set = set(active_conds)
             if self._is_obviously_mutex_conflict(active_set):
                 continue
-            modified_sql_node = self._create_filtered_sql_node(
-                sql_node, if_nodes, active_set
-            )
+            modified_sql_node = self._create_filtered_sql_node(sql_node, if_nodes, active_set)
 
             # Apply the modified SqlNode
             context = DynamicContext()
@@ -1065,7 +1036,8 @@ class BranchGenerator:
 
         return context
 
-    def _extract_var_name(self, condition: str) -> str | None:
+    @staticmethod
+    def _extract_var_name(condition: str) -> str | None:
         """Extract a variable name from a condition.
 
         This is a simplified heuristic - in reality OGNL is more complex.
@@ -1148,7 +1120,8 @@ class BranchGenerator:
 
         return False
 
-    def _parse_simple_condition(self, condition: str) -> tuple[str, str, str] | None:
+    @staticmethod
+    def _parse_simple_condition(condition: str) -> tuple[str, str, str] | None:
         cond = " ".join(condition.strip().split())
         if not cond:
             return None
@@ -1252,14 +1225,10 @@ class BranchGenerator:
                 if when_test.test:
                     choose_condition_set.add(when_test.test)
 
-        non_choose_conditions = [
-            c for c in all_conditions if c not in choose_condition_set
-        ]
+        non_choose_conditions = [c for c in all_conditions if c not in choose_condition_set]
 
         if non_choose_conditions:
-            non_choose_combinations = self._strategy.generate(
-                non_choose_conditions, self.max_branches
-            )
+            non_choose_combinations = self._strategy.generate(non_choose_conditions, self.max_branches)
         else:
             non_choose_combinations = [[]]
 
@@ -1280,9 +1249,7 @@ class BranchGenerator:
 
         choose_combinations: List[set[str]]
         if choose_options:
-            choose_combinations = [
-                set().union(*combo) for combo in product(*choose_options)
-            ]
+            choose_combinations = [set().union(*combo) for combo in product(*choose_options)]
         else:
             choose_combinations = [set()]
 
@@ -1300,9 +1267,7 @@ class BranchGenerator:
                     continue
                 seen_signatures.add(signature)
 
-                modified_node = self._create_filtered_sql_node(
-                    sql_node, if_nodes, active_set
-                )
+                modified_node = self._create_filtered_sql_node(sql_node, if_nodes, active_set)
                 context = DynamicContext()
                 modified_node.apply(context)
                 sql = context.get_sql().strip()
@@ -1324,8 +1289,8 @@ class BranchGenerator:
 
         return branches[: self.max_branches]
 
+    @staticmethod
     def _collect_foreach_nodes(
-        self,
         sql_node: SqlNode,
     ) -> List[Any]:
         """Recursively collect all ForEachSqlNode nodes from the tree.
@@ -1366,8 +1331,8 @@ class BranchGenerator:
         collect_recursive(sql_node)
         return foreach_nodes
 
+    @staticmethod
     def _collect_bind_expressions(
-        self,
         sql_node: SqlNode,
     ) -> Dict[str, str]:
         """Recursively collect all VarDeclSqlNode expressions from the tree.
@@ -1457,8 +1422,7 @@ class BranchGenerator:
         if_nodes = self._collect_if_nodes(sql_node)
         boundary_branches: List[Dict[str, Any]] = []
         seen_signatures = {
-            self._branch_signature(branch["sql"], branch.get("active_conditions", []))
-            for branch in branches
+            self._branch_signature(branch["sql"], branch.get("active_conditions", [])) for branch in branches
         }
 
         for branch in branches:
@@ -1494,9 +1458,7 @@ class BranchGenerator:
                     if not variant_sql or self._contains_empty_in_clause(variant_sql):
                         continue
 
-                    variant_conditions = active_conditions + [
-                        f"foreach_{foreach_index}_{bucket_name}"
-                    ]
+                    variant_conditions = active_conditions + [f"foreach_{foreach_index}_{bucket_name}"]
                     signature = self._branch_signature(variant_sql, variant_conditions)
                     if signature in seen_signatures:
                         continue
@@ -1513,17 +1475,19 @@ class BranchGenerator:
 
         return branches + boundary_branches
 
+    @staticmethod
     def _branch_signature(
-        self,
         sql: str,
         active_conditions: List[str],
     ) -> tuple[str, tuple[str, ...]]:
         return sql, tuple(active_conditions)
 
-    def _contains_empty_in_clause(self, sql: str) -> bool:
+    @staticmethod
+    def _contains_empty_in_clause(sql: str) -> bool:
         return bool(re.search(r"\b(?:NOT\s+)?IN\s*\(\s*\)", sql, re.IGNORECASE))
 
-    def _dedupe_list(self, values: List[str]) -> List[str]:
+    @staticmethod
+    def _dedupe_list(values: List[str]) -> List[str]:
         deduped: List[str] = []
         seen: set[str] = set()
         for value in values:

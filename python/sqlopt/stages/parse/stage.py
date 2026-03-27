@@ -218,8 +218,8 @@ class ParseStage(Stage[None, ParseOutput]):
             logger.warning("[PARSE] Failed to expand %s: %s", sql_unit_id, exc)
             return self._build_error_unit(sql_unit_id, sql_text, str(exc))
 
+    @staticmethod
     def _build_error_unit(
-        self,
         sql_unit_id: str,
         sql_text: str,
         error: str | None,

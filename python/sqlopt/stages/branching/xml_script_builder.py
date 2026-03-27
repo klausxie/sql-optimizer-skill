@@ -78,9 +78,7 @@ class XMLScriptBuilder:
             fragment_registry: Optional registry for resolving <include> fragments.
         """
         self.fragment_registry = fragment_registry
-        self.default_namespace = (
-            str(default_namespace).strip() if default_namespace else None
-        )
+        self.default_namespace = str(default_namespace).strip() if default_namespace else None
 
     def parse(self, xml_string: str) -> SqlNode:
         """Parse XML string into SqlNode tree.
@@ -181,8 +179,7 @@ class XMLScriptBuilder:
         # Check for ${...} placeholders
         if self._PLACEHOLDER_PATTERN.search(text):
             return TextSqlNode(text)
-        else:
-            return StaticTextSqlNode(text)
+        return StaticTextSqlNode(text)
 
     def _handle_if_node(self, element: ET.Element) -> SqlNode:
         """Parse <if test="..."> element.
@@ -336,7 +333,8 @@ class XMLScriptBuilder:
             refid = f"{self.default_namespace}.{refid}"
         return IncludeSqlNode(refid, self.fragment_registry)
 
-    def _handle_bind_node(self, element: ET.Element) -> SqlNode:
+    @staticmethod
+    def _handle_bind_node(element: ET.Element) -> SqlNode:
         """Parse <bind name="..." value="..."/> element.
 
         Args:
@@ -349,7 +347,8 @@ class XMLScriptBuilder:
         value = element.get("value", "")
         return VarDeclSqlNode(name, value)
 
-    def _handle_ignored_node(self, element: ET.Element) -> SqlNode:
+    @staticmethod
+    def _handle_ignored_node(element: ET.Element) -> SqlNode:
         """Ignore statement-adjacent metadata nodes that should not render into SQL."""
         del element
         return MixedSqlNode([])

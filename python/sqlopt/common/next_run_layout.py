@@ -101,7 +101,8 @@ class NextRunLayout:
         if stage_name not in self.STAGES:
             raise ValueError(f"Unknown stage: {stage_name}. Expected one of {self.STAGES}")
 
-    def _stage_subdirs(self) -> dict[str, list[str]]:
+    @staticmethod
+    def _stage_subdirs() -> dict[str, list[str]]:
         return {
             "init": [
                 "sql_units/by_namespace",

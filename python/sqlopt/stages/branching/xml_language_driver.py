@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from sqlopt.stages.branching.fragment_registry import FragmentRegistry
 from sqlopt.stages.branching.sql_node import SqlNode
 from sqlopt.stages.branching.xml_script_builder import XMLScriptBuilder
-
-if TYPE_CHECKING:
-    pass
 
 
 class XMLLanguageDriver:

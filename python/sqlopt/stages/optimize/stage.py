@@ -257,7 +257,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
         return proposals
 
-    def _create_stub_output(self) -> OptimizeOutput:
+    @staticmethod
+    def _create_stub_output() -> OptimizeOutput:
         return OptimizeOutput(
             proposals=[
                 OptimizationProposal(
@@ -277,7 +278,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             run_id="stub",
         )
 
-    def _load_table_schemas(self, loader: MockDataLoader) -> dict[str, TableSchema]:
+    @staticmethod
+    def _load_table_schemas(loader: MockDataLoader) -> dict[str, TableSchema]:
         schemas: dict[str, TableSchema] = {}
         schemas_file = loader.get_init_table_schemas_path()
         if not schemas_file.exists():
@@ -303,10 +305,11 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             return
         try:
             connector.disconnect()
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.debug("[OPTIMIZE] Failed to disconnect DB connector", exc_info=True)
 
-    def _build_before_metrics(self, baseline: PerformanceBaseline) -> dict:
+    @staticmethod
+    def _build_before_metrics(baseline: PerformanceBaseline) -> dict:
         return {
             "estimated_cost": baseline.estimated_cost,
             "actual_time_ms": baseline.actual_time_ms,
@@ -417,8 +420,8 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             ),
         }
 
+    @staticmethod
     def _calculate_gain_ratio(
-        self,
         before_time_ms: float | None,
         before_cost: float | None,
         after_time_ms: float | None,

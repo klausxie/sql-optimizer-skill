@@ -39,7 +39,6 @@ class BranchGenerationStrategy(ABC):
             List of condition combinations. Each combination is a list of
             condition strings that should be evaluated as TRUE.
         """
-        pass
 
 
 class AllCombinationsStrategy(BranchGenerationStrategy):

@@ -1,0 +1,105 @@
+# Class Design Conventions for Python
+
+[[rules]]
+id = "CLASS-001"
+name = "no-instance-method-without-self-access"
+languages = ["python"]
+severity = "warn"
+description = """
+Methods defined inside a class that do not access instance attributes 
+or call other instance methods should be declared as @staticmethod or @classmethod.
+
+Rationale:
+- Reduces cognitive load: readers know self is not used
+- Slightly better performance (no implicit self parameter)
+- Clearer API design (method doesn't depend on instance state)
+
+Examples:
+    # Bad: uses self but doesn't need to
+    class MyClass:
+        def helper(self, x):
+            return x * 2
+    
+    # Good: explicitly static
+    class MyClass:
+        @staticmethod
+        def helper(x):
+            return x * 2
+
+Detection:
+    - Method has 'self' or 'cls' as first parameter
+    - But body never references 'self' or 'cls'
+"""
+example_files = [
+    "sqlopt/common/config.py",
+]
+
+[[rules]]
+id = "CLASS-002"
+name = "no-bare-class-definition"
+languages = ["python"]
+severity = "error"
+description = """
+Classes used only as namespaces for class methods should use 
+@classmethod or @staticmethod instead of instance methods.
+
+    This is a stronger version of CLASS-001 for classes that are 
+    purely utilitarian.
+    """
+
+[[rules]]
+id = "CLASS-003"
+name = "method-order-by-category"
+languages = ["python"]
+severity = "warn"
+description = """
+Methods within a class should follow a specific ordering by category:
+
+Order (lowest to highest):
+1. __new__ (static method)
+2. __init__
+3. __post_init__
+4. Other dunder methods (__str__, __repr__, etc.)
+5. @property
+6. @staticmethod
+7. @classmethod
+8. Public methods (no underscore)
+9. Protected methods (_x)
+10. Private methods (__x)
+
+Rationale:
+- Makes the class API clear at a glance (most important methods first)
+- Follows Python conventions (PEP 8)
+- Reduces cognitive load when reading class definitions
+
+Examples:
+    # Bad: wrong order
+    class MyClass:
+        def _helper(self):          # 9 (protected)
+            pass
+        def public_method(self):    # 8 (public) - should be before _helper
+            pass
+        @property
+        def value(self):            # 5 (@property) - should be before public
+            pass
+
+    # Good: correct order
+    class MyClass:
+        def __init__(self):         # 2
+            pass
+        @property
+        def value(self):            # 5
+            pass
+        def public_method(self):    # 8
+            pass
+        def _helper(self):          # 9
+            pass
+
+Detection:
+    - Parse AST to find class methods and their decorators
+    - Assign category based on method name and decorators
+    - Check that categories are in ascending order
+"""
+example_files = [
+    "sqlopt/stages/base.py",
+]

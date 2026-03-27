@@ -76,7 +76,8 @@ class ProgressTracker:
         if self._callback is not None:
             self._callback(stage_name, progress)
 
-    def _get_timestamp(self) -> str:
+    @staticmethod
+    def _get_timestamp() -> str:
         """Get current timestamp in ISO format."""
         return datetime.now().isoformat()
 
@@ -153,9 +154,7 @@ class ProgressTracker:
         Returns:
             Dictionary containing run_id and all stage progress.
         """
-        stages_data: dict[str, Any] = {
-            name: asdict(progress) for name, progress in self.stages.items()
-        }
+        stages_data: dict[str, Any] = {name: asdict(progress) for name, progress in self.stages.items()}
         return {
             "run_id": self.run_id,
             "stages": stages_data,

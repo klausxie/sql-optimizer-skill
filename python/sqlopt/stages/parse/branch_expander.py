@@ -174,7 +174,8 @@ class BranchExpander:
                 )
             ]
 
-    def _map_branches(self, branch_dicts: List[dict]) -> List[ExpandedBranch]:
+    @staticmethod
+    def _map_branches(branch_dicts: List[dict]) -> List[ExpandedBranch]:
         """Map BranchGenerator output to ExpandedBranch list.
 
         Args:
@@ -222,7 +223,8 @@ class BranchExpander:
 
         return branches
 
-    def _strip_xml_tags(self, sql: str) -> str:
+    @staticmethod
+    def _strip_xml_tags(sql: str) -> str:
         """Strip XML/MyBatis tags from SQL string.
 
         Args:

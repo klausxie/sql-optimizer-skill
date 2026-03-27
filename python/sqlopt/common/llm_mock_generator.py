@@ -72,7 +72,8 @@ class MockLLMProvider(LLMProviderBase):
         True
     """
 
-    def _generate_deterministic_id(self, sql: str, prefix: str = "") -> str:
+    @staticmethod
+    def _generate_deterministic_id(sql: str, prefix: str = "") -> str:
         """Generate a deterministic ID based on SQL hash.
 
         Args:
@@ -113,7 +114,8 @@ class MockLLMProvider(LLMProviderBase):
 
         return json.dumps(proposal)
 
-    def _generate_mock_optimized_sql(self, sql: str, description: str) -> str:
+    @staticmethod
+    def _generate_mock_optimized_sql(sql: str, description: str) -> str:
         """Generate mock optimized SQL based on description hints.
 
         Args:
@@ -140,7 +142,8 @@ class MockLLMProvider(LLMProviderBase):
 
         return f"/* optimized */ {sql}"
 
-    def _generate_mock_rationale(self, description: str) -> str:
+    @staticmethod
+    def _generate_mock_rationale(description: str) -> str:
         """Generate mock rationale based on description.
 
         Args:
@@ -215,8 +218,8 @@ class MockLLMProvider(LLMProviderBase):
             "cost": 1.0,
         }
 
+    @staticmethod
     def _generate_postgres_plan(
-        self,
         has_join: bool,
         has_where: bool,
         has_group_by: bool,
@@ -280,8 +283,8 @@ class MockLLMProvider(LLMProviderBase):
 
         return plan
 
+    @staticmethod
     def _generate_mysql_plan(
-        self,
         has_join: bool,
         has_where: bool,
         has_group_by: bool,
@@ -329,7 +332,8 @@ class MockLLMProvider(LLMProviderBase):
 
         return plan
 
-    def _estimate_mock_cost(self, sql: str) -> float:
+    @staticmethod
+    def _estimate_mock_cost(sql: str) -> float:
         """Estimate mock cost based on SQL complexity.
 
         Args:
@@ -505,7 +509,8 @@ class OpenAILLMProvider(LLMProviderBase):
         content = response.choices[0].message.content or "{}"
         return self._parse_optimization_response(content, sql)
 
-    def _build_optimization_prompt(self, sql: str, description: str) -> str:
+    @staticmethod
+    def _build_optimization_prompt(sql: str, description: str) -> str:
         return f"""Analyze this SQL query and suggest an optimized version.
 
 Original SQL:
@@ -523,7 +528,8 @@ Return a JSON object with these fields:
 Example output:
 {{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
 
-    def _parse_optimization_response(self, content: str, original_sql: str) -> str:
+    @staticmethod
+    def _parse_optimization_response(content: str, original_sql: str) -> str:
         try:
             data = json.loads(content)
             return json.dumps(
@@ -568,7 +574,8 @@ Example output:
             "actual_time_ms": None,
         }
 
-    def _estimate_cost_from_plan(self, plan: dict[str, Any]) -> float:
+    @staticmethod
+    def _estimate_cost_from_plan(plan: dict[str, Any]) -> float:
         if not plan:
             return 100.0
         if "Plan" in plan:
@@ -660,7 +667,8 @@ class OpenCodeRunLLMProvider(LLMProviderBase):
         json_output = self._call_opencode(prompt)
         return self._parse_response(json_output, sql)
 
-    def _build_optimization_prompt(self, sql: str, description: str) -> str:
+    @staticmethod
+    def _build_optimization_prompt(sql: str, description: str) -> str:
         return f"""Analyze this SQL query and suggest an optimized version.
 
 Original SQL:
@@ -678,7 +686,8 @@ Return a JSON object with these fields:
 Example output:
 {{"sql_unit_id": "unit_abc123", "path_id": "path_xyz", "optimized_sql": "SELECT id, name FROM users WHERE id = 1", "rationale": "Selected only needed columns", "confidence": 0.95}}"""
 
-    def _is_windows(self) -> bool:
+    @staticmethod
+    def _is_windows() -> bool:
         """Check if running on Windows."""
         return sys.platform == "win32" or os.name == "nt"
 
@@ -736,7 +745,8 @@ Example output:
         except FileNotFoundError:
             return '{"error": "opencode command not found"}'
 
-    def _parse_response(self, json_output: str, original_sql: str) -> str:
+    @staticmethod
+    def _parse_response(json_output: str, original_sql: str) -> str:
         # Find the LAST text event that contains JSON with optimized_sql
         # OpenCode returns multiple text events - we want the final one with the actual response
         text_events: list[str] = []
@@ -822,7 +832,8 @@ Example output:
             "actual_time_ms": None,
         }
 
-    def _estimate_cost_from_plan(self, plan: dict[str, Any]) -> float:
+    @staticmethod
+    def _estimate_cost_from_plan(plan: dict[str, Any]) -> float:
         if not plan:
             return 100.0
         if "Plan" in plan:

@@ -82,8 +82,8 @@ class LadderBranchPlanner:
 
         return combinations_out[: self.max_branches]
 
+    @staticmethod
     def _merge_candidate_conditions(
-        self,
         candidates: tuple[DimensionCandidate, ...],
     ) -> tuple[str, ...]:
         merged: list[str] = []
@@ -95,8 +95,8 @@ class LadderBranchPlanner:
                     merged.append(condition)
         return tuple(merged)
 
+    @staticmethod
     def _has_mutex_conflict(
-        self,
         candidates: tuple[DimensionCandidate, ...],
     ) -> bool:
         seen_groups: set[str] = set()
@@ -109,7 +109,8 @@ class LadderBranchPlanner:
             seen_groups.add(group)
         return False
 
-    def _normalize_conditions(self, conditions: tuple[str, ...]) -> list[str]:
+    @staticmethod
+    def _normalize_conditions(conditions: tuple[str, ...]) -> list[str]:
         normalized: list[str] = []
         seen: set[str] = set()
         for condition in conditions:

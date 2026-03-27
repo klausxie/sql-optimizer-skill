@@ -95,7 +95,8 @@ class ContractFileManager:
         index_path = self.units_dir / "_index.json"
         return json.loads(index_path.read_text(encoding="utf-8"))
 
-    def get_file_size(self, path: Path) -> int:
+    @staticmethod
+    def get_file_size(path: Path) -> int:
         """Get the size of a file in bytes.
 
         Args:
@@ -109,7 +110,8 @@ class ContractFileManager:
         """
         return path.stat().st_size
 
-    def _sanitize_filename(self, unit_id: str) -> str:
+    @staticmethod
+    def _sanitize_filename(unit_id: str) -> str:
         """Sanitize unit ID for use as a filename.
 
         Replaces characters that are invalid in filenames:

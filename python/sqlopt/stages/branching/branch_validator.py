@@ -70,11 +70,12 @@ class BranchValidator:
 
         return BranchValidationResult(branches=ordered)
 
-    def _contains_empty_in_clause(self, sql: str) -> bool:
+    @staticmethod
+    def _contains_empty_in_clause(sql: str) -> bool:
         return bool(re.search(r"\b(?:NOT\s+)?IN\s*\(\s*\)", sql, re.IGNORECASE))
 
+    @staticmethod
     def _is_better_branch(
-        self,
         candidate: dict[str, Any],
         existing: dict[str, Any],
     ) -> bool:

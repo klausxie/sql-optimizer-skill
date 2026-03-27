@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Generator
 
-import psycopg2
 import psycopg2.pool
 
 logger = logging.getLogger(__name__)

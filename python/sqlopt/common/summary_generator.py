@@ -12,8 +12,8 @@ from typing import Dict, List, Tuple
 
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
-from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.contracts.parse import ParseOutput
+from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 
 
 def truncate_text(text: str, max_chars: int = 1024) -> str:
@@ -224,10 +224,9 @@ def generate_init_summary_markdown(
         """Suggest parse strategy based on condition count."""
         if cond_count <= 3:
             return "all_combinations"
-        elif cond_count <= 8:
+        if cond_count <= 8:
             return "ladder"
-        else:
-            return "pairwise"
+        return "pairwise"
 
     for unit in output.sql_units[:20]:  # Limit to first 20 for readability
         cond_count = _count_conditions(unit.sql_text)

@@ -9,12 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
+    from sqlopt.stages.branching.branch_context import BranchContext
     from sqlopt.stages.branching.sql_node import (
         ChooseSqlNode,
-        WhenSqlNode,
-        OtherwiseSqlNode,
     )
-    from sqlopt.stages.branching.branch_context import BranchContext
 
 
 class MutexBranchDetector:
@@ -27,8 +25,8 @@ class MutexBranchDetector:
     and an optional otherwise: one branch for each when, plus one for otherwise.
     """
 
+    @staticmethod
     def detect_choose_branches(
-        self,
         choose_node: ChooseSqlNode,
     ) -> List[List[str]]:
         """Generate mutually exclusive branches for a choose node.
@@ -59,8 +57,8 @@ class MutexBranchDetector:
 
         return branches
 
+    @staticmethod
     def generate_branch_contexts(
-        self,
         choose_node: ChooseSqlNode,
         branch_index: int,
     ) -> BranchContext | None:
@@ -98,7 +96,8 @@ class MutexBranchDetector:
 
         return context
 
-    def get_branch_count(self, choose_node: ChooseSqlNode) -> int:
+    @staticmethod
+    def get_branch_count(choose_node: ChooseSqlNode) -> int:
         """Get the total number of branches for a choose node.
 
         Args:
@@ -112,7 +111,8 @@ class MutexBranchDetector:
             count += 1  # otherwise
         return count
 
-    def is_mutex_node(self, node) -> bool:
+    @staticmethod
+    def is_mutex_node(node) -> bool:
         """Check if a node is a mutex (mutually exclusive) type.
 
         Args:

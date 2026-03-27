@@ -410,7 +410,8 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
 
         return baselines
 
-    def _create_stub_output(self) -> RecognitionOutput:
+    @staticmethod
+    def _create_stub_output() -> RecognitionOutput:
         baseline = PerformanceBaseline(
             sql_unit_id="stub-1",
             path_id="p1",
@@ -438,7 +439,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             return
         try:
             connector.disconnect()
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.debug("[RECOGNITION] Failed to disconnect DB connector", exc_info=True)
 
     def _generate_baseline_data(

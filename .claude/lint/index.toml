@@ -156,6 +156,20 @@ languages = ["python"]
 description = "Use f-strings or % formatting for log messages"
 
 [[rules]]
+id = "CLASS-001"
+category = "class-design"
+severity = "warn"
+languages = ["python"]
+description = "Methods that don't access instance (self) should be staticmethods or classmethods"
+
+[[rules]]
+id = "CLASS-002"
+category = "class-design"
+severity = "warn"
+languages = ["python"]
+description = "Methods should follow order: __new__ -> __init__ -> __post_init__ -> __x__ -> @property -> @staticmethod -> @classmethod -> public -> _protected -> __private"
+
+[[rules]]
 id = "EXIT-001"
 category = "exit-conventions"
 severity = "error"

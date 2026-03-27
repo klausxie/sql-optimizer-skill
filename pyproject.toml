@@ -53,11 +53,13 @@ line-length = 120
 target-version = "py39"
 
 [tool.ruff.lint]
+preview = true
 select = [
     "E", "W", "F", "I", "N", "B", "C4", "S",
     "YTT", "ASYNC", "BLE", "FA", "ISC", "PIE",
     "T20", "PYI", "RSE", "RET", "SLF", "SIM",
     "TCH", "ARG", "PTH", "PERF", "RUF",
+    "PLR6301",
 ]
 ignore = [
     "E501",

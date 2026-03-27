@@ -45,7 +45,8 @@ class DynamicContext:
         """
         self.sql_fragments.append(sql)
 
-    def _last_non_space_char(self, s: str) -> str:
+    @staticmethod
+    def _last_non_space_char(s: str) -> str:
         """Get the last non-whitespace character of a string."""
         for c in reversed(s):
             if c not in " \t\n":

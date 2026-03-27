@@ -82,7 +82,6 @@ class SqlNode(ABC):
         Returns:
             True if content was appended to the context, False otherwise.
         """
-        pass
 
 
 class StaticTextSqlNode(SqlNode):
@@ -146,13 +145,12 @@ class TextSqlNode(SqlNode):
         Returns:
             True always, as text processing always produces output.
         """
-        result = self._PLACEHOLDER_PATTERN.sub(
-            lambda match: self._resolve_placeholder(match, context), self.text
-        )
+        result = self._PLACEHOLDER_PATTERN.sub(lambda match: self._resolve_placeholder(match, context), self.text)
         context.append_sql(result)
         return True
 
-    def _resolve_placeholder(self, match: Match[str], context: DynamicContext) -> str:
+    @staticmethod
+    def _resolve_placeholder(match: Match[str], context: DynamicContext) -> str:
         """Resolve a ${} placeholder to its binding value.
 
         Args:
@@ -209,9 +207,7 @@ class IfSqlNode(SqlNode):
     Supports conditional evaluation via active_conditions set.
     """
 
-    def __init__(
-        self, test: str, contents: SqlNode, active_conditions: set | None = None
-    ) -> None:
+    def __init__(self, test: str, contents: SqlNode, active_conditions: set | None = None) -> None:
         """Initialize IfSqlNode with test expression and contents.
 
         Args:
@@ -249,9 +245,7 @@ class WhenSqlNode(IfSqlNode):
     Inherits from IfSqlNode and adds the test expression handling.
     """
 
-    def __init__(
-        self, test: str, contents: SqlNode, active_conditions: set | None = None
-    ) -> None:
+    def __init__(self, test: str, contents: SqlNode, active_conditions: set | None = None) -> None:
         """Initialize WhenSqlNode with test expression and contents.
 
         Args:
@@ -305,9 +299,7 @@ class ChooseSqlNode(SqlNode):
     branch generator handles mutual exclusion logic).
     """
 
-    def __init__(
-        self, if_sql_nodes: list[WhenSqlNode], default_sql_node: OtherwiseSqlNode | None
-    ) -> None:
+    def __init__(self, if_sql_nodes: list[WhenSqlNode], default_sql_node: OtherwiseSqlNode | None) -> None:
         """Initialize ChooseSqlNode with when branches and optional otherwise.
 
         Args:
@@ -411,22 +403,18 @@ class TrimSqlNode(SqlNode):
             return " " + curr
         if curr_starts_logical and needs_and:
             return " " + curr
-        if (
-            prev_starts_logical
-            and needs_and
-            and not _can_follow_without_logical_operator(prev, curr)
-        ):
+        if prev_starts_logical and needs_and and not _can_follow_without_logical_operator(prev, curr):
             return " AND " + curr
         return self._handle_needs_and_case(prev, curr, needs_and, curr_starts_logical)
 
-    def _needs_logical_connection(self, fragment: str) -> bool:
+    @staticmethod
+    def _needs_logical_connection(fragment: str) -> bool:
         """Return True if fragment ends with a character that needs logical connection."""
         last_char = fragment.strip()[-1:] if fragment.strip() else ""
         return last_char.isalnum() or last_char == "}"
 
-    def _handle_needs_and_case(
-        self, prev: str, curr: str, needs_and: bool, curr_starts_logical: bool
-    ) -> str:
+    @staticmethod
+    def _handle_needs_and_case(prev: str, curr: str, needs_and: bool, curr_starts_logical: bool) -> str:
         """Handle the case where prev fragment needs AND connection to curr."""
         if not needs_and or curr_starts_logical:
             return curr
