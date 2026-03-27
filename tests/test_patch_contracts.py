@@ -73,6 +73,11 @@ def test_frozen_family_scope_is_authoritative() -> None:
     assert "FOREACH_IN_PREDICATE" not in FROZEN_AUTO_PATCH_FAMILIES
 
 
+def test_dynamic_filter_cleanup_frozen_scope_stays_registry_derived() -> None:
+    assert "DYNAMIC_FILTER_SELECT_LIST_CLEANUP" in FROZEN_AUTO_PATCH_FAMILIES
+    assert "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP" in FROZEN_AUTO_PATCH_FAMILIES
+
+
 def test_acceptance_result_patch_target_is_optional() -> None:
     _validator().validate("acceptance_result", _acceptance_result_payload())
 

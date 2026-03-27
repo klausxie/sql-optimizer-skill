@@ -53,6 +53,43 @@ def _extract_required_includes(template: str, namespace: str) -> list[str]:
     return includes
 
 
+def _collect_normalized_if_tests(template: str) -> list[str]:
+    try:
+        wrapper = ET.fromstring(f"<root>{template}</root>")
+    except ET.ParseError:
+        return []
+    tests: list[str] = []
+    for node in wrapper.iter():
+        if str(node.tag).rsplit("}", 1)[-1].lower() != "if":
+            continue
+        tests.append(normalize_sql_text(str(node.attrib.get("test") or "")))
+    return tests
+
+
+def _if_inner_template(node: ET.Element) -> str:
+    parts: list[str] = []
+    if node.text:
+        parts.append(node.text)
+    for child in list(node):
+        parts.append(ET.tostring(child, encoding="unicode"))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
+def _collect_normalized_if_bodies(template: str) -> list[str]:
+    try:
+        wrapper = ET.fromstring(f"<root>{template}</root>")
+    except ET.ParseError:
+        return []
+    bodies: list[str] = []
+    for node in wrapper.iter():
+        if str(node.tag).rsplit("}", 1)[-1].lower() != "if":
+            continue
+        bodies.append(normalize_sql_text(_if_inner_template(node)))
+    return bodies
+
+
 def _render_statement_sql(template: str, sql_unit: dict[str, Any], fragment_catalog: dict[str, dict[str, Any]]) -> str | None:
     xml_path = Path(str(sql_unit.get("xmlPath") or ""))
     namespace = str(sql_unit.get("namespace") or "").strip()
@@ -129,6 +166,18 @@ def replay_patch_target(
     actual_placeholders = _extract_placeholder_shape(template_after)
     if list(required_placeholders) != actual_placeholders:
         return ReplayResult(False, None, None, "PATCH_PLACEHOLDER_SHAPE_DRIFT")
+
+    required_if_tests = replay_contract.get("requiredIfTestShape")
+    if isinstance(required_if_tests, str):
+        required_if_tests = [] if required_if_tests in {"", "NONE"} else [required_if_tests]
+    if required_if_tests is not None and list(required_if_tests) != _collect_normalized_if_tests(template_after):
+        return ReplayResult(False, None, None, "PATCH_DYNAMIC_IF_TEST_DRIFT")
+
+    required_if_bodies = replay_contract.get("requiredIfBodyShape")
+    if isinstance(required_if_bodies, str):
+        required_if_bodies = [] if required_if_bodies in {"", "NONE"} else [required_if_bodies]
+    if required_if_bodies is not None and list(required_if_bodies) != _collect_normalized_if_bodies(template_after):
+        return ReplayResult(False, None, None, "PATCH_DYNAMIC_IF_BODY_DRIFT")
 
     rendered_sql: str | None
     if replay_mode in _FRAGMENT_REPLAY_MODES and fragment_op is not None:

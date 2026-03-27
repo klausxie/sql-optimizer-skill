@@ -171,3 +171,109 @@ def test_replay_patch_target_rejects_placeholder_shape_drift() -> None:
 
     assert result.matches_target is False
     assert result.drift_reason == "PATCH_PLACEHOLDER_SHAPE_DRIFT"
+
+
+def test_replay_patch_target_rejects_if_test_drift() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user">
+  <select id="findUsers">
+    SELECT id FROM users
+    <where>
+      <if test="status != null">AND status = #{status}</if>
+    </where>
+  </select>
+</mapper>"""
+    ) as xml_path:
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user",
+                "statementId": "findUsers",
+            },
+            patch_target={
+                "targetSql": "SELECT id FROM users WHERE status = #{status}",
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_statement_body",
+                        "afterTemplate": (
+                            "SELECT id FROM users <where>"
+                            '<if test="status != null and status != \'\'">AND status = #{status}</if>'
+                            "</where>"
+                        ),
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_statement_body"],
+                    "expectedRenderedSql": "SELECT id FROM users WHERE status = #{status}",
+                    "expectedRenderedSqlNormalized": "SELECT id FROM users WHERE status = #{status}",
+                    "expectedFingerprint": {
+                        "kind": "normalized_sql",
+                        "value": "SELECT id FROM users WHERE status = #{status}",
+                    },
+                    "requiredAnchors": ["<where>"],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{status}"],
+                    "requiredIfTestShape": ["status != null"],
+                    "requiredIfBodyShape": ["AND status = #{status}"],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            fragment_catalog={},
+        )
+
+    assert result.matches_target is False
+    assert result.drift_reason == "PATCH_DYNAMIC_IF_TEST_DRIFT"
+
+
+def test_replay_patch_target_rejects_if_body_drift() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user">
+  <select id="findUsers">
+    SELECT id FROM users
+    <where>
+      <if test="status != null">AND status = #{status}</if>
+    </where>
+  </select>
+</mapper>"""
+    ) as xml_path:
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user",
+                "statementId": "findUsers",
+            },
+            patch_target={
+                "targetSql": "SELECT id FROM users WHERE user_status = #{status}",
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_statement_body",
+                        "afterTemplate": (
+                            "SELECT id FROM users <where>"
+                            '<if test="status != null">AND user_status = #{status}</if>'
+                            "</where>"
+                        ),
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_statement_body"],
+                    "expectedRenderedSql": "SELECT id FROM users WHERE user_status = #{status}",
+                    "expectedRenderedSqlNormalized": "SELECT id FROM users WHERE user_status = #{status}",
+                    "expectedFingerprint": {
+                        "kind": "normalized_sql",
+                        "value": "SELECT id FROM users WHERE user_status = #{status}",
+                    },
+                    "requiredAnchors": ["<where>"],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{status}"],
+                    "requiredIfTestShape": ["status != null"],
+                    "requiredIfBodyShape": ["AND status = #{status}"],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            fragment_catalog={},
+        )
+
+    assert result.matches_target is False
+    assert result.drift_reason == "PATCH_DYNAMIC_IF_BODY_DRIFT"

@@ -54,6 +54,20 @@ def test_patch_contracts_frozen_family_scope_is_registry_derived() -> None:
     assert "STATIC_ALIAS_PROJECTION_CLEANUP" in FROZEN_AUTO_PATCH_FAMILIES
 
 
+def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
+    select_spec = lookup_patch_family_spec("DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
+    from_spec = lookup_patch_family_spec("DYNAMIC_FILTER_FROM_ALIAS_CLEANUP")
+
+    assert select_spec is not None
+    assert from_spec is not None
+    assert select_spec.status == "FROZEN_AUTO_PATCH"
+    assert from_spec.status == "FROZEN_AUTO_PATCH"
+    assert select_spec.acceptance.semantic_min_confidence == "HIGH"
+    assert from_spec.acceptance.semantic_min_confidence == "HIGH"
+    assert select_spec.fixture_obligations.blocked_neighbor_required is True
+    assert from_spec.fixture_obligations.blocked_neighbor_required is True
+
+
 def test_duplicate_family_registration_fails_fast() -> None:
     spec = lookup_patch_family_spec("STATIC_INCLUDE_WRAPPER_COLLAPSE")
     assert spec is not None

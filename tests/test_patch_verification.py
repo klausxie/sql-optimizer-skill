@@ -180,6 +180,44 @@ class PatchVerificationTest(unittest.TestCase):
         failed_checks = {check["name"]: check for check in rows[0]["checks"] if not check["ok"]}
         self.assertIn("replay_matches_target", failed_checks)
 
+    def test_dynamic_family_if_replay_drift_remains_unverified(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_dynamic_if_drift_") as td:
+            run_dir = Path(td)
+            patch = {
+                "selectionReason": {"code": "PATCH_DYNAMIC_IF_TEST_DRIFT", "message": "dynamic if test drift"},
+                "applicable": False,
+                "patchFiles": [],
+                "patchTarget": self._patch_target(family="DYNAMIC_FILTER_SELECT_LIST_CLEANUP"),
+                "replayEvidence": {"matchesTarget": False, "driftReason": "PATCH_DYNAMIC_IF_TEST_DRIFT"},
+                "syntaxEvidence": {
+                    "ok": True,
+                    "xmlParseOk": True,
+                    "renderOk": True,
+                    "sqlParseOk": True,
+                    "renderedSqlPresent": True,
+                },
+            }
+            acceptance = {"status": "PASS", "patchTarget": self._patch_target(family="DYNAMIC_FILTER_SELECT_LIST_CLEANUP")}
+            append_patch_verification(
+                run_dir=run_dir,
+                validator=self._validator(),
+                patch=patch,
+                acceptance=acceptance,
+                status="PASS",
+                semantic_gate_status="PASS",
+                semantic_gate_confidence="HIGH",
+                sql_key="demo.user.find#v1",
+                statement_key="demo.user.find",
+                same_statement=[{"sqlKey": "demo.user.find#v1"}],
+                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+            )
+            rows = _read_ledger(run_dir)
+
+        self.assertEqual(rows[0]["status"], "UNVERIFIED")
+        self.assertEqual(rows[0]["reason_code"], "PATCH_DYNAMIC_IF_TEST_DRIFT")
+        failed_checks = {check["name"]: check for check in rows[0]["checks"] if not check["ok"]}
+        self.assertIn("replay_matches_target", failed_checks)
+
     def test_semantic_gate_block_is_recorded_with_explicit_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_semantic_gate_") as td:
             run_dir = Path(td)

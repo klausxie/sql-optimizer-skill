@@ -71,6 +71,43 @@ def _qualified_include_refs(template: str, namespace: str) -> list[str]:
     return refs
 
 
+def _collect_normalized_if_tests(template: str) -> list[str]:
+    try:
+        wrapper = ET.fromstring(f"<root>{template}</root>")
+    except ET.ParseError:
+        return []
+    tests: list[str] = []
+    for node in wrapper.iter():
+        if str(node.tag).rsplit("}", 1)[-1].lower() != "if":
+            continue
+        tests.append(normalize_sql_text(str(node.attrib.get("test") or "")))
+    return tests
+
+
+def _if_inner_template(node: ET.Element) -> str:
+    parts: list[str] = []
+    if node.text:
+        parts.append(node.text)
+    for child in list(node):
+        parts.append(ET.tostring(child, encoding="unicode"))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
+def _collect_normalized_if_bodies(template: str) -> list[str]:
+    try:
+        wrapper = ET.fromstring(f"<root>{template}</root>")
+    except ET.ParseError:
+        return []
+    bodies: list[str] = []
+    for node in wrapper.iter():
+        if str(node.tag).rsplit("}", 1)[-1].lower() != "if":
+            continue
+        bodies.append(normalize_sql_text(_if_inner_template(node)))
+    return bodies
+
+
 def build_replay_contract(
     sql_unit: dict[str, Any],
     rewritten_sql: str,
@@ -125,6 +162,8 @@ def build_replay_contract(
         "requiredAnchors": [str(anchor) for row in ops for anchor in (row.get("preservedAnchors") or [])],
         "requiredIncludes": _qualified_include_refs(after_template, namespace),
         "requiredPlaceholderShape": _placeholder_shape(after_template or rewritten_sql),
+        "requiredIfTestShape": _collect_normalized_if_tests(after_template),
+        "requiredIfBodyShape": _collect_normalized_if_bodies(after_template),
         "dialectSyntaxCheckRequired": mode != STATEMENT_SQL,
     }
 
