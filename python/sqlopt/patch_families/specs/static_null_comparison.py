@@ -1,0 +1,50 @@
+from ..models import (
+    PatchFamilySpec,
+    PatchFamilyScope,
+    PatchFamilyAcceptancePolicy,
+    PatchFamilyPatchTargetPolicy,
+    PatchFamilyReplayPolicy,
+    PatchFamilyVerificationPolicy,
+    PatchFamilyBlockingPolicy,
+    PatchFamilyFixtureObligations,
+)
+
+STATIC_NULL_COMPARISON_SPEC = PatchFamilySpec(
+    family="STATIC_NULL_COMPARISON",
+    status="FROZEN_AUTO_PATCH",
+    stage="MVP",
+    scope=PatchFamilyScope(
+        statement_types=("SELECT",),
+        requires_template_preserving=True,
+        forbid_features=(),
+    ),
+    acceptance=PatchFamilyAcceptancePolicy(
+        semantic_required_status="PASS",
+        semantic_min_confidence="HIGH",
+    ),
+    patch_target_policy=PatchFamilyPatchTargetPolicy(
+        selected_patch_strategy="EXACT_TEMPLATE_EDIT",
+        requires_replay_contract=False,
+    ),
+    replay=PatchFamilyReplayPolicy(
+        required_template_ops=(),
+        render_mode="NONE",
+    ),
+    verification=PatchFamilyVerificationPolicy(
+        require_replay_match=False,
+        require_xml_parse=True,
+        require_render_ok=True,
+        require_sql_parse=False,
+        require_apply_check=False,
+    ),
+    blockers=PatchFamilyBlockingPolicy(
+        block_on_choose=True,
+        block_on_foreach=True,
+    ),
+    fixture_obligations=PatchFamilyFixtureObligations(
+        ready_case_required=True,
+        blocked_neighbor_required=False,
+        replay_assertions_required=False,
+        verification_assertions_required=True,
+    ),
+)

@@ -109,6 +109,36 @@ _SUBQUERY_WRAPPER_RE = re.compile(
     flags=re.IGNORECASE | re.DOTALL,
 )
 
+# Pattern to match boolean constants in WHERE: 1=1, 0=1, 1=0
+_BOOLEAN_CONSTANT_RE = re.compile(
+    r"\b(1\s*=\s*1|0\s*=\s*0|1\s*<>?\s*1|0\s*<>?\s*0)\b",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match CASE WHEN true
+_CASE_SIMPLIFY_RE = re.compile(
+    r"\bCASE\s+WHEN\s+TRUE\s+THEN\b",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match COALESCE(col, col) or COALESCE(col, NULL)
+_COALESCE_SIMPLIFY_RE = re.compile(
+    r"\bCOALESCE\s*\(\s*([a-z_][a-z0-9_\.]*)\s*,\s*(\1|NULL)\s*\)",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match simple arithmetic folding: number OP number
+_EXPRESSION_FOLDING_RE = re.compile(
+    r"\b(\d+)\s*([+\-*/])\s*(\d+)\b",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match NULL comparisons: col = NULL, col <> NULL
+_NULL_COMPARISON_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s*(=|<>|!=)\s*NULL\b",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -267,6 +297,46 @@ def _derive_patch_target_family(
         selected_patch_strategy=selected_patch_strategy,
     ):
         return "STATIC_SUBQUERY_WRAPPER_COLLAPSE"
+
+    # Check for boolean simplification
+    if _classify_static_boolean_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_BOOLEAN_SIMPLIFICATION"
+
+    # Check for CASE simplification
+    if _classify_static_case_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_CASE_SIMPLIFICATION"
+
+    # Check for COALESCE simplification
+    if _classify_static_coalesce_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_COALESCE_SIMPLIFICATION"
+
+    # Check for expression folding
+    if _classify_static_expression_folding(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_EXPRESSION_FOLDING"
+
+    # Check for NULL comparison fix
+    if _classify_static_null_comparison(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_NULL_COMPARISON"
 
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
@@ -551,6 +621,138 @@ def _classify_static_subquery_wrapper_collapse(
         original_select_count = normalized_original.upper().count("SELECT")
         rewritten_select_count = normalized_rewritten.upper().count("SELECT")
         if rewritten_select_count < original_select_count:
+            return True
+
+    return False
+
+
+def _classify_static_boolean_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if useless boolean expressions are simplified."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for boolean constants in original
+    if _BOOLEAN_CONSTANT_RE.search(normalized_original):
+        # If rewritten has removed or changed the boolean expression
+        if normalized_rewritten != normalized_original:
+            return True
+
+    return False
+
+
+def _classify_static_case_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if CASE WHEN is simplified."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for CASE WHEN TRUE in original
+    if _CASE_SIMPLIFY_RE.search(normalized_original):
+        # If rewritten has simplified (less CASE keywords)
+        if normalized_rewritten.upper().count("CASE") < normalized_original.upper().count("CASE"):
+            return True
+
+    return False
+
+
+def _classify_static_coalesce_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if COALESCE is simplified."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for COALESCE with redundant args
+    if _COALESCE_SIMPLIFY_RE.search(normalized_original):
+        # If rewritten has fewer COALESCE
+        if normalized_rewritten.upper().count("COALESCE") < normalized_original.upper().count("COALESCE"):
+            return True
+
+    return False
+
+
+def _classify_static_expression_folding(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if constant expressions are folded."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for foldable expressions in original
+    if _EXPRESSION_FOLDING_RE.search(normalized_original):
+        # If rewritten has fewer operators (folded)
+        original_ops = len(_EXPRESSION_FOLDING_RE.findall(normalized_original))
+        rewritten_ops = len(_EXPRESSION_FOLDING_RE.findall(normalized_rewritten))
+        if rewritten_ops < original_ops:
+            return True
+
+    return False
+
+
+def _classify_static_null_comparison(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if NULL comparisons are fixed (col = NULL -> col IS NULL)."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for col = NULL in original
+    if _NULL_COMPARISON_RE.search(normalized_original):
+        # If rewritten uses IS NULL instead of = NULL
+        if "IS NULL" in normalized_rewritten.upper() or "IS NOT NULL" in normalized_rewritten.upper():
             return True
 
     return False
