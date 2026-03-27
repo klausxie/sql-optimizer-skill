@@ -131,14 +131,9 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             unit_baselines = unit_map[unit_id]
 
             for baseline in unit_baselines:
-                if progress_callback:
-                    progress_callback(
-                        f"Unit {unit_idx + 1}/{total_units}: {baseline.sql_unit_id}.{baseline.path_id}",
-                        (unit_idx + 1, total_units),
-                    )
                 if baseline.plan is None:
                     key = f"{baseline.sql_unit_id}.{baseline.path_id}"
-                    logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
+                    logger.debug(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                     continue
 
                 try:
@@ -167,7 +162,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                     )
                     unit_proposals.append(proposal)
                     proposals.append(proposal)
-                    logger.info(
+                    logger.debug(
                         "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f, status=%s",
                         baseline.sql_unit_id,
                         baseline.path_id,
@@ -205,7 +200,7 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         for baseline in baselines:
             if baseline.plan is None:
                 key = f"{baseline.sql_unit_id}.{baseline.path_id}"
-                logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
+                logger.debug(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                 continue
             unit_map[baseline.sql_unit_id].append(baseline)
 
