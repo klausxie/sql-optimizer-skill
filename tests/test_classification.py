@@ -99,3 +99,27 @@ def test_integration_with_validator_sql():
     # The function should not raise and should return a result
     result = classify_patch_family(ctx)
     assert result in ("STATIC_IN_LIST_SIMPLIFICATION", None)
+
+
+def test_config_boolean_simplification():
+    """STATIC_BOOLEAN_SIMPLIFICATION can be classified via config."""
+    ctx = ClassificationContext(
+        original_sql="SELECT * FROM users WHERE 1 = 1",
+        rewritten_sql="SELECT * FROM users",  # condition removed
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+    result = classify_patch_family(ctx)
+    assert result == "STATIC_BOOLEAN_SIMPLIFICATION"
+
+
+def test_config_case_simplification():
+    """STATIC_CASE_SIMPLIFICATION can be classified via config."""
+    ctx = ClassificationContext(
+        original_sql="SELECT CASE WHEN TRUE THEN id END FROM users",
+        rewritten_sql="SELECT id FROM users",
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+    result = classify_patch_family(ctx)
+    assert result == "STATIC_CASE_SIMPLIFICATION"

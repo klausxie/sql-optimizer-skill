@@ -46,6 +46,42 @@ _CONFIG: dict[str, ClassificationConfig] = {
         original_patterns=[r"\bSELECT\s+DISTINCT\s+ON\s*\("],
         rewritten_patterns=[r"\bSELECT\s+DISTINCT\s+"],
     ),
+    "STATIC_OR_SIMPLIFICATION": ClassificationConfig(
+        family="STATIC_OR_SIMPLIFICATION",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\b([a-z_][a-z0-9_\.]*)\s*=\s*[^'\s]+\s+OR\s+\1\s*=\s*[^'\s]+"],
+        rewritten_patterns=[r"\bIN\s*\("],
+    ),
+    "STATIC_BOOLEAN_SIMPLIFICATION": ClassificationConfig(
+        family="STATIC_BOOLEAN_SIMPLIFICATION",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\b(1\s*=\s*1|0\s*=\s*0|1\s*<>?\s*1|0\s*<>?\s*0)\b"],
+        rewritten_patterns=[],  # removed or simplified
+    ),
+    "STATIC_CASE_SIMPLIFICATION": ClassificationConfig(
+        family="STATIC_CASE_SIMPLIFICATION",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\bCASE\s+WHEN\s+TRUE\s+THEN\b"],
+        rewritten_patterns=[],  # simplified
+    ),
+    "STATIC_COALESCE_SIMPLIFICATION": ClassificationConfig(
+        family="STATIC_COALESCE_SIMPLIFICATION",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\bCOALESCE\s*\(\s*([a-z_][a-z0-9_\.]*)\s*,\s*(\1|NULL)\s*\)"],
+        rewritten_patterns=[r"\1"],  # simplified to just the column
+    ),
+    "STATIC_EXPRESSION_FOLDING": ClassificationConfig(
+        family="STATIC_EXPRESSION_FOLDING",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\b(\d+)\s*([+\-*/])\s*(\d+)\b"],
+        rewritten_patterns=[],  # folded result
+    ),
+    "STATIC_NULL_COMPARISON": ClassificationConfig(
+        family="STATIC_NULL_COMPARISON",
+        strategy_type="EXACT_TEMPLATE_EDIT",
+        original_patterns=[r"\b([a-z_][a-z0-9_\.]*)\s*(=|<>|!=)\s*NULL\b"],
+        rewritten_patterns=[r"\bIS\s+(NULL|NOT\s+NULL)\b"],
+    ),
 }
 
 
