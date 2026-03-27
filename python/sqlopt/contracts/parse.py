@@ -79,12 +79,16 @@ class ParseOutput:
 
     sql_units_with_branches: List[SQLUnitWithBranches] = field(default_factory=list)
     run_id: str = "unknown"
+    strategy: str = "unknown"
+    max_branches: int = 0
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "sql_units_with_branches": [json.loads(u.to_json()) for u in self.sql_units_with_branches],
                 "run_id": self.run_id,
+                "strategy": self.strategy,
+                "max_branches": self.max_branches,
             }
         )
 
@@ -96,4 +100,6 @@ class ParseOutput:
                 SQLUnitWithBranches.from_json(json.dumps(u)) for u in data["sql_units_with_branches"]
             ],
             run_id=data.get("run_id", "unknown"),
+            strategy=data.get("strategy", "unknown"),
+            max_branches=data.get("max_branches", 0),
         )

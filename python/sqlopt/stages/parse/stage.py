@@ -62,7 +62,7 @@ class ParseStage(Stage[None, ParseOutput]):
                 active_conditions=[],
             )
             unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
-            return ParseOutput(sql_units_with_branches=[unit_with_branches])
+            return ParseOutput(sql_units_with_branches=[unit_with_branches], strategy="stub", max_branches=0)
 
         loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         init_file = loader.get_init_sql_units_path()
@@ -82,7 +82,7 @@ class ParseStage(Stage[None, ParseOutput]):
                 active_conditions=[],
             )
             unit_with_branches = SQLUnitWithBranches(sql_unit_id="stub-1", branches=[branch])
-            return ParseOutput(sql_units_with_branches=[unit_with_branches])
+            return ParseOutput(sql_units_with_branches=[unit_with_branches], strategy="stub", max_branches=0)
 
         init_data = InitOutput.from_json(init_file.read_text(encoding="utf-8"))
         logger.info(f"[PARSE] Loaded {len(init_data.sql_units)} SQL unit(s) from init stage")
@@ -115,7 +115,9 @@ class ParseStage(Stage[None, ParseOutput]):
         logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info("[PARSE] Parse stage completed")
 
-        output = ParseOutput(sql_units_with_branches=units_with_branches, run_id=rid)
+        output = ParseOutput(
+            sql_units_with_branches=units_with_branches, run_id=rid, strategy=strategy, max_branches=max_branches
+        )
         self._write_output(rid, output)
         self._generate_summary(rid, output, total_branches, time.time() - start_time, failed_units)
 
@@ -322,6 +324,8 @@ class ParseStage(Stage[None, ParseOutput]):
             output_with_run_id = ParseOutput(
                 sql_units_with_branches=output.sql_units_with_branches,
                 run_id=run_id,
+                strategy=output.strategy,
+                max_branches=output.max_branches,
             )
 
             summary_content = generate_parse_summary_markdown(

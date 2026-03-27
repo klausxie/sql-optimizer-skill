@@ -636,39 +636,83 @@ def generate_parse_summary_markdown(
     lines.append(f"**耗时:** {duration_seconds:.2f} 秒")
     lines.append("")
 
-    # --- Execution overview ---
     total_units = len(units)
     valid_branches = sum(1 for u in units for b in u.branches if b.is_valid)
     invalid_branches = sum(1 for u in units for b in u.branches if not b.is_valid)
     total_branch_count = sum(len(u.branches) for u in units)
     error_branches = sum(1 for u in units for b in u.branches if b.branch_type == "error")
 
+    strategy = getattr(output, "strategy", None) or "unknown"
+    max_branches = getattr(output, "max_branches", 0) or 0
+
+    strategy_names = {
+        "all_combinations": "全组合（所有条件排列）",
+        "pairwise": "两两组合（成对覆盖）",
+        "boundary": "边界值（极值测试）",
+        "ladder": "阶梯采样（智能加权）",
+    }
+    strategy_display = strategy_names.get(strategy, strategy)
+
+    lines.append("## 解析策略")
+    lines.append("")
+    lines.append(f"- **策略:** `{strategy}` ({strategy_display})")
+    lines.append(f"- **最大分支上限:** {max_branches if max_branches > 0 else '无限制'}")
+    lines.append("")
+    if strategy == "all_combinations":
+        lines.append("全组合策略会生成所有条件的所有可能组合。当条件数较多时，分支数呈指数增长（2^n）。")
+    elif strategy == "pairwise":
+        lines.append("两两组合策略确保每对条件至少出现一次，覆盖率高而分支数可控（约 n^2）。")
+    elif strategy == "boundary":
+        lines.append("边界值策略只生成极值情况（全 true / 全 false / 各一个 false 等），分支数最少（约 n+1）。")
+    elif strategy == "ladder":
+        lines.append("阶梯采样策略结合了高权重两两组合和边界覆盖，在覆盖率和分支数之间取得平衡。")
+    lines.append("")
+
     lines.append("## 执行概览")
     lines.append("")
     lines.append("| 指标 | 数值 |")
     lines.append("|------|------|")
     lines.append(f"| SQL单元数 | {total_units} |")
-    lines.append(f"| 分支总数 | {total_branch_count} |")
-    lines.append(f"| ✅ 有效分支 | {valid_branches} |")
-    lines.append(f"| ❌ 无效分支 | {invalid_branches} |")
-    lines.append(f"| 🔴 错误分支 | {error_branches} |")
+    lines.append(f"| 实际生成分支 | {total_branch_count} |")
+    lines.append(f"| ✅ 语法有效分支 | {valid_branches} |")
+    lines.append(f"| ❌ 语法错误分支 | {invalid_branches} |")
+    lines.append(f"| 🔴 展开异常分支 | {error_branches} |")
     lines.append(f"| ⚠️ 展开失败单元 | {failed_units} |")
     lines.append("")
 
-    # --- Branch count distribution per unit ---
+    all_unique_conditions: set[str] = set()
+    for u in units:
+        for b in u.branches:
+            for cond in b.active_conditions:
+                all_unique_conditions.add(cond)
+    theoretical_max = 0
+    if all_unique_conditions:
+        theoretical_max = 2 ** len(all_unique_conditions)
+    coverage_pct = (total_branch_count / theoretical_max * 100) if theoretical_max > 0 else 0
+
+    lines.append("## 全量预估 vs 实际生成")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| 独立条件总数 | {len(all_unique_conditions)} |")
+    lines.append(f"| 全组合理论上限 | {theoretical_max} |")
+    lines.append(f"| 实际生成分支 | {total_branch_count} |")
+    lines.append(f"| 覆盖率 | {coverage_pct:.1f}% |")
+    if strategy == "ladder" or strategy == "pairwise":
+        lines.append(f"| 策略说明 | {strategy} 策略有意不生成全组合，控制分支数 |")
+    lines.append("")
+    lines.append("**覆盖率计算:** 实际分支数 / 全组合理论上限（仅当使用 `all_combinations` 策略时有意义）")
+    lines.append("")
+
     branch_counts = [len(u.branches) for u in units]
     if branch_counts:
-        min_bc = min(branch_counts)
-        max_bc = max(branch_counts)
-        avg_bc = sum(branch_counts) / len(branch_counts)
-
         lines.append("## 分支数分布")
         lines.append("")
         lines.append("| 指标 | 数值 |")
         lines.append("|------|------|")
-        lines.append(f"| 最少分支 | {min_bc} |")
-        lines.append(f"| 最多分支 | {max_bc} |")
-        lines.append(f"| 平均分支 | {avg_bc:.1f} |")
+        lines.append(f"| 最少分支 | {min(branch_counts)} |")
+        lines.append(f"| 最多分支 | {max(branch_counts)} |")
+        lines.append(f"| 平均分支 | {sum(branch_counts) / len(branch_counts):.1f} |")
         lines.append("")
 
         buckets: dict[str, int] = {"1": 0, "2-5": 0, "6-10": 0, "11-20": 0, "20+": 0}
@@ -690,7 +734,6 @@ def generate_parse_summary_markdown(
             lines.append(f"| {label} | {cnt} |")
         lines.append("")
 
-    # --- Risk flags distribution ---
     all_risk_flags: list[str] = []
     for u in units:
         for b in u.branches:
@@ -707,7 +750,6 @@ def generate_parse_summary_markdown(
             lines.append(f"- ... 还有 {len(flag_counter) - 15} 种标记")
         lines.append("")
 
-    # --- High risk branches Top N ---
     scored_branches = [(u.sql_unit_id, b) for u in units for b in u.branches if b.risk_score is not None]
     if scored_branches:
         top_risk = sorted(scored_branches, key=lambda x: x[1].risk_score or 0.0, reverse=True)[:10]
@@ -725,26 +767,29 @@ def generate_parse_summary_markdown(
         lines.append(f"**Top SQL:** `{_extract_sql_preview(top_risk[0][1].expanded_sql, 80)}`")
         lines.append("")
 
-    # --- Per SQL unit details ---
     lines.append(f"## SQL Unit 详情（共 {total_units} 个 Unit）")
     lines.append("")
-    lines.append("| Unit | 分支数 | 有效 | 无效 | Top 风险标记 |")
-    lines.append("|------|--------|------|------|-------------|")
+    lines.append("| Unit | 条件数 | 生成分支 | 理论上限 | 语法有效 | Top 风险标记 |")
+    lines.append("|------|--------|----------|----------|----------|-------------|")
 
-    unit_details: list[tuple[str, int, int, int, str]] = []
+    unit_details: list[tuple[str, int, int, int, int, str]] = []
     for u in units:
+        unique_conds = set()
+        for b in u.branches:
+            for c in b.active_conditions:
+                unique_conds.add(c)
+        cond_count = len(unique_conds)
+        theo_max = 2**cond_count if cond_count > 0 else 1
         valid_cnt = sum(1 for b in u.branches if b.is_valid)
-        invalid_cnt = len(u.branches) - valid_cnt
         unit_flags = [f for b in u.branches for f in b.risk_flags]
         top_flag = Counter(unit_flags).most_common(1)[0][0] if unit_flags else "-"
-        unit_details.append((u.sql_unit_id, len(u.branches), valid_cnt, invalid_cnt, top_flag))
+        unit_details.append((u.sql_unit_id, cond_count, len(u.branches), theo_max, valid_cnt, top_flag))
 
     unit_details.sort(key=lambda x: x[2], reverse=True)
-    for unit_id, branch_cnt, valid_cnt, invalid_cnt, top_flag in unit_details:
-        lines.append(f"| `{unit_id}` | {branch_cnt} | {valid_cnt} | {invalid_cnt} | {top_flag} |")
+    for unit_id, cond_cnt, branch_cnt, theo_max, valid_cnt, top_flag in unit_details:
+        lines.append(f"| `{unit_id}` | {cond_cnt} | {branch_cnt} | {theo_max} | {valid_cnt} | {top_flag} |")
     lines.append("")
 
-    # --- Condition distribution ---
     all_conditions: list[str] = []
     for u in units:
         for b in u.branches:
@@ -762,7 +807,6 @@ def generate_parse_summary_markdown(
             lines.append(f"- ... 还有 {len(cond_counter) - 10} 种条件")
         lines.append("")
 
-    # --- Branch type distribution ---
     branch_types: dict[str, int] = {}
     for u in units:
         for b in u.branches:
@@ -777,15 +821,14 @@ def generate_parse_summary_markdown(
             lines.append(f"- {icon} **{bt}**: {cnt} 条")
         lines.append("")
 
-    # --- Statistics ---
     lines.append("## 统计信息")
     lines.append("")
     lines.append("| 指标 | 数值 |")
     lines.append("|------|------|")
     lines.append(f"| SQL Unit 数 | {total_units} |")
-    lines.append(f"| 分支总数 | {total_branch_count} |")
-    lines.append(f"| 有效分支 | {valid_branches} |")
-    lines.append(f"| 无效分支 | {invalid_branches} |")
+    lines.append(f"| 独立条件数 | {len(all_unique_conditions)} |")
+    lines.append(f"| 实际生成分支 | {total_branch_count} |")
+    lines.append(f"| 语法有效分支 | {valid_branches} |")
     lines.append(f"| 展开失败单元 | {failed_units} |")
     lines.append(f"| 输出文件数 | {files_count} |")
     lines.append(f"| 输出大小 | {file_size_bytes:,} 字节 |")
