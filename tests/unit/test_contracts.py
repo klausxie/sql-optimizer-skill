@@ -19,6 +19,11 @@ from sqlopt.contracts import (
     SQLUnit,
     SQLUnitWithBranches,
 )
+from sqlopt.contracts.optimize import (
+    ActionConflict,
+    OptimizationAction,
+    UnitActionSummary,
+)
 
 
 class TestSQLUnit:
@@ -578,3 +583,385 @@ class TestResultOutput:
         assert restored.report.summary == output.report.summary
         assert len(restored.patches) == 1
         assert restored.patches[0].sql_unit_id == "u1"
+
+
+class TestOptimizationAction:
+    """Tests for OptimizationAction serialization."""
+
+    def test_to_dict(self) -> None:
+        action = OptimizationAction(
+            action_id="act_001",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if[@test='name != null']",
+            target_tag="if",
+            original_snippet="<if test='name != null'>AND name = #{name}</if>",
+            rewritten_snippet="<if test='name != null'>AND name LIKE #{name}</if>",
+            sql_fragment="AND name = #{name}",
+            rationale="Use LIKE for better pattern matching",
+            confidence=0.85,
+            path_id="path-1",
+            issue_type="PREFIX_WILDCARD",
+        )
+        result = action.to_dict()
+        assert result["action_id"] == "act_001"
+        assert result["operation"] == "REPLACE"
+        assert result["xpath"] == "/mapper/select/where/if[@test='name != null']"
+        assert result["target_tag"] == "if"
+        assert result["original_snippet"] == "<if test='name != null'>AND name = #{name}</if>"
+        assert result["rewritten_snippet"] == "<if test='name != null'>AND name LIKE #{name}</if>"
+        assert result["sql_fragment"] == "AND name = #{name}"
+        assert result["rationale"] == "Use LIKE for better pattern matching"
+        assert result["confidence"] == 0.85
+        assert result["path_id"] == "path-1"
+        assert result["issue_type"] == "PREFIX_WILDCARD"
+
+    def test_from_dict(self) -> None:
+        data = {
+            "action_id": "act_002",
+            "operation": "ADD",
+            "xpath": "/mapper/select/where",
+            "target_tag": "where",
+            "original_snippet": None,
+            "rewritten_snippet": "<where><if test='status != null'>status = #{status}</if></where>",
+            "sql_fragment": None,
+            "rationale": "Add where clause wrapper",
+            "confidence": 0.9,
+            "path_id": None,
+            "issue_type": "MISSING_WHERE",
+        }
+        action = OptimizationAction.from_dict(data)
+        assert action.action_id == "act_002"
+        assert action.operation == "ADD"
+        assert action.xpath == "/mapper/select/where"
+        assert action.target_tag == "where"
+        assert action.original_snippet is None
+        assert action.rewritten_snippet == "<where><if test='status != null'>status = #{status}</if></where>"
+        assert action.confidence == 0.9
+        assert action.path_id is None
+
+    def test_roundtrip(self) -> None:
+        action = OptimizationAction(
+            action_id="act_003",
+            operation="REMOVE",
+            xpath="/mapper/select/where/if[@test='1=1']",
+            target_tag="if",
+            original_snippet="<if test='1=1'>AND 1=1</if>",
+            rewritten_snippet=None,
+            sql_fragment="AND 1=1",
+            rationale="Remove tautology",
+            confidence=0.95,
+            path_id="path-2",
+            issue_type="TAUTOLOGY",
+        )
+        json_str = json.dumps(action.to_dict())
+        restored = OptimizationAction.from_dict(json.loads(json_str))
+        assert restored.action_id == action.action_id
+        assert restored.operation == action.operation
+        assert restored.xpath == action.xpath
+        assert restored.target_tag == action.target_tag
+        assert restored.original_snippet == action.original_snippet
+        assert restored.rewritten_snippet == action.rewritten_snippet
+        assert restored.sql_fragment == action.sql_fragment
+        assert restored.rationale == action.rationale
+        assert restored.confidence == action.confidence
+        assert restored.path_id == action.path_id
+        assert restored.issue_type == action.issue_type
+
+    def test_operation_types(self) -> None:
+        """Test all valid operation types: REPLACE, ADD, REMOVE, WRAP."""
+        for op_type in ["REPLACE", "ADD", "REMOVE", "WRAP"]:
+            action = OptimizationAction(
+                action_id=f"act_{op_type}",
+                operation=op_type,
+                xpath="/mapper/select/where",
+                target_tag="where",
+            )
+            assert action.operation == op_type
+
+
+class TestActionConflict:
+    """Tests for ActionConflict serialization."""
+
+    def test_to_dict(self) -> None:
+        action_a = OptimizationAction(
+            action_id="act_a",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='name'>AND name = #{name}</if>",
+            rewritten_snippet="<if test='name'>AND name LIKE #{name}</if>",
+        )
+        action_b = OptimizationAction(
+            action_id="act_b",
+            operation="REMOVE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='name'>AND name = #{name}</if>",
+            rewritten_snippet=None,
+        )
+        conflict = ActionConflict(
+            xpath="/mapper/select/where/if",
+            action_a=action_a,
+            action_b=action_b,
+            conflict_type="overlap",
+            resolution="a_wins",
+            merged_action=None,
+        )
+        result = conflict.to_dict()
+        assert result["xpath"] == "/mapper/select/where/if"
+        assert result["action_a"]["action_id"] == "act_a"
+        assert result["action_b"]["action_id"] == "act_b"
+        assert result["conflict_type"] == "overlap"
+        assert result["resolution"] == "a_wins"
+        assert result["merged_action"] is None
+
+    def test_from_dict(self) -> None:
+        data = {
+            "xpath": "/mapper/select/where",
+            "action_a": {
+                "action_id": "act_x",
+                "operation": "ADD",
+                "xpath": "/mapper/select/where",
+                "target_tag": "where",
+                "original_snippet": None,
+                "rewritten_snippet": "<where></where>",
+            },
+            "action_b": {
+                "action_id": "act_y",
+                "operation": "WRAP",
+                "xpath": "/mapper/select/where",
+                "target_tag": "where",
+                "original_snippet": "<where></where>",
+                "rewritten_snippet": "<where><bind name='_' value='1'/></where>",
+            },
+            "conflict_type": "contradict",
+            "resolution": "merged",
+            "merged_action": {
+                "action_id": "act_merged",
+                "operation": "ADD",
+                "xpath": "/mapper/select/where",
+                "target_tag": "where",
+                "original_snippet": None,
+                "rewritten_snippet": "<where></where>",
+            },
+        }
+        conflict = ActionConflict.from_dict(data)
+        assert conflict.xpath == "/mapper/select/where"
+        assert conflict.action_a.action_id == "act_x"
+        assert conflict.action_b.action_id == "act_y"
+        assert conflict.conflict_type == "contradict"
+        assert conflict.resolution == "merged"
+        assert conflict.merged_action is not None
+        assert conflict.merged_action.action_id == "act_merged"
+
+    def test_roundtrip(self) -> None:
+        action_a = OptimizationAction(
+            action_id="act_1",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='x'>AND x = #{x}</if>",
+            rewritten_snippet="<if test='x'>AND x LIKE #{x}</if>",
+        )
+        action_b = OptimizationAction(
+            action_id="act_2",
+            operation="REMOVE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='x'>AND x = #{x}</if>",
+            rewritten_snippet=None,
+        )
+        conflict = ActionConflict(
+            xpath="/mapper/select/where/if",
+            action_a=action_a,
+            action_b=action_b,
+            conflict_type="overlap",
+            resolution="dropped",
+            merged_action=None,
+        )
+        json_str = json.dumps(conflict.to_dict())
+        restored = ActionConflict.from_dict(json.loads(json_str))
+        assert restored.xpath == conflict.xpath
+        assert restored.action_a.action_id == conflict.action_a.action_id
+        assert restored.action_b.action_id == conflict.action_b.action_id
+        assert restored.conflict_type == conflict.conflict_type
+        assert restored.resolution == conflict.resolution
+        assert restored.merged_action is None
+
+    def test_conflict_types(self) -> None:
+        """Test all valid conflict types: overlap, contradict, redundant."""
+        action_a = OptimizationAction(
+            action_id="act_a",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='x'>AND x = #{x}</if>",
+            rewritten_snippet="<if test='x'>AND x LIKE #{x}</if>",
+        )
+        action_b = OptimizationAction(
+            action_id="act_b",
+            operation="REMOVE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='x'>AND x = #{x}</if>",
+            rewritten_snippet=None,
+        )
+        for conflict_type in ["overlap", "contradict", "redundant"]:
+            conflict = ActionConflict(
+                xpath="/mapper/select/where/if",
+                action_a=action_a,
+                action_b=action_b,
+                conflict_type=conflict_type,
+                resolution="dropped",
+            )
+            assert conflict.conflict_type == conflict_type
+
+
+class TestUnitActionSummary:
+    """Tests for UnitActionSummary serialization."""
+
+    def test_to_dict(self) -> None:
+        action = OptimizationAction(
+            action_id="act_001",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='name'>AND name = #{name}</if>",
+            rewritten_snippet="<if test='name'>AND name LIKE #{name}</if>",
+            sql_fragment="AND name = #{name}",
+            rationale="Use LIKE",
+            confidence=0.85,
+            path_id="path-1",
+            issue_type="PREFIX_WILDCARD",
+        )
+        summary = UnitActionSummary(
+            sql_unit_id="unit-1",
+            unit_xpath="/mapper/UserMapper.xml/sql/selectUserById",
+            actions=[action],
+            conflicts=[],
+            branch_coverage={"path-1": True, "path-2": False},
+            overall_confidence=0.85,
+        )
+        result = summary.to_dict()
+        assert result["sql_unit_id"] == "unit-1"
+        assert result["unit_xpath"] == "/mapper/UserMapper.xml/sql/selectUserById"
+        assert len(result["actions"]) == 1
+        assert result["actions"][0]["action_id"] == "act_001"
+        assert result["conflicts"] == []
+        assert result["branch_coverage"] == {"path-1": True, "path-2": False}
+        assert result["overall_confidence"] == 0.85
+
+    def test_from_dict(self) -> None:
+        data = {
+            "sql_unit_id": "unit-2",
+            "unit_xpath": "/mapper/OrderMapper.xml/sql/selectOrder",
+            "actions": [
+                {
+                    "action_id": "act_010",
+                    "operation": "ADD",
+                    "xpath": "/mapper/select/where",
+                    "target_tag": "where",
+                    "original_snippet": None,
+                    "rewritten_snippet": "<where></where>",
+                    "sql_fragment": None,
+                    "rationale": "Add where",
+                    "confidence": 0.9,
+                    "path_id": None,
+                    "issue_type": "MISSING_WHERE",
+                }
+            ],
+            "conflicts": [],
+            "branch_coverage": {"path-1": True},
+            "overall_confidence": 0.9,
+        }
+        summary = UnitActionSummary.from_dict(data)
+        assert summary.sql_unit_id == "unit-2"
+        assert summary.unit_xpath == "/mapper/OrderMapper.xml/sql/selectOrder"
+        assert len(summary.actions) == 1
+        assert summary.actions[0].action_id == "act_010"
+        assert summary.branch_coverage == {"path-1": True}
+        assert summary.overall_confidence == 0.9
+
+    def test_roundtrip(self) -> None:
+        action = OptimizationAction(
+            action_id="act_100",
+            operation="WRAP",
+            xpath="/mapper/select/where",
+            target_tag="where",
+            original_snippet="<where></where>",
+            rewritten_snippet="<where><if test='_Parameter != null'>1=1</if></where>",
+            sql_fragment="",
+            rationale="Prevent empty where",
+            confidence=0.75,
+            path_id="path-1",
+            issue_type="EMPTY_WHERE",
+        )
+        action_b = OptimizationAction(
+            action_id="act_101",
+            operation="REPLACE",
+            xpath="/mapper/select/where/if",
+            target_tag="if",
+            original_snippet="<if test='name'>AND name = #{name}</if>",
+            rewritten_snippet="<if test='name'>AND name LIKE #{name}</if>",
+            sql_fragment="AND name = #{name}",
+            rationale="Better matching",
+            confidence=0.8,
+            path_id="path-2",
+            issue_type="PREFIX_WILDCARD",
+        )
+        conflict = ActionConflict(
+            xpath="/mapper/select/where/if",
+            action_a=action,
+            action_b=action_b,
+            conflict_type="overlap",
+            resolution="a_wins",
+        )
+        summary = UnitActionSummary(
+            sql_unit_id="unit-3",
+            unit_xpath="/mapper/ProductMapper.xml/sql/selectProduct",
+            actions=[action, action_b],
+            conflicts=[conflict],
+            branch_coverage={"path-1": True, "path-2": True},
+            overall_confidence=0.775,
+        )
+        json_str = json.dumps(summary.to_dict())
+        restored = UnitActionSummary.from_dict(json.loads(json_str))
+        assert restored.sql_unit_id == summary.sql_unit_id
+        assert restored.unit_xpath == summary.unit_xpath
+        assert len(restored.actions) == len(summary.actions)
+        assert restored.actions[0].action_id == summary.actions[0].action_id
+        assert len(restored.conflicts) == len(summary.conflicts)
+        assert restored.conflicts[0].xpath == summary.conflicts[0].xpath
+        assert restored.branch_coverage == summary.branch_coverage
+        assert restored.overall_confidence == summary.overall_confidence
+
+    def test_branch_coverage(self) -> None:
+        """Test branch coverage dictionary handling."""
+        summary = UnitActionSummary(
+            sql_unit_id="unit-4",
+            unit_xpath="/mapper/TestMapper.xml/sql/test",
+            actions=[],
+            conflicts=[],
+            branch_coverage={"path-a": True, "path-b": False, "path-c": True},
+            overall_confidence=0.0,
+        )
+        result = summary.to_dict()
+        assert result["branch_coverage"]["path-a"] is True
+        assert result["branch_coverage"]["path-b"] is False
+        assert result["branch_coverage"]["path-c"] is True
+
+    def test_empty_actions(self) -> None:
+        """Test UnitActionSummary with empty actions and conflicts."""
+        summary = UnitActionSummary(
+            sql_unit_id="unit-5",
+            unit_xpath="/mapper/EmptyMapper.xml/sql/empty",
+            actions=[],
+            conflicts=[],
+            branch_coverage={},
+            overall_confidence=0.0,
+        )
+        result = summary.to_dict()
+        assert result["actions"] == []
+        assert result["conflicts"] == []
+        assert result["branch_coverage"] == {}
+        assert result["overall_confidence"] == 0.0
