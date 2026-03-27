@@ -157,13 +157,14 @@ Both families must preserve the same proof contract:
 1. `<where>` node remains present
 2. `<if>` node count remains unchanged
 3. `<if>` node order remains unchanged
-4. normalized `<if>` predicate bodies remain text-identical before and after rewrite
-5. placeholder shape remains unchanged
-6. replayed rendered SQL matches target rewritten SQL
-7. XML parse passes
-8. render passes
-9. SQL parse passes
-10. apply-check passes
+4. normalized `<if test="...">` expressions remain text-identical before and after rewrite
+5. normalized `<if>` predicate bodies remain text-identical before and after rewrite
+6. placeholder shape remains unchanged
+7. replayed rendered SQL matches target rewritten SQL
+8. XML parse passes
+9. render passes
+10. SQL parse passes
+11. apply-check passes
 
 This design does not introduce family-specific verifier engines. It binds these families to the existing proof chain through explicit shared obligations.
 
