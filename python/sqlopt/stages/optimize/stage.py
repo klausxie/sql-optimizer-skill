@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import collections
 import json
 import logging
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Any, Callable
 
-from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
@@ -83,17 +84,18 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
         loader = MockDataLoader(rid, use_mock=mock, base_dir=self.base_dir)
         table_schemas = self._load_table_schemas(loader)
         db_connector = self._get_db_connector()
+        self._table_schemas = table_schemas
 
         proposals: list[OptimizationProposal] = []
         logger.info(f"[OPTIMIZE] Processing {len(baselines_data.baselines)} baseline(s) for optimization")
 
         try:
             if self.config.concurrency.enabled and db_connector is None:
-                proposals = self._run_concurrent(baselines_data.baselines, self._progress_callback, table_schemas)
+                proposals = self._run_concurrent(rid, baselines_data.baselines, self._progress_callback)
             else:
                 if db_connector is not None and self.config.concurrency.enabled:
                     logger.info("[OPTIMIZE] DB validation enabled, forcing sequential execution")
-                proposals = self._run_sequential(baselines_data.baselines, self._progress_callback, table_schemas)
+                proposals = self._run_sequential(rid, baselines_data.baselines, self._progress_callback)
         finally:
             self._disconnect_db_connector()
 
@@ -110,99 +112,169 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
 
     def _run_sequential(
         self,
+        rid: str,
         baselines: list[PerformanceBaseline],
         progress_callback: ProgressCallback | None,
-        table_schemas: dict[str, TableSchema] | None,
     ) -> list[OptimizationProposal]:
+        # Group baselines by sql_unit_id
+        unit_map: dict[str, list[PerformanceBaseline]] = collections.defaultdict(list)
+        for baseline in baselines:
+            unit_map[baseline.sql_unit_id].append(baseline)
+
+        unit_ids = list(unit_map.keys())
+        total_units = len(unit_ids)
         proposals: list[OptimizationProposal] = []
-        for idx, baseline in enumerate(baselines):
+
+        for unit_idx, unit_id in enumerate(unit_ids):
+            unit_start = time.time()
+            unit_proposals: list[OptimizationProposal] = []
+            unit_baselines = unit_map[unit_id]
+
+            for baseline in unit_baselines:
+                if progress_callback:
+                    progress_callback(
+                        f"Unit {unit_idx + 1}/{total_units}: {baseline.sql_unit_id}.{baseline.path_id}",
+                        (unit_idx + 1, total_units),
+                    )
+                if baseline.plan is None:
+                    key = f"{baseline.sql_unit_id}.{baseline.path_id}"
+                    logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
+                    continue
+
+                try:
+                    logger.debug(f"[OPTIMIZE]   Generating optimization for {baseline.sql_unit_id}.{baseline.path_id}")
+                    proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
+                    proposal_data = json.loads(proposal_json)
+                    validation = self._validate_optimized_sql(
+                        baseline=baseline,
+                        optimized_sql=proposal_data["optimized_sql"],
+                        table_schemas=self._table_schemas,
+                    )
+
+                    proposal = OptimizationProposal(
+                        sql_unit_id=baseline.sql_unit_id,
+                        path_id=baseline.path_id,
+                        original_sql=baseline.original_sql,
+                        optimized_sql=proposal_data["optimized_sql"],
+                        rationale=proposal_data["rationale"],
+                        confidence=proposal_data["confidence"],
+                        before_metrics=self._build_before_metrics(baseline),
+                        after_metrics=validation["after_metrics"],
+                        result_equivalent=validation["result_equivalent"],
+                        validation_status=validation["validation_status"],
+                        validation_error=validation["validation_error"],
+                        gain_ratio=validation["gain_ratio"],
+                    )
+                    unit_proposals.append(proposal)
+                    proposals.append(proposal)
+                    logger.info(
+                        "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f, status=%s",
+                        baseline.sql_unit_id,
+                        baseline.path_id,
+                        proposal_data["confidence"],
+                        validation["validation_status"],
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "[OPTIMIZE]   [FAIL] Failed: %s.%s - %s",
+                        baseline.sql_unit_id,
+                        baseline.path_id,
+                        e,
+                    )
+                    continue
+
+            unit_elapsed = time.time() - unit_start
+            logger.info(f"[OPTIMIZE] Unit {unit_id} done in {unit_elapsed:.1f}s ({len(unit_proposals)} proposals)")
+            if unit_proposals:
+                self._write_unit_file(rid, unit_id, unit_proposals)
+
             if progress_callback:
                 progress_callback(
-                    f"Optimizing {idx + 1}/{len(baselines)}: {baseline.sql_unit_id}.{baseline.path_id}",
-                    (idx + 1, len(baselines)),
-                )
-            if baseline.plan is None:
-                key = f"{baseline.sql_unit_id}.{baseline.path_id}"
-                logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
-                continue
-
-            try:
-                logger.debug(f"[OPTIMIZE]   Generating optimization for {baseline.sql_unit_id}.{baseline.path_id}")
-                proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
-                proposal_data = json.loads(proposal_json)
-                validation = self._validate_optimized_sql(
-                    baseline=baseline,
-                    optimized_sql=proposal_data["optimized_sql"],
-                    table_schemas=table_schemas,
+                    f"Unit {unit_idx + 1}/{total_units}: {unit_id} ({unit_elapsed:.1f}s)", (unit_idx + 1, total_units)
                 )
 
-                proposal = OptimizationProposal(
-                    sql_unit_id=baseline.sql_unit_id,
-                    path_id=baseline.path_id,
-                    original_sql=baseline.original_sql,
-                    optimized_sql=proposal_data["optimized_sql"],
-                    rationale=proposal_data["rationale"],
-                    confidence=proposal_data["confidence"],
-                    before_metrics=self._build_before_metrics(baseline),
-                    after_metrics=validation["after_metrics"],
-                    result_equivalent=validation["result_equivalent"],
-                    validation_status=validation["validation_status"],
-                    validation_error=validation["validation_error"],
-                    gain_ratio=validation["gain_ratio"],
-                )
-                proposals.append(proposal)
-                logger.info(
-                    "[OPTIMIZE]   [OK] %s.%s: confidence=%.2f, status=%s",
-                    baseline.sql_unit_id,
-                    baseline.path_id,
-                    proposal_data["confidence"],
-                    validation["validation_status"],
-                )
-            except Exception as e:  # noqa: BLE001
-                logger.warning(
-                    "[OPTIMIZE]   [FAIL] Failed: %s.%s - %s",
-                    baseline.sql_unit_id,
-                    baseline.path_id,
-                    str(e),
-                )
-                continue
         return proposals
 
     def _run_concurrent(
         self,
+        rid: str,
         baselines: list[PerformanceBaseline],
         progress_callback: ProgressCallback | None,
-        table_schemas: dict[str, TableSchema] | None,
     ) -> list[OptimizationProposal]:
-        tasks = []
+        unit_map: dict[str, list[PerformanceBaseline]] = collections.defaultdict(list)
         for baseline in baselines:
             if baseline.plan is None:
                 key = f"{baseline.sql_unit_id}.{baseline.path_id}"
                 logger.info(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
                 continue
-            tasks.append(baseline)
+            unit_map[baseline.sql_unit_id].append(baseline)
 
-        if not tasks:
-            return []
-
-        options = BatchOptions(
-            max_workers=self.config.concurrency.max_workers,
-            max_concurrent=self.config.concurrency.llm_max_concurrent,
-            timeout_per_task=self.config.concurrency.timeout_per_task,
-            retry_count=self.config.concurrency.retry_count,
-            retry_delay=float(self.config.concurrency.retry_delay),
-        )
-
+        unit_ids = list(unit_map.keys())
+        total_units = len(unit_ids)
         proposals: list[OptimizationProposal] = []
-        total = len(tasks)
 
-        def process_task(baseline: PerformanceBaseline) -> OptimizationProposal:
+        max_workers = self.config.concurrency.max_workers
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for unit_idx, (unit_id, unit_baselines) in enumerate(unit_map.items()):
+                unit_start = time.time()
+                futures = {executor.submit(self._process_baseline, baseline): baseline for baseline in unit_baselines}
+                unit_proposals: list[OptimizationProposal] = []
+
+                while futures:
+                    done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
+                    for future in done:
+                        baseline = futures.pop(future)
+                        result = future.result()
+                        if result is not None:
+                            unit_proposals.append(result)
+                            proposals.append(result)
+
+                unit_elapsed = time.time() - unit_start
+                logger.info(f"[OPTIMIZE] Unit {unit_id} done in {unit_elapsed:.1f}s ({len(unit_proposals)} proposals)")
+                if unit_proposals:
+                    self._write_unit_file(rid, unit_id, unit_proposals)
+
+                if progress_callback:
+                    progress_callback(
+                        f"Unit {unit_idx + 1}/{total_units}: {unit_id} ({unit_elapsed:.1f}s)",
+                        (unit_idx + 1, total_units),
+                    )
+
+        return proposals
+
+    def _write_unit_file(self, run_id: str, unit_id: str, proposals: list[OptimizationProposal]) -> None:
+        file_manager = ContractFileManager(run_id, "optimize", base_dir=self.base_dir)
+        unit_data = {
+            "sql_unit_id": unit_id,
+            "proposals": [
+                {
+                    "sql_unit_id": p.sql_unit_id,
+                    "path_id": p.path_id,
+                    "original_sql": p.original_sql,
+                    "optimized_sql": p.optimized_sql,
+                    "rationale": p.rationale,
+                    "confidence": p.confidence,
+                    "before_metrics": p.before_metrics,
+                    "after_metrics": p.after_metrics,
+                    "result_equivalent": p.result_equivalent,
+                    "validation_status": p.validation_status,
+                    "validation_error": p.validation_error,
+                    "gain_ratio": p.gain_ratio,
+                }
+                for p in proposals
+            ],
+        }
+        file_manager.write_unit_file(unit_id, unit_data)
+
+    def _process_baseline(self, baseline: PerformanceBaseline) -> OptimizationProposal | None:
+        try:
             proposal_json = self.llm_provider.generate_optimization(baseline.original_sql, "")
             proposal_data = json.loads(proposal_json)
             validation = self._validate_optimized_sql(
                 baseline=baseline,
                 optimized_sql=proposal_data["optimized_sql"],
-                table_schemas=table_schemas,
+                table_schemas=self._table_schemas,
             )
             return OptimizationProposal(
                 sql_unit_id=baseline.sql_unit_id,
@@ -218,44 +290,14 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
                 validation_error=validation["validation_error"],
                 gain_ratio=validation["gain_ratio"],
             )
-
-        with ConcurrentExecutor(options) as executor:
-            results = executor.map(process_task, tasks)
-
-        for completed, result in enumerate(results, start=1):
-            if result.success and result.result:
-                proposals.append(result.result)
-                if progress_callback:
-                    progress_callback(
-                        f"Optimizing {completed}/{total}: {result.result.sql_unit_id}.{result.result.path_id}",
-                        (completed, total),
-                    )
-                logger.info(
-                    "[OPTIMIZE]   [OK] %s.%s (%d/%d): confidence=%.2f, status=%s",
-                    result.result.sql_unit_id,
-                    result.result.path_id,
-                    completed,
-                    total,
-                    result.result.confidence,
-                    result.result.validation_status,
-                )
-            else:
-                baseline = result.item
-                if progress_callback:
-                    progress_callback(
-                        f"Optimizing {completed}/{total}: {baseline.sql_unit_id}.{baseline.path_id}",
-                        (completed, total),
-                    )
-                logger.warning(
-                    "[OPTIMIZE]   [FAIL] %s.%s (%d/%d): %s",
-                    baseline.sql_unit_id,
-                    baseline.path_id,
-                    completed,
-                    total,
-                    result.error,
-                )
-
-        return proposals
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "[OPTIMIZE]   [FAIL] Failed: %s.%s - %s",
+                baseline.sql_unit_id,
+                baseline.path_id,
+                e,
+            )
+            return None
 
     @staticmethod
     def _create_stub_output() -> OptimizeOutput:
