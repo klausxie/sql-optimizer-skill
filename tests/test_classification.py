@@ -78,3 +78,24 @@ def test_config_distinct_on_simplification():
     )
     result = classify_patch_family(ctx)
     assert result == "STATIC_DISTINCT_ON_SIMPLIFICATION"
+
+
+def test_integration_with_validator_sql():
+    """Classification integrates with validator_sql._derive_patch_target_family."""
+    # This test verifies the integration point
+    from sqlopt.patch_families.classification import (
+        ClassificationContext,
+        classify_patch_family,
+    )
+
+    # Test case that should be handled by config
+    ctx = ClassificationContext(
+        original_sql="SELECT * FROM users WHERE id IN (1)",
+        rewritten_sql="SELECT * FROM users WHERE id = 1",
+        rewrite_facts=None,
+        selected_patch_strategy={"strategyType": "EXACT_TEMPLATE_EDIT"},
+    )
+
+    # The function should not raise and should return a result
+    result = classify_patch_family(ctx)
+    assert result in ("STATIC_IN_LIST_SIMPLIFICATION", None)

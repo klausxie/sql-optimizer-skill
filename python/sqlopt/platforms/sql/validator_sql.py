@@ -24,6 +24,10 @@ from .llm_semantic_check import integrate_llm_semantic_check
 from .canonicalization_support import SELECT_DIRECT_RE, cleanup_redundant_select_aliases, normalize_sql
 from ...patch_contracts import build_patch_target_contract, semantic_confidence_rank
 from ...patch_families.registry import lookup_patch_family_spec
+from ...patch_families.classification import (
+    classify_patch_family as _config_classify,
+    ClassificationContext,
+)
 
 _SINGLE_TABLE_ALIAS_RE = re.compile(
     r"^\s*from\s+(?P<table>[a-z_][a-z0-9_\.]*)(?:\s+(?:as\s+)?(?P<alias>[a-z_][a-z0-9_]*))?(?P<suffix>.*)$",
@@ -240,6 +244,17 @@ def _derive_patch_target_family(
     cte_query = dict((rewrite_facts or {}).get("cteQuery") or {})
     if cte_query.get("inlineCandidate"):
         return "STATIC_CTE_INLINE"
+
+    # 配置驱动分类 - 在现有 if-else 之前调用
+    ctx = ClassificationContext(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        selected_patch_strategy=selected_patch_strategy,
+    )
+    config_family = _config_classify(ctx)
+    if config_family:
+        return config_family
 
     alias_guarded, alias_family = _classify_static_alias_projection_cleanup(
         original_sql=original_sql,
