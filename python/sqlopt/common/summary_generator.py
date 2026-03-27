@@ -680,28 +680,49 @@ def generate_parse_summary_markdown(
     lines.append(f"| ⚠️ 展开失败单元 | {failed_units} |")
     lines.append("")
 
-    all_unique_conditions: set[str] = set()
+    per_unit_theoretical: list[int] = []
+    per_unit_actual: list[int] = []
+    per_unit_cond_count: list[int] = []
     for u in units:
+        unique_conds = set()
         for b in u.branches:
-            for cond in b.active_conditions:
-                all_unique_conditions.add(cond)
-    theoretical_max = 0
-    if all_unique_conditions:
-        theoretical_max = 2 ** len(all_unique_conditions)
-    coverage_pct = (total_branch_count / theoretical_max * 100) if theoretical_max > 0 else 0
+            for c in b.active_conditions:
+                unique_conds.add(c)
+        cond_count = len(unique_conds)
+        theo_max = 2**cond_count if cond_count > 0 else 1
+        per_unit_cond_count.append(cond_count)
+        per_unit_theoretical.append(theo_max)
+        per_unit_actual.append(len(u.branches))
+
+    sum_theoretical = sum(per_unit_theoretical)
+    coverage_pct = (total_branch_count / sum_theoretical * 100) if sum_theoretical > 0 else 0
 
     lines.append("## 全量预估 vs 实际生成")
     lines.append("")
     lines.append("| 指标 | 数值 |")
     lines.append("|------|------|")
-    lines.append(f"| 独立条件总数 | {len(all_unique_conditions)} |")
-    lines.append(f"| 全组合理论上限 | {theoretical_max} |")
+    lines.append(f"| 各单元理论上限之和 | {sum_theoretical} |")
     lines.append(f"| 实际生成分支 | {total_branch_count} |")
     lines.append(f"| 覆盖率 | {coverage_pct:.1f}% |")
     if strategy == "ladder" or strategy == "pairwise":
         lines.append(f"| 策略说明 | {strategy} 策略有意不生成全组合，控制分支数 |")
     lines.append("")
-    lines.append("**覆盖率计算:** 实际分支数 / 全组合理论上限（仅当使用 `all_combinations` 策略时有意义）")
+    lines.append("**覆盖率计算:** 各单元理论上限之和 = sum(2^条件数)，覆盖率 = 实际分支 / 理论上限之和")
+    lines.append("")
+
+    sorted_units = sorted(
+        zip(units, per_unit_theoretical, per_unit_actual, per_unit_cond_count),
+        key=lambda x: x[2],
+        reverse=True,
+    )
+    top_units = sorted_units[:10]
+
+    lines.append("## 分支最多 Top 10（按生成分支数）")
+    lines.append("")
+    lines.append("| # | SQL Unit | 条件数 | 理论上限 | 生成分支 |")
+    lines.append("|---|----------|--------|----------|----------|")
+    for i, (u, theo, actual, cond_count) in enumerate(top_units, 1):
+        lines.append(f"| {i} | `{u.sql_unit_id}` | {cond_count} | {theo} | {actual} |")
     lines.append("")
 
     branch_counts = [len(u.branches) for u in units]
@@ -826,7 +847,7 @@ def generate_parse_summary_markdown(
     lines.append("| 指标 | 数值 |")
     lines.append("|------|------|")
     lines.append(f"| SQL Unit 数 | {total_units} |")
-    lines.append(f"| 独立条件数 | {len(all_unique_conditions)} |")
+    lines.append(f"| 独立条件数 | {sum(per_unit_cond_count)} |")
     lines.append(f"| 实际生成分支 | {total_branch_count} |")
     lines.append(f"| 语法有效分支 | {valid_branches} |")
     lines.append(f"| 展开失败单元 | {failed_units} |")
