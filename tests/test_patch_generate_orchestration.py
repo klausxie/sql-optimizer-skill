@@ -464,6 +464,9 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
+        self.assertEqual(patch_row.get("artifactKind"), "STATEMENT")
+        self.assertEqual(patch_row.get("deliveryStage"), "PROOF_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "PROOF_FAILURE")
 
     def test_patch_generate_blocks_when_patch_artifact_drifts_from_target(self) -> None:
         acceptance = self._thin_acceptance()
@@ -616,6 +619,9 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_XML_PARSE_FAILED")
         self.assertEqual((patch_row.get("syntaxEvidence") or {}).get("reasonCode"), "PATCH_XML_PARSE_FAILED")
+        self.assertEqual(patch_row.get("artifactKind"), "TEMPLATE")
+        self.assertEqual(patch_row.get("deliveryStage"), "PROOF_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "PROOF_FAILURE")
 
 
 if __name__ == "__main__":

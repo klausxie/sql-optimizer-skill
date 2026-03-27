@@ -252,6 +252,9 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertIn("patch does not apply", str(patch_row.get("applyCheckError")))
         self.assertEqual(patch_row.get("patchFiles"), [])
         self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
+        self.assertEqual(patch_row.get("artifactKind"), "STATEMENT")
+        self.assertEqual(patch_row.get("deliveryStage"), "APPLICABILITY_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "APPLICABILITY_FAILURE")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "GIT_CONFLICT")
 
     def test_patch_rejects_statement_template_ops_from_validate_without_patch_owned_contract(self) -> None:
@@ -531,6 +534,9 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED")
         self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
+        self.assertEqual(patch_row.get("artifactKind"), "TEMPLATE")
+        self.assertEqual(patch_row.get("deliveryStage"), "BUILD_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "BUILD_FAILURE")
         self.assertEqual(patch_row.get("repairHints", [])[0].get("actionType"), "MANUAL_PATCH")
 
     def test_patch_is_skipped_when_placeholder_semantics_mismatch(self) -> None:
