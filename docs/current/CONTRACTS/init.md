@@ -9,7 +9,7 @@ Source: `python/sqlopt/contracts/init.py`
 | Field | Meaning |
 | --- | --- |
 | `id` | Stable unit ID |
-| `mapper_file` | Mapper filename |
+| `mapper_file` | Relative path from project_root (e.g. `src/main/resources/mapper/TestMapper.xml`) |
 | `sql_id` | XML statement ID |
 | `sql_text` | Original SQL XML text |
 | `statement_type` | `SELECT`, `INSERT`, `UPDATE`, or `DELETE` |
@@ -39,6 +39,16 @@ Reusable `<sql id="...">` fragment extracted from mapper XML.
 
 Maps extracted statements and fragments back to their original XML files.
 
+### `FileMapping`
+
+Maps an XML file to its full content for patching.
+
+| Field | Meaning |
+| --- | --- |
+| `xml_path` | Absolute path to the mapper XML file |
+| `file_content` | Full XML file content (used by Result stage for diff generation) |
+| `statements` | List of `StatementMapping` entries |
+
 ### `InitOutput`
 
 Top-level stage output containing:
@@ -49,6 +59,7 @@ Top-level stage output containing:
 - `sql_fragments`
 - `table_schemas`
 - `xml_mappings`
+- `file_mappings`
 
 ## Output files
 

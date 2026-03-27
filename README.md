@@ -70,7 +70,23 @@ sqlopt run optimize --config sqlopt.yml
 sqlopt run result --config sqlopt.yml
 ```
 
-### 4. Inspect outputs
+### 4. Apply patches
+
+```bash
+# List available patches
+sqlopt patches --run-id run-20260327-195433
+
+# Preview a patch
+sqlopt diff com.test.mapper.TestMapper.findUsers --run-id run-20260327-195433
+
+# Apply a patch (dry-run first)
+sqlopt apply com.test.mapper.TestMapper.findUsers --run-id run-20260327-195433 --dry-run
+sqlopt apply com.test.mapper.TestMapper.findUsers --run-id run-20260327-195433
+```
+
+Patches are written to `runs/{run_id}/result/units/` as unified diff files.
+
+### 5. Inspect outputs
 
 Each run is written to `runs/{run_id}/`.
 
@@ -82,6 +98,9 @@ Important files:
 - `runs/{run_id}/recognition/baselines.json`
 - `runs/{run_id}/optimize/proposals.json`
 - `runs/{run_id}/result/report.json`
+- `runs/{run_id}/result/units/{unit_id}.patch` — Per-unit unified diff patch
+- `runs/{run_id}/result/units/{unit_id}.meta.json` — Per-unit patch metadata
+- `runs/{run_id}/result/units/_index.json` — Patch unit index
 
 ## Real-World Validation
 

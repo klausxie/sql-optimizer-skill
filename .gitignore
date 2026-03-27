@@ -39,3 +39,9 @@ htmlcov/
 
 # Sisyphus task management (local use only - not tracked)
 .sisyphus/
+
+# OpenCode local data
+.opencode-data/
+
+# Patch backup files
+*.orig

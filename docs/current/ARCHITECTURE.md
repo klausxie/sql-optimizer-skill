@@ -43,6 +43,7 @@ Each stage reads the previous stage's persisted artifacts, transforms them, and 
 - `common/db_connector.py`
 - `common/contract_file_manager.py`
 - `common/mock_data_loader.py`
+- `common/xml_patch_engine.py`
 
 ## Large-project design
 
@@ -105,6 +106,23 @@ The CLI now provides stage progress in both TTY and non-TTY environments.
 - Non-TTY mode emits throttled snapshots instead of logging every tiny update.
 - Progress lines include stage percent, sub-progress, elapsed time, throughput, and ETA.
 - Pipeline start and end banners are printed around `run_all()`.
+
+## Patch system
+
+The result stage generates per-unit Git Patch files that can be applied to mapper XML using standard `patch` command or the `sqlopt apply` CLI.
+
+### Patch workflow
+
+1. `ResultStage._create_patch()` generates unified diff from original and patched XML
+2. `XmlPatchEngine.apply_text_replacement()` handles structured operations (ADD, REPLACE, REMOVE, WRAP)
+3. Per-unit `.patch` and `.meta.json` files are written to `runs/{run_id}/result/units/`
+4. `sqlopt apply` validates and applies patches using `patch -d {mapper_dir} -p1`
+
+### Key design decisions
+
+- Diff headers use filename only (`a/TestMapper.xml`) to work with `patch -d {dir}`
+- `mapper_file` in contracts stores relative path from project_root
+- Patch application creates `.orig` backup files
 
 ## Canonical references
 

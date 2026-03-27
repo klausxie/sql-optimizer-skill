@@ -9,7 +9,12 @@
         SELECT id, name, email, status, type, created_at
         FROM users
         WHERE status = '1'
-        ORDER BY created_at DESC
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
     </select>
 
     <!-- 优化候选2：UNION 去重开销，条件互斥时应用 UNION ALL -->
@@ -25,6 +30,9 @@
         SELECT * FROM orders
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
+        <if test="_parameter != null">
+            LIMIT #{_parameter.limit != null ? _parameter.limit : 100}
+        </if>
     </select>
 
 </mapper>

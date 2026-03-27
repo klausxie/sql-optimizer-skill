@@ -61,7 +61,8 @@ Mapper XML
 
 - aggregates ranked findings
 - emits report text
-- emits patches for proposals that are safe enough to patch
+- emits per-unit patches (`.patch` + `.meta.json`) for proposals that are safe enough to patch
+- patches use unified diff format with filename-only headers for `patch -d` compatibility
 
 ## Run directory layout
 
@@ -94,6 +95,10 @@ runs/{run_id}/
     SUMMARY.md
   result/
     report.json
+    units/
+      _index.json
+      {unit_id}.patch
+      {unit_id}.meta.json
     SUMMARY.md
 ```
 

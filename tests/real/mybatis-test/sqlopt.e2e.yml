@@ -7,6 +7,6 @@ db_user: postgres
 db_password: postgres
 llm_provider: opencode_run
 llm_enabled: true
-project_root_path: tests/real/mybatis-test
+project_root_path: .
 scan_mapper_globs:
   - "src/main/resources/mapper/TestMapper.xml"

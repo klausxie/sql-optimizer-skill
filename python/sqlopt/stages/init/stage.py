@@ -108,7 +108,7 @@ class InitStage(Stage[None, InitOutput]):
             for stmt in statements:
                 if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
                     continue
-                unit = _parsed_to_sqlunit(stmt)
+                unit = _parsed_to_sqlunit(stmt, project_root)
                 table_names = extract_table_names_from_sql(unit.sql_text)
                 fields_by_table_from_sql = extract_condition_fields_by_table(unit.sql_text)
                 all_table_names.update(table_names)
@@ -158,7 +158,7 @@ class InitStage(Stage[None, InitOutput]):
                 if cfg.statement_types and stmt.statement_type not in cfg.statement_types:
                     logger.debug(f"[INIT]   Skipping {stmt.statement_type} statement: {stmt.statement_id}")
                     continue
-                unit = _parsed_to_sqlunit(stmt)
+                unit = _parsed_to_sqlunit(stmt, project_root)
                 sql_units.append(unit)
                 stmt_xpath = _build_statement_xpath(stmt)
                 stmt_mapping = StatementMapping(
@@ -395,10 +395,16 @@ def _build_statement_xpath(stmt: ParsedStatement) -> str:
     return f"/mapper/{tag_name}[@id='{stmt.statement_id}']"
 
 
-def _parsed_to_sqlunit(stmt: ParsedStatement) -> SQLUnit:
+def _parsed_to_sqlunit(stmt: ParsedStatement, project_root: str) -> SQLUnit:
+    xml_path = Path(stmt.xml_path)
+    project_root_resolved = Path(project_root).resolve()
+    try:
+        mapper_file = str(xml_path.relative_to(project_root_resolved))
+    except ValueError:
+        mapper_file = xml_path.name
     return SQLUnit(
         id=stmt.sql_key,
-        mapper_file=Path(stmt.xml_path).name,
+        mapper_file=mapper_file,
         sql_id=stmt.statement_id,
         sql_text=stmt.xml_content,
         statement_type=stmt.statement_type,

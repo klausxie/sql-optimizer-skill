@@ -67,6 +67,7 @@ sql-optimizer-skill/
 | `MockDataLoader` | Class | `common/mock_data_loader.py` | Mock data loading |
 | `ContractFileManager` | Class | `common/contract_file_manager.py` | Per-unit file I/O |
 | `ProgressDisplay` | Class | `common/progress_display.py` | User-friendly progress bar |
+| `XmlPatchEngine` | Class | `common/xml_patch_engine.py` | Text-based XML patch application |
 
 ## STAGE CONTRACTS
 
@@ -82,11 +83,11 @@ sql-optimizer-skill/
 
 | Contract | Fields | Purpose |
 |----------|--------|---------|
-| `SQLUnit` | id, mapper_file, sql_id, sql_text, statement_type | Single extracted SQL |
+| `SQLUnit` | id, mapper_file, sql_id, sql_text, statement_type | Single extracted SQL (mapper_file is relative to project_root) |
 | `SQLBranch` | path_id, condition, expanded_sql, is_valid, risk_flags | Dynamic SQL variant |
 | `PerformanceBaseline` | sql_unit_id, path_id, plan, estimated_cost, actual_time_ms | EXPLAIN output |
 | `OptimizationProposal` | sql_unit_id, path_id, original_sql, optimized_sql, rationale | LLM suggestion |
-| `Patch` | sql_unit_id, original_xml, patched_xml, diff | XML diff |
+| `Patch` | sql_unit_id, path_id, original_xml, patched_xml, diff | Per-unit XML patch with unified diff |
 
 ## OUTPUT PATTERN
 
@@ -98,7 +99,7 @@ Each stage writes to `runs/{run_id}/{stage}/`:
 | parse | `sql_units_with_branches.json` + `units/*.json` |
 | recognition | `baselines.json` + `units/*.json` |
 | optimize | `proposals.json` + `units/*.json` |
-| result | `report.json`, `SUMMARY.md` |
+| result | `report.json`, `SUMMARY.md` + `units/*.patch`, `units/*.meta.json`, `units/_index.json` |
 
 Per-unit JSON files managed by `ContractFileManager`.
 
@@ -152,6 +153,11 @@ sqlopt run 1 --config sqlopt.yml
 
 # Mock data
 sqlopt mock <run_id>
+
+# Apply patches
+sqlopt apply <unit_id> --run-id <run_id> [--project-root .] [--dry-run]  # Apply patch to mapper XML
+sqlopt diff <unit_id> --run-id <run_id>   # Show patch diff
+sqlopt patches --run-id <run_id>          # List available patches
 
 # Tests
 python -m pytest tests/unit/ -v

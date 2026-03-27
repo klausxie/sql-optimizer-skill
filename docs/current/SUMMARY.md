@@ -32,6 +32,7 @@ This project tries to make those branches visible and testable.
 - Proposal validation against the same baseline.
 - Per-unit outputs for larger projects.
 - Safer concurrency and clearer CLI progress output.
+- Per-unit Git Patch output with CLI commands for apply, diff, and listing.
 
 ## Current operating model
 

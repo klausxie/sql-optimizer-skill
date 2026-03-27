@@ -14,6 +14,7 @@ These modules are shared across multiple stages and define the runtime behavior 
 | `common/db_connector.py` | MySQL and PostgreSQL plan/query execution |
 | `common/contract_file_manager.py` | Per-unit JSON read/write helpers |
 | `common/mock_data_loader.py` | Mock-first path resolution used in tests and local development |
+| `common/xml_patch_engine.py` | Text-based XML patch application (ADD, REPLACE, REMOVE, WRAP operations) |
 | `common/summary_generator.py` | `SUMMARY.md` generation helpers |
 
 ## Important runtime rules
@@ -22,6 +23,7 @@ These modules are shared across multiple stages and define the runtime behavior 
 - Parse, recognition, and optimize stages support per-unit outputs.
 - Real DB validation uses the DB connector directly and falls back to sequential execution where connection safety matters.
 - Progress output is human-readable even when the command runs in CI logs or redirected stdout.
+- Patch files use filename-only diff headers for `patch -d` compatibility; `mapper_file` stores relative path from project_root.
 
 ## Related docs
 

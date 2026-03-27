@@ -15,6 +15,7 @@
 - find mapper XML files
 - parse statements and reusable SQL fragments
 - create `SQLUnit` records
+- `mapper_file` stores the path relative to project_root (not just filename)
 - build XML mappings back to the original files
 - extract referenced table names
 - extract predicate field names by table

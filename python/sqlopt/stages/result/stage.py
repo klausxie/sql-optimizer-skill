@@ -197,12 +197,13 @@ class ResultStage(Stage[None, ResultOutput]):
         original_lines = original_for_diff.splitlines(keepends=True)
         patched_lines = patched_for_diff.splitlines(keepends=True)
 
+        mapper_filename = Path(sql_unit.mapper_file).name if sql_unit else "mapper.xml"
         diff_lines = list(
             difflib.unified_diff(
                 original_lines,
                 patched_lines,
-                fromfile=f"a/{sql_unit.mapper_file}" if sql_unit else "a/mapper.xml",
-                tofile=f"b/{sql_unit.mapper_file}" if sql_unit else "b/mapper.xml",
+                fromfile=f"a/{mapper_filename}",
+                tofile=f"b/{mapper_filename}",
             )
         )
         diff = "".join(diff_lines) if diff_lines else ""

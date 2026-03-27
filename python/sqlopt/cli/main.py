@@ -139,12 +139,13 @@ def mock(run_id: str | None, source: str | None) -> None:
 @click.command("apply")
 @click.argument("unit_id")
 @click.option("--run-id", required=True, help="Run ID")
+@click.option("--project-root", default=".", help="Project root directory (default: current directory)")
 @click.option("--dry-run", is_flag=True, help="Preview without applying")
-def apply(unit_id: str, run_id: str, dry_run: bool) -> None:
+def apply(unit_id: str, run_id: str, project_root: str, dry_run: bool) -> None:
     """Apply a patch to a mapper XML file using git apply."""
     paths = RunPaths(run_id)
-    patch_file = paths.result_unit_patch(unit_id)
-    meta_file = paths.result_unit_meta(unit_id)
+    patch_file = paths.result_unit_patch(unit_id).resolve()
+    meta_file = paths.result_unit_meta(unit_id).resolve()
 
     if not patch_file.exists():
         click.echo(f"Error: Patch file not found: {patch_file}", err=True)
@@ -156,12 +157,15 @@ def apply(unit_id: str, run_id: str, dry_run: bool) -> None:
 
     meta = json.loads(meta_file.read_text(encoding="utf-8"))
     mapper_file = meta.get("mapper_file", "")
+    mapper_path = Path(mapper_file)
+    mapper_dir = (Path(project_root) / mapper_path.parent).resolve()
+
     click.echo(f"Patch: {unit_id}")
     click.echo(f"Mapper: {mapper_file}")
+    click.echo(f"Target directory: {mapper_dir}")
 
-    # Validate patch with --dry-run
     result = subprocess.run(  # noqa: S603
-        [PATCH_CMD, "-p1", "-i", str(patch_file), "--dry-run"],
+        [PATCH_CMD, "-d", str(mapper_dir), "-p1", "-i", str(patch_file), "--dry-run"],
         capture_output=True,
         text=True,
     )
@@ -176,9 +180,8 @@ def apply(unit_id: str, run_id: str, dry_run: bool) -> None:
         click.echo("--- End Preview ---")
         return
 
-    # Apply patch directly (no stash needed - patch creates .orig backup)
     result = subprocess.run(  # noqa: S603
-        [PATCH_CMD, "-p1", "-i", str(patch_file)],
+        [PATCH_CMD, "-d", str(mapper_dir), "-p1", "-i", str(patch_file)],
         capture_output=True,
         text=True,
     )
