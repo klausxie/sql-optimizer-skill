@@ -58,9 +58,9 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             self.assertIn(tracked_family, registered_families, sql_key)
             self.assertTrue(patch_meets_registered_fixture_obligations(patch, scenario), sql_key)
             if target_registered_family and patch.get("applicable") is True:
-                self.assertEqual(((patch.get("patchTarget") or {}).get("family")), target_registered_family, sql_key)
+                self.assertEqual(patch.get("patchFamily"), target_registered_family, sql_key)
             if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH":
-                self.assertEqual(((patch.get("patchTarget") or {}).get("family")), target_dynamic_family, sql_key)
+                self.assertEqual(patch.get("patchFamily"), target_dynamic_family, sql_key)
 
     def test_auto_patches_require_frozen_family_and_replay_evidence(self) -> None:
         _scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
@@ -69,7 +69,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertTrue(auto_patches)
         for patch in auto_patches:
             sql_key = str(patch["sqlKey"])
-            family = str(((patch.get("patchTarget") or {}).get("family")) or "").strip()
+            family = str(patch.get("patchFamily") or "").strip()
             self.assertIn(family, FROZEN_AUTO_PATCH_FAMILIES, sql_key)
             self.assertTrue(((patch.get("replayEvidence") or {}).get("matchesTarget")) is True, sql_key)
             self.assertTrue(((patch.get("syntaxEvidence") or {}).get("ok")) is True, sql_key)

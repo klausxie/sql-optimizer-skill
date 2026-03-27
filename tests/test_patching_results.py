@@ -36,7 +36,7 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertFalse(patch["patchability"]["applyCheckPassed"])
         self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "NEED_MORE_PARAMS")
         self.assertIn("VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", patch["fallbackReasonCodes"])
-        self.assertEqual(patch["patchTarget"]["family"], "STATIC_STATEMENT_REWRITE")
+        self.assertEqual(patch["patchFamily"], "STATIC_STATEMENT_REWRITE")
         self.assertEqual(patch["replayEvidence"]["driftReason"], "PATCH_TARGET_DRIFT")
 
     def test_selected_patch_result_marks_patch_as_selected(self) -> None:
@@ -63,7 +63,7 @@ class PatchingResultsTest(unittest.TestCase):
         self.assertTrue(patch["applicable"])
         self.assertEqual(patch["deliveryOutcome"]["tier"], "READY_TO_APPLY")
         self.assertEqual(patch["selectionEvidence"]["acceptanceStatus"], "PASS")
-        self.assertEqual(patch["patchTarget"]["family"], "STATIC_STATEMENT_REWRITE")
+        self.assertEqual(patch["patchFamily"], "STATIC_STATEMENT_REWRITE")
 
 
 if __name__ == "__main__":

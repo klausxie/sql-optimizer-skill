@@ -3,7 +3,9 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from sqlopt.stages.patch_build import PatchBuildResult
 from sqlopt.stages.patch_decision_engine import decide_patch_result
+from sqlopt.stages.patch_select import PatchSelectionContext
 
 
 def _skip_patch_result(**kwargs):
@@ -26,12 +28,41 @@ def _finalize_generated_patch(**_kwargs):
 
 
 class PatchDecisionEngineTest(unittest.TestCase):
+    def _selection(self, acceptance: dict) -> PatchSelectionContext:
+        semantic_equivalence = dict(acceptance.get("semanticEquivalence") or {})
+        return PatchSelectionContext(
+            rewritten_sql=str(acceptance.get("rewrittenSql") or "").strip(),
+            selected_candidate_id=str(acceptance.get("selectedCandidateId") or "").strip() or None,
+            semantic_equivalence=semantic_equivalence,
+            semantic_gate_status=str(semantic_equivalence.get("status") or "PASS").strip().upper(),
+            semantic_gate_confidence=str(semantic_equivalence.get("confidence") or "HIGH").strip().upper(),
+            rewrite_facts={},
+            dynamic_candidate_intent=None,
+            dynamic_template=dict(acceptance.get("dynamicTemplate") or {}) or None,
+            patchability={},
+            selected_patch_strategy=None,
+            patch_strategy_candidates=[],
+            rewrite_materialization=None,
+            template_rewrite_ops=[],
+            family=None,
+        )
+
+    def _build(self) -> PatchBuildResult:
+        return PatchBuildResult(
+            selected_patch_strategy=None,
+            rewrite_materialization=None,
+            template_rewrite_ops=[],
+            family=None,
+        )
+
     def test_missing_locator_returns_locator_ambiguous(self) -> None:
         sql_unit = {"sqlKey": "demo.user.find#v1", "locators": {}}
         acceptance = {"sqlKey": "demo.user.find#v1", "status": "PASS", "rewrittenSql": "SELECT 1"}
         patch, ctx = decide_patch_result(
             sql_unit=sql_unit,
             acceptance=acceptance,
+            selection=self._selection(acceptance),
+            build=self._build(),
             run_dir=Path("/tmp"),
             acceptance_rows=[acceptance],
             project_root=Path("/tmp"),
@@ -80,6 +111,8 @@ class PatchDecisionEngineTest(unittest.TestCase):
         patch, ctx = decide_patch_result(
             sql_unit=sql_unit,
             acceptance=acceptance,
+            selection=self._selection(acceptance),
+            build=self._build(),
             run_dir=Path("/tmp"),
             acceptance_rows=[acceptance],
             project_root=Path("/tmp"),
@@ -119,6 +152,8 @@ class PatchDecisionEngineTest(unittest.TestCase):
         patch, ctx = decide_patch_result(
             sql_unit=sql_unit,
             acceptance=acceptance,
+            selection=self._selection(acceptance),
+            build=self._build(),
             run_dir=Path("/tmp"),
             acceptance_rows=[acceptance],
             project_root=Path("/tmp"),
@@ -135,7 +170,7 @@ class PatchDecisionEngineTest(unittest.TestCase):
 
         self.assertEqual(ctx.status, "PASS")
         self.assertEqual(ctx.semantic_gate_status, "UNCERTAIN")
-        self.assertEqual(ctx.semantic_gate_confidence, "LOW")
+        self.assertEqual(ctx.semantic_gate_confidence, "HIGH")
         self.assertEqual(patch["selectionReason"]["code"], "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS")
 
     def test_semantic_low_confidence_blocks_patch_even_when_status_passes(self) -> None:
@@ -158,6 +193,8 @@ class PatchDecisionEngineTest(unittest.TestCase):
         patch, ctx = decide_patch_result(
             sql_unit=sql_unit,
             acceptance=acceptance,
+            selection=self._selection(acceptance),
+            build=self._build(),
             run_dir=Path("/tmp"),
             acceptance_rows=[acceptance],
             project_root=Path("/tmp"),
@@ -202,6 +239,8 @@ class PatchDecisionEngineTest(unittest.TestCase):
         patch, _ctx = decide_patch_result(
             sql_unit=sql_unit,
             acceptance=acceptance,
+            selection=self._selection(acceptance),
+            build=self._build(),
             run_dir=Path("/tmp"),
             acceptance_rows=[acceptance],
             project_root=Path("/tmp"),

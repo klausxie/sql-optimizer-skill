@@ -27,7 +27,6 @@ from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
 from .patch_formatting import format_template_ops_for_patch as _format_template_ops_for_patch
 from .patch_proof import prove_patch_plan as _prove_patch_plan
 from .patch_select import build_patch_selection_context as _build_patch_selection_context
-from .patch_select import enrich_acceptance_for_patch as _enrich_acceptance_for_patch
 from .patch_generate_llm import (
     generate_template_patch_suggestion as _generate_template_patch_suggestion,
     attach_llm_suggestion_to_patch as _attach_llm_suggestion,
@@ -57,8 +56,8 @@ def _build_patch_repair_hints(reason_code: str, apply_check_error: str | None, s
     return _build_patch_repair_hints_impl(reason_code, apply_check_error, sql_unit)
 
 
-def _attach_patch_diagnostics(patch: dict, sql_unit: dict, acceptance: dict) -> dict:
-    return _attach_patch_diagnostics_impl(patch, sql_unit, acceptance)
+def _attach_patch_diagnostics(patch: dict, sql_unit: dict, selection: Any, build: Any) -> dict:
+    return _attach_patch_diagnostics_impl(patch, sql_unit, selection, build)
 
 
 def _finalize_generated_patch(
@@ -111,11 +110,12 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         config=config,
     )
     build = _build_patch_plan(selection)
-    acceptance_for_patch = _enrich_acceptance_for_patch(acceptance, selection)
 
     patch, decision_ctx = _decide_patch_result(
         sql_unit=sql_unit,
-        acceptance=acceptance_for_patch,
+        acceptance=acceptance,
+        selection=selection,
+        build=build,
         run_dir=run_dir,
         acceptance_rows=acceptance_rows,
         project_root=project_root,
@@ -136,14 +136,11 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
         proof = _prove_patch_plan(
             sql_unit=sql_unit,
-            acceptance=acceptance,
             selection=selection,
             build=build,
             fragment_catalog=fragment_catalog,
             patch_text=patch_text,
         )
-        if proof.patch_target is not None:
-            patch["patchTarget"] = proof.patch_target
         if proof.replay_evidence:
             patch["replayEvidence"] = proof.replay_evidence
         if proof.syntax_evidence:
@@ -163,7 +160,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 syntax_evidence=patch.get("syntaxEvidence"),
             )
 
-    patch = _attach_patch_diagnostics(patch, sql_unit, acceptance_for_patch)
+    patch = _attach_patch_diagnostics(patch, sql_unit, selection, build)
 
     # Phase 5: LLM 模板辅助（可选）
     patch_cfg = (config or {}).get("patch", {}) or {}
@@ -184,7 +181,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 llm_cfg = (config or {}).get("llm", {}) or {}
                 llm_suggestion = _generate_template_patch_suggestion(
                     sql_unit=sql_unit,
-                    acceptance=acceptance_for_patch,
+                    acceptance=acceptance,
                     patch_result=patch,
                     llm_cfg=llm_cfg,
                 )
@@ -201,7 +198,8 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         run_dir=run_dir,
         validator=validator,
         patch=patch,
-        acceptance=acceptance_for_patch,
+        acceptance=acceptance,
+        proof_patch_target=proof.patch_target if patch.get("applicable") is True else None,
         status=decision_ctx.status,
         semantic_gate_status=decision_ctx.semantic_gate_status,
         semantic_gate_confidence=decision_ctx.semantic_gate_confidence,

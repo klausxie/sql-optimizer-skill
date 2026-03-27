@@ -24,16 +24,9 @@ class PatchProofResult:
 def _build_patch_target(
     *,
     sql_unit: dict[str, Any],
-    acceptance: dict[str, Any],
     selection: PatchSelectionContext,
     build: PatchBuildResult,
 ) -> dict[str, Any] | None:
-    existing = acceptance.get("patchTarget")
-    if isinstance(existing, dict):
-        return dict(existing)
-
-    if str(acceptance.get("status") or "").strip().upper() != "PASS":
-        return None
     if not selection.rewritten_sql or not selection.selected_candidate_id or not build.selected_patch_strategy:
         return None
     if not bool((selection.patchability or {}).get("eligible")):
@@ -47,12 +40,20 @@ def _build_patch_target(
     if spec is None or spec.status != "FROZEN_AUTO_PATCH":
         return None
 
-    semantic_status = str((selection.semantic_equivalence or {}).get("status") or "").strip().upper()
+    semantic_equivalence = dict(selection.semantic_equivalence or {})
+    semantic_status = str(semantic_equivalence.get("status") or selection.semantic_gate_status or "").strip().upper()
     if semantic_status != str(spec.acceptance.semantic_required_status or "").strip().upper():
         return None
-    semantic_confidence = str((selection.semantic_equivalence or {}).get("confidence") or "").strip().upper()
+    semantic_confidence = str(
+        semantic_equivalence.get("confidence") or selection.semantic_gate_confidence or ""
+    ).strip().upper()
     if semantic_confidence_rank(semantic_confidence) < semantic_confidence_rank(spec.acceptance.semantic_min_confidence):
         return None
+    if not semantic_equivalence:
+        semantic_equivalence = {
+            "status": semantic_status,
+            "confidence": semantic_confidence,
+        }
 
     return build_patch_target_contract(
         sql_key=str(sql_unit.get("sqlKey") or ""),
@@ -60,7 +61,7 @@ def _build_patch_target(
         selected_candidate_id=selection.selected_candidate_id,
         selected_patch_strategy=build.selected_patch_strategy,
         family=build.family or "",
-        semantic_equivalence=selection.semantic_equivalence,
+        semantic_equivalence=semantic_equivalence,
         patchability=dict(selection.patchability or {}),
         rewrite_materialization=dict(build.rewrite_materialization or {}),
         template_rewrite_ops=[dict(row) for row in build.template_rewrite_ops if isinstance(row, dict)],
@@ -72,7 +73,6 @@ def _build_patch_target(
 def prove_patch_plan(
     *,
     sql_unit: dict[str, Any],
-    acceptance: dict[str, Any],
     selection: PatchSelectionContext,
     build: PatchBuildResult,
     fragment_catalog: dict[str, dict[str, Any]],
@@ -80,7 +80,6 @@ def prove_patch_plan(
 ) -> PatchProofResult:
     patch_target = _build_patch_target(
         sql_unit=sql_unit,
-        acceptance=acceptance,
         selection=selection,
         build=build,
     )

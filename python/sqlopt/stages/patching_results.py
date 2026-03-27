@@ -35,6 +35,9 @@ def skip_patch_result(
     }
     if selected_candidate_id is not None:
         patch["selectedCandidateId"] = selected_candidate_id
+    patch_family = str((patch_target or {}).get("family") or "").strip()
+    if patch_family:
+        patch["patchFamily"] = patch_family
     if applicable is not None:
         patch["applicable"] = applicable
         patch["applyCheckError"] = apply_check_error
@@ -48,8 +51,6 @@ def skip_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
-    if patch_target is not None:
-        patch["patchTarget"] = dict(patch_target)
     if replay_evidence is not None:
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:
@@ -88,6 +89,9 @@ def selected_patch_result(
         "applicable": True,
         "applyCheckError": None,
     }
+    patch_family = str((patch_target or {}).get("family") or "").strip()
+    if patch_family:
+        patch["patchFamily"] = patch_family
     if delivery_outcome is not None:
         patch["deliveryOutcome"] = delivery_outcome
     if repair_hints is not None:
@@ -98,8 +102,6 @@ def selected_patch_result(
         patch["selectionEvidence"] = selection_evidence
     if fallback_reason_codes is not None:
         patch["fallbackReasonCodes"] = list(fallback_reason_codes)
-    if patch_target is not None:
-        patch["patchTarget"] = dict(patch_target)
     if replay_evidence is not None:
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:

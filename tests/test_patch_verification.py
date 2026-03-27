@@ -25,6 +25,20 @@ class PatchVerificationTest(unittest.TestCase):
     def _validator(self) -> ContractValidator:
         return ContractValidator(ROOT)
 
+    def _append_patch_verification(self, **kwargs: object) -> None:
+        patch = kwargs.get("patch")
+        acceptance = kwargs.get("acceptance")
+        proof_patch_target = kwargs.pop("proof_patch_target", None)
+        if proof_patch_target is None and isinstance(patch, dict):
+            patch_target = patch.get("patchTarget")
+            if isinstance(patch_target, dict):
+                proof_patch_target = patch_target
+        if proof_patch_target is None and isinstance(acceptance, dict):
+            patch_target = acceptance.get("patchTarget")
+            if isinstance(patch_target, dict):
+                proof_patch_target = patch_target
+        append_patch_verification(proof_patch_target=proof_patch_target, **kwargs)
+
     def _patch_target(self, *, family: str = "STATIC_STATEMENT_REWRITE") -> dict:
         target_sql = "SELECT id FROM users"
         return {
@@ -72,11 +86,11 @@ class PatchVerificationTest(unittest.TestCase):
     def test_applicable_patch_is_recorded_as_verified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_ok_") as td:
             run_dir = Path(td)
+            proof_target = self._patch_target()
             patch = {
                 "selectionReason": {"code": "PATCH_SELECTED_SINGLE_PASS", "message": "selected"},
                 "applicable": True,
                 "patchFiles": [str(run_dir / "pipeline" / "patch_generate" / "files" / "demo.patch")],
-                "patchTarget": self._patch_target(),
                 "replayEvidence": {"matchesTarget": True, "driftReason": None},
                 "syntaxEvidence": {
                     "ok": True,
@@ -86,12 +100,13 @@ class PatchVerificationTest(unittest.TestCase):
                     "renderedSqlPresent": True,
                 },
             }
-            acceptance = {"status": "PASS", "patchTarget": self._patch_target()}
-            append_patch_verification(
+            acceptance = {"status": "PASS"}
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
                 acceptance=acceptance,
+                proof_patch_target=proof_target,
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
@@ -103,6 +118,49 @@ class PatchVerificationTest(unittest.TestCase):
             rows = _read_ledger(run_dir)
 
         self.assertEqual(rows[0]["phase"], "patch_generate")
+        self.assertEqual(rows[0]["status"], "VERIFIED")
+        self.assertEqual(rows[0]["reason_code"], "PATCH_SELECTED_SINGLE_PASS")
+
+    def test_patch_verification_ignores_acceptance_patch_target_noise(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_ignore_acceptance_noise_") as td:
+            run_dir = Path(td)
+            proof_target = self._patch_target()
+            patch = {
+                "selectionReason": {"code": "PATCH_SELECTED_SINGLE_PASS", "message": "selected"},
+                "applicable": True,
+                "patchFiles": [str(run_dir / "pipeline" / "patch_generate" / "files" / "demo.patch")],
+                "replayEvidence": {"matchesTarget": True, "driftReason": None},
+                "syntaxEvidence": {
+                    "ok": True,
+                    "xmlParseOk": True,
+                    "renderOk": True,
+                    "sqlParseOk": True,
+                    "renderedSqlPresent": True,
+                },
+            }
+            acceptance = {
+                "status": "PASS",
+                "patchTarget": {
+                    **self._patch_target(family="DYNAMIC_FILTER_SELECT_LIST_CLEANUP"),
+                    "rewriteMaterialization": {"mode": "STATEMENT_TEMPLATE_SAFE", "replayVerified": False},
+                },
+            }
+            self._append_patch_verification(
+                run_dir=run_dir,
+                validator=self._validator(),
+                patch=patch,
+                acceptance=acceptance,
+                proof_patch_target=proof_target,
+                status="PASS",
+                semantic_gate_status="PASS",
+                semantic_gate_confidence="HIGH",
+                sql_key="demo.user.find#v1",
+                statement_key="demo.user.find",
+                same_statement=[{"sqlKey": "demo.user.find#v1"}],
+                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+            )
+            rows = _read_ledger(run_dir)
+
         self.assertEqual(rows[0]["status"], "VERIFIED")
         self.assertEqual(rows[0]["reason_code"], "PATCH_SELECTED_SINGLE_PASS")
 
@@ -121,7 +179,7 @@ class PatchVerificationTest(unittest.TestCase):
                     "rewriteMaterialization": {"mode": "STATEMENT_TEMPLATE_SAFE", "replayVerified": False},
                 },
             }
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -160,7 +218,7 @@ class PatchVerificationTest(unittest.TestCase):
                 },
             }
             acceptance = {"status": "PASS", "patchTarget": {"family": "STATIC_STATEMENT_REWRITE"}}
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -198,7 +256,7 @@ class PatchVerificationTest(unittest.TestCase):
                 },
             }
             acceptance = {"status": "PASS", "patchTarget": self._patch_target(family="DYNAMIC_FILTER_SELECT_LIST_CLEANUP")}
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -230,7 +288,7 @@ class PatchVerificationTest(unittest.TestCase):
                 "status": "PASS",
                 "semanticEquivalence": {"status": "UNCERTAIN"},
             }
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -260,7 +318,7 @@ class PatchVerificationTest(unittest.TestCase):
                 "status": "PASS",
                 "semanticEquivalence": {"status": "PASS", "confidence": "LOW"},
             }
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -306,7 +364,7 @@ class PatchVerificationTest(unittest.TestCase):
                     verification=replace(spec.verification, require_sql_parse=False),
                 ),
             ):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -342,7 +400,7 @@ class PatchVerificationTest(unittest.TestCase):
                 },
             }
             acceptance = {"status": "PASS", "patchTarget": patch_target}
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -390,7 +448,7 @@ class PatchVerificationTest(unittest.TestCase):
                     verification=replace(spec.verification, require_sql_parse=False),
                 ),
             ):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -435,7 +493,7 @@ class PatchVerificationTest(unittest.TestCase):
                     verification=replace(spec.verification, require_sql_parse=False),
                 ),
             ):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -479,7 +537,7 @@ class PatchVerificationTest(unittest.TestCase):
                     verification=replace(spec.verification, require_sql_parse=False),
                 ),
             ):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -518,7 +576,7 @@ class PatchVerificationTest(unittest.TestCase):
                 },
             }
             acceptance = {"status": "PASS", "patchTarget": patch_target}
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,
@@ -560,7 +618,7 @@ class PatchVerificationTest(unittest.TestCase):
             }
             acceptance = {"status": "PASS", "patchTarget": patch_target}
             with mock_patch("sqlopt.stages.patch_verification.lookup_patch_family_spec", return_value=None):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -598,7 +656,7 @@ class PatchVerificationTest(unittest.TestCase):
             }
             acceptance = {"status": "PASS", "patchTarget": patch_target}
             with mock_patch("sqlopt.stages.patch_verification.lookup_patch_family_spec", return_value=None):
-                append_patch_verification(
+                self._append_patch_verification(
                     run_dir=run_dir,
                     validator=self._validator(),
                     patch=patch,
@@ -635,7 +693,7 @@ class PatchVerificationTest(unittest.TestCase):
                 },
             }
             acceptance = {"status": "PASS", "patchTarget": patch_target}
-            append_patch_verification(
+            self._append_patch_verification(
                 run_dir=run_dir,
                 validator=self._validator(),
                 patch=patch,

@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from sqlopt.contracts import ContractValidator
@@ -377,7 +378,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         self.assertTrue(patch_row["applicable"])
         self.assertEqual(patch_row.get("strategyType"), "EXACT_TEMPLATE_EDIT")
-        self.assertEqual((patch_row.get("patchTarget") or {}).get("targetSql"), "SELECT id FROM users")
+        self.assertNotIn("patchTarget", patch_row)
 
     def test_patch_generate_builds_template_ops_without_acceptance_materialization(self) -> None:
         unit, _ = self._dynamic_filter_wrapper_unit()
@@ -391,9 +392,8 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertTrue(patch_row["applicable"])
-        self.assertEqual((patch_row.get("patchTarget") or {}).get("selectedPatchStrategy", {}).get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
-        self.assertEqual((patch_row.get("patchTarget") or {}).get("rewriteMaterialization", {}).get("mode"), "STATEMENT_TEMPLATE_SAFE")
-        self.assertEqual(((patch_row.get("patchTarget") or {}).get("templateRewriteOps") or [])[0].get("op"), "replace_statement_body")
+        self.assertEqual(patch_row.get("strategyType"), "DYNAMIC_STATEMENT_TEMPLATE_EDIT")
+        self.assertNotIn("patchTarget", patch_row)
 
     def test_patch_generate_derives_replay_contract_in_patch_stage(self) -> None:
         unit, _ = self._dynamic_filter_wrapper_unit()
@@ -408,18 +408,31 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         self.assertTrue((patch_row.get("replayEvidence") or {}).get("matchesTarget"))
         self.assertTrue((patch_row.get("syntaxEvidence") or {}).get("ok"))
-        self.assertTrue(((patch_row.get("patchTarget") or {}).get("replayContract") or {}).get("requiredTemplateOps"))
+        self.assertNotIn("patchTarget", patch_row)
+
+    def test_patch_generate_ignores_legacy_patch_target_noise(self) -> None:
+        acceptance = {
+            **self._thin_acceptance(),
+            "patchTarget": self._patch_target(target_sql="SELECT name FROM users", after_template="SELECT name FROM users"),
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+
+        patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual((patch_row.get("replayEvidence") or {}).get("renderedSql"), "SELECT id FROM users")
+        self.assertNotEqual((patch_row.get("replayEvidence") or {}).get("renderedSql"), "SELECT name FROM users")
+        self.assertNotIn("patchTarget", patch_row)
 
     def test_patch_generate_blocks_when_replay_target_drift_exists(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT name FROM users"),
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
@@ -436,22 +449,24 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(artifact_patch, changed_lines, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": "PATCH_TARGET_DRIFT"},
+                        syntax_evidence={"ok": True, "xmlParseOk": True, "renderOk": True, "sqlParseOk": True, "renderedSqlPresent": True, "reasonCode": None},
+                        ok=False,
+                        reason_code="PATCH_TARGET_DRIFT",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
 
     def test_patch_generate_blocks_when_patch_artifact_drifts_from_target(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
@@ -468,22 +483,24 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(artifact_patch, changed_lines, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": "PATCH_TARGET_DRIFT"},
+                        syntax_evidence={"ok": True, "xmlParseOk": True, "renderOk": True, "sqlParseOk": True, "renderedSqlPresent": True, "reasonCode": None},
+                        ok=False,
+                        reason_code="PATCH_TARGET_DRIFT",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_TARGET_DRIFT")
         self.assertEqual((patch_row.get("deliveryOutcome") or {}).get("tier"), "REVIEW_ONLY")
 
     def test_patch_generate_blocks_when_patch_targets_different_xml_file(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
@@ -501,21 +518,23 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(foreign_patch, changed_lines, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": "PATCH_ARTIFACT_TARGET_MISMATCH"},
+                        syntax_evidence={"ok": True, "xmlParseOk": True, "renderOk": True, "sqlParseOk": True, "renderedSqlPresent": True, "reasonCode": None},
+                        ok=False,
+                        reason_code="PATCH_ARTIFACT_TARGET_MISMATCH",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_ARTIFACT_TARGET_MISMATCH")
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_ARTIFACT_TARGET_MISMATCH")
 
     def test_patch_generate_blocks_when_patch_artifact_hunk_is_invalid(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
@@ -535,21 +554,23 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(invalid_patch, 1, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": "PATCH_ARTIFACT_INVALID"},
+                        syntax_evidence={"ok": False, "xmlParseOk": None, "renderOk": None, "sqlParseOk": None, "renderedSqlPresent": False, "reasonCode": "PATCH_ARTIFACT_INVALID"},
+                        ok=False,
+                        reason_code="PATCH_ARTIFACT_INVALID",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_ARTIFACT_INVALID")
         self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_ARTIFACT_INVALID")
 
     def test_patch_generate_blocks_when_patch_artifact_breaks_xml(self) -> None:
-        acceptance = {
-            "sqlKey": "demo.user.find#v1",
-            "status": "PASS",
-            "rewrittenSql": "SELECT id FROM users",
-            "patchTarget": self._patch_target(target_sql="SELECT id FROM users", after_template="SELECT id FROM users"),
-            "equivalence": {},
-            "perfComparison": {},
-            "securityChecks": {},
-        }
+        acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
         unit = {
@@ -581,10 +602,20 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(invalid_xml_patch, changed_lines, None)):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": None},
+                        syntax_evidence={"ok": False, "xmlParseOk": False, "renderOk": False, "sqlParseOk": None, "renderedSqlPresent": False, "reasonCode": "PATCH_XML_PARSE_FAILED"},
+                        ok=False,
+                        reason_code="PATCH_XML_PARSE_FAILED",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_XML_PARSE_FAILED")
-        self.assertEqual((patch_row.get("replayEvidence") or {}).get("driftReason"), "PATCH_XML_PARSE_FAILED")
+        self.assertEqual((patch_row.get("syntaxEvidence") or {}).get("reasonCode"), "PATCH_XML_PARSE_FAILED")
 
 
 if __name__ == "__main__":

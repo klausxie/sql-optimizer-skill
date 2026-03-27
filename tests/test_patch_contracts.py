@@ -101,7 +101,7 @@ def test_acceptance_result_rejects_patch_owned_fields() -> None:
         _validator().validate("acceptance_result", payload)
 
 
-def test_patch_result_patch_target_requires_complete_replay_contract_when_present() -> None:
+def test_patch_result_rejects_public_patch_target() -> None:
     payload = _patch_result_payload()
     payload["patchTarget"] = {
         "sqlKey": "demo.user.countUser#v2",
@@ -134,7 +134,7 @@ def test_patch_result_patch_target_requires_complete_replay_contract_when_presen
         _validator().validate("patch_result", payload)
 
 
-def test_complete_patch_target_contract_validates_in_patch_result_schema() -> None:
+def test_complete_patch_target_contract_is_internal_only() -> None:
     contract = build_patch_target_contract(
         sql_key="demo.user.countUser#v2",
         target_sql=" SELECT  COUNT(*)  FROM users ",
@@ -165,4 +165,5 @@ def test_complete_patch_target_contract_validates_in_patch_result_schema() -> No
 
     patch_payload = _patch_result_payload()
     patch_payload["patchTarget"] = contract
-    _validator().validate("patch_result", patch_payload)
+    with pytest.raises(ContractError, match="patch_result schema validation failed"):
+        _validator().validate("patch_result", patch_payload)

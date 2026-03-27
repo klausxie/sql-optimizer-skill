@@ -112,7 +112,7 @@ def patch_meets_registered_fixture_obligations(patch: dict, scenario: dict) -> b
     if spec is None:
         return True
 
-    patch_target_family = str(((patch.get("patchTarget") or {}).get("family")) or "").strip()
+    patch_target_family = str(patch.get("patchFamily") or "").strip()
     applicable = patch.get("applicable") is True
     dynamic_delivery_class = str(scenario.get("targetDynamicDeliveryClass") or "").strip().upper()
 

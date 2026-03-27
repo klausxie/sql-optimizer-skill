@@ -41,51 +41,11 @@ class PatchApplicabilityTest(unittest.TestCase):
             "sqlKey": "demo.user.listUsersSorted#v1",
             "status": "PASS",
             "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC",
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
             "equivalence": {},
             "perfComparison": {},
             "securityChecks": {},
             "selectedCandidateId": "c-pass-1",
-            "patchTarget": {
-                "sqlKey": "demo.user.listUsersSorted#v1",
-                "selectedCandidateId": "c-pass-1",
-                "targetSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                "targetSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                "targetSqlFingerprint": "demo-fingerprint",
-                "semanticGateStatus": "PASS",
-                "semanticGateConfidence": "HIGH",
-                "selectedPatchStrategy": {"strategyType": "EXACT_TEMPLATE_EDIT"},
-                "family": "STATIC_STATEMENT_REWRITE",
-                "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
-                "patchability": {"eligible": True},
-                "rewriteMaterialization": {
-                    "mode": "STATEMENT_SQL",
-                    "replayVerified": True,
-                    "replayContract": {
-                        "replayMode": "STATEMENT_SQL",
-                        "requiredTemplateOps": [],
-                        "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                        "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                        "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
-                        "requiredAnchors": [],
-                        "requiredIncludes": [],
-                        "requiredPlaceholderShape": [],
-                        "dialectSyntaxCheckRequired": False,
-                    },
-                },
-                "templateRewriteOps": [],
-                "replayContract": {
-                    "replayMode": "STATEMENT_SQL",
-                    "requiredTemplateOps": [],
-                    "expectedRenderedSql": "SELECT id, name FROM users ORDER BY created_at DESC",
-                    "expectedRenderedSqlNormalized": "SELECT id, name FROM users ORDER BY created_at DESC",
-                    "expectedFingerprint": {"kind": "normalized_sql", "value": "SELECT id, name FROM users ORDER BY created_at DESC"},
-                    "requiredAnchors": [],
-                    "requiredIncludes": [],
-                    "requiredPlaceholderShape": [],
-                    "dialectSyntaxCheckRequired": False,
-                },
-                "evidenceRefs": [],
-            },
         }
 
     def test_patch_marked_applicable_when_git_apply_check_passes(self) -> None:
@@ -123,10 +83,6 @@ class PatchApplicabilityTest(unittest.TestCase):
                 **self._base_acceptance(),
                 "rewrittenSql": "SELECT id, name FROM users WHERE deleted = 0 AND status = #{status} ORDER BY created_at DESC",
             }
-            acceptance["patchTarget"]["targetSql"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["targetSqlNormalized"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["replayContract"]["expectedRenderedSql"] = acceptance["rewrittenSql"]
-            acceptance["patchTarget"]["replayContract"]["expectedRenderedSqlNormalized"] = acceptance["rewrittenSql"]
             (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
@@ -358,9 +314,9 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED")
             self.assertEqual(patch_row.get("patchFiles"), [])
-            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "BLOCKED")
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
     def test_patch_uses_dynamic_template_specific_reason_when_available(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_reason_") as td:
@@ -424,7 +380,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             patch_row.get("selectionReason", {}).get("code"),
             "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
         )
-        self.assertEqual(patch_row.get("dynamicTemplateBlockingReason"), "FOREACH_INCLUDE_PREDICATE")
+        self.assertEqual(patch_row.get("dynamicTemplateBlockingReason"), "FOREACH_COLLECTION_PREDICATE")
 
     def test_patch_rejects_fragment_template_ops_from_validate_without_patch_owned_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_fragment_ops_") as td:
@@ -509,9 +465,9 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE")
             self.assertEqual(patch_row.get("patchFiles"), [])
-            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "BLOCKED")
+            self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
     def test_template_patch_is_blocked_when_duplicate_clause_detected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dup_clause_") as td:
