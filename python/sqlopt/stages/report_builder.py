@@ -63,6 +63,13 @@ from .report_stats import (
 _OPS_TOPOLOGY_STAGE_KEYS = ("scan", "optimize", "validate", "apply", "report")
 
 
+def _patch_apply_ready(row: dict[str, Any]) -> bool:
+    delivery_stage = str(row.get("deliveryStage") or "").strip().upper()
+    if delivery_stage:
+        return delivery_stage == "APPLY_READY"
+    return row.get("applicable") is True
+
+
 def _filter_runtime_policy_for_ops_topology(runtime_cfg: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
     timeout_src = dict(runtime_cfg.get("stage_timeout_ms") or {})
     retry_src = dict(runtime_cfg.get("stage_retry_max") or {})
@@ -284,7 +291,7 @@ def build_report_artifacts(
         )
     )
     patch_file_count = sum(len(x.get("patchFiles", [])) for x in inputs.patches)
-    patch_applicable_count = sum(1 for x in inputs.patches if x.get("applicable") is True)
+    patch_applicable_count = sum(1 for x in inputs.patches if _patch_apply_ready(x))
     materialization_counts = materialization_mode_counts(inputs.acceptance)
     materialization_reason_counts_map = materialization_reason_counts(inputs.acceptance)
     materialization_reason_group_counts_map = materialization_reason_group_counts(materialization_reason_counts_map)

@@ -7,6 +7,7 @@ from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 from .fixture_project_harness_support import (
     fixture_registered_families,
+    patch_apply_ready,
     patch_blocker_family,
     patch_meets_registered_fixture_obligations,
     run_fixture_patch_and_report_harness,
@@ -31,7 +32,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         )
         strategy_type = str((patch_row.get("dynamicTemplateStrategy") or patch_row.get("strategyType") or "")).strip().upper()
         delivery_class = None
-        if strategy_type.startswith("DYNAMIC_") and patch_row.get("applicable") is True:
+        if strategy_type.startswith("DYNAMIC_") and patch_apply_ready(patch_row):
             delivery_class = "READY_DYNAMIC_PATCH"
         elif capability_tier == "SAFE_BASELINE" and blocking_reason and blocking_reason.endswith("NO_EFFECTIVE_DIFF"):
             delivery_class = "SAFE_BASELINE_NO_DIFF"
@@ -57,7 +58,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
                 continue
             self.assertIn(tracked_family, registered_families, sql_key)
             self.assertTrue(patch_meets_registered_fixture_obligations(patch, scenario), sql_key)
-            if target_registered_family and patch.get("applicable") is True:
+            if target_registered_family and patch_apply_ready(patch):
                 self.assertEqual(patch.get("patchFamily"), target_registered_family, sql_key)
             if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH":
                 self.assertEqual(patch.get("patchFamily"), target_dynamic_family, sql_key)
@@ -65,7 +66,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
     def test_auto_patches_require_frozen_family_and_replay_evidence(self) -> None:
         _scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
 
-        auto_patches = [row for row in patches if row.get("applicable") is True]
+        auto_patches = [row for row in patches if patch_apply_ready(row)]
         self.assertTrue(auto_patches)
         for patch in auto_patches:
             sql_key = str(patch["sqlKey"])
@@ -86,7 +87,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             self.assertEqual(patch_blocker_family(patch), str(scenario["targetBlockerFamily"]), sql_key)
             if scenario["targetPatchStrategy"]:
                 self.assertTrue(patch.get("patchFiles"), sql_key)
-                self.assertIs(patch.get("applicable"), True, sql_key)
+                self.assertTrue(patch_apply_ready(patch), sql_key)
                 patch_text = "\n".join(str(x) for x in (patch.get("_patchTexts") or []))
                 added_text = "\n".join(
                     line[1:]
@@ -99,7 +100,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
                     self.assertNotIn(str(snippet), added_text, sql_key)
             else:
                 self.assertEqual(patch.get("patchFiles"), [], sql_key)
-                self.assertIsNot(patch.get("applicable"), True, sql_key)
+                self.assertFalse(patch_apply_ready(patch), sql_key)
 
     def test_fixture_project_report_matches_matrix_aggregates(self) -> None:
         scenarios, _proposals, acceptance_rows, patches, report_artifacts = run_fixture_patch_and_report_harness()

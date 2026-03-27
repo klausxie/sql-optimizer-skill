@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -18,6 +19,17 @@ class PatchDecisionContext:
     same_statement: list[dict[str, Any]]
     pass_rows: list[dict[str, Any]]
     candidates_evaluated: int
+
+
+_TEMPLATE_TAG_PATTERN = re.compile(r"</?(if|where|set|trim|foreach|choose|when|otherwise|bind|include)\b")
+
+
+def _artifact_kind_for_patch_text(build: PatchBuildResult, patch_text: str) -> str:
+    if build.artifact_kind == "FRAGMENT":
+        return "FRAGMENT"
+    if _TEMPLATE_TAG_PATTERN.search(patch_text):
+        return "TEMPLATE"
+    return "STATEMENT"
 
 
 def _acceptance_reason_code(acceptance: dict[str, Any]) -> str | None:
@@ -269,6 +281,7 @@ def decide_patch_result(
             candidates_evaluated=candidates_evaluated,
             selected_candidate_id=selection.selected_candidate_id,
             patch_target=None,
+            artifact_kind=_artifact_kind_for_patch_text(build, template_patch_text),
             no_effect_message="rewritten template has no diff",
             workdir=project_root,
         )
@@ -346,6 +359,7 @@ def decide_patch_result(
         candidates_evaluated=candidates_evaluated,
         selected_candidate_id=selection.selected_candidate_id,
         patch_target=None,
+        artifact_kind="STATEMENT",
         no_effect_message="rewritten sql has no diff",
         workdir=project_root,
     )

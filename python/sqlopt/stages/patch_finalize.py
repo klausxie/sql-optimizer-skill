@@ -14,6 +14,7 @@ def finalize_generated_patch(
     candidates_evaluated: int,
     selected_candidate_id: str | None,
     patch_target: dict[str, Any] | None,
+    artifact_kind: str | None,
     no_effect_message: str,
     workdir: Path,
     check_patch_applicable: Callable[[Path, Path], tuple[bool, str | None]],
@@ -33,19 +34,6 @@ def finalize_generated_patch(
         )
     patch_file.parent.mkdir(parents=True, exist_ok=True)
     patch_file.write_text(patch_text, encoding="utf-8")
-    applicable, apply_error = check_patch_applicable(patch_file, workdir)
-    if not applicable:
-        return skip_patch_result(
-            sql_key=sql_key,
-            statement_key=statement_key,
-            reason_code="PATCH_NOT_APPLICABLE",
-            reason_message="generated patch failed git apply --check against project root",
-            candidates_evaluated=candidates_evaluated,
-            selected_candidate_id=selected_candidate_id,
-            applicable=False,
-            apply_check_error=apply_error,
-            patch_target=patch_target,
-        )
     return selected_patch_result(
         sql_key=sql_key,
         statement_key=statement_key,
@@ -54,4 +42,5 @@ def finalize_generated_patch(
         candidates_evaluated=candidates_evaluated,
         selected_candidate_id=selected_candidate_id,
         patch_target=patch_target,
+        artifact_kind=artifact_kind,
     )

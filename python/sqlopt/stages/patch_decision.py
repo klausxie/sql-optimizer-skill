@@ -5,6 +5,30 @@ from typing import Any
 from .patch_build import PatchBuildResult
 from .patch_select import PatchSelectionContext
 
+BUILD_FAILURE_REASON_CODES = {
+    "PATCH_LOCATOR_AMBIGUOUS",
+    "PATCH_NO_EFFECTIVE_CHANGE",
+    "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
+    "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
+    "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+    "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+    "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED",
+    "PATCH_CONFLICT_NO_CLEAR_WINNER",
+    "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+    "PATCH_SEMANTIC_CONFIDENCE_LOW",
+    "PATCH_VALIDATION_BLOCKED_SECURITY",
+}
+PROOF_FAILURE_REASON_CODES = {
+    "PATCH_TARGET_DRIFT",
+    "PATCH_ARTIFACT_INVALID",
+    "PATCH_XML_PARSE_FAILED",
+    "PATCH_SQL_PARSE_FAILED",
+    "PATCH_TARGET_CONTRACT_MISSING",
+    "PATCH_FAMILY_SPEC_MISSING",
+}
+
 LLM_ASSIST_REASON_CODES = {
     "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
     "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
@@ -160,7 +184,13 @@ def attach_patch_diagnostics(
         "PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED",
         "PATCH_TEMPLATE_DUPLICATE_CLAUSE_DETECTED",
     }
-    if patch.get("applicable") is True:
+    if patch.get("deliveryStage") == "PROOF_FAILED" or reason_code in PROOF_FAILURE_REASON_CODES:
+        delivery_outcome = {
+            "tier": "REVIEW_ONLY",
+            "reasonCodes": [reason_code] if reason_code else [],
+            "summary": "patch passed apply checks but proof verification failed",
+        }
+    elif patch.get("applicable") is True:
         delivery_outcome = {
             "tier": "AUTO_PATCH",
             "reasonCodes": [reason_code or "PATCH_SELECTED_SINGLE_PASS"],
@@ -200,6 +230,19 @@ def attach_patch_diagnostics(
     patch["deliveryOutcome"] = delivery_outcome
     if patch_family is not None:
         patch["patchFamily"] = patch_family
+    patch["artifactKind"] = str(patch.get("artifactKind") or build.artifact_kind)
+    if reason_code in PROOF_FAILURE_REASON_CODES:
+        patch["deliveryStage"] = "PROOF_FAILED"
+        patch["failureClass"] = "PROOF_FAILURE"
+    elif patch.get("applicable") is False:
+        patch["deliveryStage"] = "APPLICABILITY_FAILED"
+        patch["failureClass"] = "APPLICABILITY_FAILURE"
+    elif reason_code in BUILD_FAILURE_REASON_CODES:
+        patch["deliveryStage"] = "BUILD_FAILED"
+        patch["failureClass"] = "BUILD_FAILURE"
+    elif patch.get("applicable") is True:
+        patch["deliveryStage"] = "APPLY_READY"
+        patch["failureClass"] = None
     patch["repairHints"] = build_patch_repair_hints(reason_code, apply_check_error, sql_unit)
     patch["patchability"] = {
         "applyCheckPassed": True if patch.get("applicable") is True else (False if patch.get("applicable") is False else None),

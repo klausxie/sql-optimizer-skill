@@ -8,6 +8,8 @@ from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, read_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
+from .patch_applicability import PatchApplicabilityResult, build_delivery_verdict as _build_delivery_verdict
+from .patch_applicability import run_patch_applicability as _run_patch_applicability
 from .patch_build import build_patch_plan as _build_patch_plan
 from .patching_render import (
     build_unified_patch as _build_unified_patch,
@@ -70,6 +72,7 @@ def _finalize_generated_patch(
     candidates_evaluated: int,
     selected_candidate_id: str | None,
     patch_target: dict[str, Any] | None,
+    artifact_kind: str | None,
     no_effect_message: str,
     workdir: Path,
 ) -> dict:
@@ -82,6 +85,7 @@ def _finalize_generated_patch(
         candidates_evaluated=candidates_evaluated,
         selected_candidate_id=selected_candidate_id,
         patch_target=patch_target,
+        artifact_kind=artifact_kind,
         no_effect_message=no_effect_message,
         workdir=workdir,
         check_patch_applicable=_check_patch_applicable,
@@ -109,7 +113,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         fragment_catalog=fragment_catalog,
         config=config,
     )
-    build = _build_patch_plan(selection)
+    build = _build_patch_plan(selection, sql_unit)
 
     patch, decision_ctx = _decide_patch_result(
         sql_unit=sql_unit,
@@ -131,34 +135,87 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
     )
     sql_key = decision_ctx.sql_key
 
-    if patch.get("applicable") is True:
+    proof = None
+    if patch.get("patchFiles"):
         selected_patch_file = next(iter(patch.get("patchFiles") or []), None)
-        patch_text = Path(selected_patch_file).read_text(encoding="utf-8") if selected_patch_file and Path(selected_patch_file).exists() else ""
-        proof = _prove_patch_plan(
-            sql_unit=sql_unit,
-            selection=selection,
-            build=build,
-            fragment_catalog=fragment_catalog,
-            patch_text=patch_text,
-        )
-        if proof.replay_evidence:
-            patch["replayEvidence"] = proof.replay_evidence
-        if proof.syntax_evidence:
-            patch["syntaxEvidence"] = proof.syntax_evidence
-        if proof.ok is not True:
-            reason_code = proof.reason_code or "PATCH_TARGET_DRIFT"
-            reason_message = "generated patch does not replay back to the persisted patch target"
+        patch_file_path = Path(selected_patch_file) if selected_patch_file else None
+        if patch_file_path is not None and patch_file_path.exists():
+            applicability, apply_error = _run_patch_applicability(
+                build=build,
+                patch_file=patch_file_path,
+                workdir=project_root,
+                check_patch_applicable=_check_patch_applicable,
+                artifact_kind=str(patch.get("artifactKind") or "").strip() or None,
+            )
+        else:
+            applicability, apply_error = (
+                PatchApplicabilityResult(
+                    artifact_kind=build.artifact_kind,
+                    target_file=build.target_file,
+                    materialized=False,
+                    applicability_checked=False,
+                    apply_ready_candidate=False,
+                    failure_class="BUILD_FAILURE",
+                    reason_code="PATCH_ARTIFACT_MISSING",
+                    target_kind=build.target_kind,
+                    target_ref=build.target_ref,
+                ),
+                None,
+            )
+        if applicability.apply_ready_candidate is not True:
             patch = _skip_patch_result(
                 sql_key=decision_ctx.sql_key,
                 statement_key=decision_ctx.statement_key,
-                reason_code=reason_code,
-                reason_message=reason_message,
+                reason_code=applicability.reason_code or "PATCH_NOT_APPLICABLE",
+                reason_message="generated patch failed git apply --check against project root",
                 candidates_evaluated=decision_ctx.candidates_evaluated,
-                selected_candidate_id=(proof.patch_target or {}).get("selectedCandidateId"),
-                patch_target=proof.patch_target,
-                replay_evidence=patch.get("replayEvidence"),
-                syntax_evidence=patch.get("syntaxEvidence"),
+                selected_candidate_id=selection.selected_candidate_id,
+                applicable=False,
+                apply_check_error=apply_error,
+                artifact_kind=applicability.artifact_kind,
+                delivery_stage="APPLICABILITY_FAILED",
+                failure_class=applicability.failure_class,
             )
+        else:
+            patch["applicable"] = True
+            patch["applyCheckError"] = None
+            patch_text = patch_file_path.read_text(encoding="utf-8") if patch_file_path is not None else ""
+            proof = _prove_patch_plan(
+                sql_unit=sql_unit,
+                selection=selection,
+                build=build,
+                fragment_catalog=fragment_catalog,
+                patch_text=patch_text,
+            )
+            if proof.replay_evidence:
+                patch["replayEvidence"] = proof.replay_evidence
+            if proof.syntax_evidence:
+                patch["syntaxEvidence"] = proof.syntax_evidence
+            delivery_verdict = _build_delivery_verdict(
+                applicability=applicability,
+                proof_ok=proof.ok,
+                proof_reason_code=proof.reason_code,
+            )
+            patch.update({key: value for key, value in delivery_verdict.items() if key != "reasonCode"})
+            if proof.ok is not True:
+                reason_code = proof.reason_code or "PATCH_TARGET_DRIFT"
+                reason_message = "generated patch does not replay back to the persisted patch target"
+                patch = _skip_patch_result(
+                    sql_key=decision_ctx.sql_key,
+                    statement_key=decision_ctx.statement_key,
+                    reason_code=reason_code,
+                    reason_message=reason_message,
+                    candidates_evaluated=decision_ctx.candidates_evaluated,
+                    selected_candidate_id=(proof.patch_target or {}).get("selectedCandidateId"),
+                    applicable=True,
+                    apply_check_error=None,
+                    patch_target=proof.patch_target,
+                    replay_evidence=patch.get("replayEvidence"),
+                    syntax_evidence=patch.get("syntaxEvidence"),
+                    artifact_kind=delivery_verdict.get("artifactKind"),
+                    delivery_stage=delivery_verdict.get("deliveryStage"),
+                    failure_class=delivery_verdict.get("failureClass"),
+                )
 
     patch = _attach_patch_diagnostics(patch, sql_unit, selection, build)
 
@@ -199,7 +256,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         validator=validator,
         patch=patch,
         acceptance=acceptance,
-        proof_patch_target=proof.patch_target if patch.get("applicable") is True else None,
+        proof_patch_target=proof.patch_target if proof is not None else None,
         status=decision_ctx.status,
         semantic_gate_status=decision_ctx.semantic_gate_status,
         semantic_gate_confidence=decision_ctx.semantic_gate_confidence,

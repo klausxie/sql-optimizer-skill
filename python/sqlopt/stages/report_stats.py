@@ -56,6 +56,13 @@ def _primary_blocker_message(code: str | None) -> str | None:
     return normalized
 
 
+def _patch_apply_ready(patch_row: dict[str, Any]) -> bool:
+    delivery_stage = str(patch_row.get("deliveryStage") or "").strip().upper()
+    if delivery_stage:
+        return delivery_stage == "APPLY_READY"
+    return patch_row.get("applicable") is True
+
+
 def blocker_family_for_outcome(
     *,
     delivery_status: str,
@@ -125,7 +132,9 @@ def _dynamic_template_profile(acceptance_row: dict[str, Any], patch_row: dict[st
     )
     strategy_type = str((patch_payload.get("dynamicTemplateStrategy") or patch_payload.get("strategyType") or "")).strip().upper()
     delivery_class = None
-    if strategy_type.startswith("DYNAMIC_") and patch_payload.get("applicable") is True:
+    delivery_stage = str(patch_payload.get("deliveryStage") or "").strip().upper()
+    patch_apply_ready = delivery_stage == "APPLY_READY" if delivery_stage else patch_payload.get("applicable") is True
+    if strategy_type.startswith("DYNAMIC_") and patch_apply_ready:
         delivery_class = "READY_DYNAMIC_PATCH"
     elif capability_tier == "SAFE_BASELINE" and blocking_reason and blocking_reason.endswith("NO_EFFECTIVE_DIFF"):
         delivery_class = "SAFE_BASELINE_NO_DIFF"
@@ -553,7 +562,7 @@ def build_sql_rows(units: list[dict[str, Any]], acceptance: list[dict[str, Any]]
                 "perf_improved": perf.get("improved"),
                 "before_cost": (perf.get("beforeSummary") or {}).get("totalCost"),
                 "after_cost": (perf.get("afterSummary") or {}).get("totalCost"),
-                "patch_applicable": patch_row.get("applicable"),
+                "patch_applicable": _patch_apply_ready(patch_row),
                 "patch_selection_code": (patch_row.get("selectionReason") or {}).get("code"),
                 "rewrite_materialization_mode": (acceptance_row.get("rewriteMaterialization") or {}).get("mode"),
                 "rewrite_materialization_reason": (acceptance_row.get("rewriteMaterialization") or {}).get("reasonCode"),
@@ -679,7 +688,7 @@ def build_top_actionable_sql(
             priority_score += 70
         elif delivery_tier == "MANUAL_REVIEW":
             priority_score += 40
-        elif patch_row.get("applicable") is True:
+        elif _patch_apply_ready(patch_row):
             priority_score += 100
             delivery_tier = "READY_TO_APPLY"
         elif readiness_tier == "READY":
@@ -707,7 +716,7 @@ def build_top_actionable_sql(
             priority = "P2"
 
         if not delivery_tier:
-            if patch_row.get("applicable") is True:
+            if _patch_apply_ready(patch_row):
                 delivery_tier = "READY_TO_APPLY"
             elif readiness_tier == "READY":
                 delivery_tier = "READY"
@@ -753,7 +762,7 @@ def build_top_actionable_sql(
             "VALIDATE_DB_UNREACHABLE",
         }):
             summary = "验证证据已降级，需要数据库重新检查"
-        elif patch_row.get("applicable") is True:
+        elif _patch_apply_ready(patch_row):
             summary = "补丁已就绪可应用"
         elif semantic_blocked_reason == "VALIDATE_SEMANTIC_CONFIDENCE_LOW":
             summary = "语义门置信度偏低，需补充 DB 指纹证据后再交付"
@@ -803,7 +812,7 @@ def build_top_actionable_sql(
                 "actionability_score": actionability_score,
                 "delivery_status": delivery_status,
                 "delivery_tier": delivery_tier,
-                "patch_applicable": patch_row.get("applicable"),
+                "patch_applicable": _patch_apply_ready(patch_row),
                 "status": status or "PENDING",
                 "summary": summary,
                 "why_now": why_now,
@@ -871,11 +880,11 @@ def summarize_actionability(
         sql_key = str(row.get("sqlKey") or "").strip()
         statement_key = sql_key.split("#", 1)[0] if sql_key else ""
         patch_row = patch_by_statement.get(statement_key, {})
-        if patch_row.get("applicable") is not True:
+        if not _patch_apply_ready(patch_row):
             needs_manual_review_count += 1
     return {
         "high_value_sql_count": sum(1 for tier in proposal_tiers if tier in {"HIGH", "MEDIUM"}),
-        "ready_to_apply_count": sum(1 for row in patches if row.get("applicable") is True),
+        "ready_to_apply_count": sum(1 for row in patches if _patch_apply_ready(row)),
         "needs_manual_review_count": needs_manual_review_count,
         "blocked_value_count": sum(1 for tier in proposal_tiers if tier == "BLOCKED"),
     }

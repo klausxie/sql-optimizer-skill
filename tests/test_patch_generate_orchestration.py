@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from sqlopt.contracts import ContractValidator
+from sqlopt.stages.patch_applicability import PatchApplicabilityResult
 from sqlopt.stages import patch_generate
 from sqlopt.stages.patching_render import build_unified_patch
 
@@ -161,6 +162,144 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         template_mock.assert_not_called()
         unified_mock.assert_not_called()
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_LOCATOR_AMBIGUOUS")
+
+    def test_patch_generate_runs_applicability_before_proof(self) -> None:
+        acceptance = self._thin_acceptance()
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        artifact_patch, changed_lines = build_unified_patch(xml_path, "listUsersProjected", "select", "SELECT name FROM users")
+        self.assertIsNotNone(artifact_patch)
+        self.assertGreater(changed_lines, 0)
+
+        call_order: list[str] = []
+
+        def _applicability(**_: object) -> tuple[PatchApplicabilityResult, str | None]:
+            call_order.append("applicability")
+            return (
+                PatchApplicabilityResult(
+                    artifact_kind="STATEMENT",
+                    target_file=str(xml_path),
+                    materialized=True,
+                    applicability_checked=True,
+                    apply_ready_candidate=True,
+                    failure_class=None,
+                    reason_code=None,
+                ),
+                None,
+            )
+
+        def _proof(**_: object) -> SimpleNamespace:
+            call_order.append("proof")
+            return SimpleNamespace(
+                patch_target={"selectedCandidateId": "c1"},
+                replay_evidence={"matchesTarget": True, "driftReason": None},
+                syntax_evidence={"ok": True, "xmlParseOk": True, "renderOk": True, "sqlParseOk": True, "renderedSqlPresent": True, "reasonCode": None},
+                ok=True,
+                reason_code=None,
+            )
+
+        with patch("sqlopt.stages.patch_generate._build_unified_patch", return_value=(artifact_patch, changed_lines)):
+            with patch("sqlopt.stages.patch_generate._run_patch_applicability", side_effect=_applicability):
+                with patch("sqlopt.stages.patch_generate._prove_patch_plan", side_effect=_proof):
+                    patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(call_order, ["applicability", "proof"])
+
+    def test_patch_generate_reports_applicability_failure_without_proof_failure_code(self) -> None:
+        acceptance = self._thin_acceptance()
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        artifact_patch, changed_lines = build_unified_patch(xml_path, "listUsersProjected", "select", "SELECT name FROM users")
+        self.assertIsNotNone(artifact_patch)
+        self.assertGreater(changed_lines, 0)
+
+        with patch("sqlopt.stages.patch_generate._build_unified_patch", return_value=(artifact_patch, changed_lines)):
+            with patch(
+                "sqlopt.stages.patch_generate._run_patch_applicability",
+                return_value=(
+                    PatchApplicabilityResult(
+                        artifact_kind="STATEMENT",
+                        target_file=str(xml_path),
+                        materialized=True,
+                        applicability_checked=True,
+                        apply_ready_candidate=False,
+                        failure_class="APPLICABILITY_FAILURE",
+                        reason_code="PATCH_NOT_APPLICABLE",
+                    ),
+                    "patch does not apply",
+                ),
+            ):
+                with patch("sqlopt.stages.patch_generate._prove_patch_plan") as proof_mock:
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        proof_mock.assert_not_called()
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_NOT_APPLICABLE")
+        self.assertEqual(patch_row.get("deliveryStage"), "APPLICABILITY_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "APPLICABILITY_FAILURE")
+
+    def test_patch_generate_reports_proof_failure_after_applicability_success(self) -> None:
+        acceptance = self._thin_acceptance()
+        run_dir = self._prepare_run_dir(acceptance)
+        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        unit = {
+            "sqlKey": "demo.user.find#v1",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
+            "xmlPath": str(xml_path),
+            "namespace": "demo.user.advanced",
+            "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
+        }
+        artifact_patch, changed_lines = build_unified_patch(xml_path, "listUsersProjected", "select", "SELECT name FROM users")
+        self.assertIsNotNone(artifact_patch)
+        self.assertGreater(changed_lines, 0)
+
+        with patch("sqlopt.stages.patch_generate._build_unified_patch", return_value=(artifact_patch, changed_lines)):
+            with patch(
+                "sqlopt.stages.patch_generate._run_patch_applicability",
+                return_value=(
+                    PatchApplicabilityResult(
+                        artifact_kind="STATEMENT",
+                        target_file=str(xml_path),
+                        materialized=True,
+                        applicability_checked=True,
+                        apply_ready_candidate=True,
+                        failure_class=None,
+                        reason_code=None,
+                    ),
+                    None,
+                ),
+            ):
+                with patch(
+                    "sqlopt.stages.patch_generate._prove_patch_plan",
+                    return_value=SimpleNamespace(
+                        patch_target={"selectedCandidateId": "c1"},
+                        replay_evidence={"matchesTarget": False, "driftReason": "PATCH_TARGET_DRIFT"},
+                        syntax_evidence={"ok": True, "xmlParseOk": True, "renderOk": True, "sqlParseOk": True, "renderedSqlPresent": True, "reasonCode": None},
+                        ok=False,
+                        reason_code="PATCH_TARGET_DRIFT",
+                    ),
+                ):
+                    patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
+        self.assertEqual(patch_row.get("deliveryStage"), "PROOF_FAILED")
+        self.assertEqual(patch_row.get("failureClass"), "PROOF_FAILURE")
 
     def test_non_pass_acceptance_short_circuits_generation(self) -> None:
         acceptance = {

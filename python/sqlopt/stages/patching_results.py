@@ -21,6 +21,9 @@ def skip_patch_result(
     patch_target: dict | None = None,
     replay_evidence: dict | None = None,
     syntax_evidence: dict | None = None,
+    artifact_kind: str | None = None,
+    delivery_stage: str | None = None,
+    failure_class: str | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -55,6 +58,12 @@ def skip_patch_result(
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:
         patch["syntaxEvidence"] = dict(syntax_evidence)
+    if artifact_kind is not None:
+        patch["artifactKind"] = artifact_kind
+    if delivery_stage is not None:
+        patch["deliveryStage"] = delivery_stage
+    if failure_class is not None:
+        patch["failureClass"] = failure_class
     return patch
 
 
@@ -74,6 +83,9 @@ def selected_patch_result(
     patch_target: dict | None = None,
     replay_evidence: dict | None = None,
     syntax_evidence: dict | None = None,
+    artifact_kind: str | None = None,
+    delivery_stage: str | None = None,
+    failure_class: str | None = None,
 ) -> dict:
     patch = {
         "sqlKey": sql_key,
@@ -106,4 +118,10 @@ def selected_patch_result(
         patch["replayEvidence"] = dict(replay_evidence)
     if syntax_evidence is not None:
         patch["syntaxEvidence"] = dict(syntax_evidence)
+    if artifact_kind is not None:
+        patch["artifactKind"] = artifact_kind
+    if delivery_stage is not None:
+        patch["deliveryStage"] = delivery_stage
+    if failure_class is not None:
+        patch["failureClass"] = failure_class
     return patch
