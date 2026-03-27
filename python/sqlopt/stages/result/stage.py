@@ -10,6 +10,7 @@ from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.common.xml_patch_engine import XmlPatchEngine
 from sqlopt.contracts.init import InitOutput, TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
@@ -158,14 +159,18 @@ class ResultStage(Stage[None, ResultOutput]):
         Returns:
             Patch with diff
         """
-        # Generate unified diff between original and optimized SQL
+        if proposal.actions:
+            patched_xml = XmlPatchEngine.apply_actions(proposal.actions, original_xml)
+        else:
+            patched_xml = proposal.optimized_sql
+
         original_lines = original_xml.splitlines(keepends=True)
-        optimized_lines = proposal.optimized_sql.splitlines(keepends=True)
+        patched_lines = patched_xml.splitlines(keepends=True)
 
         diff_lines = list(
             difflib.unified_diff(
                 original_lines,
-                optimized_lines,
+                patched_lines,
                 fromfile="original",
                 tofile="optimized",
                 lineterm="",
@@ -176,7 +181,7 @@ class ResultStage(Stage[None, ResultOutput]):
         return Patch(
             sql_unit_id=proposal.sql_unit_id,
             original_xml=original_xml,
-            patched_xml=proposal.optimized_sql,
+            patched_xml=patched_xml,
             diff=diff,
         )
 
