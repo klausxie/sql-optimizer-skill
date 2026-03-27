@@ -47,6 +47,7 @@ _PROHIBITED_WRAPPER_PATTERNS = (
     (r"\boffset\b", "OFFSET_PRESENT"),
     (r"\bfetch\b", "FETCH_PRESENT"),
 )
+_DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH = "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH"
 
 
 def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
@@ -177,7 +178,7 @@ def _build_dynamic_template_facts(
         shape_family = "SET_SELECTIVE_UPDATE"
         patch_surface = "SET_CLAUSE"
         blocker_family = "DYNAMIC_SET_CLAUSE"
-        blockers = [blocker_family]
+        blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
     elif "FOREACH" in feature_set:
         shape_family = "FOREACH_IN_PREDICATE"
         patch_surface = "WHERE_CLAUSE"
@@ -187,7 +188,7 @@ def _build_dynamic_template_facts(
             blocker_family = "FOREACH_COMPLEX_PREDICATE"
         else:
             blocker_family = "FOREACH_COLLECTION_PREDICATE"
-        blockers = [blocker_family]
+        blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
     elif feature_set <= {"IF", "WHERE"} and dynamic_count_wrapper_match is not None:
         shape_family = "IF_GUARDED_COUNT_WRAPPER"
         patch_surface = "STATEMENT_BODY"
@@ -215,7 +216,12 @@ def _build_dynamic_template_facts(
         elif direct_select is not None and direct_from is not None and not (feature_set & {"CHOOSE", "TRIM", "BIND"}):
             _cleaned_select, aliases_changed = cleanup_redundant_select_aliases(direct_select)
             _cleaned_from, from_alias_changed = cleanup_redundant_from_alias(direct_from, select_text=direct_select)
-            if aliases_changed:
+            if aliases_changed and from_alias_changed:
+                patch_surface = "STATEMENT_BODY"
+                capability_tier = "REVIEW_REQUIRED"
+                blocker_family = _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH
+                blockers = [blocker_family]
+            elif aliases_changed:
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "SAFE_BASELINE"
                 blocker_family = None
@@ -233,16 +239,18 @@ def _build_dynamic_template_facts(
                 patch_surface = "WHERE_CLAUSE"
                 if feature_set & {"CHOOSE", "TRIM", "BIND"}:
                     blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                    blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
                 else:
                     blocker_family = "DYNAMIC_FILTER_SUBTREE"
-                blockers = [blocker_family]
+                    blockers = [blocker_family]
         else:
             patch_surface = "WHERE_CLAUSE"
             if feature_set & {"CHOOSE", "TRIM", "BIND"}:
                 blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
             else:
                 blocker_family = "DYNAMIC_FILTER_SUBTREE"
-            blockers = [blocker_family]
+                blockers = [blocker_family]
     elif feature_set == {"INCLUDE"} or feature_set <= {"INCLUDE"}:
         patch_surface = "STATEMENT_BODY"
         if include_dynamic_subtree:

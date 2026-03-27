@@ -322,6 +322,104 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "STATEMENT_BODY")
         self.assertEqual(model.dynamic_template.capability_profile.baseline_family, "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP")
 
+    def test_build_rewrite_facts_model_blocks_combined_dynamic_filter_cleanup_as_scope_mismatch(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup#v22",
+            "sql": (
+                "SELECT id AS id, name AS name, email AS email FROM users u "
+                "WHERE status = #{status} ORDER BY created_at DESC"
+            ),
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "listUsersFilteredCombinedCleanup",
+            "templateSql": (
+                "SELECT id AS id, name AS name, email AS email FROM users u "
+                "<where><if test=\"status != null and status != ''\">AND status = #{status}</if></where> "
+                "ORDER BY created_at DESC"
+            ),
+            "dynamicFeatures": ["WHERE", "IF"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT id, name, email FROM users WHERE status = #{status} ORDER BY created_at DESC",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.baseline_family, None)
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
+        self.assertIn("DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH", model.dynamic_template.capability_profile.blockers)
+
+    def test_build_rewrite_facts_model_blocks_bind_foreach_and_set_from_dynamic_envelope_scope(self) -> None:
+        bind_unit = {
+            "sqlKey": "demo.user.advanced.listUsersFilteredBind#v23",
+            "sql": "SELECT id, name FROM users WHERE status = #{status}",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "listUsersFilteredBind",
+            "templateSql": (
+                "<bind name=\"likeKeyword\" value=\"'%' + keyword + '%'\" /> "
+                "SELECT id, name FROM users <where><if test=\"keyword != null\">AND name ILIKE #{likeKeyword}</if></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "IF", "BIND"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "BIND"]},
+        }
+        foreach_unit = {
+            "sqlKey": "demo.user.advanced.listUsersFilteredForeach#v24",
+            "sql": "SELECT id, name FROM users WHERE id IN (#{ids[0]})",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "listUsersFilteredForeach",
+            "templateSql": (
+                "SELECT id, name FROM users <where><foreach collection=\"ids\" item=\"id\" open=\"AND id IN (\" separator=\",\" close=\")\">"
+                "#{id}</foreach></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "FOREACH"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "FOREACH"]},
+        }
+        set_unit = {
+            "sqlKey": "demo.user.advanced.updateUsersFilteredSet#v25",
+            "sql": "UPDATE users SET status = #{status} WHERE id = #{id}",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "updateUsersFilteredSet",
+            "templateSql": (
+                "UPDATE users <set><if test=\"status != null\">status = #{status},</if></set> WHERE id = #{id}"
+            ),
+            "dynamicFeatures": ["SET", "IF"],
+            "dynamicTrace": {"statementFeatures": ["SET", "IF"]},
+        }
+
+        bind_model = build_rewrite_facts_model(
+            bind_unit,
+            "SELECT id, name FROM users WHERE name ILIKE #{likeKeyword}",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+        foreach_model = build_rewrite_facts_model(
+            foreach_unit,
+            "SELECT id, name FROM users WHERE id IN (#{id})",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+        set_model = build_rewrite_facts_model(
+            set_unit,
+            "UPDATE users SET status = #{status} WHERE id = #{id}",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+
+        self.assertIn("DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH", bind_model.dynamic_template.capability_profile.blockers)
+        self.assertIn("DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH", foreach_model.dynamic_template.capability_profile.blockers)
+        self.assertIn("DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH", set_model.dynamic_template.capability_profile.blockers)
+
     def test_build_rewrite_facts_model_captures_distinct_relaxation_boundary(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listDistinctUserStatuses#v10",

@@ -407,6 +407,57 @@ class DynamicCandidateIntentTest(unittest.TestCase):
         self.assertIn("FROM users <where>", str(assessment.rebuilt_template))
         self.assertNotIn("FROM users u", str(assessment.rebuilt_template))
 
+    def test_dynamic_filter_combined_cleanup_does_not_fall_back_to_template_preserving_intent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="dynamic_filter_combined_cleanup_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredCombinedCleanup">
+    SELECT id AS id, name AS name, email AS email
+    FROM users u
+    <where>
+      <if test="status != null and status != ''">
+        AND status = #{status}
+      </if>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            sql_unit = {
+                "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup#v22",
+                "sql": "SELECT id AS id, name AS name, email AS email FROM users u WHERE status = #{status} ORDER BY created_at DESC",
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredCombinedCleanup",
+                "templateSql": (
+                    "SELECT id AS id, name AS name, email AS email FROM users u "
+                    "<where> <if test=\"status != null and status != ''\"> AND status = #{status} </if> </where> ORDER BY created_at DESC"
+                ),
+                "dynamicFeatures": ["WHERE", "IF"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "IF"]},
+            }
+            rewrite_facts = build_rewrite_facts_model(
+                sql_unit,
+                "SELECT id, name, email FROM users WHERE status = #{status} ORDER BY created_at DESC",
+                {},
+                {"evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}]},
+                {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+            )
+
+            assessment = assess_dynamic_candidate_intent_model(
+                sql_unit,
+                str(sql_unit["sql"]),
+                "SELECT id, name, email FROM users WHERE status = #{status} ORDER BY created_at DESC",
+                rewrite_facts,
+            )
+
+        self.assertEqual(rewrite_facts.dynamic_template.capability_profile.baseline_family, None)
+        self.assertEqual(assessment.intent, "UNSAFE_DYNAMIC_REWRITE")
+        self.assertEqual(assessment.blocking_reason, "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH")
+        self.assertFalse(assessment.template_preserving)
+
     def test_dynamic_filter_wrapper_matches_template_preserving_edit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="dynamic_filter_wrapper_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
