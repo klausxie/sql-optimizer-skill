@@ -38,12 +38,6 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
             write_json(sql_artifact_dir / "dynamic_template_facts.json", dynamic_template_facts)
     if result.dynamic_candidate_intent is not None:
         write_json(sql_artifact_dir / "dynamic_candidate_intent.json", result.dynamic_candidate_intent)
-    if result.patchability is not None:
-        write_json(sql_artifact_dir / "patchability.assessment.json", result.patchability)
-    if result.patch_strategy_candidates is not None:
-        write_json(sql_artifact_dir / "patch.strategy.plan.json", result.patch_strategy_candidates)
-    if result.patch_target is not None:
-        write_json(sql_artifact_dir / "patch.target.contract.json", result.patch_target)
     if result.canonicalization_assessment is not None:
         write_json(sql_artifact_dir / "canonicalization.assessment.json", result.canonicalization_assessment)
     if result.candidate_selection_trace is not None:
@@ -55,9 +49,6 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").upper()
     semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").upper()
     reason_codes = [str(code) for code in (perf.get("reasonCodes") or []) if str(code).strip()]
-    template_ops = [row for row in (payload.get("templateRewriteOps") or []) if isinstance(row, dict)]
-    rewrite_materialization = dict(payload.get("rewriteMaterialization") or {})
-    replay_verified = rewrite_materialization.get("replayVerified")
     selected_source = str(payload.get("selectedCandidateSource") or "").strip()
     selected_id = str(payload.get("selectedCandidateId") or "").strip()
     decision_layers = dict(payload.get("decisionLayers") or {})
@@ -94,23 +85,13 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
             None if pass_has_selection else "VALIDATE_PASS_SELECTION_INCOMPLETE",
         ),
         VerificationCheck(
-            "template_replay_verified",
-            (not template_ops) or replay_verified is True,
-            "error" if template_ops else "info",
-            None if (not template_ops) or replay_verified is True else "VALIDATE_TEMPLATE_REPLAY_MISSING",
-        ),
-        VerificationCheck(
             "security_checks_present",
             bool(payload.get("securityChecks")),
             "warn",
             None if payload.get("securityChecks") else "VALIDATE_SECURITY_EVIDENCE_MISSING",
         ),
     ]
-    if template_ops and replay_verified is not True:
-        verification_status = "UNVERIFIED"
-        verification_reason_code = "VALIDATE_TEMPLATE_REPLAY_MISSING"
-        verification_reason_message = "template rewrite ops were emitted without replayVerified=true"
-    elif not pass_has_selection:
+    if not pass_has_selection:
         verification_status = "UNVERIFIED"
         verification_reason_code = "VALIDATE_PASS_SELECTION_INCOMPLETE"
         verification_reason_message = "PASS result is missing selected candidate source or id"
@@ -155,10 +136,8 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
                 "selected_candidate_source": selected_source or None,
                 "selected_candidate_id": selected_id or None,
                 "selection_strategy": ((payload.get("selectionRationale") or {}).get("strategy")),
-                "delivery_readiness_tier": ((payload.get("deliveryReadiness") or {}).get("tier")),
                 "evidence_degraded": ((decision_layers.get("evidence") or {}).get("degraded")),
                 "acceptance_profile": ((decision_layers.get("acceptance") or {}).get("validationProfile")),
-                "template_op_count": len(template_ops),
                 "perf_reason_codes": reason_codes,
                 "semantic_gate_status": semantic_gate_status,
                 "semantic_gate_confidence": semantic_gate_confidence,
@@ -169,9 +148,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
                 "semantic_risk": payload.get("semanticRisk"),
                 "semantic_gate_status": semantic_gate_status,
                 "semantic_gate_confidence": semantic_gate_confidence,
-                "replay_verified": replay_verified,
                 "selection_strategy": ((payload.get("selectionRationale") or {}).get("strategy")),
-                "delivery_tier": ((decision_layers.get("delivery") or {}).get("tier")),
             },
             created_at=datetime.now(timezone.utc).isoformat(),
         ),

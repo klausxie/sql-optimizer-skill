@@ -92,15 +92,54 @@ def _aggregation_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _dynamic_template_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
+def _dynamic_template_profile(acceptance_row: dict[str, Any], patch_row: dict[str, Any] | None = None) -> dict[str, Any]:
     dynamic_template = dict((acceptance_row.get("dynamicTemplate") or {}) or {})
+    if dynamic_template:
+        return {
+            "shape_family": str(dynamic_template.get("shapeFamily") or "NONE").strip().upper(),
+            "capability_tier": str(dynamic_template.get("capabilityTier") or "NONE").strip().upper(),
+            "patch_surface": str(dynamic_template.get("patchSurface") or "NONE").strip().upper(),
+            "baseline_family": str(dynamic_template.get("baselineFamily") or "").strip() or None,
+            "blocking_reason": str(dynamic_template.get("blockingReason") or "").strip().upper() or None,
+            "delivery_class": str(dynamic_template.get("deliveryClass") or "").strip().upper() or None,
+        }
+
+    rewrite_facts = dict((acceptance_row.get("rewriteFacts") or {}) or {})
+    facts = dict((rewrite_facts.get("dynamicTemplate") or {}) or {})
+    profile = dict((facts.get("capabilityProfile") or {}) or {})
+    if not facts:
+        return {
+            "shape_family": "NONE",
+            "capability_tier": "NONE",
+            "patch_surface": "NONE",
+            "baseline_family": None,
+            "blocking_reason": None,
+            "delivery_class": None,
+        }
+    capability_tier = str(profile.get("capabilityTier") or "NONE").strip().upper()
+    patch_payload = dict(patch_row or {})
+    blocking_reason = (
+        str(patch_payload.get("dynamicTemplateBlockingReason") or "").strip().upper()
+        or str(profile.get("blockerFamily") or "").strip().upper()
+        or None
+    )
+    strategy_type = str((patch_payload.get("dynamicTemplateStrategy") or patch_payload.get("strategyType") or "")).strip().upper()
+    delivery_class = None
+    if strategy_type.startswith("DYNAMIC_") and patch_payload.get("applicable") is True:
+        delivery_class = "READY_DYNAMIC_PATCH"
+    elif capability_tier == "SAFE_BASELINE" and blocking_reason and blocking_reason.endswith("NO_EFFECTIVE_DIFF"):
+        delivery_class = "SAFE_BASELINE_NO_DIFF"
+    elif capability_tier == "SAFE_BASELINE":
+        delivery_class = "SAFE_BASELINE_BLOCKED"
+    elif str(profile.get("shapeFamily") or "").strip():
+        delivery_class = "REVIEW_ONLY"
     return {
-        "shape_family": str(dynamic_template.get("shapeFamily") or "NONE").strip().upper(),
-        "capability_tier": str(dynamic_template.get("capabilityTier") or "NONE").strip().upper(),
-        "patch_surface": str(dynamic_template.get("patchSurface") or "NONE").strip().upper(),
-        "baseline_family": str(dynamic_template.get("baselineFamily") or "").strip() or None,
-        "blocking_reason": str(dynamic_template.get("blockingReason") or "").strip().upper() or None,
-        "delivery_class": str(dynamic_template.get("deliveryClass") or "").strip().upper() or None,
+        "shape_family": str(profile.get("shapeFamily") or "NONE").strip().upper(),
+        "capability_tier": capability_tier,
+        "patch_surface": str(profile.get("patchSurface") or "NONE").strip().upper(),
+        "baseline_family": str(profile.get("baselineFamily") or "").strip() or None,
+        "blocking_reason": blocking_reason,
+        "delivery_class": delivery_class,
     }
 
 
@@ -618,7 +657,7 @@ def build_top_actionable_sql(
         semantic_unupgraded_reason = _infer_semantic_unupgraded_reason(semantic_gate)
         patch_row = patch_by_statement.get(statement_key, {})
         aggregation_profile = _aggregation_profile(acceptance_row)
-        dynamic_profile = _dynamic_template_profile(acceptance_row)
+        dynamic_profile = _dynamic_template_profile(acceptance_row, patch_row)
         actionability = dict(proposal.get("actionability") or {})
         sql_verification_rows = [row for row in verification_rows if str(row.get("sql_key") or "").strip() == sql_key]
         outcome = assess_sql_outcome(

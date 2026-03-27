@@ -93,7 +93,7 @@ def test_acceptance_result_patch_target_is_optional() -> None:
     _validator().validate("acceptance_result", _acceptance_result_payload())
 
 
-def test_acceptance_result_patch_target_requires_complete_contract_when_present() -> None:
+def test_acceptance_result_rejects_patch_owned_fields() -> None:
     payload = _acceptance_result_payload()
     payload["patchTarget"] = {"sqlKey": "demo.user.countUser#v2"}
 
@@ -134,7 +134,7 @@ def test_patch_result_patch_target_requires_complete_replay_contract_when_presen
         _validator().validate("patch_result", payload)
 
 
-def test_complete_patch_target_contract_validates_in_result_schemas() -> None:
+def test_complete_patch_target_contract_validates_in_patch_result_schema() -> None:
     contract = build_patch_target_contract(
         sql_key="demo.user.countUser#v2",
         target_sql=" SELECT  COUNT(*)  FROM users ",
@@ -162,10 +162,6 @@ def test_complete_patch_target_contract_validates_in_result_schemas() -> None:
     assert contract["semanticGateStatus"] == "PASS"
     assert contract["semanticGateConfidence"] == "HIGH"
     assert contract["replayContract"]["expectedRenderedSqlNormalized"] == "SELECT COUNT(*) FROM users"
-
-    acceptance_payload = _acceptance_result_payload()
-    acceptance_payload["patchTarget"] = contract
-    _validator().validate("acceptance_result", acceptance_payload)
 
     patch_payload = _patch_result_payload()
     patch_payload["patchTarget"] = contract

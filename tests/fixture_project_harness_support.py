@@ -372,7 +372,7 @@ def run_fixture_validate_harness() -> tuple[list[dict], list[dict], list[dict], 
 
 
 def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list[dict], list[dict], object]:
-    scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, _fragment_catalog = run_fixture_validate_harness()
+    scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, fragment_catalog = run_fixture_validate_harness()
     validator = ContractValidator(ROOT)
 
     with tempfile.TemporaryDirectory(prefix="sqlopt_fixture_patch_") as td:
@@ -380,6 +380,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
         paths = canonical_paths(run_dir)
         paths.ensure_layout()
         write_jsonl(paths.acceptance_path, acceptance_rows)
+        write_jsonl(paths.scan_fragments_path, list(fragment_catalog.values()))
 
         patch_config = {
             "project": {"root_path": str(ROOT)},

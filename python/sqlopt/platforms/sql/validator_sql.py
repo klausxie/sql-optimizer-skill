@@ -167,12 +167,9 @@ def _build_decision_layers(
     selected_candidate_count: int,
     equivalence: dict[str, Any],
     perf_comparison: dict[str, Any],
-    delivery_readiness: dict[str, Any] | None,
     feedback: dict[str, Any] | None,
-    rewrite_materialization: dict[str, Any] | None,
 ) -> dict[str, Any]:
     reason_codes = [str(code) for code in (perf_comparison.get("reasonCodes") or []) if str(code).strip()]
-    replay_verified = None if not rewrite_materialization else rewrite_materialization.get("replayVerified")
     return {
         "feasibility": {
             "candidateAvailable": valid_candidate_count > 0,
@@ -192,11 +189,8 @@ def _build_decision_layers(
             "reasonCodes": reason_codes,
         },
         "delivery": {
-            "tier": (delivery_readiness or {}).get("tier"),
-            "autoPatchLikelihood": (delivery_readiness or {}).get("autoPatchLikelihood"),
             "selectedCandidateSource": selected_candidate_source or None,
             "selectedCandidateId": selected_candidate_id,
-            "replayVerified": replay_verified,
             "selectionMode": strategy["selection_mode"],
             "deliveryBias": strategy["delivery_bias"],
         },
@@ -1066,19 +1060,6 @@ def validate_proposal(
         rewrite_safety_level = "BLOCKED"
     else:
         rewrite_safety_level = "REVIEW"
-    patch_target = _build_patch_target(
-        sql_unit=sql_unit,
-        rewritten_sql=selection.rewritten_sql,
-        selected_candidate_id=selection.selected_candidate_id,
-        semantic_equivalence=semantic_equivalence,
-        patchability=patchability,
-        selected_patch_strategy=selected_patch_strategy,
-        rewrite_materialization=rewrite_materialization,
-        template_rewrite_ops=template_rewrite_ops,
-        rewrite_facts=rewrite_facts,
-        evidence_dir=evidence_dir,
-        acceptance_status=decision.status,
-    )
     decision_layers = _build_decision_layers(
         status=decision.status,
         validation_profile=validation_profile,
@@ -1091,9 +1072,7 @@ def validate_proposal(
         selected_candidate_count=len(selection.candidate_evaluations),
         equivalence=selection.equivalence.to_contract(),
         perf_comparison=selection.perf.to_contract(reason_codes=decision.reason_codes),
-        delivery_readiness=selection.delivery_readiness,
         feedback=decision.feedback,
-        rewrite_materialization=rewrite_materialization,
     )
 
     # 合并警告
@@ -1113,8 +1092,6 @@ def validate_proposal(
         candidate_evaluations=selection.candidate_evaluations_to_contract(),
         warnings=all_warnings,
         risk_flags=risk_flags,
-        rewrite_materialization=rewrite_materialization,
-        template_rewrite_ops=template_rewrite_ops,
         candidate_eval={
             "evaluated": len(selection.candidate_evaluations),
             "valid": len(valid_candidates),
@@ -1122,19 +1099,13 @@ def validate_proposal(
             "bestAfterCost": (selection.perf.after_summary or {}).get("totalCost"),
         },
         selection_rationale=selection.selection_rationale,
-        delivery_readiness=selection.delivery_readiness,
         decision_layers=decision_layers,
         llm_semantic_check=llm_semantic_result or None,
         semantic_equivalence=semantic_equivalence,
         rewrite_safety_level=rewrite_safety_level,
-        patchability=patchability,
-        selected_patch_strategy=selected_patch_strategy,
-        patch_target=patch_target,
-        dynamic_template=_dynamic_template_summary(rewrite_facts, patchability, selected_patch_strategy),
         dynamic_candidate_intent=dynamic_candidate_intent,
         canonicalization=selection.canonicalization,
         rewrite_facts=rewrite_facts,
-        patch_strategy_candidates=patch_strategy_candidates,
         canonicalization_assessment=selection.canonicalization_assessment,
         candidate_selection_trace=selection.candidate_selection_trace,
     )

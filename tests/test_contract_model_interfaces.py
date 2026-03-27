@@ -59,12 +59,6 @@ class ContractModelInterfacesTest(unittest.TestCase):
                     "capabilityProfile": {"shapeFamily": "DISTINCT", "constraintFamily": "DISTINCT_RELAXATION"},
                 },
             },
-            patch_strategy_candidates=[{"strategyType": "EXACT_TEMPLATE_EDIT"}],
-            patch_target={
-                "family": "STATIC_STATEMENT_REWRITE",
-                "targetSql": "SELECT id FROM users",
-                "replayContract": {"expectedRenderedSql": "SELECT id FROM users"},
-            },
             canonicalization_assessment=[{"ruleId": "COUNT_CANONICAL_FORM"}],
             candidate_selection_trace=[{"candidateId": "c1"}],
         )
@@ -87,8 +81,8 @@ class ContractModelInterfacesTest(unittest.TestCase):
             result.to_contract()["rewriteFacts"]["aggregationQuery"]["capabilityProfile"]["shapeFamily"],
             "DISTINCT",
         )
-        self.assertEqual(result.to_contract()["patchStrategyCandidates"][0]["strategyType"], "EXACT_TEMPLATE_EDIT")
-        self.assertEqual(result.to_contract()["patchTarget"]["family"], "STATIC_STATEMENT_REWRITE")
+        self.assertNotIn("patchStrategyCandidates", result.to_contract())
+        self.assertNotIn("patchTarget", result.to_contract())
         self.assertEqual(result.to_contract()["canonicalizationAssessment"][0]["ruleId"], "COUNT_CANONICAL_FORM")
         self.assertEqual(result.to_contract()["candidateSelectionTrace"][0]["candidateId"], "c1")
 

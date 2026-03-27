@@ -56,6 +56,10 @@ def _validate_required_fields_fallback(
         if missing:
             raise ContractError(f"{path} missing required fields: {missing}")
         properties = schema.get("properties", {})
+        if schema.get("additionalProperties") is False:
+            unexpected = [key for key in payload.keys() if key not in properties]
+            if unexpected:
+                raise ContractError(f"{path} contains unexpected fields: {unexpected}")
         for key, subschema in properties.items():
             if key in payload and isinstance(subschema, dict):
                 _validate_required_fields_fallback(subschema, payload[key], f"{path}.{key}", root)

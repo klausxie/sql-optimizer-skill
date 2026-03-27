@@ -15,6 +15,32 @@ from .fixture_project_harness_support import (
 
 
 class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
+    @staticmethod
+    def _expected_dynamic_summary(acceptance_row: dict, patch_row: dict) -> tuple[str | None, str | None]:
+        dynamic_facts = dict((((acceptance_row.get("rewriteFacts") or {}).get("dynamicTemplate")) or {}))
+        profile = dict((dynamic_facts.get("capabilityProfile") or {}) or {})
+        if not dynamic_facts:
+            return None, None
+        baseline_family = str(profile.get("baselineFamily") or "").strip() or None
+        capability_tier = str(profile.get("capabilityTier") or "").strip().upper()
+        shape_family = str(profile.get("shapeFamily") or "").strip()
+        blocking_reason = (
+            str(patch_row.get("dynamicTemplateBlockingReason") or "").strip().upper()
+            or str(profile.get("blockerFamily") or "").strip().upper()
+            or None
+        )
+        strategy_type = str((patch_row.get("dynamicTemplateStrategy") or patch_row.get("strategyType") or "")).strip().upper()
+        delivery_class = None
+        if strategy_type.startswith("DYNAMIC_") and patch_row.get("applicable") is True:
+            delivery_class = "READY_DYNAMIC_PATCH"
+        elif capability_tier == "SAFE_BASELINE" and blocking_reason and blocking_reason.endswith("NO_EFFECTIVE_DIFF"):
+            delivery_class = "SAFE_BASELINE_NO_DIFF"
+        elif capability_tier == "SAFE_BASELINE":
+            delivery_class = "SAFE_BASELINE_BLOCKED"
+        elif shape_family:
+            delivery_class = "REVIEW_ONLY"
+        return baseline_family, delivery_class
+
     def test_current_registered_fixture_patch_families_meet_registry_obligations(self) -> None:
         scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
         patch_by_key = {str(row["sqlKey"]): row for row in patches}
@@ -76,9 +102,11 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
                 self.assertIsNot(patch.get("applicable"), True, sql_key)
 
     def test_fixture_project_report_matches_matrix_aggregates(self) -> None:
-        scenarios, _proposals, acceptance_rows, _patches, report_artifacts = run_fixture_patch_and_report_harness()
+        scenarios, _proposals, acceptance_rows, patches, report_artifacts = run_fixture_patch_and_report_harness()
         stats = report_artifacts.report.stats
         summary = summarize_fixture_scenarios(scenarios)
+        scenario_by_key = {str(row["sqlKey"]): row for row in scenarios}
+        patch_by_key = {str(row["sqlKey"]): row for row in patches}
 
         expected_status_counts = Counter(str(row["targetValidateStatus"]) for row in scenarios)
         expected_patch_ready = sum(1 for row in scenarios if row["targetPatchStrategy"])
@@ -114,21 +142,22 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             safe_baseline = str(profile.get("safeBaselineFamily") or "").strip()
             if safe_baseline:
                 expected_aggregation_safe_baseline_counts[safe_baseline] += 1
-                if str((row.get("selectedPatchStrategy") or {}).get("strategyType") or "").strip() == "EXACT_TEMPLATE_EDIT":
+                if str(scenario_by_key[str(row["sqlKey"])]["targetPatchStrategy"] or "").strip() == "EXACT_TEMPLATE_EDIT":
                     expected_aggregation_ready_patch_count += 1
                     expected_aggregation_ready_family_counts[safe_baseline] += 1
-            dynamic_template = dict((row.get("dynamicTemplate") or {}) or {})
-            dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
+            dynamic_baseline_family, dynamic_delivery_class = self._expected_dynamic_summary(
+                row,
+                patch_by_key[str(row["sqlKey"])],
+            )
             if dynamic_baseline_family:
-                expected_dynamic_baseline_family_counts[dynamic_baseline_family] += 1
-            dynamic_delivery_class = str(dynamic_template.get("deliveryClass") or "").strip()
+                expected_dynamic_baseline_family_counts[str(dynamic_baseline_family)] += 1
             if dynamic_delivery_class:
-                expected_dynamic_delivery_class_counts[dynamic_delivery_class] += 1
-                normalized_dynamic_delivery_class = dynamic_delivery_class.upper()
+                expected_dynamic_delivery_class_counts[str(dynamic_delivery_class)] += 1
+                normalized_dynamic_delivery_class = str(dynamic_delivery_class).upper()
                 if normalized_dynamic_delivery_class == "READY_DYNAMIC_PATCH":
                     expected_dynamic_ready_patch_count += 1
                     if dynamic_baseline_family:
-                        expected_dynamic_ready_baseline_family_counts[dynamic_baseline_family] += 1
+                        expected_dynamic_ready_baseline_family_counts[str(dynamic_baseline_family)] += 1
                 elif normalized_dynamic_delivery_class in {"SAFE_BASELINE_BLOCKED", "SAFE_BASELINE_NO_DIFF"}:
                     expected_dynamic_safe_baseline_blocked_count += 1
                 elif normalized_dynamic_delivery_class == "REVIEW_ONLY":

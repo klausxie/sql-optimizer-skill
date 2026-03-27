@@ -57,6 +57,7 @@ from .report_stats import (
     materialization_reason_group_counts,
     report_acceptance_llm_count,
     summarize_actionability,
+    _dynamic_template_profile,
 )
 
 _OPS_TOPOLOGY_STAGE_KEYS = ("scan", "optimize", "validate", "apply", "report")
@@ -313,6 +314,7 @@ def build_report_artifacts(
     empty_candidate_recovered_count = 0
     text_fallback_recovered_count = 0
     patch_strategy_by_sql: dict[str, str] = {}
+    patch_by_sql_key = {str((row.get("sqlKey") or "")).strip(): row for row in inputs.patches if str((row.get("sqlKey") or "")).strip()}
     unit_by_sql_key = {str((row.get("sqlKey") or "")).strip(): row for row in inputs.units}
     for row in inputs.acceptance:
         sql_key = str(row.get("sqlKey") or "").strip()
@@ -326,6 +328,8 @@ def build_report_artifacts(
             patch_strategy_by_sql[sql_key] = strategy_type
 
     for row in inputs.acceptance:
+        sql_key = str(row.get("sqlKey") or "").strip()
+        patch_row = patch_by_sql_key.get(sql_key, {})
         canonical = dict(row.get("canonicalization") or {})
         canonical_rule = str(canonical.get("ruleId") or "").strip()
         if canonical_rule:
@@ -342,7 +346,7 @@ def build_report_artifacts(
         safe_baseline_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
         if safe_baseline_family:
             aggregation_safe_baseline_counts[safe_baseline_family] = aggregation_safe_baseline_counts.get(safe_baseline_family, 0) + 1
-            if str((row.get("selectedPatchStrategy") or {}).get("strategyType") or "").strip() == "EXACT_TEMPLATE_EDIT":
+            if patch_strategy_by_sql.get(sql_key) == "EXACT_TEMPLATE_EDIT":
                 aggregation_ready_patch_count += 1
                 aggregation_ready_family_counts[safe_baseline_family] = (
                     aggregation_ready_family_counts.get(safe_baseline_family, 0) + 1
@@ -352,11 +356,11 @@ def build_report_artifacts(
             aggregation_review_only_family_counts[review_only_family] = (
                 aggregation_review_only_family_counts.get(review_only_family, 0) + 1
             )
-        dynamic_template = dict(row.get("dynamicTemplate") or {})
-        dynamic_baseline_family = str(dynamic_template.get("baselineFamily") or "").strip()
+        dynamic_template = _dynamic_template_profile(row, patch_row)
+        dynamic_baseline_family = str(dynamic_template.get("baseline_family") or "").strip()
         if dynamic_baseline_family:
             dynamic_baseline_family_counts[dynamic_baseline_family] = dynamic_baseline_family_counts.get(dynamic_baseline_family, 0) + 1
-        dynamic_delivery_class = str(dynamic_template.get("deliveryClass") or "").strip()
+        dynamic_delivery_class = str(dynamic_template.get("delivery_class") or "").strip()
         if dynamic_delivery_class:
             dynamic_delivery_class_counts[dynamic_delivery_class] = dynamic_delivery_class_counts.get(dynamic_delivery_class, 0) + 1
             normalized_dynamic_delivery_class = dynamic_delivery_class.upper()
