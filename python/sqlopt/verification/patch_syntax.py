@@ -120,6 +120,11 @@ def _is_obviously_valid_sql(sql: str) -> bool:
     return True
 
 
+def _dialect_syntax_check_required(patch_target: dict[str, Any]) -> bool:
+    replay_contract = patch_target.get("replayContract") or {}
+    return bool(replay_contract.get("dialectSyntaxCheckRequired"))
+
+
 def verify_patch_syntax(
     *,
     sql_unit: dict[str, Any],
@@ -131,13 +136,18 @@ def verify_patch_syntax(
     artifact_result = artifact
     if artifact_result is None and str(patch_text or "").strip():
         artifact_result = materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
+    dialect_check_required = _dialect_syntax_check_required(patch_target)
     if getattr(replay_result, "matches_target", False) is not True:
         sql_present = bool(getattr(replay_result, "normalized_rendered_sql", None))
         return PatchSyntaxResult(
             ok=False,
             xml_parse_ok=bool(getattr(artifact_result, "xml_parse_ok", False)),
             render_ok=sql_present,
-            sql_parse_ok=_is_obviously_valid_sql(str(getattr(replay_result, "rendered_sql", None) or "")) if sql_present else False,
+            sql_parse_ok=(
+                _is_obviously_valid_sql(str(getattr(replay_result, "rendered_sql", None) or ""))
+                if (sql_present and dialect_check_required)
+                else sql_present
+            ),
             rendered_sql_present=sql_present,
             reason_code=str(
                 getattr(replay_result, "drift_reason", None)
@@ -161,7 +171,11 @@ def verify_patch_syntax(
         or patch_target.get("targetSql")
         or ""
     )
-    sql_parse_ok = _is_obviously_valid_sql(rendered_sql) if rendered_sql_present else False
+    sql_parse_ok = (
+        _is_obviously_valid_sql(rendered_sql)
+        if (rendered_sql_present and dialect_check_required)
+        else rendered_sql_present
+    )
     ok = xml_parse_ok and render_ok and sql_parse_ok and bool(str(patch_text or "").strip())
     return PatchSyntaxResult(
         ok=ok,
@@ -173,6 +187,10 @@ def verify_patch_syntax(
         if ok
         else str(
             getattr(artifact_result, "reason_code", None)
-            or ("PATCH_SQL_PARSE_FAILED" if sql_parse_ok is False and rendered_sql_present else "PATCH_SYNTAX_INVALID")
+            or (
+                "PATCH_SQL_PARSE_FAILED"
+                if (dialect_check_required and sql_parse_ok is False and rendered_sql_present)
+                else "PATCH_SYNTAX_INVALID"
+            )
         ),
     )
