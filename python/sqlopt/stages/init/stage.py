@@ -216,13 +216,6 @@ class InitStage(Stage[None, InitOutput]):
 
                     return wrapper
 
-                def make_field_callback(offset: int) -> Callable[[str, tuple[int, int] | None], None] | None:
-                    def wrapper(msg: str, sub: tuple[int, int] | None) -> None:
-                        if progress_callback and sub is not None:
-                            progress_callback(msg, (offset + sub[0], total_work))
-
-                    return wrapper
-
                 logger.info(f"[INIT] Extracting schemas for {len(all_table_names)} table(s)")
                 if progress_callback:
                     progress_callback(f"Extracting schemas for {len(all_table_names)} table(s)")
@@ -236,9 +229,26 @@ class InitStage(Stage[None, InitOutput]):
                 schema_extraction_success = True
 
                 logger.info("[INIT] Extracting WHERE field distributions")
-                if progress_callback:
-                    progress_callback(f"Extracting distributions for {table_count} tables, {field_count} fields")
                 field_offset = file_count + table_count
+                field_work = 0
+                for tbl, cols in field_by_table.items():
+                    if tbl not in table_schemas:
+                        continue
+                    schema_cols = {col["name"].lower() for col in table_schemas[tbl].columns}
+                    valid_cols = cols & schema_cols
+                    field_work += len(valid_cols)
+                total_work = file_count + table_count + field_work
+                if progress_callback:
+                    progress_callback(f"Extracting distributions for {table_count} tables, {field_work} fields")
+
+                def make_field_callback_v2(offset: int, total: int) -> Callable[[str, tuple[int, int] | None], None]:
+                    def wrapper(msg: str, sub: tuple[int, int] | None) -> None:
+                        if progress_callback and sub is not None:
+                            progress_callback(msg, (offset + sub[0], total))
+
+                    return wrapper
+
+                current_field_offset = field_offset
                 for tbl, cols in field_by_table.items():
                     if tbl not in table_schemas:
                         logger.debug(f"[INIT] Skipping {tbl} - not in database schema")
@@ -248,16 +258,16 @@ class InitStage(Stage[None, InitOutput]):
                     invalid_cols = cols - schema_cols
                     if invalid_cols:
                         logger.debug(f"[INIT] Skipping invalid fields in {tbl}: {invalid_cols}")
-                    cols = valid_cols
-                    if cols:
+                    if valid_cols:
                         dists = extract_field_distributions(
                             table_name=tbl,
-                            column_names=list(cols),
+                            column_names=list(valid_cols),
                             db_connector=db_connector,
                             platform=cfg.db_platform,
-                            progress_callback=make_field_callback(field_offset),
+                            progress_callback=make_field_callback_v2(current_field_offset, total_work),
                         )
                         field_distributions.extend(dists)
+                        current_field_offset += len(valid_cols)
                 logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")
