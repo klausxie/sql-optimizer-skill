@@ -12,6 +12,7 @@ from typing import Dict, List, Tuple
 
 from sqlopt.contracts.init import InitOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
+from sqlopt.contracts.parse import ParseOutput
 
 
 def truncate_text(text: str, max_chars: int = 1024) -> str:
@@ -594,6 +595,203 @@ def generate_recognition_summary_markdown(
 
     lines.append("---")
     lines.append("*由 SQL Optimizer 生成 - RECOGNITION 阶段*")
+
+    result = "\n".join(lines)
+
+    max_output_size = 50 * 1024
+    if len(result) > max_output_size:
+        result = result[:max_output_size] + "\n\n... (output truncated to 50KB)"
+
+    return result
+
+
+def generate_parse_summary_markdown(
+    output: ParseOutput,
+    total_branches: int,
+    failed_units: int,
+    duration_seconds: float,
+    file_size_bytes: int,
+    files_count: int,
+) -> str:
+    """Generate a valuable PARSE stage SUMMARY with branch expansion analysis.
+
+    Args:
+        output: ParseOutput containing all SQLUnitWithBranches records.
+        total_branches: Total number of branches expanded.
+        failed_units: Number of units that failed to expand.
+        duration_seconds: Total execution time in seconds.
+        file_size_bytes: Total size of output files in bytes.
+        files_count: Number of output files written.
+
+    Returns:
+        Markdown-formatted SUMMARY.md with actionable insights.
+    """
+    units = output.sql_units_with_branches
+    lines: list[str] = []
+
+    lines.append("# PARSE 阶段报告")
+    lines.append("")
+    lines.append(f"**运行ID:** `{getattr(output, 'run_id', 'unknown')}`")
+    lines.append(f"**耗时:** {duration_seconds:.2f} 秒")
+    lines.append("")
+
+    # --- Execution overview ---
+    total_units = len(units)
+    valid_branches = sum(1 for u in units for b in u.branches if b.is_valid)
+    invalid_branches = sum(1 for u in units for b in u.branches if not b.is_valid)
+    total_branch_count = sum(len(u.branches) for u in units)
+    error_branches = sum(1 for u in units for b in u.branches if b.branch_type == "error")
+
+    lines.append("## 执行概览")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| SQL单元数 | {total_units} |")
+    lines.append(f"| 分支总数 | {total_branch_count} |")
+    lines.append(f"| ✅ 有效分支 | {valid_branches} |")
+    lines.append(f"| ❌ 无效分支 | {invalid_branches} |")
+    lines.append(f"| 🔴 错误分支 | {error_branches} |")
+    lines.append(f"| ⚠️ 展开失败单元 | {failed_units} |")
+    lines.append("")
+
+    # --- Branch count distribution per unit ---
+    branch_counts = [len(u.branches) for u in units]
+    if branch_counts:
+        min_bc = min(branch_counts)
+        max_bc = max(branch_counts)
+        avg_bc = sum(branch_counts) / len(branch_counts)
+
+        lines.append("## 分支数分布")
+        lines.append("")
+        lines.append("| 指标 | 数值 |")
+        lines.append("|------|------|")
+        lines.append(f"| 最少分支 | {min_bc} |")
+        lines.append(f"| 最多分支 | {max_bc} |")
+        lines.append(f"| 平均分支 | {avg_bc:.1f} |")
+        lines.append("")
+
+        buckets: dict[str, int] = {"1": 0, "2-5": 0, "6-10": 0, "11-20": 0, "20+": 0}
+        for cnt in branch_counts:
+            if cnt == 1:
+                buckets["1"] += 1
+            elif cnt <= 5:
+                buckets["2-5"] += 1
+            elif cnt <= 10:
+                buckets["6-10"] += 1
+            elif cnt <= 20:
+                buckets["11-20"] += 1
+            else:
+                buckets["20+"] += 1
+
+        lines.append("| 分支区间 | Unit数 |")
+        lines.append("|----------|--------|")
+        for label, cnt in buckets.items():
+            lines.append(f"| {label} | {cnt} |")
+        lines.append("")
+
+    # --- Risk flags distribution ---
+    all_risk_flags: list[str] = []
+    for u in units:
+        for b in u.branches:
+            all_risk_flags.extend(b.risk_flags)
+
+    if all_risk_flags:
+        flag_counter: Counter = Counter(all_risk_flags)
+        lines.append(f"## 风险标记分布（共 {len(all_risk_flags)} 个标记）")
+        lines.append("")
+        for flag, cnt in flag_counter.most_common(15):
+            icon = "🔴" if "error" in flag.lower() else "🟡"
+            lines.append(f"- {icon} **{flag}**: {cnt} 条")
+        if len(flag_counter) > 15:
+            lines.append(f"- ... 还有 {len(flag_counter) - 15} 种标记")
+        lines.append("")
+
+    # --- High risk branches Top N ---
+    scored_branches = [(u.sql_unit_id, b) for u in units for b in u.branches if b.risk_score is not None]
+    if scored_branches:
+        top_risk = sorted(scored_branches, key=lambda x: x[1].risk_score or 0.0, reverse=True)[:10]
+
+        lines.append("## 高风险分支 Top 10（按 risk_score）")
+        lines.append("")
+        lines.append("| # | SQL Unit | Branch | Score | Reasons |")
+        lines.append("|---|----------|--------|-------|---------|")
+        for i, (unit_id, b) in enumerate(top_risk, 1):
+            reasons = "; ".join(b.score_reasons[:2]) if b.score_reasons else "-"
+            if len(reasons) > 50:
+                reasons = reasons[:50] + "..."
+            lines.append(f"| {i} | `{unit_id}` | `{b.path_id}` | {b.risk_score:.3f} | {reasons} |")
+        lines.append("")
+        lines.append(f"**Top SQL:** `{_extract_sql_preview(top_risk[0][1].expanded_sql, 80)}`")
+        lines.append("")
+
+    # --- Per SQL unit details ---
+    lines.append(f"## SQL Unit 详情（共 {total_units} 个 Unit）")
+    lines.append("")
+    lines.append("| Unit | 分支数 | 有效 | 无效 | Top 风险标记 |")
+    lines.append("|------|--------|------|------|-------------|")
+
+    unit_details: list[tuple[str, int, int, int, str]] = []
+    for u in units:
+        valid_cnt = sum(1 for b in u.branches if b.is_valid)
+        invalid_cnt = len(u.branches) - valid_cnt
+        unit_flags = [f for b in u.branches for f in b.risk_flags]
+        top_flag = Counter(unit_flags).most_common(1)[0][0] if unit_flags else "-"
+        unit_details.append((u.sql_unit_id, len(u.branches), valid_cnt, invalid_cnt, top_flag))
+
+    unit_details.sort(key=lambda x: x[2], reverse=True)
+    for unit_id, branch_cnt, valid_cnt, invalid_cnt, top_flag in unit_details:
+        lines.append(f"| `{unit_id}` | {branch_cnt} | {valid_cnt} | {invalid_cnt} | {top_flag} |")
+    lines.append("")
+
+    # --- Condition distribution ---
+    all_conditions: list[str] = []
+    for u in units:
+        for b in u.branches:
+            if b.condition:
+                all_conditions.append(b.condition)
+
+    if all_conditions:
+        cond_counter: Counter = Counter(all_conditions)
+        lines.append(f"## 条件分布（共 {len(cond_counter)} 种不同条件）")
+        lines.append("")
+        for cond, cnt in cond_counter.most_common(10):
+            display_cond = cond[:60] + "..." if len(cond) > 60 else cond
+            lines.append(f"- **{display_cond}**: {cnt} 条")
+        if len(cond_counter) > 10:
+            lines.append(f"- ... 还有 {len(cond_counter) - 10} 种条件")
+        lines.append("")
+
+    # --- Branch type distribution ---
+    branch_types: dict[str, int] = {}
+    for u in units:
+        for b in u.branches:
+            bt = b.branch_type or "normal"
+            branch_types[bt] = branch_types.get(bt, 0) + 1
+
+    if branch_types:
+        lines.append("## 分支类型分布")
+        lines.append("")
+        for bt, cnt in sorted(branch_types.items(), key=lambda x: -x[1]):
+            icon = "🔴" if bt == "error" else "🔵" if bt == "baseline_only" else "🟢"
+            lines.append(f"- {icon} **{bt}**: {cnt} 条")
+        lines.append("")
+
+    # --- Statistics ---
+    lines.append("## 统计信息")
+    lines.append("")
+    lines.append("| 指标 | 数值 |")
+    lines.append("|------|------|")
+    lines.append(f"| SQL Unit 数 | {total_units} |")
+    lines.append(f"| 分支总数 | {total_branch_count} |")
+    lines.append(f"| 有效分支 | {valid_branches} |")
+    lines.append(f"| 无效分支 | {invalid_branches} |")
+    lines.append(f"| 展开失败单元 | {failed_units} |")
+    lines.append(f"| 输出文件数 | {files_count} |")
+    lines.append(f"| 输出大小 | {file_size_bytes:,} 字节 |")
+    lines.append("")
+
+    lines.append("---")
+    lines.append("*由 SQL Optimizer 生成 - PARSE 阶段*")
 
     result = "\n".join(lines)
 

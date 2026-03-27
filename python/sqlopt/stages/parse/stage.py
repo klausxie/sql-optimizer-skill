@@ -9,7 +9,7 @@ from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.mock_data_loader import MockDataLoader
-from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
+from sqlopt.common.summary_generator import generate_parse_summary_markdown
 from sqlopt.contracts.init import FieldDistribution, InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
@@ -115,7 +115,7 @@ class ParseStage(Stage[None, ParseOutput]):
         logger.info(f"[PARSE] Total: {len(init_data.sql_units)} SQL unit(s), {total_branches} branch(es)")
         logger.info("[PARSE] Parse stage completed")
 
-        output = ParseOutput(sql_units_with_branches=units_with_branches)
+        output = ParseOutput(sql_units_with_branches=units_with_branches, run_id=rid)
         self._write_output(rid, output)
         self._generate_summary(rid, output, total_branches, time.time() - start_time, failed_units)
 
@@ -303,11 +303,6 @@ class ParseStage(Stage[None, ParseOutput]):
             return
 
         try:
-            sql_units_count = len(output.sql_units_with_branches)
-            invalid_branches = sum(
-                1 for unit in output.sql_units_with_branches for branch in unit.branches if not branch.is_valid
-            )
-
             parse_dir = self.resolve_run_paths(run_id).parse_dir
             parse_dir.mkdir(parents=True, exist_ok=True)
             file_size = 0
@@ -324,21 +319,19 @@ class ParseStage(Stage[None, ParseOutput]):
                 file_size += compat_file.stat().st_size
                 files_count += 1
 
-            summary = StageSummary(
-                stage_name="parse",
+            output_with_run_id = ParseOutput(
+                sql_units_with_branches=output.sql_units_with_branches,
                 run_id=run_id,
-                duration_seconds=duration_seconds,
-                sql_units_count=sql_units_count,
-                branches_count=total_branches,
-                files_count=files_count,
-                file_size_bytes=file_size,
-                warnings=[
-                    *([f"Invalid branches: {invalid_branches}"] if invalid_branches > 0 else []),
-                    *([f"Units with expansion fallback: {failed_units}"] if failed_units > 0 else []),
-                ],
             )
 
-            summary_content = generate_summary_markdown(summary)
+            summary_content = generate_parse_summary_markdown(
+                output=output_with_run_id,
+                total_branches=total_branches,
+                failed_units=failed_units,
+                duration_seconds=duration_seconds,
+                file_size_bytes=file_size,
+                files_count=files_count,
+            )
             summary_path = parse_dir / "SUMMARY.md"
             summary_path.write_text(summary_content, encoding="utf-8")
 

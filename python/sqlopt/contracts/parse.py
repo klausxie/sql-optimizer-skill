@@ -78,9 +78,15 @@ class ParseOutput:
     """Output of the parse stage containing SQL units with branches."""
 
     sql_units_with_branches: List[SQLUnitWithBranches] = field(default_factory=list)
+    run_id: str = "unknown"
 
     def to_json(self) -> str:
-        return json.dumps({"sql_units_with_branches": [json.loads(u.to_json()) for u in self.sql_units_with_branches]})
+        return json.dumps(
+            {
+                "sql_units_with_branches": [json.loads(u.to_json()) for u in self.sql_units_with_branches],
+                "run_id": self.run_id,
+            }
+        )
 
     @classmethod
     def from_json(cls, json_str: str) -> "ParseOutput":
@@ -88,5 +94,6 @@ class ParseOutput:
         return cls(
             sql_units_with_branches=[
                 SQLUnitWithBranches.from_json(json.dumps(u)) for u in data["sql_units_with_branches"]
-            ]
+            ],
+            run_id=data.get("run_id", "unknown"),
         )
