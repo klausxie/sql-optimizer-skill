@@ -137,7 +137,9 @@ class ProgressDisplay:
         line = "  ".join(parts)
 
         if self._is_tty:
-            sys.stdout.write(f"\r{line}")
+            # \r moves cursor to column 0, \033[K clears to end of line
+            # this ensures a shorter new message doesn't leave trailing chars
+            sys.stdout.write(f"\r\033[K{line}")
             sys.stdout.flush()
             return
 
