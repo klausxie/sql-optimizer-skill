@@ -9,7 +9,6 @@ import time
 from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
-from sqlopt.common.summary_generator import StageSummary, generate_summary_markdown
 from sqlopt.common.xml_patch_engine import XmlPatchEngine
 from sqlopt.contracts.init import InitOutput, TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
@@ -425,6 +424,14 @@ class ResultStage(Stage[None, ResultOutput]):
         return risks
 
     @staticmethod
+    def _get_risk_level(confidence: float) -> str:
+        if confidence >= 0.9:
+            return "LOW"
+        if confidence >= 0.7:
+            return "MEDIUM"
+        return "HIGH"
+
+    @staticmethod
     def _create_stub_output() -> ResultOutput:
         """Create stub output when no run_id is available.
 
@@ -468,7 +475,7 @@ class ResultStage(Stage[None, ResultOutput]):
         output: ResultOutput,
         run_id: str,
         duration_seconds: float,
-        high_confidence_count: int,
+        high_confidence_count: int,  # noqa: ARG002
     ) -> None:
         """Generate and write SUMMARY.md for the result stage.
 
@@ -482,29 +489,72 @@ class ResultStage(Stage[None, ResultOutput]):
         """
         try:
             output_dir = self.resolve_run_paths(run_id).result_dir
+            units_dir = output_dir / "units"
 
-            report_size = len(output.report.summary) + len(output.report.details)
+            lines: list[str] = []
+            lines.append("# SQL Optimization Results\n")
+            lines.append(f"**Run ID:** `{run_id}`")
+            lines.append(f"**Duration:** {duration_seconds:.2f}s\n")
+            lines.append("## Summary\n")
+            lines.append(f"{output.report.summary}\n")
 
-            summary = StageSummary(
-                stage_name="result",
-                run_id=run_id,
-                duration_seconds=duration_seconds,
-                sql_units_count=len(output.patches),
-                branches_count=high_confidence_count,
-                files_count=1,
-                file_size_bytes=report_size,
-                errors=[],
-                warnings=output.report.risks[:5],
-            )
+            patches_info: list[dict] = []
+            if units_dir.exists():
+                index_file = units_dir / "_index.json"
+                if index_file.exists():
+                    index_data = json.loads(index_file.read_text(encoding="utf-8"))
+                    for unit_id in index_data.get("units", []):
+                        meta_file = units_dir / f"{self.sanitize_unit_id(unit_id)}.meta.json"
+                        patch_file = units_dir / f"{self.sanitize_unit_id(unit_id)}.patch"
+                        if meta_file.exists():
+                            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                            patch_content = ""
+                            if patch_file.exists():
+                                patch_content = patch_file.read_text(encoding="utf-8")
+                            patches_info.append(
+                                {
+                                    "unit_id": unit_id,
+                                    "meta": meta,
+                                    "patch": patch_content,
+                                }
+                            )
 
-            summary_content = generate_summary_markdown(summary)
+            if patches_info:
+                lines.append("## Patches Ready to Apply\n")
+                for idx, patch_info in enumerate(patches_info, 1):
+                    meta = patch_info["meta"]
+                    patch = patch_info["patch"]
+
+                    confidence = meta.get("confidence", 0.0)
+                    risk_level = self._get_risk_level(confidence)
+                    lines.append(f"### {idx}. {meta['sql_unit_id']}\n")
+                    lines.append(f"**Confidence:** {confidence:.2f} | **Risk:** {risk_level}\n")
+                    lines.append(f"\n**Rationale:** {meta.get('rationale', 'N/A')}\n")
+                    lines.append(f"\n**Mapper:** {meta.get('mapper_file', 'N/A')}\n")
+
+                    original = meta.get("original_snippet", "")
+                    rewritten = meta.get("rewritten_snippet", "")
+                    if original or rewritten:
+                        lines.append("| 原始 | 优化后 |\n")
+                        lines.append("|------|--------|\n")
+                        lines.append(f"| `{original}` | `{rewritten}` |\n")
+
+                    if patch:
+                        patch_lines = patch.splitlines()
+                        if len(patch_lines) > 20:
+                            truncated = "\n".join(patch_lines[:20])
+                            lines.append(f"\n```diff\n{truncated}\n... (truncated)\n```\n")
+                        else:
+                            lines.append(f"\n```diff\n{patch}\n```\n")
+                    lines.append("\n")
 
             report_file = output_dir / "report.json"
             if report_file.exists():
-                summary_content += f"\n\n## Output Files\n\n| File | Size |\n|------|------|\n| report.json | {report_file.stat().st_size:,} bytes |\n"
+                lines.append("## Output Files\n\n| File | Size |\n|------|------|\n")
+                lines.append(f"| report.json | {report_file.stat().st_size:,} bytes |\n")
 
             summary_file = output_dir / "SUMMARY.md"
-            summary_file.write_text(summary_content, encoding="utf-8")
+            summary_file.write_text("\n".join(lines), encoding="utf-8")
             logger.info(f"[RESULT] Summary written to: runs/{run_id}/result/SUMMARY.md")
         except OSError as e:
             logger.warning(f"[RESULT] Failed to generate SUMMARY.md: {e}")
