@@ -47,6 +47,30 @@ _FROM_ALIAS_RESERVED = {
     "on",
 }
 
+# Pattern to match IN (single_value) - captures column and value
+_IN_SINGLE_VALUE_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s+IN\s*\(\s*([^,\)]+)\s*\)",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match NOT IN (single_value)
+_NOT_IN_SINGLE_VALUE_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s+NOT\s+IN\s*\(\s*([^,\)]+)\s*\)",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match column = value (with possible whitespace)
+_COLUMN_EQ_VALUE_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s*=\s*(.+)$",
+    flags=re.IGNORECASE,
+)
+
+# Pattern to match column <> value or column != value
+_COLUMN_NEQ_VALUE_RE = re.compile(
+    r"\b([a-z_][a-z0-9_\.]*)\s*(<>|!=)\s*(.+)$",
+    flags=re.IGNORECASE,
+)
+
 
 def _validate_strategy(validate_cfg: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -158,6 +182,14 @@ def _derive_patch_target_family(
     if alias_guarded:
         return alias_family
 
+    # Check for IN (single) -> = simplification
+    if _classify_static_in_list_simplification(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_IN_LIST_SIMPLIFICATION"
+
     if strategy_type == "EXACT_TEMPLATE_EDIT":
         return "STATIC_STATEMENT_REWRITE"
     return None
@@ -241,6 +273,53 @@ def _uses_single_table_alias_qualifier(
             for fragment in (original_select, original_from, rewritten_select, rewritten_from)
         ):
             return True
+    return False
+
+
+def _classify_static_in_list_simplification(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    """Classify if the transformation is IN(single) -> = or NOT IN(single) -> <>/!=."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "EXACT_TEMPLATE_EDIT":
+        return False
+
+    if not original_sql or not rewritten_sql:
+        return False
+
+    normalized_original = normalize_sql(original_sql)
+    normalized_rewritten = normalize_sql(rewritten_sql)
+
+    # Check for IN (single_value) -> = transformation
+    in_match = _IN_SINGLE_VALUE_RE.search(normalized_original)
+    if in_match:
+        column = in_match.group(1)
+        in_value = in_match.group(2).strip()
+        # Check if rewritten has column = value (handles quoted strings too)
+        for line in normalized_rewritten.splitlines():
+            eq_match = _COLUMN_EQ_VALUE_RE.search(line)
+            if eq_match and eq_match.group(1) == column:
+                rewritten_value = eq_match.group(2).strip()
+                if rewritten_value == in_value:
+                    return True
+
+    # Check for NOT IN (single_value) -> <> or != transformation
+    not_in_match = _NOT_IN_SINGLE_VALUE_RE.search(normalized_original)
+    if not_in_match:
+        column = not_in_match.group(1)
+        not_in_value = not_in_match.group(2).strip()
+        # Check if rewritten has column <> value or column != value
+        for line in normalized_rewritten.splitlines():
+            neq_match = _COLUMN_NEQ_VALUE_RE.search(line)
+            if neq_match and neq_match.group(1) == column:
+                # Group 3 is the value (group 2 is the operator <> or !=)
+                rewritten_value = neq_match.group(3).strip()
+                if rewritten_value == not_in_value:
+                    return True
+
     return False
 
 

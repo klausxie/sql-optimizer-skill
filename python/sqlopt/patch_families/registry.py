@@ -6,6 +6,7 @@ from .specs.dynamic_filter_select_list_cleanup import DYNAMIC_FILTER_SELECT_LIST
 from .specs.frozen_baselines import FROZEN_BASELINE_SPECS
 from .specs.static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC
 from .specs.static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC
+from .specs.static_in_list_simplification import STATIC_IN_LIST_SIMPLIFICATION_SPEC
 
 
 def _canonicalize_family_id(family: str) -> str:
@@ -29,6 +30,7 @@ def _build_patch_family_registry(
 _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC,
     STATIC_ALIAS_PROJECTION_CLEANUP_SPEC,
+    STATIC_IN_LIST_SIMPLIFICATION_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
     DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC,
     *FROZEN_BASELINE_SPECS,
