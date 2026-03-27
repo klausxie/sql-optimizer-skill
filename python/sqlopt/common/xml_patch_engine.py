@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import xml.etree.ElementTree as ET  # noqa: S405
 from typing import ClassVar, Optional
 
@@ -80,13 +81,100 @@ class XmlPatchEngine:
                 elif action.sql_fragment:
                     result = result.replace(action.sql_fragment, action.rewritten_snippet)
             elif action.operation == "ADD" and action.rewritten_snippet:
-                pass
+                # ADD: replace entire element identified by xpath with rewritten_snippet.
+                # When original_snippet is null, use the element id from rewritten_snippet.
+                replacement = XmlPatchEngine._replace_element_by_snippet(result, action, "ADD")
+                if replacement is not None:
+                    result = replacement
             elif action.operation == "REMOVE" and action.original_snippet:
                 result = result.replace(action.original_snippet, "")
-            elif action.operation == "WRAP" and action.rewritten_snippet and action.original_snippet:
-                result = result.replace(action.original_snippet, action.rewritten_snippet)
+            elif action.operation == "WRAP" and action.rewritten_snippet:
+                if action.original_snippet:
+                    result = result.replace(action.original_snippet, action.rewritten_snippet)
+                else:
+                    replacement = XmlPatchEngine._replace_element_by_snippet(result, action, "WRAP")
+                    if replacement is not None:
+                        result = replacement
 
         return result
+
+    @staticmethod
+    def _replace_element_by_snippet(content: str, action: OptimizationAction, operation: str) -> str | None:
+        """Replace entire XML element using rewritten_snippet.
+
+        Used when ADD/WRAP operation has no original_snippet - the complete
+        replacement element is provided in rewritten_snippet.
+
+        Locates the target element by matching the opening tag pattern
+        (extracted from rewritten_snippet) within content.
+
+        Args:
+            content: Current XML content.
+            action: The ADD or WRAP action.
+            operation: "ADD" or "WRAP".
+
+        Returns:
+            Modified content, or None if element not found.
+        """
+        if not action.rewritten_snippet:
+            return None
+
+        snippet = action.rewritten_snippet.strip()
+
+        tag_match = re.match(r"<([a-zA-Z0-9_:-]+)", snippet)
+        if not tag_match:
+            return None
+        tag_name = tag_match.group(1)
+
+        id_match = re.search(r'\bid\s*=\s*["\']([^"\']+)["\']', snippet)
+        if id_match:
+            element_id = id_match.group(1)
+            search_pattern = rf'<{tag_name}\s[^>]*\bid\s*=\s*["\']({re.escape(element_id)})["\']'
+        else:
+            search_pattern = rf"<{tag_name}(?:\s[^>]*)?>"
+
+        start_idx = -1
+        for match in re.finditer(search_pattern, content):
+            start_idx = match.start()
+            break
+
+        if start_idx == -1:
+            return None
+
+        end_idx = content.find(f"</{tag_name}>", start_idx)
+        if end_idx == -1:
+            return None
+        end_idx += len(f"</{tag_name}>")
+
+        return content[:start_idx] + snippet + content[end_idx:]
+
+    @staticmethod
+    def _get_element_indices(content: str, element: ET.Element, namespaces: dict[str, str]) -> tuple[int, int]:
+        """Get start and end character indices of an element in the source string.
+
+        Uses element tail and iterators to approximate positions since ET
+        loses source location info.
+        """
+        tag = element.tag if "}" not in element.tag else element.tag.split("}", 1)[1]
+        qname = f"{{{namespaces.get('', '')}}}{tag}" if namespaces.get("") else tag
+
+        start = content.find(f"<{qname}")
+        if start == -1:
+            start = content.find(f"<{tag}")
+
+        if start == -1:
+            return 0, 0
+
+        end_pattern = f"</{qname}>"
+        end = content.find(end_pattern, start)
+        if end == -1:
+            end_pattern = f"</{tag}>"
+            end = content.find(end_pattern, start)
+
+        if end == -1:
+            return start, start + len(content)
+
+        return start, end + len(end_pattern)
 
     @staticmethod
     def _extract_namespaces(root: ET.Element) -> dict[str, str]:

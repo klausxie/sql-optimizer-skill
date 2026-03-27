@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.test.mapper.TestMapper">
+
+    <!-- 轻量级 E2E 测试用 SQL -->
+
+    <!-- 优化候选1：ORDER BY 无 LIMIT，可能导致全表排序 -->
+    <select id="findUsers" resultType="java.util.HashMap">
+        SELECT id, name, email, status, type, created_at
+        FROM users
+        WHERE status = '1'
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 优化候选2：UNION 去重开销，条件互斥时应用 UNION ALL -->
+    <select id="findActiveAndInactiveUsers" resultType="java.util.HashMap">
+        SELECT id, name, status FROM users WHERE status = '1'
+        UNION
+        SELECT id, name, status FROM users WHERE status = '0'
+        ORDER BY name
+    </select>
+
+    <!-- 优化候选3：SELECT * 应该指定字段 -->
+    <select id="findOrders" resultType="java.util.HashMap">
+        SELECT * FROM orders
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

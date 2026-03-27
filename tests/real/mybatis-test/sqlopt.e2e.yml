@@ -1,0 +1,12 @@
+config_version: v1
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: testdb
+db_user: postgres
+db_password: postgres
+llm_provider: opencode_run
+llm_enabled: true
+project_root_path: tests/real/mybatis-test
+scan_mapper_globs:
+  - "src/main/resources/mapper/TestMapper.xml"
