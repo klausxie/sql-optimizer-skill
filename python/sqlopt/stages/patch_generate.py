@@ -22,7 +22,7 @@ from .patching_templates import build_template_plan_patch as _build_template_pla
 from .patch_decision import attach_patch_diagnostics as _attach_patch_diagnostics_impl
 from .patch_decision import build_patch_repair_hints as _build_patch_repair_hints_impl
 from .patch_decision import should_call_llm_assist as _should_call_llm_assist_impl
-from .patch_decision_engine import decide_patch_result as _decide_patch_result
+from .patch_decision import decide_patch_result as _decide_patch_result
 from .patch_finalize import finalize_generated_patch as _finalize_generated_patch_impl
 from .patch_formatting import detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops
 from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
