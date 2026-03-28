@@ -1,0 +1,28 @@
+{
+  "sqlKey": "demo.test.complex.complexAllDynamic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "complexAllDynamic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status, department, created_at FROM users WHERE status = #{status} AND name LIKE CONCAT('%', #{namePattern}, '%') AND department_id IN (#{deptIds}) ORDER BY ${sortField} LIMIT #{limit} OFFSET #{offset}",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "namePattern", "type": "string"},
+    {"name": "deptIds", "type": "list"},
+    {"name": "sortField", "type": "string"},
+    {"name": "limit", "type": "integer"},
+    {"name": "offset", "type": "integer"}
+  ],
+  "paramExample": {"status": "active", "namePattern": "John", "deptIds": [1, 2, 3], "sortField": "created_at", "limit": 10, "offset": 20},
+  "locators": {"statementId": "complexAllDynamic", "range": {"startLine": 923, "startColumn": 13, "endLine": 948, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, status, department, created_at FROM users\n<where>\n    <if test=\"status != null\">\n        AND status = #{status}\n    </if>\n    <if test=\"namePattern != null\">\n        AND name LIKE CONCAT('%', #{namePattern}, '%')\n    </if>\n    <if test=\"deptIds != null and deptIds.size() > 0\">\n        AND department_id IN\n        <foreach collection=\"deptIds\" item=\"deptId\" open=\"(\" separator=\",\" close=\")\">\n            #{deptId}\n        </foreach>\n    </if>\n</where>\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>\n<if test=\"offset != null\">\n    OFFSET #{offset}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH", "DOLLAR_SUBSTITUTION", "LIMIT", "OFFSET", "ORDER"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH", "DOLLAR_SUBSTITUTION", "LIMIT", "OFFSET", "ORDER"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

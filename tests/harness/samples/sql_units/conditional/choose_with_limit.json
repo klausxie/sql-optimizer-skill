@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.chooseWithLimit#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "chooseWithLimit",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE CASE WHEN #{statusFilter} = 'active' THEN status = 'active' WHEN #{statusFilter} = 'pending' THEN status = 'pending' ELSE 1=1 END LIMIT #{limit}",
+  "parameterMappings": [
+    {"name": "statusFilter", "type": "string"},
+    {"name": "limit", "type": "integer"}
+  ],
+  "paramExample": {"statusFilter": "active", "limit": 10},
+  "locators": {"statementId": "chooseWithLimit", "range": {"startLine": 586, "startColumn": 13, "endLine": 602, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<choose>\n    <when test=\"statusFilter == 'active'\">\n        WHERE status = 'active'\n    </when>\n    <when test=\"statusFilter == 'pending'\">\n        WHERE status = 'pending'\n    </when>\n    <otherwise>\n        WHERE 1=1\n    </otherwise>\n</choose>\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>",
+  "dynamicFeatures": ["CHOOSE", "IF", "LIMIT"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["CHOOSE", "IF", "LIMIT"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

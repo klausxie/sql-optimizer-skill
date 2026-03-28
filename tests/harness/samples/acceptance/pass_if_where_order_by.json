@@ -1,0 +1,30 @@
+{
+  "sqlKey": "demo.test.complex.ifWhereOrderBy#v1",
+  "status": "PASS",
+  "equivalence": {
+    "checked": true,
+    "method": "sql_semantic_compare_v2",
+    "rowCount": {"status": "MATCH", "before": 10, "after": 10}
+  },
+  "perfComparison": {
+    "checked": false,
+    "reasonCodes": ["VALIDATE_PLAN_COMPARE_CONFIG_DISABLED"],
+    "improved": null
+  },
+  "securityChecks": {"dollar_substitution_removed": false},
+  "semanticRisk": "high",
+  "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"},
+  "selectedCandidateSource": "rule",
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "rewriteMaterialization": {
+    "mode": "UNMATERIALIZABLE",
+    "reasonCode": "DOLLAR_SUBSTITUTION_PRESENT"
+  },
+  "deliveryReadiness": {
+    "tier": "BLOCKED",
+    "blockingReasons": ["DOLLAR_SUBSTITUTION"]
+  },
+  "repairHints": [
+    {"hintId": "replace-dollar-with-hash", "title": "Replace ${} with #{}", "actionType": "SQL_REWRITE"}
+  ]
+}

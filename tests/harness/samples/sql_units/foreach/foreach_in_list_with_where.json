@@ -1,0 +1,29 @@
+{
+  "sqlKey": "demo.test.complex.foreachInListWithWhere#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "foreachInListWithWhere",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users WHERE status = 'active' AND id IN (#{ids[0]}, #{ids[1]}, ...)",
+  "parameterMappings": [{"name": "ids", "type": "List<Long>"}],
+  "paramExample": {"ids": [1, 2, 3]},
+  "locators": {"statementId": "foreachInListWithWhere", "range": {"startLine": 94, "startColumn": 13, "endLine": 103, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, status FROM users\nWHERE status = 'active'\nAND id IN\n<foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">\n    #{id}\n</foreach>",
+  "dynamicFeatures": ["FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null,
+  "foreachConfig": {
+    "collection": "ids",
+    "item": "id",
+    "open": "(",
+    "separator": ",",
+    "close": ")",
+    "inList": true
+  }
+}

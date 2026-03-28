@@ -1,0 +1,29 @@
+{
+  "sqlKey": "demo.test.complex.chooseBasic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "chooseBasic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE status = #{type}",
+  "parameterMappings": [{"name": "type", "type": "string"}],
+  "paramExample": {"type": "active"},
+  "locators": {"statementId": "chooseBasic", "range": {"startLine": 118, "startColumn": 13, "endLine": 128, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<choose>\n    <when test=\"type == 'active'\">\n        WHERE status = 'active'\n    </when>\n    <when test=\"type == 'inactive'\">\n        WHERE status = 'inactive'\n    </when>\n    <otherwise>\n        WHERE 1=1\n    </otherwise>\n</choose>",
+  "dynamicFeatures": ["CHOOSE", "WHEN"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["CHOOSE", "WHEN"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null,
+  "conditionalLogic": {
+    "type": "CHOOSE",
+    "branches": [
+      {"test": "type == 'active'", "branch": "WHERE status = 'active'"},
+      {"test": "type == 'inactive'", "branch": "WHERE status = 'inactive'"},
+      {"otherwise": "WHERE 1=1"}
+    ]
+  }
+}

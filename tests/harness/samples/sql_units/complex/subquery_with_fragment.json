@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.subqueryWithFragment#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "subqueryWithFragment",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT u.id, u.name, u.email, (SELECT id, name, email, status FROM users u2 WHERE u2.id = u.id LIMIT 1) as user_info, (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id AND o.status = #{orderStatus}) as order_count FROM users u WHERE u.status = #{status} AND u.department_id IN (#{deptIds})",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "orderStatus", "type": "string"},
+    {"name": "deptIds", "type": "list"}
+  ],
+  "paramExample": {"status": "active", "orderStatus": "completed", "deptIds": [1, 2]},
+  "locators": {"statementId": "subqueryWithFragment", "range": {"startLine": 287, "startColumn": 13, "endLine": 307, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT u.id, u.name, u.email,\n       (SELECT <include refid=\"Frag_UserBasic\"/> FROM users u2 WHERE u2.id = u.id LIMIT 1) as user_info,\n       (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id\n        <if test=\"orderStatus != null\">\n            AND o.status = #{orderStatus}\n        </if>\n       ) as order_count\nFROM users u\n<where>\n    <if test=\"status != null\">\n        AND u.status = #{status}\n    </if>\n    <if test=\"deptIds != null and deptIds.size() > 0\">\n        AND u.department_id IN\n        <foreach collection=\"deptIds\" item=\"did\" open=\"(\" separator=\",\" close=\")\">\n            #{did}\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["INCLUDE", "WHERE", "IF", "FOREACH"],
+  "includeTrace": ["Frag_UserBasic"],
+  "dynamicTrace": {"statementFeatures": ["INCLUDE", "WHERE", "IF", "FOREACH"], "includeFragments": ["Frag_UserBasic"]},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

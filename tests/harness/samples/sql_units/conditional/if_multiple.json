@@ -1,0 +1,30 @@
+{
+  "sqlKey": "demo.test.complex.ifMultiple#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifMultiple",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email FROM users WHERE status = #{status} LIMIT #{limit}",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "limit", "type": "int"}
+  ],
+  "paramExample": {"status": "active", "limit": 100},
+  "locators": {"statementId": "ifMultiple", "range": {"startLine": 60, "startColumn": 13, "endLine": 66, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email FROM users\n<if test=\"status != null\">\n    WHERE status = #{status}\n</if>\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>",
+  "dynamicFeatures": ["IF"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["IF"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null,
+  "conditionalLogic": {
+    "conditions": [
+      {"test": "status != null", "branch": "WHERE status = #{status}"},
+      {"test": "limit != null", "branch": "LIMIT #{limit}"}
+    ]
+  }
+}

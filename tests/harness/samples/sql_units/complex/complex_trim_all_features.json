@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.complexTrimAllFeatures#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "complexTrimAllFeatures",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status, department FROM users WHERE status = #{status} AND name = #{name} AND department = #{dept} ORDER BY created_at",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "dept", "type": "string"}
+  ],
+  "paramExample": {"status": "active", "name": "John", "dept": "Engineering"},
+  "locators": {"statementId": "complexTrimAllFeatures", "range": {"startLine": 1003, "startColumn": 13, "endLine": 1010, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, status, department FROM users\n<trim prefix=\"WHERE\" prefixOverrides=\"AND|OR\" suffix=\"ORDER BY created_at\" suffixOverrides=\",\">\n    <if test=\"status != null\">status = #{status} AND</if>\n    <if test=\"name != null\">name = #{name} AND</if>\n    <if test=\"dept != null\">department = #{dept},</if>\n</trim>",
+  "dynamicFeatures": ["TRIM", "IF", "ORDER"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["TRIM", "IF", "ORDER"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

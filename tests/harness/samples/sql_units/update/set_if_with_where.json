@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.setIfWithWhere#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "setIfWithWhere",
+  "statementType": "UPDATE",
+  "variantId": "v1",
+  "sql": "UPDATE orders SET status = #{status}, amount = #{amount} WHERE id IN (#{orderIds})",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "amount", "type": "bigdecimal"},
+    {"name": "orderIds", "type": "list"}
+  ],
+  "paramExample": {"status": "completed", "amount": 100.00, "orderIds": [1, 2, 3]},
+  "locators": {"statementId": "setIfWithWhere", "range": {"startLine": 701, "startColumn": 13, "endLine": 715, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "UPDATE orders\n<set>\n    <if test=\"status != null\">status = #{status},</if>\n    <if test=\"amount != null\">amount = #{amount},</if>\n</set>\n<where>\n    <if test=\"orderIds != null\">\n        AND id IN\n        <foreach collection=\"orderIds\" item=\"oid\" open=\"(\" separator=\",\" close=\")\">\n            #{oid}\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["SET", "IF", "WHERE", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["SET", "IF", "WHERE", "FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

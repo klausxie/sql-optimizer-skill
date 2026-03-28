@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.joinThreeTables#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "joinThreeTables",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT o.id, o.order_no, u.name as user_name, p.name as product_name FROM orders o JOIN users u ON o.user_id = u.id JOIN products p ON o.product_id = p.id WHERE o.status = 'active'",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "joinThreeTables", "range": {"startLine": 158, "startColumn": 13, "endLine": 166, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT o.id, o.order_no, u.name as user_name, p.name as product_name\nFROM orders o\nJOIN users u ON o.user_id = u.id\nJOIN products p ON o.product_id = p.id\nWHERE o.status = 'active'",
+  "dynamicFeatures": [],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["JOIN"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "STATIC_SQL",
+  "primaryFragmentTarget": null,
+  "joinInfo": {
+    "tables": ["orders", "users", "products"],
+    "type": "INNER",
+    "joinCount": 2
+  }
+}

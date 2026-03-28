@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.ifInChooseAndWhere#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifInChooseAndWhere",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status FROM users WHERE CASE WHEN #{type} = 'filtered' THEN (status = #{status} AND department = #{dept}) WHEN #{type} = 'ordered' THEN 1=1 ELSE 1=1 END",
+  "parameterMappings": [
+    {"name": "type", "type": "string"},
+    {"name": "status", "type": "string"},
+    {"name": "dept", "type": "string"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"type": "filtered", "status": "active", "dept": "Engineering", "sortField": "created_at"},
+  "locators": {"statementId": "ifInChooseAndWhere", "range": {"startLine": 1055, "startColumn": 13, "endLine": 1077, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, status FROM users\n<choose>\n    <when test=\"type == 'filtered'\">\n        <where>\n            <if test=\"status != null\">\n                AND status = #{status}\n            </if>\n            <if test=\"dept != null\">\n                AND department = #{dept}\n            </if>\n        </where>\n    </when>\n    <when test=\"type == 'ordered'\">\n        <if test=\"sortField != null\">\n            ORDER BY ${sortField}\n        </if>\n    </when>\n    <otherwise>\n        WHERE 1=1\n    </otherwise>\n</choose>",
+  "dynamicFeatures": ["CHOOSE", "WHEN", "WHERE", "IF"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["CHOOSE", "WHEN", "WHERE", "IF"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

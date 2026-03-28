@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.tripleForeach#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "tripleForeach",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users WHERE (status IN (#{cond.statuses}) AND id IN (#{cond.ids}) AND department_id IN (#{cond.deptIds}))",
+  "parameterMappings": [
+    {"name": "conditions", "type": "list"}
+  ],
+  "paramExample": {"conditions": [{"statuses": ["active", "pending"], "ids": [1, 2, 3], "deptIds": [10, 20]}]},
+  "locators": {"statementId": "tripleForeach", "range": {"startLine": 1263, "startColumn": 13, "endLine": 1282, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, status FROM users\n<where>\n    <if test=\"conditions != null and conditions.size() > 0\">\n        <foreach collection=\"conditions\" item=\"cond\" separator=\" AND \">\n            (<foreach collection=\"cond.statuses\" item=\"s\" separator=\",\" open=\"status IN (\" close=\")\">\n                #{s}\n            </foreach>\n            AND id IN\n            <foreach collection=\"cond.ids\" item=\"id\" separator=\",\" open=\"(\" close=\")\">\n                #{id}\n            </foreach>\n            AND department_id IN\n            <foreach collection=\"cond.deptIds\" item=\"did\" separator=\",\" open=\"(\" close=\")\">\n                #{did}\n            </foreach>)\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.foreachWithMultipleWhere#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "foreachWithMultipleWhere",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, amount FROM orders WHERE status = #{status} AND user_id IN (#{userIds}) ORDER BY created_at DESC",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "userIds", "type": "list"}
+  ],
+  "paramExample": {"status": "active", "userIds": [1, 2, 3, 4, 5]},
+  "locators": {"statementId": "foreachWithMultipleWhere", "range": {"startLine": 620, "startColumn": 13, "endLine": 634, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, amount FROM orders\n<where>\n    <if test=\"status != null\">\n        AND status = #{status}\n    </if>\n    <if test=\"userIds != null and userIds.size() > 0\">\n        AND user_id IN\n        <foreach collection=\"userIds\" item=\"uid\" open=\"(\" separator=\",\" close=\")\">\n            #{uid}\n        </foreach>\n    </if>\n</where>\nORDER BY created_at DESC",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH", "ORDER"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH", "ORDER"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

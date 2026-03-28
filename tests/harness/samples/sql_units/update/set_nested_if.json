@@ -1,0 +1,27 @@
+{
+  "sqlKey": "demo.test.complex.setNestedIf#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "setNestedIf",
+  "statementType": "UPDATE",
+  "variantId": "v1",
+  "sql": "UPDATE users SET name = #{name}, email = #{email}, status = #{status}, department = #{profile.department}, title = #{profile.title} WHERE id = #{id}",
+  "parameterMappings": [
+    {"name": "id", "type": "integer"},
+    {"name": "name", "type": "string"},
+    {"name": "email", "type": "string"},
+    {"name": "status", "type": "string"},
+    {"name": "profile", "type": "object"}
+  ],
+  "paramExample": {"id": 1, "name": "John", "email": "john@example.com", "status": "active", "profile": {"department": "Engineering", "title": "Engineer"}},
+  "locators": {"statementId": "setNestedIf", "range": {"startLine": 1080, "startColumn": 13, "endLine": 1106, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "UPDATE users\n<set>\n    <if test=\"name != null\">\n        <if test=\"name.length() &gt; 0\">\n            name = #{name},\n        </if>\n    </if>\n    <if test=\"email != null\">\n        <if test=\"email.contains('@')\">\n            email = #{email},\n        </if>\n    </if>\n    <if test=\"status != null\">\n        status = #{status},\n    </if>\n    <if test=\"profile != null\">\n        <if test=\"profile.department != null\">\n            department = #{profile.department},\n        </if>\n        <if test=\"profile.title != null\">\n            title = #{profile.title},\n        </if>\n    </if>\n</set>\nWHERE id = #{id}",
+  "dynamicFeatures": ["SET", "IF"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["SET", "IF"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

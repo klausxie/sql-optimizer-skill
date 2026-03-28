@@ -1,0 +1,136 @@
+# Test Harness Sample Catalog
+# Index of all available test samples for patch module testing
+
+# SQL Unit Samples
+sql_units:
+  static:
+    - static_simple_select
+    - static_order_by
+    - static_group_by
+    - wrapper_count
+  include:
+    - include_simple
+    - include_nested
+  conditional:
+    - if_simple
+    - if_multiple
+    - if_with_order_by
+    - where_block
+    - choose_basic
+    - trim_prefix_overrides
+  foreach:
+    - foreach_in_list
+    - foreach_in_list_with_where
+  complex:
+    - join_two_tables
+    - join_three_tables
+    - left_join_with_null
+    - exists_subquery
+    - in_subquery
+    - scalar_subquery
+    - from_clause_subquery
+    - union_two
+    - row_number_window
+    - dynamic_order_by
+    - complex_all_features
+
+# Proposal Samples
+proposals:
+  - wrapper_collapse_proposal
+  - dynamic_conditional_proposal
+
+# Acceptance Samples
+acceptance:
+  pass:
+    - wrapper_collapse_pass
+    - include_pass
+  fail:
+    - dollar_substitution_fail
+    - semantic_mismatch_fail
+  review:
+    - foreach_manual_review
+
+# Patch Samples
+patch:
+  ready:
+    - wrapper_collapse_ready
+  blocked:
+    - dollar_substitution_blocked
+
+# Sample Chains (pre-configured combinations)
+chains:
+  # Pass chains
+  - name: "wrapper_collapse_pass"
+    sql_unit: "static/wrapper_count"
+    proposal: "wrapper_collapse_proposal"
+    acceptance: "pass/wrapper_collapse_pass"
+    patch: "ready/wrapper_collapse_ready"
+
+  - name: "include_pass"
+    sql_unit: "include/include_simple"
+    proposal: "dynamic_conditional_proposal"
+    acceptance: "pass/include_pass"
+
+  # Fail chains
+  - name: "dollar_substitution_blocked"
+    sql_unit: "complex/dynamic_order_by"
+    proposal: "dynamic_conditional_proposal"
+    acceptance: "fail/dollar_substitution_fail"
+    patch: "blocked/dollar_substitution_blocked"
+
+  - name: "semantic_mismatch"
+    sql_unit: "conditional/if_multiple"
+    proposal: "dynamic_conditional_proposal"
+    acceptance: "fail/semantic_mismatch_fail"
+
+  # Review chains
+  - name: "foreach_manual_review"
+    sql_unit: "foreach/foreach_in_list"
+    proposal: "dynamic_conditional_proposal"
+    acceptance: "review/foreach_manual_review"
+
+# Test Categories
+categories:
+  dynamic_features:
+    - static: "Static SQL without dynamic features"
+    - include: "SQL with <include> fragments"
+    - conditional: "SQL with <if>, <where>, <choose>, <trim> tags"
+    - foreach: "SQL with <foreach> loops"
+    - complex: "Complex SQL (JOIN, subquery, UNION, window functions)"
+
+  materialization:
+    - statement_template_safe: "Simple statement rewrite"
+    - wrapper_collapse: "Wrapper subquery can be collapsed"
+    - unmaterializable: "Cannot be materialized to static template"
+
+  delivery_tier:
+    - ready_to_apply: "Ready to auto-apply"
+    - patchable_with_rewrite: "Needs rewrite before patching"
+    - blocked: "Blocked by safety issues"
+    - manual_review: "Needs manual review"
+
+# Usage
+usage: |
+  # Using the harness
+
+  from tests.harness.loaders import get_loader
+  from tests.harness.runners.patch_runner import get_runner
+  from tests.harness.validators.output_validator import OutputValidator
+
+  # Load samples
+  loader = get_loader()
+  sql_unit = loader.load_sql_unit("static", "wrapper_count")
+  acceptance = loader.load_acceptance("pass", "wrapper_collapse_pass")
+
+  # Run patch test
+  runner = get_runner()
+  result = runner.run_with_samples(
+      sql_unit_sample="static/wrapper_count",
+      proposal_sample="wrapper_collapse_proposal",
+      acceptance_sample="pass/wrapper_collapse_pass",
+      run_dir="/tmp/test_run"
+  )
+
+  # Validate result
+  is_valid, errors = OutputValidator.validate_patch_result(result)
+  print(f"Valid: {is_valid}, Errors: {errors}")

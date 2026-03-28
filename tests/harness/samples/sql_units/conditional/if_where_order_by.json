@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.ifWhereOrderBy#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifWhereOrderBy",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users WHERE status = #{status} AND name = #{name} ORDER BY ${sortField}",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"status": "active", "name": "John", "sortField": "created_at"},
+  "locators": {"statementId": "ifWhereOrderBy", "range": {"startLine": 511, "startColumn": 13, "endLine": 524, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, status FROM users\n<where>\n    <if test=\"status != null\">\n        AND status = #{status}\n    </if>\n    <if test=\"name != null\">\n        AND name = #{name}\n    </if>\n</where>\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

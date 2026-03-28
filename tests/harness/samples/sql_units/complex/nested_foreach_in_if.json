@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.nestedForeachInIf#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "nestedForeachInIf",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE (department_id IN (#{group.deptIds}) AND status IN (#{group.statuses}))",
+  "parameterMappings": [
+    {"name": "userGroups", "type": "list"}
+  ],
+  "paramExample": {"userGroups": [{"deptIds": [1, 2], "statuses": ["active", "pending"]}]},
+  "locators": {"statementId": "nestedForeachInIf", "range": {"startLine": 984, "startColumn": 13, "endLine": 1000, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<if test=\"userGroups != null and userGroups.size() > 0\">\n    WHERE\n    <foreach collection=\"userGroups\" item=\"group\" separator=\" OR \">\n        (department_id IN\n        <foreach collection=\"group.deptIds\" item=\"deptId\" open=\"(\" separator=\",\" close=\")\">\n            #{deptId}\n        </foreach>\n        AND status IN\n        <foreach collection=\"group.statuses\" item=\"status\" open=\"(\" separator=\",\" close=\")\">\n            #{status}\n        </foreach>\n        )\n    </foreach>\n</if>",
+  "dynamicFeatures": ["IF", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["IF", "FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.chooseWithOrder#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "chooseWithOrder",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users ORDER BY CASE WHEN #{role} = 'admin' THEN created_at DESC WHEN #{role} = 'user' THEN name ASC ELSE id ASC END",
+  "parameterMappings": [
+    {"name": "role", "type": "string"}
+  ],
+  "paramExample": {"role": "admin"},
+  "locators": {"statementId": "chooseWithOrder", "range": {"startLine": 571, "startColumn": 13, "endLine": 584, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, status FROM users\n<choose>\n    <when test=\"role == 'admin'\">\n        ORDER BY created_at DESC\n    </when>\n    <when test=\"role == 'user'\">\n        ORDER BY name ASC\n    </when>\n    <otherwise>\n        ORDER BY id ASC\n    </otherwise>\n</choose>",
+  "dynamicFeatures": ["CHOOSE", "ORDER"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["CHOOSE", "ORDER"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

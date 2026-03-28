@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.unionWithDynamic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "unionWithDynamic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, 'active' as source FROM users WHERE status = #{status} UNION SELECT id, name, 'inactive' as source FROM users WHERE status = 'inactive' ORDER BY #{sortField}",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "includeInactive", "type": "boolean"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"status": "active", "includeInactive": true, "sortField": "name"},
+  "locators": {"statementId": "unionWithDynamic", "range": {"startLine": 1217, "startColumn": 13, "endLine": 1234, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, 'active' as source FROM users\n<where>\n    <if test=\"status != null\">\n        AND status = #{status}\n    </if>\n</where>\nUNION\nSELECT id, name, 'inactive' as source FROM users\n<where>\n    <if test=\"includeInactive == true\">\n        AND status = 'inactive'\n    </if>\n</where>\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

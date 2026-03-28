@@ -1,0 +1,21 @@
+{
+  "sqlKey": "demo.test.complex.includeSimple#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "includeSimple",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status, created_at FROM users",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "includeSimple", "range": {"startLine": 42, "startColumn": 13, "endLine": 44, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT <include refid=\"BaseColumns\"/> FROM users",
+  "dynamicFeatures": ["INCLUDE"],
+  "includeTrace": ["demo.test.complex.BaseColumns"],
+  "dynamicTrace": {"statementFeatures": ["INCLUDE"], "includeFragments": [{"ref": "demo.test.complex.BaseColumns", "dynamicFeatures": []}]},
+  "includeBindings": [{"ref": "complex_harness_mapper.xml::demo.test.complex.BaseColumns", "displayRef": "demo.test.complex.BaseColumns", "properties": [], "bindingHash": "base_columns_hash"}],
+  "templateTarget": "SQL_FRAGMENT_DEPENDENT",
+  "primaryFragmentTarget": "complex_harness_mapper.xml::demo.test.complex.BaseColumns"
+}

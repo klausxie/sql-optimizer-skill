@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.cteRecursiveWithDynamic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "cteRecursiveWithDynamic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "WITH RECURSIVE org_tree AS (SELECT id, name, parent_id, 1 as level FROM departments WHERE parent_id IS NULL AND name = #{rootDept} UNION ALL SELECT d.id, d.name, d.parent_id, ot.level + 1 FROM departments d JOIN org_tree ot ON d.parent_id = ot.id WHERE ot.level < #{maxLevel}) SELECT * FROM org_tree ORDER BY #{sortField}",
+  "parameterMappings": [
+    {"name": "rootDept", "type": "string"},
+    {"name": "maxLevel", "type": "integer"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"rootDept": "Engineering", "maxLevel": 5, "sortField": "level"},
+  "locators": {"statementId": "cteRecursiveWithDynamic", "range": {"startLine": 1237, "startColumn": 13, "endLine": 1260, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "WITH RECURSIVE org_tree AS (\n    SELECT id, name, parent_id, 1 as level\n    FROM departments\n    <where>\n        <if test=\"rootDept != null\">\n            AND parent_id IS NULL AND name = #{rootDept}\n        </if>\n    </where>\n    UNION ALL\n    SELECT d.id, d.name, d.parent_id, ot.level + 1\n    FROM departments d\n    JOIN org_tree ot ON d.parent_id = ot.id\n    <where>\n        <if test=\"maxLevel != null\">\n            AND ot.level &lt; #{maxLevel}\n        </if>\n    </where>\n)\nSELECT * FROM org_tree\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

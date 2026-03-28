@@ -1,0 +1,28 @@
+{
+  "sqlKey": "demo.test.complex.nestedSubqueriesWithDynamic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "nestedSubqueriesWithDynamic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT * FROM users u WHERE u.id IN (SELECT o.user_id FROM orders o WHERE o.id IN (SELECT op.order_id FROM order_products op WHERE op.product_id IN (#{productIds}) AND op.quantity >= #{minQuantity}) GROUP BY o.user_id HAVING SUM(o.amount) >= #{minOrderAmount}) AND u.status = #{userStatus} ORDER BY #{sortField}",
+  "parameterMappings": [
+    {"name": "productIds", "type": "list"},
+    {"name": "category", "type": "string"},
+    {"name": "minQuantity", "type": "integer"},
+    {"name": "minOrderAmount", "type": "bigdecimal"},
+    {"name": "userStatus", "type": "string"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"productIds": [1, 2, 3], "category": "Electronics", "minQuantity": 5, "minOrderAmount": 1000, "userStatus": "active", "sortField": "name"},
+  "locators": {"statementId": "nestedSubqueriesWithDynamic", "range": {"startLine": 697, "startColumn": 5, "endLine": 728, "endColumn": 12}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT *\nFROM users u\nWHERE u.id IN (\n    SELECT o.user_id FROM orders o\n    WHERE o.id IN (\n        SELECT op.order_id FROM order_products op\n        WHERE op.product_id IN\n        <choose>\n            <when test=\"productIds != null and productIds.size() > 0\">\n                <foreach collection=\"productIds\" item=\"pid\" open=\"(\" separator=\",\" close=\")\">\n                    #{pid}\n                </foreach>\n            </when>\n            <otherwise>SELECT id FROM products WHERE category = #{category}</otherwise>\n        </choose>\n        <if test=\"minQuantity != null\">\n            AND op.quantity &gt;= #{minQuantity}\n        </if>\n    )\n    <if test=\"minOrderAmount != null\">\n        GROUP BY o.user_id HAVING SUM(o.amount) &gt;= #{minOrderAmount}\n    </if>\n)\n<if test=\"userStatus != null\">\n    AND u.status = #{userStatus}\n</if>\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

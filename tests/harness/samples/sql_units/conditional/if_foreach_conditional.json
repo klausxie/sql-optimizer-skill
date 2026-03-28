@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.ifForeachConditional#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifForeachConditional",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE CASE WHEN #{includeInactive} = true THEN status IN (#{ids}) ELSE status = 'active' AND id IN (#{ids}) END",
+  "parameterMappings": [
+    {"name": "includeInactive", "type": "boolean"},
+    {"name": "ids", "type": "list"}
+  ],
+  "paramExample": {"includeInactive": false, "ids": [1, 2, 3]},
+  "locators": {"statementId": "ifForeachConditional", "range": {"startLine": 637, "startColumn": 13, "endLine": 650, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<if test=\"includeInactive == true\">\n    WHERE status IN\n</if>\n<if test=\"includeInactive == false\">\n    WHERE status = 'active' AND id IN\n</if>\n<if test=\"ids != null\">\n    <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">\n        #{id}\n    </foreach>\n</if>",
+  "dynamicFeatures": ["IF", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["IF", "FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

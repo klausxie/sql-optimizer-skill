@@ -1,0 +1,21 @@
+{
+  "sqlKey": "demo.test.complex.staticGroupBy#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "staticGroupBy",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT status, COUNT(*) as cnt FROM users GROUP BY status",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "staticGroupBy", "range": {"startLine": 38, "startColumn": 13, "endLine": 40, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT status, COUNT(*) as cnt FROM users GROUP BY status",
+  "dynamicFeatures": [],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": [], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "STATIC_SQL",
+  "primaryFragmentTarget": null
+}

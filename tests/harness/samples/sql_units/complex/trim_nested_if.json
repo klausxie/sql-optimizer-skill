@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.trimNestedIf#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "trimNestedIf",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status, department FROM users WHERE CASE WHEN #{status} IS NOT NULL AND #{dept} IS NOT NULL THEN status = #{status} AND department = #{dept} WHEN #{status} IS NOT NULL THEN status = #{status} END AND name = #{name} AND email = #{email} ORDER BY created_at DESC",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "dept", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "email", "type": "string"}
+  ],
+  "paramExample": {"status": "active", "dept": "Engineering", "name": "John", "email": "john@example.com"},
+  "locators": {"statementId": "trimNestedIf", "range": {"startLine": 1532, "startColumn": 13, "endLine": 1550, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, status, department FROM users\n<trim prefix=\"WHERE\" prefixOverrides=\"AND|OR\" suffix=\"ORDER BY created_at DESC\" suffixOverrides=\",\">\n    <if test=\"status != null\">\n        <if test=\"dept != null\">\n            status = #{status} AND department = #{dept} AND\n        </if>\n        <if test=\"dept == null\">\n            status = #{status} AND\n        </if>\n    </if>\n    <if test=\"name != null\">\n        name = #{name} AND\n    </if>\n    <if test=\"email != null\">\n        email = #{email},\n    </if>\n</trim>",
+  "dynamicFeatures": ["TRIM", "IF", "ORDER"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["TRIM", "IF", "ORDER"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

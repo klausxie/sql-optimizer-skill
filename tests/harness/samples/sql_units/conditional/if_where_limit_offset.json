@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.ifWhereLimitOffset#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifWhereLimitOffset",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE department = #{dept} LIMIT #{limit} OFFSET #{offset}",
+  "parameterMappings": [
+    {"name": "dept", "type": "string"},
+    {"name": "limit", "type": "integer"},
+    {"name": "offset", "type": "integer"}
+  ],
+  "paramExample": {"dept": "Engineering", "limit": 10, "offset": 20},
+  "locators": {"statementId": "ifWhereLimitOffset", "range": {"startLine": 555, "startColumn": 13, "endLine": 568, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<where>\n    <if test=\"dept != null\">\n        AND department = #{dept}\n    </if>\n</where>\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>\n<if test=\"offset != null\">\n    OFFSET #{offset}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "LIMIT"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "LIMIT"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

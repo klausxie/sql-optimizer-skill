@@ -1,0 +1,51 @@
+{
+  "sqlKey": "demo.test.complex.foreachInList#v1",
+  "status": "PASS",
+  "equivalence": {
+    "checked": true,
+    "method": "sql_semantic_compare_v2",
+    "rowCount": {"status": "MATCH", "before": 3, "after": 3},
+    "keySetHash": {"status": "MATCH", "before": "ghi789", "after": "ghi789", "sampleSize": 3}
+  },
+  "perfComparison": {"checked": false, "method": "capability_gate", "reasonCodes": ["VALIDATE_PLAN_COMPARE_CONFIG_DISABLED"], "improved": null},
+  "securityChecks": {"dollar_substitution_removed": true},
+  "semanticRisk": "low",
+  "selectedCandidateSource": "llm",
+  "warnings": [],
+  "riskFlags": [],
+  "rewrittenSql": "SELECT id, name FROM users WHERE id IN (1, 2, 3)",
+  "selectedCandidateId": "candidate_1",
+  "candidateEvaluations": [
+    {"candidateId": "candidate_1", "source": "llm", "semanticMatch": true, "improved": false, "patchabilityScore": 70, "patchabilityTier": "MEDIUM", "canonicalScore": 10}
+  ],
+  "rewriteMaterialization": {
+    "mode": "UNMATERIALIZABLE",
+    "targetType": null,
+    "reasonCode": "FOREACH_NOT_SUPPORTED",
+    "reasonMessage": "foreach dynamic SQL cannot be safely materialized to static template",
+    "replayVerified": false,
+    "featureFlagApplied": false
+  },
+  "templateRewriteOps": [],
+  "candidateEval": {"evaluated": 1, "valid": 1, "improved": 0},
+  "deliveryReadiness": {"tier": "MANUAL_REVIEW", "autoPatchLikelihood": "LOW", "blockingReasons": ["FOREACH_DYNAMIC_SQL"]},
+  "decisionLayers": {
+    "feasibility": {"candidateAvailable": true, "validCandidateCount": 1, "dbReachable": true, "ready": true},
+    "evidence": {"semanticChecked": true, "perfChecked": false, "degraded": true},
+    "delivery": {"tier": "MANUAL_REVIEW", "selectedCandidateId": "candidate_1", "replayVerified": false},
+    "acceptance": {"status": "PASS"}
+  },
+  "semanticEquivalence": {
+    "status": "PASS",
+    "confidence": "HIGH",
+    "evidenceLevel": "DB_FINGERPRINT",
+    "checks": {"predicate": {"status": "PASS"}, "projection": {"status": "PASS"}, "ordering": {"status": "PASS"}, "pagination": {"status": "PASS"}},
+    "hardConflicts": []
+  },
+  "rewriteSafetyLevel": "REVIEW",
+  "patchability": {
+    "eligible": false,
+    "allowedCapabilities": [],
+    "blockingReasons": ["FOREACH_DYNAMIC_SQL"]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.bindIfUsage#v1",
+  "xmlPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "bindIfUsage",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE name LIKE #{namePattern}",
+  "parameterMappings": [
+    {"name": "name", "type": "string"}
+  ],
+  "paramExample": {"name": "John"},
+  "locators": {"statementId": "bindIfUsage", "range": {"startLine": 837, "startColumn": 13, "endLine": 845, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "<bind name=\"namePattern\" value=\"'\\'' + name + '%'\"/>\nSELECT id, name FROM users\n<where>\n    <if test=\"name != null\">\n        AND name LIKE #{namePattern}\n    </if>\n</where>",
+  "dynamicFeatures": ["BIND", "WHERE", "IF"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["BIND", "WHERE", "IF"], "includeFragments": []},
+  "includeBindings": ["namePattern"],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

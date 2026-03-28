@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.nestedIfChained#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "nestedIfChained",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE (name = CONCAT(#{firstName}, ' ', #{lastName})) OR name LIKE CONCAT(#{firstName}, '%')",
+  "parameterMappings": [
+    {"name": "firstName", "type": "string"},
+    {"name": "lastName", "type": "string"}
+  ],
+  "paramExample": {"firstName": "John", "lastName": "Doe"},
+  "locators": {"statementId": "nestedIfChained", "range": {"startLine": 768, "startColumn": 13, "endLine": 780, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<where>\n    <if test=\"firstName != null\">\n        <if test=\"lastName != null\">\n            AND name = CONCAT(#{firstName}, ' ', #{lastName})\n        </if>\n        <if test=\"firstName != ''\">\n            AND name LIKE CONCAT(#{firstName}, '%')\n        </if>\n    </if>\n</where>",
+  "dynamicFeatures": ["WHERE", "IF"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

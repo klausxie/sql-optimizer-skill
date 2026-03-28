@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.multiUnionDynamic#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "multiUnionDynamic",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, 'users' as source FROM users WHERE status = #{userStatus} UNION SELECT id, name, email, 'admins' as source FROM users WHERE department = 'Admin' UNION SELECT id, name, email, 'managers' as source FROM users WHERE department = 'Manager' ORDER BY #{sortField} LIMIT #{limit}",
+  "parameterMappings": [
+    {"name": "userStatus", "type": "string"},
+    {"name": "sortField", "type": "string"},
+    {"name": "limit", "type": "integer"}
+  ],
+  "paramExample": {"userStatus": "active", "sortField": "name", "limit": 100},
+  "locators": {"statementId": "multiUnionDynamic", "range": {"startLine": 394, "startColumn": 13, "endLine": 411, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, 'users' as source FROM users\n<where>\n    <if test=\"userStatus != null\">\n        AND status = #{userStatus}\n    </if>\n</where>\nUNION\nSELECT id, name, email, 'admins' as source FROM users WHERE department = 'Admin'\nUNION\nSELECT id, name, email, 'managers' as source FROM users WHERE department = 'Manager'\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION", "LIMIT"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION", "LIMIT"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

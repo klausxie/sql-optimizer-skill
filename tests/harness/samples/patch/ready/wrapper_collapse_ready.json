@@ -1,0 +1,20 @@
+{
+  "sqlKey": "demo.test.complex.wrapperCount#v1",
+  "statementKey": "demo.test.complex.wrapperCount",
+  "patchFiles": ["/tests/harness/patches/demo.test.complex.wrapperCount#v1.patch"],
+  "diffSummary": {"lines": 4, "changed": true},
+  "applyMode": "PATCH_ONLY",
+  "rollback": "delete_patch_file",
+  "selectedCandidateId": "candidate_001",
+  "candidatesEvaluated": 1,
+  "selectionReason": {"code": "PATCH_SELECTED_SINGLE_PASS", "message": "single pass variant"},
+  "rejectedCandidates": [],
+  "applicable": true,
+  "applyCheckError": null,
+  "deliveryOutcome": {"tier": "READY_TO_APPLY", "reasonCodes": ["PATCH_SELECTED_SINGLE_PASS"], "summary": "patch is ready to apply"},
+  "repairHints": [],
+  "patchability": {"applyCheckPassed": true, "templateSafePath": true, "locatorStable": true, "structuralBlockers": []},
+  "gates": {"semanticEquivalenceStatus": "PASS", "semanticEquivalenceBlocking": false, "semanticConfidence": "HIGH", "semanticEvidenceLevel": "DB_FINGERPRINT"},
+  "strategyType": "SAFE_WRAPPER_COLLAPSE",
+  "fallbackApplied": false
+}

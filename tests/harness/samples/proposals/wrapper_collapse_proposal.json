@@ -1,0 +1,41 @@
+{
+  "sqlKey": "demo.test.complex.wrapperCount#v1",
+  "issues": [
+    {"code": "SUBQUERY_IN_FROM", "message": "subquery in FROM clause - consider using direct query", "severity": "warn"}
+  ],
+  "dbEvidenceSummary": {
+    "dbType": "postgresql",
+    "driver": "psycopg2",
+    "schema": "public",
+    "tables": ["users"],
+    "indexes": [{"table": "users", "index": "users_pkey", "definition": "CREATE UNIQUE INDEX users_pkey ON users USING btree (id)"}],
+    "columns": [{"table": "users", "column": "id", "dataType": "bigint", "isNullable": false}, {"table": "users", "column": "status", "dataType": "varchar", "isNullable": false}],
+    "collectionMode": "DB_CONNECTED",
+    "planLines": ["Aggregate  (cost=11.00..11.01 rows=1 width=8)", "  ->  Seq Scan on users  (cost=0.00..10.80 rows=80 width=0)"]
+  },
+  "planSummary": {"summary": "Aggregate  (cost=11.00..11.01 rows=1 width=8)", "lineCount": 2},
+  "suggestions": [],
+  "verdict": "CAN_IMPROVE",
+  "confidence": "high",
+  "estimatedBenefit": "medium",
+  "triggeredRules": [
+    {"ruleId": "SUBQUERY_IN_FROM", "builtin": "performance", "severity": "warn"},
+    {"ruleId": "WRAPPER_QUERY_COLLAPSE", "builtin": "performance", "severity": "info"}
+  ],
+  "actionability": {"score": 60, "tier": "MEDIUM", "autoPatchLikelihood": "MEDIUM", "reasons": ["wrapper query can be collapsed"], "blockedBy": []},
+  "recommendedSuggestionIndex": null,
+  "llmCandidates": [
+    {
+      "id": "candidate_001",
+      "source": "llm",
+      "rewrittenSql": "SELECT COUNT(*) FROM users WHERE status = 'active'",
+      "rewriteStrategy": "REMOVE_UNNECESSARY_SUBQUERY",
+      "semanticRisk": "low",
+      "confidence": "0.95"
+    }
+  ],
+  "llmTraceRefs": [],
+  "llmValidationResults": [
+    {"candidate_id": "candidate_001", "passed": true, "checks": [], "rejected_reason": null}
+  ]
+}

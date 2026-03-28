@@ -73,7 +73,7 @@ class FixtureScenarioMatrixTest(unittest.TestCase):
             mapper_path = FIXTURE_PROJECT / str(scenario["mapperPath"])
             self.assertTrue(mapper_path.exists(), mapper_path)
 
-        self.assertEqual(domains, {"user", "order", "shipment"})
+        self.assertEqual(domains, {"user", "order", "shipment", "test.complex"})
         self.assertEqual(scenario_classes, SCENARIO_CLASSES)
         summary = summarize_fixture_scenarios(scenarios)
         self.assertEqual(summary["roadmapStageCounts"]["NEXT"], 1)

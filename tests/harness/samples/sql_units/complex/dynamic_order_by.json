@@ -1,0 +1,25 @@
+{
+  "sqlKey": "demo.test.complex.dynamicOrderBy#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "dynamicOrderBy",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users ORDER BY ${orderField} ${orderDir}",
+  "parameterMappings": [
+    {"name": "orderField", "type": "string"},
+    {"name": "orderDir", "type": "string"}
+  ],
+  "paramExample": {"orderField": "created_at", "orderDir": "DESC"},
+  "locators": {"statementId": "dynamicOrderBy", "range": {"startLine": 223, "startColumn": 13, "endLine": 226, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": "unsafe dynamic ORDER BY with ${}",
+  "templateSql": "SELECT id, name, status FROM users\nORDER BY ${orderField} ${orderDir}",
+  "dynamicFeatures": ["DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null,
+  "securityRisk": "ORDER BY injection possible"
+}

@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.nestedIfDeep#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "nestedIfDeep",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status, department FROM users WHERE status = #{level1} AND department = #{level2} AND name LIKE CONCAT('%', #{level3}, '%') ORDER BY ${sortField}",
+  "parameterMappings": [
+    {"name": "level1", "type": "string"},
+    {"name": "level2", "type": "string"},
+    {"name": "level3", "type": "string"},
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"level1": "active", "level2": "Engineering", "level3": "John", "sortField": "created_at"},
+  "locators": {"statementId": "nestedIfDeep", "range": {"startLine": 881, "startColumn": 13, "endLine": 897, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, email, status, department FROM users\n<where>\n    <if test=\"level1 != null\">\n        <if test=\"level2 != null\">\n            <if test=\"level3 != null\">\n                AND status = #{level1}\n                AND department = #{level2}\n                AND name LIKE CONCAT('%', #{level3}, '%')\n            </if>\n        </if>\n    </if>\n</where>\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

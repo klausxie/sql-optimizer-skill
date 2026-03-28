@@ -1,0 +1,2544 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="demo.test.complex">
+
+    <!-- ========== Base Fragments ========== -->
+    <sql id="BaseColumns">id, name, email, status, created_at</sql>
+    <sql id="BaseWhere">WHERE status = 'active'</sql>
+
+    <!-- ========== Multi-Fragment System (Level 0-4) ========== -->
+    <!-- Level 0: Simple fragments -->
+    <sql id="Frag_Col_Id">id</sql>
+    <sql id="Frag_Col_Name">name</sql>
+    <sql id="Frag_Col_Email">email</sql>
+    <sql id="Frag_Col_Status">status</sql>
+    <sql id="Frag_Col_Date">created_at</sql>
+
+    <!-- Level 1: Composite columns -->
+    <sql id="Frag_Cols_Basic"><include refid="Frag_Col_Id"/>, <include refid="Frag_Col_Name"/></sql>
+    <sql id="Frag_Cols_Contact"><include refid="Frag_Col_Email"/>, <include refid="Frag_Col_Status"/></sql>
+    <sql id="Frag_Cols_Time"><include refid="Frag_Col_Date"/>, updated_at</sql>
+
+    <!-- Level 2: Full column sets -->
+    <sql id="Frag_UserCore"><include refid="Frag_Cols_Basic"/>, <include refid="Frag_Cols_Contact"/></sql>
+    <sql id="Frag_UserFull"><include refid="Frag_UserCore"/>, <include refid="Frag_Cols_Time"/></sql>
+
+    <!-- Level 3: With dynamic -->
+    <sql id="Frag_UserWithFilter"><include refid="Frag_UserFull"/>, department</sql>
+
+    <!-- Level 4: Deep nesting -->
+    <sql id="Frag_MegaColumns"><include refid="Frag_UserWithFilter"/>, title, metadata</sql>
+
+    <!-- ========== WHERE Fragments ========== -->
+    <sql id="Frag_Where_Status">WHERE status = #{status}</sql>
+    <sql id="Frag_Where_Dept">WHERE department = #{dept}</sql>
+    <sql id="Frag_Where_Active">WHERE status = 'active'</sql>
+
+    <!-- Nested WHERE fragment -->
+    <sql id="Frag_Where_Combined">
+        <include refid="Frag_Where_Status"/>
+        <if test="dept != null">
+            AND department = #{dept}
+        </if>
+    </sql>
+
+    <!-- ========== Complex Multi-Fragment Statements ========== -->
+    <!-- Statement using multiple level-1 fragments -->
+    <select id="multiFragmentLevel1" resultType="map">
+        SELECT <include refid="Frag_Cols_Basic"/>, <include refid="Frag_Cols_Contact"/> FROM users
+    </select>
+
+    <!-- Statement using level-2 fragment -->
+    <select id="multiFragmentLevel2" resultType="map">
+        SELECT <include refid="Frag_UserCore"/> FROM users
+    </select>
+
+    <!-- Statement using level-3 fragment with dynamic WHERE -->
+    <select id="multiFragmentLevel3WithWhere" resultType="map">
+        SELECT <include refid="Frag_UserWithFilter"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="dept != null">
+                AND department = #{dept}
+            </if>
+        </where>
+    </select>
+
+    <!-- Statement using level-4 mega fragment -->
+    <select id="multiFragmentLevel4" resultType="map">
+        SELECT <include refid="Frag_MegaColumns"/> FROM users
+        <where>
+            <include refid="Frag_Where_Combined"/>
+        </where>
+    </select>
+
+    <!-- Statement with multiple separate fragments -->
+    <select id="multiFragmentSeparate" resultType="map">
+        SELECT <include refid="BaseColumns"/> FROM users
+        <where>
+            <include refid="Frag_Where_Active"/>
+        </where>
+    </select>
+
+    <!-- ========== Fragments in Different Contexts ========== -->
+    <!-- Fragments in SET (UPDATE) -->
+    <sql id="Frag_Set_Fields">
+        <if test="name != null">name = #{name},</if>
+        <if test="email != null">email = #{email},</if>
+        <if test="status != null">status = #{status},</if>
+    </sql>
+
+    <update id="updateWithFragmentSet">
+        UPDATE users
+        <set>
+            <include refid="Frag_Set_Fields"/>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- Fragments in WHERE with nested IF -->
+    <sql id="Frag_Where_Nested">
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="dept != null">
+            AND department = #{dept}
+        </if>
+        <if test="namePattern != null">
+            AND name LIKE CONCAT('%', #{namePattern}, '%')
+        </if>
+    </sql>
+
+    <select id="selectWithFragmentWhere" resultType="map">
+        SELECT id, name, email FROM users
+        <where>
+            <include refid="Frag_Where_Nested"/>
+        </where>
+    </select>
+
+    <!-- Fragments in CHOOSE -->
+    <sql id="Frag_Order_ASC">ORDER BY name ASC</sql>
+    <sql id="Frag_Order_DESC">ORDER BY name DESC</sql>
+    <sql id="Frag_Order_Default">ORDER BY id ASC</sql>
+
+    <select id="selectWithFragmentChoose" resultType="map">
+        SELECT id, name, email FROM users
+        <choose>
+            <when test="sort == 'asc'">
+                <include refid="Frag_Order_ASC"/>
+            </when>
+            <when test="sort == 'desc'">
+                <include refid="Frag_Order_DESC"/>
+            </when>
+            <otherwise>
+                <include refid="Frag_Order_Default"/>
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== Deep Fragment Nesting Chain ========== -->
+    <!-- Chain: A -> B -> C -> D -> E -->
+    <sql id="Chain_E">extra_field_5</sql>
+    <sql id="Chain_D"><include refid="Chain_E"/>, extra_field_4</sql>
+    <sql id="Chain_C"><include refid="Chain_D"/>, extra_field_3</sql>
+    <sql id="Chain_B"><include refid="Chain_C"/>, extra_field_2</sql>
+    <sql id="Chain_A"><include refid="Chain_B"/>, extra_field_1</sql>
+
+    <select id="deepFragmentChain" resultType="map">
+        SELECT <include refid="Chain_A"/> FROM users
+    </select>
+
+    <!-- ========== Fragment with multiple includes in one tag ========== -->
+    <sql id="Frag_Condensed">
+        <include refid="BaseColumns"/>
+    </sql>
+    <sql id="Frag_MoreCondensed">
+        <include refid="Frag_Condensed"/>, department, title
+    </sql>
+
+    <select id="fragmentCondensed" resultType="map">
+        SELECT <include refid="Frag_MoreCondensed"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== Fragment in multiple places in one statement ========== -->
+    <sql id="Frag_CommonColumns">id, name, email</sql>
+    <sql id="Frag_CommonWhere">WHERE status = 'active'</sql>
+
+    <select id="fragmentMultiplePlaces" resultType="map">
+        SELECT <include refid="Frag_CommonColumns"/>, status, department FROM users
+        <include refid="Frag_CommonWhere"/>
+    </select>
+
+    <!-- ========== Fragment with nested dynamic in different sections ========== -->
+    <sql id="Frag_DynamicSelect">
+        <if test="cols != null and cols.size() > 0">
+            <foreach collection="cols" item="col" separator=", ">
+                ${col}
+            </foreach>
+        </if>
+        <if test="cols == null or cols.size() == 0">
+            id, name, email
+        </if>
+    </sql>
+
+    <select id="fragmentDynamicColumns" resultType="map">
+        SELECT <include refid="Frag_DynamicSelect"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== Fragment used in JOIN ========== -->
+    <sql id="Frag_JoinCondition">o.user_id = u.id</sql>
+    <sql id="Frag_JoinUserCols">u.id, u.name as user_name</sql>
+    <sql id="Frag_JoinOrderCols">o.id as order_id, o.amount</sql>
+
+    <select id="fragmentInJoin" resultType="map">
+        SELECT <include refid="Frag_JoinUserCols"/>, <include refid="Frag_JoinOrderCols"/>
+        FROM orders o
+        JOIN users u ON <include refid="Frag_JoinCondition"/>
+    </select>
+
+    <!-- ========== Fragment with nested choose in fragment ========== -->
+    <sql id="Frag_NestedChoose">
+        <choose>
+            <when test="filter == 'active'">
+                WHERE status = 'active'
+            </when>
+            <when test="filter == 'pending'">
+                WHERE status = 'pending'
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="fragmentWithChoose" resultType="map">
+        SELECT id, name, status FROM users
+        <include refid="Frag_NestedChoose"/>
+    </select>
+
+    <!-- ========== Real World: Massive Fragment System ========== -->
+    <!-- Common columns -->
+    <sql id="RWW_Cols_User">id, name, email, status, created_at, updated_at</sql>
+    <sql id="RWW_Cols_Order">id, order_no, amount, status as order_status, created_at as order_date</sql>
+
+    <!-- Common filters -->
+    <sql id="RWW_Filter_UserStatus">
+        <if test="userStatus != null">
+            AND u.status = #{userStatus}
+        </if>
+    </sql>
+    <sql id="RWW_Filter_UserDept">
+        <if test="deptIds != null and deptIds.size() > 0">
+            AND u.department_id IN
+            <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                #{did}
+            </foreach>
+        </if>
+    </sql>
+    <sql id="RWW_Filter_OrderStatus">
+        <if test="orderStatus != null">
+            AND o.status = #{orderStatus}
+        </if>
+    </sql>
+
+    <!-- Combined filters -->
+    <sql id="RWW_Filter_User">
+        <include refid="RWW_Filter_UserStatus"/>
+        <include refid="RWW_Filter_UserDept"/>
+    </sql>
+    <sql id="RWW_Filter_All">
+        <include refid="RWW_Filter_User"/>
+        <include refid="RWW_Filter_OrderStatus"/>
+    </sql>
+
+    <!-- Real world complex query -->
+    <select id="realWorldFragmentSystem" resultType="map">
+        SELECT
+            <include refid="RWW_Cols_User"/>,
+            <include refid="RWW_Cols_Order"/>
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        <where>
+            <include refid="RWW_Filter_All"/>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Subquery with Fragment ========== -->
+    <sql id="Frag_UserBasic">id, name, email, status</sql>
+
+    <select id="subqueryWithFragment" resultType="map">
+        SELECT u.id, u.name, u.email,
+               (SELECT <include refid="Frag_UserBasic"/> FROM users u2 WHERE u2.id = u.id LIMIT 1) as user_info,
+               (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id
+                <if test="orderStatus != null">
+                    AND o.status = #{orderStatus}
+                </if>
+               ) as order_count
+        FROM users u
+        <where>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND u.department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: Batch Insert with Dynamic ========== -->
+    <insert id="batchInsertDynamic">
+        INSERT INTO users (id, name, email, status, department, created_at)
+        <foreach collection="users" item="user" separator="," open="VALUES" close="">
+            (#{user.id}, #{user.name}, #{user.email},
+             <choose>
+                 <when test="user.status != null">#{user.status}</when>
+                 <otherwise>'active'</otherwise>
+             </choose>,
+             <choose>
+                 <when test="user.department != null">#{user.department}</when>
+                 <otherwise>'Default'</otherwise>
+             </choose>,
+             NOW())
+        </foreach>
+    </insert>
+
+    <!-- ========== EXTREME: HAVING with Dynamic ========== -->
+    <select id="havingWithDynamic" resultType="map">
+        SELECT department, COUNT(*) as user_count, SUM(amount) as total_amount
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        <where>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="startDate != null">
+                AND o.created_at &gt;= #{startDate}
+            </if>
+        </where>
+        GROUP BY department
+        <if test="minCount != null">
+            HAVING COUNT(*) &gt;= #{minCount}
+        </if>
+        <if test="minAmount != null">
+            HAVING SUM(amount) &gt;= #{minAmount}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: DISTINCT with Dynamic ========== -->
+    <select id="distinctWithDynamic" resultType="map">
+        SELECT DISTINCT
+        <choose>
+            <when test="fields != null and fields.size() > 0">
+                <foreach collection="fields" item="field" separator=", ">
+                    ${field}
+                </foreach>
+            </when>
+            <when test="useEmail == true">
+                email, status
+            </when>
+            <otherwise>
+                id, name, status
+            </otherwise>
+        </choose>
+        FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: UNION ALL with Fragment ========== -->
+    <select id="unionAllWithFragment" resultType="map">
+        SELECT <include refid="Frag_UserBasic"/> FROM users WHERE status = 'active'
+        UNION ALL
+        SELECT <include refid="Frag_UserBasic"/> FROM users WHERE status = 'pending'
+        UNION ALL
+        SELECT <include refid="Frag_UserBasic"/> FROM users WHERE status = 'inactive'
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Multiple UNION with Dynamic WHERE ========== -->
+    <select id="multiUnionDynamic" resultType="map">
+        SELECT id, name, email, 'users' as source FROM users
+        <where>
+            <if test="userStatus != null">
+                AND status = #{userStatus}
+            </if>
+        </where>
+        UNION
+        SELECT id, name, email, 'admins' as source FROM users WHERE department = 'Admin'
+        UNION
+        SELECT id, name, email, 'managers' as source FROM users WHERE department = 'Manager'
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Complex CASE WHEN in Fragment ========== -->
+    <sql id="Frag_CaseWhen">
+        CASE
+            <when test="type == 'full'">id, name, email, status, department, created_at, updated_at</when>
+            <when test="type == 'basic'">id, name, email</when>
+            <when test="type == 'status'">id, name, status</when>
+            <otherwise>id, name</otherwise>
+        END
+    </sql>
+
+    <select id="complexCaseWhen" resultType="map">
+        SELECT <include refid="Frag_CaseWhen"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: Nested Fragment in Subquery ========== -->
+    <select id="nestedFragmentInSubquery" resultType="map">
+        SELECT u.id, u.name,
+               (SELECT <include refid="Frag_UserCore"/> FROM users u2 WHERE u2.id = u.id) as user_details
+        FROM users u
+        <where>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: Fragment in UPDATE SET with nested IF ========== -->
+    <sql id="Frag_Set_Nested">
+        <if test="user != null">
+            <if test="user.name != null">
+                name = #{user.name},
+            </if>
+            <if test="user.email != null">
+                email = #{user.email},
+            </if>
+        </if>
+        <if test="status != null">
+            <choose>
+                <when test="status == 'active'">
+                    status = 'active',
+                </when>
+                <when test="status == 'inactive'">
+                    status = 'inactive',
+                </when>
+                <otherwise>
+                    status = #{status},
+                </otherwise>
+            </choose>
+        </if>
+    </sql>
+
+    <update id="updateNestedFragmentSet">
+        UPDATE users
+        <set>
+            <include refid="Frag_Set_Nested"/>
+        </set>
+        <where>
+            <if test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+    </update>
+
+    <!-- ========== EXTREME: Pagination with multiple dynamic conditions ========== -->
+    <select id="paginationComplex" resultType="map">
+        SELECT id, name, email, status, department, created_at
+        FROM users
+        <where>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+            <if test="deptList != null and deptList.size() > 0">
+                AND department_id IN
+                <foreach collection="deptList" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+            <if test="excludeList != null and excludeList.size() > 0">
+                AND id NOT IN
+                <foreach collection="excludeList" item="eid" open="(" separator="," close=")">
+                    #{eid}
+                </foreach>
+            </if>
+            <if test="searchName != null">
+                AND name LIKE CONCAT('%', #{searchName}, '%')
+            </if>
+            <if test="searchEmail != null">
+                AND email LIKE CONCAT('%', #{searchEmail}, '%')
+            </if>
+            <if test="createdAfter != null">
+                AND created_at &gt;= #{createdAfter}
+            </if>
+            <if test="createdBefore != null">
+                AND created_at &lt;= #{createdBefore}
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'name'">
+                ORDER BY name
+            </when>
+            <when test="sortBy == 'date'">
+                ORDER BY created_at
+            </when>
+            <when test="sortBy == 'status'">
+                ORDER BY status
+            </when>
+            <otherwise>
+                ORDER BY id
+            </otherwise>
+        </choose>
+        <if test="pageSize != null and pageNum != null">
+            LIMIT #{pageSize} OFFSET #{pageNum}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Complex join with multiple fragments and dynamic ========== -->
+    <select id="complexJoinMultipleFragments" resultType="map">
+        SELECT
+            <include refid="Frag_JoinUserCols"/>,
+            <include refid="Frag_JoinOrderCols"/>,
+            p.name as product_name,
+            c.name as category_name
+        FROM orders o
+        JOIN users u ON <include refid="Frag_JoinCondition"/>
+        JOIN products p ON o.product_id = p.id
+        JOIN categories c ON p.category_id = c.id
+        <where>
+            <if test="userStatus != null">
+                AND u.status = #{userStatus}
+            </if>
+            <if test="orderStatuses != null and orderStatuses.size() > 0">
+                AND o.status IN
+                <foreach collection="orderStatuses" item="os" open="(" separator="," close=")">
+                    #{os}
+                </foreach>
+            </if>
+            <if test="categoryIds != null and categoryIds.size() > 0">
+                AND c.id IN
+                <foreach collection="categoryIds" item="cid" open="(" separator="," close=")">
+                    #{cid}
+                </foreach>
+            </if>
+            <if test="minAmount != null">
+                AND o.amount &gt;= #{minAmount}
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Full text search with dynamic ========== -->
+    <select id="fullTextSearchDynamic" resultType="map">
+        SELECT id, name, email, status, department,
+               MATCH(name, email) AGAINST(#{keyword} IN BOOLEAN MODE) as relevance
+        FROM users
+        <where>
+            <if test="keyword != null">
+                AND (MATCH(name, email) AGAINST(#{keyword} IN BOOLEAN MODE)
+                     OR name LIKE CONCAT('%', #{keyword}, '%')
+                     OR email LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortByRelevance == true">
+            ORDER BY relevance DESC
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Window function with dynamic partition ========== -->
+    <select id="windowFunctionWithDynamicPartition" resultType="map">
+        WITH ranked_data AS (
+            SELECT
+                u.id, u.name, u.department, u.salary,
+                ROW_NUMBER() OVER (
+                    <choose>
+                        <when test="partitionBy == 'department'">PARTITION BY department</when>
+                        <when test="partitionBy == 'status'">PARTITION BY status</when>
+                        <otherwise>PARTITION BY department, status</otherwise>
+                    </choose>
+                    ORDER BY
+                    <choose>
+                        <when test="orderBy == 'salary_desc'">salary DESC</when>
+                        <when test="orderBy == 'name'">name</when>
+                        <otherwise>id</otherwise>
+                    </choose>
+                ) as rn,
+                COUNT(*) OVER (
+                    <if test="partitionBy != null">PARTITION BY ${partitionBy}</if>
+                    <if test="partitionBy == null">PARTITION BY department</if>
+                ) as partition_cnt,
+                SUM(salary) OVER (
+                    <if test="partitionBy != null">PARTITION BY ${partitionBy}</if>
+                    <if test="partitionBy == null">PARTITION BY department</if>
+                    ORDER BY id
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) as running_sum
+            FROM users u
+            <where>
+                <if test="status != null">
+                    AND u.status = #{status}
+                </if>
+                <if test="deptIds != null and deptIds.size() > 0">
+                    AND u.department_id IN
+                    <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                        #{did}
+                    </foreach>
+                </if>
+            </where>
+        )
+        SELECT * FROM ranked_data
+        <if test="minRank != null">
+            WHERE rn &gt;= #{minRank}
+        </if>
+        <if test="maxRank != null">
+            AND rn &lt;= #{maxRank}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Multiple CTEs with dynamic WHERE ========== -->
+    <select id="multipleCTEWithDynamic" resultType="map">
+        WITH
+        active_orders AS (
+            SELECT o.id, o.user_id, o.amount, o.created_at
+            FROM orders o
+            <where>
+                <if test="statusList != null and statusList.size() > 0">
+                    o.status IN
+                    <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                        #{s}
+                    </foreach>
+                </if>
+                <if test="minAmount != null">
+                    AND o.amount &gt;= #{minAmount}
+                </if>
+            </where>
+        ),
+        user_summary AS (
+            SELECT u.id, u.name, COUNT(o.id) as order_count, SUM(o.amount) as total_amount
+            FROM users u
+            LEFT JOIN active_orders o ON u.id = o.user_id
+            <if test="deptFilter != null">
+                WHERE u.department = #{deptFilter}
+            </if>
+            GROUP BY u.id, u.name
+        ),
+        top_users AS (
+            SELECT * FROM user_summary
+            <if test="minOrders != null">
+                WHERE order_count &gt;= #{minOrders}
+            </if>
+            ORDER BY total_amount DESC
+            <if test="limit != null">
+                LIMIT #{limit}
+            </if>
+        )
+        SELECT tu.*, ou.id as latest_order_id, ou.amount as latest_order_amount
+        FROM top_users tu
+        LEFT JOIN (
+            SELECT o.user_id, o.id, o.amount,
+                   ROW_NUMBER() OVER (PARTITION BY o.user_id ORDER BY o.created_at DESC) as rn
+            FROM orders o
+        ) ou ON tu.id = ou.user_id AND ou.rn = 1
+    </select>
+
+    <!-- ========== EXTREME: Nested subqueries with dynamic ========== -->
+    <select id="nestedSubqueriesWithDynamic" resultType="map">
+        SELECT *
+        FROM users u
+        WHERE u.id IN (
+            SELECT o.user_id FROM orders o
+            WHERE o.id IN (
+                SELECT op.order_id FROM order_products op
+                WHERE op.product_id IN
+                <choose>
+                    <when test="productIds != null and productIds.size() > 0">
+                        <foreach collection="productIds" item="pid" open="(" separator="," close=")">
+                            #{pid}
+                        </foreach>
+                    </when>
+                    <otherwise>SELECT id FROM products WHERE category = #{category}</otherwise>
+                </choose>
+                <if test="minQuantity != null">
+                    AND op.quantity &gt;= #{minQuantity}
+                </if>
+            )
+            <if test="minOrderAmount != null">
+                GROUP BY o.user_id HAVING SUM(o.amount) &gt;= #{minOrderAmount}
+            </if>
+        )
+        <if test="userStatus != null">
+            AND u.status = #{userStatus}
+        </if>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Complex CASE WHEN with multiple conditions ========== -->
+    <select id="complexCaseWhen" resultType="map">
+        SELECT
+            id, name, department, salary,
+            CASE
+                <when test="tierField == 'salary'">
+                    WHEN salary &gt;= #{highSalary} THEN 'VIP'
+                    WHEN salary &gt;= #{midSalary} THEN 'Regular'
+                    ELSE 'Basic'
+                </when>
+                <when test="tierField == 'department'">
+                    WHEN department = 'Sales' THEN 'SalesTeam'
+                    WHEN department = 'Tech' THEN 'TechTeam'
+                    WHEN department = 'HR' THEN 'HRTeam'
+                    ELSE 'Other'
+                </when>
+                <otherwise>
+                    WHEN status = 'active' AND department = 'Tech' THEN 'ActiveTech'
+                    WHEN status = 'active' THEN 'ActiveOther'
+                    ELSE 'Inactive'
+                </otherwise>
+            END as tier,
+            CASE
+                WHEN salary &gt;= (SELECT AVG(salary) FROM users WHERE department = u.department)
+                THEN 'AboveAvg'
+                ELSE 'BelowAvg'
+            END as salary_comparison,
+            CASE
+                <foreach collection="customRules" item="rule">
+                    WHEN ${rule.condition} THEN #{rule.result}
+                </foreach>
+                ELSE 'default'
+            END as custom_tier
+        FROM users u
+        <where>
+            <if test="statusList != null and statusList.size() > 0">
+                AND u.status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortBy != null">
+            ORDER BY ${sortBy}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Batch insert with SELECT and dynamic ========== -->
+    <insert id="batchInsertWithSelect">
+        INSERT INTO user_history (user_id, action, details, created_at)
+        SELECT
+            u.id as user_id,
+            #{action} as action,
+            CASE
+                <when test="detailType == 'full'">CONCAT(u.name, ' - ', u.email, ' - ', u.department)</when>
+                <when test="detailType == 'name'">u.name</when>
+                <otherwise>CONCAT('User ID: ', u.id)</otherwise>
+            END as details,
+            NOW() as created_at
+        FROM users u
+        <where>
+            <if test="statusList != null and statusList.size() > 0">
+                AND u.status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND u.department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+            <if test="excludeUserIds != null and excludeUserIds.size() > 0">
+                AND u.id NOT IN
+                <foreach collection="excludeUserIds" item="eid" open="(" separator="," close=")">
+                    #{eid}
+                </foreach>
+            </if>
+        </where>
+    </insert>
+
+    <!-- ========== EXTREME: JSON functions with dynamic path ========== -->
+    <select id="jsonFunctionsWithDynamic" resultType="map">
+        SELECT
+            id, name,
+            JSON_EXTRACT(metadata, #{jsonPath}) as extracted_value,
+            JSON_CONTAINS(metadata, #{jsonSearch}, #{jsonKey}) as contains_flag,
+            JSON_SEARCH(metadata, 'one', #{searchTerm}, NULL, #{jsonPath}) as search_result
+        FROM users
+        <where>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+            <if test="hasMetadata != null">
+                AND metadata IS <if test="hasMetadata">NOT</if> NULL
+            </if>
+        </where>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: FOR UPDATE with dynamic ========== -->
+    <select id="forUpdateWithDynamic" resultType="map">
+        SELECT * FROM users
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+        <if test="forUpdate == true">
+            FOR UPDATE
+            <if test="skipLocked == true">
+                SKIP LOCKED
+            </if>
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: STRAIGHT_JOIN with dynamic ========== -->
+    <select id="straightJoinWithDynamic" resultType="map">
+        SELECT STRAIGHT_JOIN
+            u.id, u.name, o.id as order_id, o.amount, p.name as product_name
+        FROM users u
+        <if test="forceOrder == true">
+            FORCE INDEX (idx_user_status)
+        </if>
+        INNER JOIN orders o ON u.id = o.user_id
+        <choose>
+            <when test="productIds != null and productIds.size() > 0">
+                INNER JOIN order_products op ON o.id = op.order_id
+                INNER JOIN products p ON op.product_id = p.id
+                WHERE p.id IN
+                <foreach collection="productIds" item="pid" open="(" separator="," close=")">
+                    #{pid}
+                </foreach>
+            </when>
+            <otherwise>
+                INNER JOIN products p ON o.product_id = p.id
+            </otherwise>
+        </choose>
+        <where>
+            <if test="userStatus != null">
+                AND u.status = #{userStatus}
+            </if>
+            <if test="orderStatus != null">
+                AND o.status = #{orderStatus}
+            </if>
+            <if test="minAmount != null">
+                AND o.amount &gt;= #{minAmount}
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME:复杂报表查询 - 业务报表聚合 ========== -->
+    <select id="complexBusinessReport" resultType="map">
+        WITH
+        base_data AS (
+            SELECT
+                u.id as user_id, u.name as user_name, u.department,
+                o.id as order_id, o.amount, o.status as order_status, o.created_at,
+                p.id as product_id, p.name as product_name, p.category,
+                c.id as category_id, c.name as category_name,
+                ROW_NUMBER() OVER (
+                    <choose>
+                        <when test="rankBy == 'amount'">PARTITION BY u.id ORDER BY o.amount DESC</when>
+                        <when test="rankBy == 'date'">PARTITION BY u.id ORDER BY o.created_at DESC</when>
+                        <otherwise>PARTITION BY u.id ORDER BY o.id</otherwise>
+                    </choose>
+                ) as order_rank,
+                COUNT(*) OVER (PARTITION BY u.id) as user_order_count,
+                SUM(o.amount) OVER (PARTITION BY u.id) as user_total_amount,
+                AVG(o.amount) OVER (PARTITION BY u.id) as user_avg_amount
+            FROM users u
+            LEFT JOIN orders o ON u.id = o.user_id
+            LEFT JOIN order_products op ON o.id = op.order_id
+            LEFT JOIN products p ON op.product_id = p.id
+            LEFT JOIN categories c ON p.category_id = c.id
+            <where>
+                <if test="startDate != null">
+                    AND o.created_at &gt;= #{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND o.created_at &lt;= #{endDate}
+                </if>
+                <if test="userStatus != null">
+                    AND u.status = #{userStatus}
+                </if>
+                <if test="orderStatusList != null and orderStatusList.size() > 0">
+                    AND o.status IN
+                    <foreach collection="orderStatusList" item="os" open="(" separator="," close=")">
+                        #{os}
+                    </foreach>
+                </if>
+                <if test="categoryIds != null and categoryIds.size() > 0">
+                    AND c.id IN
+                    <foreach collection="categoryIds" item="cid" open="(" separator="," close=")">
+                        #{cid}
+                    </foreach>
+                </if>
+            </where>
+        ),
+        summary AS (
+            SELECT
+                department,
+                COUNT(DISTINCT user_id) as user_count,
+                SUM(amount) as total_amount,
+                AVG(amount) as avg_amount,
+                MAX(amount) as max_amount,
+                MIN(amount) as min_amount,
+                COUNT(order_id) as order_count,
+                COUNT(DISTINCT category_id) as category_count
+            FROM base_data
+            GROUP BY department
+        ),
+        ranked AS (
+            SELECT
+                bd.*,
+                RANK() OVER (ORDER BY bd.user_total_amount DESC) as amount_rank,
+                DENSE_RANK() OVER (ORDER BY bd.user_order_count DESC) as frequency_rank
+            FROM base_data bd
+            WHERE bd.order_rank = 1
+        )
+        SELECT
+            r.user_id, r.user_name, r.department,
+            r.user_order_count, r.user_total_amount, r.user_avg_amount,
+            r.amount_rank, r.frequency_rank,
+            s.total_amount as dept_total, s.avg_amount as dept_avg,
+            s.category_count
+        FROM ranked r
+        JOIN summary s ON r.department = s.department
+        <if test="minOrderCount != null">
+            WHERE r.user_order_count &gt;= #{minOrderCount}
+        </if>
+        <if test="deptFilter != null">
+            AND r.department = #{deptFilter}
+        </if>
+        <choose>
+            <when test="sortBy == 'amount'">
+                ORDER BY r.user_total_amount DESC
+            </when>
+            <when test="sortBy == 'frequency'">
+                ORDER BY r.user_order_count DESC
+            </when>
+            <otherwise>
+                ORDER BY r.user_id
+            </otherwise>
+        </choose>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- Nested Include Test -->
+    <sql id="NestedLevel2">SELECT id FROM users</sql>
+    <sql id="NestedLevel1"><include refid="NestedLevel2"/></sql>
+    <sql id="NestedLevel0"><include refid="NestedLevel1"/></sql>
+
+    <!-- ========== Static SQL Samples ========== -->
+    <select id="staticSimpleSelect" resultType="map">
+        SELECT id, name, email FROM users WHERE id = #{id}
+    </select>
+
+    <select id="staticOrderBy" resultType="map">
+        SELECT id, name, email FROM users ORDER BY created_at DESC
+    </select>
+
+    <select id="staticGroupBy" resultType="map">
+        SELECT status, COUNT(*) as cnt FROM users GROUP BY status
+    </select>
+
+    <!-- ========== INCLUDE Samples ========== -->
+    <select id="includeSimple" resultType="map">
+        SELECT <include refid="BaseColumns"/> FROM users
+    </select>
+
+    <select id="includeWithWhere" resultType="map">
+        SELECT <include refid="BaseColumns"/> FROM users <include refid="BaseWhere"/>
+    </select>
+
+    <select id="includeNested" resultType="map">
+        SELECT <include refid="NestedLevel0"/> FROM users
+    </select>
+
+    <!-- ========== IF Conditional Samples ========== -->
+    <select id="ifSimple" resultType="map">
+        SELECT id, name FROM users
+        <if test="status != null">
+            WHERE status = #{status}
+        </if>
+    </select>
+
+    <select id="ifMultiple" resultType="map">
+        SELECT id, name, email FROM users
+        <if test="status != null">
+            WHERE status = #{status}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="ifWithOrderBy" resultType="map">
+        SELECT id, name FROM users
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <select id="ifDynamicPredicate" resultType="map">
+        SELECT * FROM users
+        <if test="name != null and name != ''">
+            WHERE name LIKE CONCAT('%', #{name}, '%')
+        </if>
+        <if test="email != null and email != ''">
+            AND email LIKE CONCAT('%', #{email}, '%')
+        </if>
+    </select>
+
+    <!-- ========== WHERE Block Samples ========== -->
+    <select id="whereBlock" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            <if test="status != null">
+                status = #{status}
+            </if>
+            <if test="name != null">
+                AND name = #{name}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== FOREACH Samples ========== -->
+    <select id="foreachInList" resultType="map">
+        SELECT id, name FROM users
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="foreachInListWithWhere" resultType="map">
+        SELECT id, name, status FROM users
+        WHERE status = 'active'
+        AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="foreachMultiColumn" resultType="map">
+        SELECT id, name FROM users
+        WHERE (id, status) IN
+        <foreach collection="params" item="p" open="(" separator="," close=")">
+            (#{p.id}, #{p.status})
+        </foreach>
+    </select>
+
+    <select id="foreachBatchInsert" resultType="map">
+        SELECT * FROM orders
+        WHERE order_no IN
+        <foreach collection="orderNos" item="no" open="(" separator="," close=")">
+            #{no}
+        </foreach>
+    </select>
+
+    <!-- ========== CHOOSE/WHEN Samples ========== -->
+    <select id="chooseBasic" resultType="map">
+        SELECT id, name FROM users
+        <choose>
+            <when test="type == 'active'">
+                WHERE status = 'active'
+            </when>
+            <when test="type == 'inactive'">
+                WHERE status = 'inactive'
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="chooseMultipleWhen" resultType="map">
+        SELECT id, name, status FROM users
+        <choose>
+            <when test="role == 'admin'">
+                WHERE 1=1
+            </when>
+            <when test="role == 'user'">
+                WHERE status = 'active'
+            </when>
+            <when test="role == 'guest'">
+                WHERE status = 'public'
+            </when>
+            <otherwise>
+                WHERE status = 'active'
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== TRIM Samples ========== -->
+    <select id="trimPrefixOverrides" resultType="map">
+        SELECT id, name FROM users
+        <trim prefix="WHERE" prefixOverrides="AND|OR">
+            <if test="status != null">status = #{status}</if>
+            <if test="name != null">AND name = #{name}</if>
+        </trim>
+    </select>
+
+    <select id="trimSuffixOverrides" resultType="map">
+        SELECT id, name FROM users
+        <trim suffix="ORDER BY created_at DESC" suffixOverrides=",">
+            <if test="sortField != null">,#{sortField}</if>
+        </trim>
+    </select>
+
+    <!-- ========== SET Samples ========== -->
+    <update id="setDynamic">
+        UPDATE users
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========== BIND Samples ========== -->
+    <select id="bindVariable" resultType="map">
+        <bind name="pattern" value="'%' + _parameter.get('name') + '%'"/>
+        SELECT id, name FROM users WHERE name LIKE #{pattern}
+    </select>
+
+    <select id="bindComplex" resultType="map">
+        <bind name="emailPattern" value="'%' + email + '%'"/>
+        SELECT id, name, email FROM users WHERE email LIKE #{emailPattern}
+    </select>
+
+    <!-- ========== Complex JOIN Samples ========== -->
+    <select id="joinTwoTables" resultType="map">
+        SELECT o.id, o.order_no, u.name as user_name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        WHERE o.status = 'active'
+    </select>
+
+    <select id="joinThreeTables" resultType="map">
+        SELECT o.id, o.order_no, u.name as user_name, p.name as product_name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        JOIN products p ON o.product_id = p.id
+        WHERE o.status = 'active'
+    </select>
+
+    <select id="joinFourTables" resultType="map">
+        SELECT o.id, u.name as user_name, p.name as product_name, c.name as category_name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        JOIN products p ON o.product_id = p.id
+        JOIN categories c ON p.category_id = c.id
+        WHERE o.status = 'active'
+    </select>
+
+    <select id="leftJoinWithNull" resultType="map">
+        SELECT o.id, o.order_no, u.name as user_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.status = 'pending'
+    </select>
+
+    <!-- ========== Subquery Samples ========== -->
+    <select id="existsSubquery" resultType="map">
+        SELECT id, name FROM users u
+        WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+    </select>
+
+    <select id="inSubquery" resultType="map">
+        SELECT id, name FROM users
+        WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')
+    </select>
+
+    <select id="scalarSubquery" resultType="map">
+        SELECT id, name,
+            (SELECT COUNT(*) FROM orders WHERE user_id = users.id) as order_count
+        FROM users
+    </select>
+
+    <select id="fromClauseSubquery" resultType="map">
+        SELECT * FROM (
+            SELECT id, name, status FROM users WHERE status = 'active'
+        ) active_users
+    </select>
+
+    <!-- ========== UNION Samples ========== -->
+    <select id="unionTwo" resultType="map">
+        SELECT id, name FROM users WHERE status = 'active'
+        UNION
+        SELECT id, name FROM users WHERE status = 'pending'
+    </select>
+
+    <select id="unionThree" resultType="map">
+        SELECT id, name FROM users WHERE status = 'active'
+        UNION
+        SELECT id, name FROM users WHERE status = 'pending'
+        UNION
+        SELECT id, name FROM users WHERE status = 'inactive'
+    </select>
+
+    <!-- ========== Window Function Samples ========== -->
+    <select id="rowNumberWindow" resultType="map">
+        SELECT id, name,
+            ROW_NUMBER() OVER (PARTITION BY status ORDER BY created_at DESC) as rn
+        FROM users
+    </select>
+
+    <select id="rankWindow" resultType="map">
+        SELECT id, name, amount,
+            RANK() OVER (PARTITION BY status ORDER BY amount DESC) as rank
+        FROM orders
+    </select>
+
+    <select id="aggregateWindow" resultType="map">
+        SELECT id, name, amount,
+            SUM(amount) OVER (PARTITION BY status) as status_total
+        FROM orders
+    </select>
+
+    <!-- ========== Dynamic ORDER BY / GROUP BY ========== -->
+    <select id="dynamicOrderBy" resultType="map">
+        SELECT id, name, status FROM users
+        ORDER BY ${orderField} ${orderDir}
+    </select>
+
+    <select id="dynamicGroupBy" resultType="map">
+        SELECT ${groupField}, COUNT(*) as cnt
+        FROM users
+        GROUP BY ${groupField}
+    </select>
+
+    <!-- ========== Wrapper Query (Subquery in FROM) ========== -->
+    <select id="wrapperCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM (
+            SELECT id FROM users WHERE status = 'active'
+        ) active_users
+    </select>
+
+    <select id="wrapperWithAgg" resultType="map">
+        SELECT status, COUNT(*) as cnt FROM (
+            SELECT status FROM users WHERE created_at > NOW() - INTERVAL '30 days'
+        ) recent_users
+        GROUP BY status
+    </select>
+
+    <!-- ========== Multiple Dynamic Features Combined ========== -->
+    <select id="complexAllFeatures" resultType="map">
+        SELECT <include refid="BaseColumns"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="namePattern != null">
+                AND name LIKE CONCAT('%', #{namePattern}, '%')
+            </if>
+            <if test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== Edge Cases ========== -->
+    <select id="emptyWhere" resultType="map">
+        SELECT id, name FROM users
+        <where>
+        </where>
+    </select>
+
+    <select id="emptyForeach" resultType="map">
+        SELECT id, name FROM users
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- ========== Nested CHOOSE ========== -->
+    <select id="nestedChoose" resultType="map">
+        SELECT id, name, status FROM users
+        <choose>
+            <when test="role == 'admin'">
+                <choose>
+                    <when test="department != null">
+                        WHERE department = #{department}
+                    </when>
+                    <otherwise>
+                        WHERE 1=1
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="role == 'manager'">
+                WHERE status = 'active'
+            </when>
+            <otherwise>
+                WHERE status = 'public'
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== Multi-fragment Include ========== -->
+    <sql id="FragmentA">id, name</sql>
+    <sql id="FragmentB">email, status</sql>
+    <select id="multiFragmentInclude" resultType="map">
+        SELECT <include refid="FragmentA"/>, <include refid="FragmentB"/> FROM users
+    </select>
+
+    <!-- ========== BIND + FOREACH ========== -->
+    <select id="bindForeach" resultType="map">
+        <bind name="statusPattern" value="'%' + status + '%'"/>
+        SELECT id, name FROM users
+        WHERE status LIKE #{statusPattern}
+        AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- ========== CASE WHEN ========== -->
+    <select id="caseWhen" resultType="map">
+        SELECT id, name,
+            CASE
+                WHEN status = 'active' THEN 'Active User'
+                WHEN status = 'pending' THEN 'Pending User'
+                ELSE 'Unknown'
+            END as user_type
+        FROM users
+    </select>
+
+    <!-- ========== Limit with Dynamic ========== -->
+    <select id="dynamicLimit" resultType="map">
+        SELECT id, name FROM users
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+        <if test="offset != null and offset > 0">
+            OFFSET #{offset}
+        </if>
+    </select>
+
+    <!-- ========== EXISTS with Dynamic ========== -->
+    <select id="existsWithIf" resultType="map">
+        SELECT id, name FROM users u
+        <if test="hasOrders">
+            WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+        </if>
+    </select>
+
+    <!-- ========== Self Join ========== -->
+    <select id="selfJoin" resultType="map">
+        SELECT u1.id, u1.name as user1, u2.name as referrer
+        FROM users u1
+        LEFT JOIN users u2 ON u1.referrer_id = u2.id
+    </select>
+
+    <!-- ========== Having with Dynamic ========== -->
+    <select id="havingDynamic" resultType="map">
+        SELECT user_id, COUNT(*) as order_count
+        FROM orders
+        GROUP BY user_id
+        <if test="minCount != null">
+            HAVING COUNT(*) >= #{minCount}
+        </if>
+    </select>
+
+    <!-- ========== DISTINCT ========== -->
+    <select id="distinctWithWhere" resultType="map">
+        SELECT DISTINCT status FROM users
+        <where>
+            <if test="name != null">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== Count with Condition ========== -->
+    <select id="countWithCondition" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== Join with Foreach ========== -->
+    <select id="joinWithForeach" resultType="map">
+        SELECT o.id, u.name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        WHERE o.status = 'active'
+        AND o.id IN
+        <foreach collection="orderIds" item="oid" open="(" separator="," close=")">
+            #{oid}
+        </foreach>
+    </select>
+
+    <!-- ========== Complex OR Condition ========== -->
+    <select id="complexOrCondition" resultType="map">
+        SELECT id, name, email FROM users
+        <where>
+            <if test="name != null">
+                name = #{name}
+            </if>
+            <if test="email != null">
+                OR email = #{email}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== Nested IF in WHERE ========== -->
+    <select id="nestedIfInWhere" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            <if test="status != null">
+                <if test="includeActive">
+                    OR status = 'active'
+                </if>
+                <if test="includePending">
+                    OR status = 'pending'
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== CTE-like (PostgreSQL) ========== -->
+    <select id="withRecursive" resultType="map">
+        WITH RECURSIVE org_tree AS (
+            SELECT id, name, parent_id, 1 as level
+            FROM departments WHERE parent_id IS NULL
+            UNION ALL
+            SELECT d.id, d.name, d.parent_id, ot.level + 1
+            FROM departments d
+            JOIN org_tree ot ON d.parent_id = ot.id
+        )
+        SELECT * FROM org_tree
+    </select>
+
+    <!-- ========== NEW: IF + WHERE + ORDER BY ========== -->
+    <select id="ifWhereOrderBy" resultType="map">
+        SELECT id, name, status FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="name != null">
+                AND name = #{name}
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <select id="ifWhereOrderByLimit" resultType="map">
+        SELECT id, name, status FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== NEW: IF + WHERE + LIMIT ========== -->
+    <select id="ifWhereLimit" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="namePattern != null">
+                AND name LIKE CONCAT('%', #{namePattern}, '%')
+            </if>
+        </where>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="ifWhereLimitOffset" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            <if test="dept != null">
+                AND department = #{dept}
+            </if>
+        </where>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+        <if test="offset != null">
+            OFFSET #{offset}
+        </if>
+    </select>
+
+    <!-- ========== NEW: CHOOSE + WHEN ========== -->
+    <select id="chooseWithOrder" resultType="map">
+        SELECT id, name, status FROM users
+        <choose>
+            <when test="role == 'admin'">
+                ORDER BY created_at DESC
+            </when>
+            <when test="role == 'user'">
+                ORDER BY name ASC
+            </when>
+            <otherwise>
+                ORDER BY id ASC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="chooseWithLimit" resultType="map">
+        SELECT id, name FROM users
+        <choose>
+            <when test="statusFilter == 'active'">
+                WHERE status = 'active'
+            </when>
+            <when test="statusFilter == 'pending'">
+                WHERE status = 'pending'
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== NEW: FOREACH + WHERE ========== -->
+    <select id="foreachWithWhere" resultType="map">
+        SELECT id, name, email FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND department_id IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <select id="foreachWithMultipleWhere" resultType="map">
+        SELECT id, name, amount FROM orders
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="userIds != null and userIds.size() > 0">
+                AND user_id IN
+                <foreach collection="userIds" item="uid" open="(" separator="," close=")">
+                    #{uid}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ========== NEW: IF + FOREACH ========== -->
+    <select id="ifForeachConditional" resultType="map">
+        SELECT id, name FROM users
+        <if test="includeInactive == true">
+            WHERE status IN
+        </if>
+        <if test="includeInactive == false">
+            WHERE status = 'active' AND id IN
+        </if>
+        <if test="ids != null">
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="ifForeachWithSort" resultType="map">
+        SELECT id, name, email FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        <if test="sortFields != null and sortFields.size() > 0">
+            ORDER BY
+            <foreach collection="sortFields" item="field" separator=",">
+                ${field}
+            </foreach>
+        </if>
+    </select>
+
+    <!-- ========== NEW: INCLUDE + IF ========== -->
+    <sql id="FilterColumns">id, name, email</sql>
+
+    <select id="includeIfWhere" resultType="map">
+        SELECT <include refid="FilterColumns"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="includeIfWithLimit" resultType="map">
+        SELECT <include refid="FilterColumns"/> FROM users
+        <if test="status != null">
+            WHERE status = #{status}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== NEW: SET + IF ========== -->
+    <update id="setIfDynamic">
+        UPDATE users
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="dept != null">department = #{dept},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="setIfWithWhere">
+        UPDATE orders
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        <where>
+            <if test="orderIds != null">
+                AND id IN
+                <foreach collection="orderIds" item="oid" open="(" separator="," close=")">
+                    #{oid}
+                </foreach>
+            </if>
+        </where>
+    </update>
+
+    <!-- ========== NEW: IF + ORDER + LIMIT ========== -->
+    <select id="ifOrderByDynamic" resultType="map">
+        SELECT id, name, status FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        <choose>
+            <when test="sort == 'name'">
+                ORDER BY name
+            </when>
+            <when test="sort == 'date'">
+                ORDER BY created_at
+            </when>
+            <otherwise>
+                ORDER BY id
+            </otherwise>
+        </choose>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="ifOrderByFixed" resultType="map">
+        SELECT id, name, email FROM users
+        <if test="activeOnly">
+            WHERE status = 'active'
+        </if>
+        ORDER BY created_at DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ========== NEW: Multi-layer IF ========== -->
+    <select id="nestedIfMultiple" resultType="map">
+        SELECT id, name, status, email FROM users
+        <where>
+            <if test="level1 != null">
+                <if test="level2 != null">
+                    AND status = #{level1}
+                    AND department = #{level2}
+                </if>
+                <if test="level3 != null">
+                    OR name LIKE CONCAT('%', #{level3}, '%')
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <select id="nestedIfChained" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            <if test="firstName != null">
+                <if test="lastName != null">
+                    AND name = CONCAT(#{firstName}, ' ', #{lastName})
+                </if>
+                <if test="firstName != ''">
+                    AND name LIKE CONCAT(#{firstName}, '%')
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== NEW: WHERE + FOREACH ========== -->
+    <select id="whereForeachIn" resultType="map">
+        SELECT id, name, department FROM users
+        <where>
+            <if test="deptIds != null and deptIds.size() > 0">
+                department_id IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </if>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="st" open="(" separator="," close=")">
+                    #{st}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <select id="whereForeachMultiColumn" resultType="map">
+        SELECT id, name FROM users
+        <where>
+            (id, status) IN
+            <foreach collection="filters" item="f" open="(" separator="," close=")">
+                (#{f.id}, #{f.status})
+            </foreach>
+        </where>
+    </select>
+
+    <!-- ========== NEW: INCLUDE + WHERE ========== -->
+    <sql id="UserBasicInfo">id, name, email, status</sql>
+
+    <select id="includeWhereDynamic" resultType="map">
+        SELECT <include refid="UserBasicInfo"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="dept != null">
+                AND department = #{dept}
+            </if>
+        </where>
+    </select>
+
+    <select id="includeWhereWithOrder" resultType="map">
+        SELECT <include refid="UserBasicInfo"/> FROM users
+        <where>
+            <if test="active">
+                AND status = 'active'
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ========== NEW: BIND + IF ========== -->
+    <select id="bindIfUsage" resultType="map">
+        <bind name="namePattern" value="'\'' + name + '%'"/>
+        SELECT id, name FROM users
+        <where>
+            <if test="name != null">
+                AND name LIKE #{namePattern}
+            </if>
+        </where>
+    </select>
+
+    <select id="bindForeachIf" resultType="map">
+        <bind name="statusWildcard" value="'\'' + status + '%'"/>
+        SELECT id, name FROM users
+        <where>
+            <if test="status != null">
+                AND status LIKE #{statusWildcard}
+            </if>
+            <if test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== NEW: TRIM + IF + WHERE ========== -->
+    <select id="trimIfWhere" resultType="map">
+        SELECT id, name, email FROM users
+        <trim prefix="WHERE" prefixOverrides="AND|OR">
+            <if test="status != null">status = #{status}</if>
+            <if test="name != null">AND name = #{name}</if>
+            <if test="dept != null">AND department = #{dept}</if>
+        </trim>
+    </select>
+
+    <select id="trimSuffixOrderBy" resultType="map">
+        SELECT id, name FROM users
+        <trim suffix="ORDER BY created_at DESC" suffixOverrides=",">
+            <if test="sortField != null">,${sortField}</if>
+        </trim>
+    </select>
+
+    <!-- ========== NEW: Multi-layer Nested IF ========== -->
+    <select id="nestedIfDeep" resultType="map">
+        SELECT id, name, email, status, department FROM users
+        <where>
+            <if test="level1 != null">
+                <if test="level2 != null">
+                    <if test="level3 != null">
+                        AND status = #{level1}
+                        AND department = #{level2}
+                        AND name LIKE CONCAT('%', #{level3}, '%')
+                    </if>
+                </if>
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <select id="nestedChooseInChoose" resultType="map">
+        SELECT id, name, status, department FROM users
+        <choose>
+            <when test="role == 'admin'">
+                <choose>
+                    <when test="dept != null">
+                        WHERE department = #{dept}
+                    </when>
+                    <otherwise>
+                        WHERE 1=1
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="role == 'manager'">
+                WHERE status = 'active'
+            </when>
+            <otherwise>
+                WHERE status = 'public'
+            </otherwise>
+        </choose>
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ========== NEW: Multi-tag Combination ========== -->
+    <select id="complexAllDynamic" resultType="map">
+        SELECT id, name, email, status, department, created_at FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="namePattern != null">
+                AND name LIKE CONCAT('%', #{namePattern}, '%')
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND department_id IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+        <if test="offset != null">
+            OFFSET #{offset}
+        </if>
+    </select>
+
+    <!-- ========== NEW: Complex Condition Expressions ========== -->
+    <select id="complexIfExpression" resultType="map">
+        SELECT id, name, email, status FROM users
+        <where>
+            <if test="name != null and name != '' and name.length() &gt; 2">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="email != null and (email.contains('@') or email.contains('.'))">
+                AND email LIKE CONCAT('%', #{email}, '%')
+            </if>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== NEW: Recursive INCLUDE ========== -->
+    <sql id="FilterColsLevel2">id, name, email</sql>
+    <sql id="FilterColsLevel1"><include refid="FilterColsLevel2"/>, status</sql>
+    <sql id="FilterColsRoot"><include refid="FilterColsLevel1"/>, created_at</sql>
+
+    <select id="recursiveInclude" resultType="map">
+        SELECT <include refid="FilterColsRoot"/> FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== NEW: Nested FOREACH ========== -->
+    <select id="nestedForeachInIf" resultType="map">
+        SELECT id, name FROM users
+        <if test="userGroups != null and userGroups.size() > 0">
+            WHERE
+            <foreach collection="userGroups" item="group" separator=" OR ">
+                (department_id IN
+                <foreach collection="group.deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+                AND status IN
+                <foreach collection="group.statuses" item="status" open="(" separator="," close=")">
+                    #{status}
+                </foreach>
+                )
+            </foreach>
+        </if>
+    </select>
+
+    <!-- ========== NEW: Complex TRIM ========== -->
+    <select id="complexTrimAllFeatures" resultType="map">
+        SELECT id, name, email, status, department FROM users
+        <trim prefix="WHERE" prefixOverrides="AND|OR" suffix="ORDER BY created_at" suffixOverrides=",">
+            <if test="status != null">status = #{status} AND</if>
+            <if test="name != null">name = #{name} AND</if>
+            <if test="dept != null">department = #{dept},</if>
+        </trim>
+    </select>
+
+    <!-- ========== NEW: CHOOSE with Many Branches ========== -->
+    <select id="chooseManyBranches" resultType="map">
+        SELECT id, name, email, status, department, created_at FROM users
+        <choose>
+            <when test="filter == 'active_admins'">
+                WHERE status = 'active' AND department = 'Admin'
+            </when>
+            <when test="filter == 'active_managers'">
+                WHERE status = 'active' AND department = 'Manager'
+            </when>
+            <when test="filter == 'active_users'">
+                WHERE status = 'active'
+            </when>
+            <when test="filter == 'inactive'">
+                WHERE status = 'inactive'
+            </when>
+            <when test="filter == 'pending'">
+                WHERE status = 'pending'
+            </when>
+            <when test="filter == 'by_dept' and dept != null">
+                WHERE department = #{dept}
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="sort == 'name'">
+                ORDER BY name
+            </when>
+            <when test="sort == 'date'">
+                ORDER BY created_at
+            </when>
+            <when test="sort == 'status'">
+                ORDER BY status
+            </when>
+            <otherwise>
+                ORDER BY id
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== NEW: Nested IF in Different Tags ========== -->
+    <select id="ifInChooseAndWhere" resultType="map">
+        SELECT id, name, email, status FROM users
+        <choose>
+            <when test="type == 'filtered'">
+                <where>
+                    <if test="status != null">
+                        AND status = #{status}
+                    </if>
+                    <if test="dept != null">
+                        AND department = #{dept}
+                    </if>
+                </where>
+            </when>
+            <when test="type == 'ordered'">
+                <if test="sortField != null">
+                    ORDER BY ${sortField}
+                </if>
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== NEW: SET with Nested IF ========== -->
+    <update id="setNestedIf">
+        UPDATE users
+        <set>
+            <if test="name != null">
+                <if test="name.length() &gt; 0">
+                    name = #{name},
+                </if>
+            </if>
+            <if test="email != null">
+                <if test="email.contains('@')">
+                    email = #{email},
+                </if>
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="profile != null">
+                <if test="profile.department != null">
+                    department = #{profile.department},
+                </if>
+                <if test="profile.title != null">
+                    title = #{profile.title},
+                </if>
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========== NEW: Multiple Foreach in Same Query ========== -->
+    <select id="multipleForeach" resultType="map">
+        SELECT o.id, o.name, o.status, u.name as user_name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        <where>
+            <if test="orderStatuses != null and orderStatuses.size() > 0">
+                AND o.status IN
+                <foreach collection="orderStatuses" item="os" open="(" separator="," close=")">
+                    #{os}
+                </foreach>
+            </if>
+            <if test="userIds != null and userIds.size() > 0">
+                AND o.user_id IN
+                <foreach collection="userIds" item="uid" open="(" separator="," close=")">
+                    #{uid}
+                </foreach>
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND u.department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== NEW: BIND + Complex Expressions ========== -->
+    <select id="bindComplexExpr" resultType="map">
+        <bind name="nameWildcard" value="'%' + name + '%'"/>
+        <bind name="emailWildcard" value="'%' + email + '%'"/>
+        <bind name="statusList" value="statusList"/>
+        SELECT id, name, email, status FROM users
+        <where>
+            <if test="name != null">
+                AND name LIKE #{nameWildcard}
+            </if>
+            <if test="email != null">
+                AND email LIKE #{emailWildcard}
+            </if>
+            <if test="statusList != null and statusList.size() > 0">
+                AND status IN
+                <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: 5-level Nested IF ========== -->
+    <select id="ultraNestedIf" resultType="map">
+        SELECT id, name, email, status, department, created_at, updated_at FROM users
+        <where>
+            <if test="level1 != null">
+                <if test="level2 != null">
+                    <if test="level3 != null">
+                        <if test="level4 != null">
+                            <if test="level5 != null">
+                                AND status = #{level1}
+                                AND department = #{level2}
+                                AND name LIKE CONCAT('%', #{level3}, '%')
+                                AND email LIKE CONCAT('%', #{level4}, '%')
+                                AND created_at &gt; #{level5}
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: Nested CHOOSE in CHOOSE in CHOOSE ========== -->
+    <select id="tripleNestedChoose" resultType="map">
+        SELECT id, name, status, department, title FROM users
+        <choose>
+            <when test="role == 'admin'">
+                <choose>
+                    <when test="dept != null">
+                        <choose>
+                            <when test="title != null">
+                                WHERE department = #{dept} AND title = #{title}
+                            </when>
+                            <otherwise>
+                                WHERE department = #{dept}
+                            </otherwise>
+                        </choose>
+                    </when>
+                    <otherwise>
+                        WHERE 1=1
+                    </otherwise>
+                </choose>
+            </when>
+            <when test="role == 'manager'">
+                <choose>
+                    <when test="status != null">
+                        WHERE status = #{status}
+                    </when>
+                    <otherwise>
+                        WHERE status = 'active'
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                WHERE status = 'public'
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== EXTREME: UNION with Dynamic ========== -->
+    <select id="unionWithDynamic" resultType="map">
+        SELECT id, name, 'active' as source FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        UNION
+        SELECT id, name, 'inactive' as source FROM users
+        <where>
+            <if test="includeInactive == true">
+                AND status = 'inactive'
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: CTE Recursive with Dynamic ========== -->
+    <select id="cteRecursiveWithDynamic" resultType="map">
+        WITH RECURSIVE org_tree AS (
+            SELECT id, name, parent_id, 1 as level
+            FROM departments
+            <where>
+                <if test="rootDept != null">
+                    AND parent_id IS NULL AND name = #{rootDept}
+                </if>
+            </where>
+            UNION ALL
+            SELECT d.id, d.name, d.parent_id, ot.level + 1
+            FROM departments d
+            JOIN org_tree ot ON d.parent_id = ot.id
+            <where>
+                <if test="maxLevel != null">
+                    AND ot.level &lt; #{maxLevel}
+                </if>
+            </where>
+        )
+        SELECT * FROM org_tree
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Triple FOREACH ========== -->
+    <select id="tripleForeach" resultType="map">
+        SELECT id, name, status FROM users
+        <where>
+            <if test="conditions != null and conditions.size() > 0">
+                <foreach collection="conditions" item="cond" separator=" AND ">
+                    (<foreach collection="cond.statuses" item="s" separator="," open="status IN (" close=")">
+                        #{s}
+                    </foreach>
+                    AND id IN
+                    <foreach collection="cond.ids" item="id" separator="," open="(" close=")">
+                        #{id}
+                    </foreach>
+                    AND department_id IN
+                    <foreach collection="cond.deptIds" item="did" separator="," open="(" close=")">
+                        #{did}
+                    </foreach>)
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: Complex Real-world Scenario ========== -->
+    <select id="realWorldComplex" resultType="map">
+        SELECT DISTINCT u.id, u.name, u.email, u.status, u.department, u.created_at,
+               o.id as order_id, o.amount, o.status as order_status
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        <choose>
+            <when test="queryType == 'active_users'">
+                <where>
+                    <if test="status != null">
+                        AND u.status = #{status}
+                    </if>
+                    <if test="deptIds != null and deptIds.size() > 0">
+                        AND u.department_id IN
+                        <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                            #{did}
+                        </foreach>
+                    </if>
+                    <if test="namePattern != null">
+                        AND u.name LIKE CONCAT('%', #{namePattern}, '%')
+                    </if>
+                </where>
+            </when>
+            <when test="queryType == 'order_summary'">
+                <where>
+                    <if test="orderStatuses != null and orderStatuses.size() > 0">
+                        AND o.status IN
+                        <foreach collection="orderStatuses" item="os" open="(" separator="," close=")">
+                            #{os}
+                        </foreach>
+                    </if>
+                    <if test="minAmount != null">
+                        AND o.amount &gt;= #{minAmount}
+                    </if>
+                    <if test="userIds != null and userIds.size() > 0">
+                        AND u.id IN
+                        <foreach collection="userIds" item="uid" open="(" separator="," close=")">
+                            #{uid}
+                        </foreach>
+                    </if>
+                </where>
+                <if test="groupBy != null">
+                    GROUP BY ${groupBy}
+                </if>
+                <if test="havingCond != null">
+                    HAVING ${havingCond}
+                </if>
+            </when>
+            <when test="queryType == 'date_range'">
+                <where>
+                    <if test="startDate != null">
+                        AND u.created_at &gt;= #{startDate}
+                    </if>
+                    <if test="endDate != null">
+                        AND u.created_at &lt;= #{endDate}
+                    </if>
+                    <if test="statusList != null and statusList.size() > 0">
+                        AND u.status IN
+                        <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                            #{s}
+                        </foreach>
+                    </if>
+                </where>
+            </when>
+            <otherwise>
+                WHERE 1=1
+            </otherwise>
+        </choose>
+        <if test="sortField != null and sortDir != null">
+            ORDER BY ${sortField} ${sortDir}
+        </if>
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+        <if test="offset != null">
+            OFFSET #{offset}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: Multiple BIND with Complex Logic ========== -->
+    <select id="multipleBindComplex" resultType="map">
+        <bind name="namePattern" value="name == null ? '%' : '%' + name + '%'"/>
+        <bind name="emailPattern" value="email == null ? '%' : '%' + email + '%'"/>
+        <bind name="statusActive" value="'active'"/>
+        <bind name="statusPending" value="'pending'"/>
+        <bind name="today" value="new java.util.Date()"/>
+        SELECT id, name, email, status, department FROM users
+        <where>
+            <if test="enableNameFilter">
+                AND name LIKE #{namePattern}
+            </if>
+            <if test="enableEmailFilter">
+                AND email LIKE #{emailPattern}
+            </if>
+            <choose>
+                <when test="filterMode == 'active'">
+                    AND status = #{statusActive}
+                </when>
+                <when test="filterMode == 'pending'">
+                    AND status = #{statusPending}
+                </when>
+                <when test="filterMode == 'all'">
+                    AND status IN (#{statusActive}, #{statusPending})
+                </when>
+            </choose>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+            <if test="excludeIds != null and excludeIds.size() > 0">
+                AND id NOT IN
+                <foreach collection="excludeIds" item="eid" open="(" separator="," close=")">
+                    #{eid}
+                </foreach>
+            </if>
+        </where>
+    </select>
+
+    <!-- ========== EXTREME: SET with Deep Nested IF + WHERE + FOREACH ========== -->
+    <update id="updateDeepComplex">
+        UPDATE users u
+        <set>
+            <if test="user != null">
+                <if test="user.name != null">
+                    <if test="user.name.length() &gt; 0">
+                        u.name = #{user.name},
+                    </if>
+                </if>
+                <if test="user.email != null">
+                    <if test="user.email.contains('@')">
+                        u.email = #{user.email},
+                    </if>
+                </if>
+                <if test="user.profile != null">
+                    <if test="user.profile.department != null">
+                        u.department = #{user.profile.department},
+                    </if>
+                    <if test="user.profile.title != null">
+                        u.title = #{user.profile.title},
+                    </if>
+                    <if test="user.profile.metadata != null">
+                        u.metadata = #{user.profile.metadata},
+                    </if>
+                </if>
+            </if>
+            <if test="status != null">
+                u.status = #{status},
+            </if>
+        </set>
+        <where>
+            <if test="ids != null and ids.size() > 0">
+                AND u.id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND u.department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+            <if test="excludeStatus != null">
+                AND u.status != #{excludeStatus}
+            </if>
+        </where>
+    </update>
+
+    <!-- ========== EXTREME: Subquery with Dynamic ========== -->
+    <select id="subqueryWithDynamic" resultType="map">
+        SELECT id, name, email,
+               (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id
+                <if test="orderStatus != null">
+                    AND o.status = #{orderStatus}
+                </if>
+               ) as order_count
+        FROM users u
+        <where>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="hasOrders == true">
+                AND EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            </if>
+            <if test="hasOrders == false">
+                AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            </if>
+            <if test="deptIds != null and deptIds.size() > 0">
+                AND u.department_id IN
+                <foreach collection="deptIds" item="did" open="(" separator="," close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+        <if test="sortField != null">
+            ORDER BY ${sortField}
+        </if>
+    </select>
+
+    <!-- ========== EXTREME: CHOOSE with nested WHERE + IF ========== -->
+    <select id="chooseNestedWhereIf" resultType="map">
+        SELECT id, name, status, department FROM users
+        <choose>
+            <when test="filterType == 'complex'">
+                <where>
+                    <if test="status != null">
+                        AND status = #{status}
+                    </if>
+                    <if test="dept != null">
+                        AND department = #{dept}
+                    </if>
+                    <if test="namePattern != null">
+                        AND name LIKE CONCAT('%', #{namePattern}, '%')
+                    </if>
+                    <choose>
+                        <when test="sortOrder == 'asc'">
+                            ORDER BY name ASC
+                        </when>
+                        <when test="sortOrder == 'desc'">
+                            ORDER BY name DESC
+                        </when>
+                        <otherwise>
+                            ORDER BY id ASC
+                        </otherwise>
+                    </choose>
+                </where>
+            </when>
+            <when test="filterType == 'simple'">
+                <where>
+                    <if test="status != null">
+                        AND status = #{status}
+                    </if>
+                </where>
+            </when>
+            <when test="filterType == 'none'">
+                WHERE 1=1
+            </when>
+            <otherwise>
+                <if test="defaultSort != null">
+                    ORDER BY ${defaultSort}
+                </if>
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- ========== EXTREME: TRIM with nested IF ========== -->
+    <select id="trimNestedIf" resultType="map">
+        SELECT id, name, email, status, department FROM users
+        <trim prefix="WHERE" prefixOverrides="AND|OR" suffix="ORDER BY created_at DESC" suffixOverrides=",">
+            <if test="status != null">
+                <if test="dept != null">
+                    status = #{status} AND department = #{dept} AND
+                </if>
+                <if test="dept == null">
+                    status = #{status} AND
+                </if>
+            </if>
+            <if test="name != null">
+                name = #{name} AND
+            </if>
+            <if test="email != null">
+                email = #{email},
+            </if>
+        </trim>
+    </select>
+
+</mapper>

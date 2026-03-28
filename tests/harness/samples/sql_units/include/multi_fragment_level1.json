@@ -1,0 +1,21 @@
+{
+  "sqlKey": "demo.test.complex.multiFragmentLevel1#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "multiFragmentLevel1",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status FROM users",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "multiFragmentLevel1", "range": {"startLine": 47, "startColumn": 13, "endLine": 49, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT <include refid=\"Frag_Cols_Basic\"/>, <include refid=\"Frag_Cols_Contact\"/> FROM users",
+  "dynamicFeatures": ["INCLUDE"],
+  "includeTrace": ["Frag_Cols_Basic", "Frag_Cols_Contact", "Frag_Col_Id", "Frag_Col_Name", "Frag_Col_Email", "Frag_Col_Status"],
+  "dynamicTrace": {"statementFeatures": ["INCLUDE"], "includeFragments": ["Frag_Cols_Basic", "Frag_Cols_Contact"]},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": "FRAGMENT"
+}

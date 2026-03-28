@@ -1,0 +1,65 @@
+{
+  "sqlKey": "demo.test.complex.includeSimple#v1",
+  "status": "PASS",
+  "equivalence": {
+    "checked": true,
+    "method": "sql_semantic_compare_v2",
+    "rowCount": {"status": "MATCH", "before": 10, "after": 10},
+    "keySetHash": {"status": "MATCH", "before": "def456", "after": "def456", "sampleSize": 10}
+  },
+  "perfComparison": {"checked": false, "method": "capability_gate", "reasonCodes": ["VALIDATE_PLAN_COMPARE_CONFIG_DISABLED"], "improved": null},
+  "securityChecks": {"dollar_substitution_removed": true},
+  "semanticRisk": "low",
+  "selectedCandidateSource": "llm",
+  "warnings": [],
+  "riskFlags": [],
+  "rewrittenSql": "SELECT id, name, email, status, created_at FROM users",
+  "selectedCandidateId": "candidate_1",
+  "candidateEvaluations": [
+    {"candidateId": "candidate_1", "source": "llm", "semanticMatch": true, "improved": false, "patchabilityScore": 60, "patchabilityTier": "MEDIUM", "canonicalScore": 6}
+  ],
+  "rewriteMaterialization": {
+    "mode": "STATEMENT_TEMPLATE_SAFE",
+    "targetType": "STATEMENT",
+    "targetRef": "demo.test.complex.includeSimple",
+    "reasonCode": "STATEMENT_INCLUDE_SAFE",
+    "reasonMessage": "statement template can preserve include anchors",
+    "replayVerified": true,
+    "featureFlagApplied": false
+  },
+  "templateRewriteOps": [
+    {
+      "op": "replace_statement_body",
+      "targetRef": "demo.test.complex.includeSimple",
+      "beforeTemplate": "SELECT <include refid=\"BaseColumns\"/> FROM users",
+      "afterTemplate": "SELECT id, name, email, status, created_at FROM users",
+      "preservedAnchors": ["<include refid=\"BaseColumns\"/>"]
+    }
+  ],
+  "candidateEval": {"evaluated": 1, "valid": 1, "improved": 0},
+  "deliveryReadiness": {"tier": "READY_TO_APPLY", "autoPatchLikelihood": "MEDIUM", "blockingReasons": []},
+  "decisionLayers": {
+    "feasibility": {"candidateAvailable": true, "validCandidateCount": 1, "dbReachable": true, "ready": true},
+    "evidence": {"semanticChecked": true, "perfChecked": false, "degraded": true},
+    "delivery": {"tier": "READY_TO_APPLY", "selectedCandidateId": "candidate_1", "replayVerified": true},
+    "acceptance": {"status": "PASS"}
+  },
+  "semanticEquivalence": {
+    "status": "PASS",
+    "confidence": "HIGH",
+    "evidenceLevel": "DB_FINGERPRINT",
+    "checks": {"predicate": {"status": "PASS"}, "projection": {"status": "PASS"}, "ordering": {"status": "PASS"}, "pagination": {"status": "PASS"}},
+    "hardConflicts": []
+  },
+  "rewriteSafetyLevel": "SAFE",
+  "patchability": {
+    "eligible": true,
+    "allowedCapabilities": ["EXACT_TEMPLATE_EDIT"],
+    "blockingReasons": []
+  },
+  "selectedPatchStrategy": {
+    "strategyType": "EXACT_TEMPLATE_EDIT",
+    "mode": "STATEMENT_TEMPLATE_SAFE",
+    "reasonCode": "STATEMENT_INCLUDE_SAFE"
+  }
+}

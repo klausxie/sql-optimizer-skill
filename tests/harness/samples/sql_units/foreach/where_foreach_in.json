@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.whereForeachIn#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "whereForeachIn",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, department FROM users WHERE department_id IN (#{deptIds}) AND status IN (#{statusList})",
+  "parameterMappings": [
+    {"name": "deptIds", "type": "list"},
+    {"name": "statusList", "type": "list"}
+  ],
+  "paramExample": {"deptIds": [1, 2, 3], "statusList": ["active", "pending"]},
+  "locators": {"statementId": "whereForeachIn", "range": {"startLine": 783, "startColumn": 13, "endLine": 799, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, department FROM users\n<where>\n    <if test=\"deptIds != null and deptIds.size() > 0\">\n        department_id IN\n        <foreach collection=\"deptIds\" item=\"deptId\" open=\"(\" separator=\",\" close=\")\">\n            #{deptId}\n        </foreach>\n    </if>\n    <if test=\"statusList != null and statusList.size() > 0\">\n        AND status IN\n        <foreach collection=\"statusList\" item=\"st\" open=\"(\" separator=\",\" close=\")\">\n            #{st}\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.dynamicOrderBy#v1",
+  "status": "NEED_MORE_PARAMS",
+  "equivalence": {"checked": true, "method": "static"},
+  "perfComparison": {"checked": false, "reasonCodes": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"], "improved": null},
+  "securityChecks": {"dollar_substitution_removed": false},
+  "semanticRisk": "high",
+  "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION", "message": "unsafe ${} pattern"},
+  "selectedCandidateSource": "rule",
+  "warnings": ["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "decisionLayers": {
+    "feasibility": {"phase": "security_block", "candidate_available": false, "db_reachable": true, "ready": false},
+    "evidence": {"semantic_checked": true, "perf_checked": false, "degraded": false},
+    "delivery": {"tier": "BLOCKED", "selectionMode": "patchability_first"},
+    "acceptance": {"status": "NEED_MORE_PARAMS", "feedbackReasonCode": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"}
+  },
+  "repairability": {"status": "REPAIRABLE", "reasonCode": "SECURITY_DOLLAR_SUBSTITUTION_CANONICALIZE_TO_BINDING"},
+  "repairHints": [
+    {"hintId": "remove-dollar-substitution", "title": "Replace ${} with bound parameters", "detail": "convert unsafe ${} interpolation into #{} binding", "actionType": "SQL_REWRITE"},
+    {"hintId": "whitelist-order-by", "title": "Whitelist dynamic sort inputs", "detail": "map incoming sort keys to a closed whitelist", "actionType": "MANUAL_REVIEW"}
+  ],
+  "rewriteSafetyLevel": "REVIEW"
+}

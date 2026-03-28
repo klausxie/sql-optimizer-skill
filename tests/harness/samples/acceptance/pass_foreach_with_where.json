@@ -1,0 +1,32 @@
+{
+  "sqlKey": "demo.test.complex.foreachWithWhere#v1",
+  "status": "PASS",
+  "equivalence": {
+    "checked": true,
+    "method": "sql_semantic_compare_v2",
+    "rowCount": {"status": "MATCH", "before": 3, "after": 3}
+  },
+  "perfComparison": {
+    "checked": false,
+    "reasonCodes": ["VALIDATE_PLAN_COMPARE_CONFIG_DISABLED"],
+    "improved": null
+  },
+  "securityChecks": {"dollar_substitution_removed": true},
+  "semanticRisk": "low",
+  "feedback": null,
+  "selectedCandidateSource": "llm",
+  "riskFlags": [],
+  "rewrittenSql": "SELECT id, name, email FROM users WHERE status = 'active' AND department_id IN (1, 2, 3)",
+  "selectedCandidateId": "candidate_1",
+  "rewriteMaterialization": {
+    "mode": "STATEMENT_TEMPLATE_SAFE",
+    "targetType": "STATEMENT",
+    "reasonCode": "FOREACH_PARAM_BINDING_SAFE",
+    "replayVerified": true
+  },
+  "deliveryReadiness": {
+    "tier": "READY",
+    "autoPatchLikelihood": "HIGH",
+    "blockingReasons": []
+  }
+}

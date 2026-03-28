@@ -1,0 +1,27 @@
+{
+  "sqlKey": "demo.test.complex.batchInsertWithSelect#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "batchInsertWithSelect",
+  "statementType": "INSERT",
+  "variantId": "v1",
+  "sql": "INSERT INTO user_history (user_id, action, details, created_at) SELECT u.id as user_id, #{action} as action, CASE WHEN #{detailType} = 'full' THEN CONCAT(u.name, ' - ', u.email, ' - ', u.department) WHEN #{detailType} = 'name' THEN u.name ELSE CONCAT('User ID: ', u.id) END as details, NOW() as created_at FROM users u WHERE u.status IN (#{statusList}) AND u.department_id IN (#{deptIds}) AND u.id NOT IN (#{excludeUserIds})",
+  "parameterMappings": [
+    {"name": "action", "type": "string"},
+    {"name": "detailType", "type": "string"},
+    {"name": "statusList", "type": "list"},
+    {"name": "deptIds", "type": "list"},
+    {"name": "excludeUserIds", "type": "list"}
+  ],
+  "paramExample": {"action": "BATCH_CREATE", "detailType": "full", "statusList": ["active"], "deptIds": [1, 2], "excludeUserIds": [100, 101]},
+  "locators": {"statementId": "batchInsertWithSelect", "range": {"startLine": 777, "startColumn": 5, "endLine": 810, "endColumn": 12}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "INSERT INTO user_history (user_id, action, details, created_at)\nSELECT\n    u.id as user_id,\n    #{action} as action,\n    CASE\n        <when test=\"detailType == 'full'\">CONCAT(u.name, ' - ', u.email, ' - ', u.department)</when>\n        <when test=\"detailType == 'name'\">u.name</when>\n        <otherwise>CONCAT('User ID: ', u.id)</otherwise>\n    END as details,\n    NOW() as created_at\nFROM users u\n<where>\n    <if test=\"statusList != null and statusList.size() > 0\">\n        AND u.status IN\n        <foreach collection=\"statusList\" item=\"s\" open=\"(\" separator=\",\" close=\")\">\n            #{s}\n        </foreach>\n    </if>\n    <if test=\"deptIds != null and deptIds.size() > 0\">\n        AND u.department_id IN\n        <foreach collection=\"deptIds\" item=\"did\" open=\"(\" separator=\",\" close=\")\">\n            #{did}\n        </foreach>\n    </if>\n    <if test=\"excludeUserIds != null and excludeUserIds.size() > 0\">\n        AND u.id NOT IN\n        <foreach collection=\"excludeUserIds\" item=\"eid\" open=\"(\" separator=\",\" close=\")\">\n            #{eid}\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

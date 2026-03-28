@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.leftJoinWithNull#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "leftJoinWithNull",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT o.id, o.order_no, u.name as user_name FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.status = 'pending'",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "leftJoinWithNull", "range": {"startLine": 170, "startColumn": 13, "endLine": 175, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT o.id, o.order_no, u.name as user_name\nFROM orders o\nLEFT JOIN users u ON o.user_id = u.id\nWHERE o.status = 'pending'",
+  "dynamicFeatures": [],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["JOIN", "LEFT_JOIN"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "STATIC_SQL",
+  "primaryFragmentTarget": null,
+  "joinInfo": {
+    "tables": ["orders", "users"],
+    "type": "LEFT",
+    "joinCount": 1
+  }
+}

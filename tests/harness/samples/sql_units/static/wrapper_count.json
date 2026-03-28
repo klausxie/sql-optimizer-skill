@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.wrapperCount#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "wrapperCount",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT COUNT(*) FROM (SELECT id FROM users WHERE status = 'active') active_users",
+  "parameterMappings": [],
+  "paramExample": {},
+  "locators": {"statementId": "wrapperCount", "range": {"startLine": 164, "startColumn": 13, "endLine": 166, "endColumn": 16}},
+  "riskFlags": ["SUBQUERY_IN_FROM"],
+  "scanWarnings": null,
+  "templateSql": "SELECT COUNT(*) FROM (SELECT id FROM users WHERE status = 'active') active_users",
+  "dynamicFeatures": [],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": [], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "STATIC_SQL",
+  "primaryFragmentTarget": null,
+  "wrapperQuery": {
+    "present": true,
+    "innerSql": "SELECT id FROM users WHERE status = 'active'",
+    "aggregate": "COUNT"
+  }
+}

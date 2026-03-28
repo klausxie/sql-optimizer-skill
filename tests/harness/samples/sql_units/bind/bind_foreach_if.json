@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.bindForeachIf#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "bindForeachIf",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users WHERE status LIKE #{statusWildcard} AND id IN (#{ids})",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "ids", "type": "list"}
+  ],
+  "paramExample": {"status": "active", "ids": [1, 2, 3]},
+  "locators": {"statementId": "bindForeachIf", "range": {"startLine": 847, "startColumn": 13, "endLine": 861, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "<bind name=\"statusWildcard\" value=\"'\\'' + status + '%'\"/>\nSELECT id, name FROM users\n<where>\n    <if test=\"status != null\">\n        AND status LIKE #{statusWildcard}\n    </if>\n    <if test=\"ids != null and ids.size() > 0\">\n        AND id IN\n        <foreach collection=\"ids\" item=\"id\" open=\"(\" separator=\",\" close=\")\">\n            #{id}\n        </foreach>\n    </if>\n</where>",
+  "dynamicFeatures": ["BIND", "WHERE", "IF", "FOREACH"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["BIND", "WHERE", "IF", "FOREACH"], "includeFragments": []},
+  "includeBindings": ["statusWildcard"],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

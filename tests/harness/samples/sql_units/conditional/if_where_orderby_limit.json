@@ -1,0 +1,24 @@
+{
+  "sqlKey": "demo.test.complex.ifWhereOrderByLimit#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifWhereOrderByLimit",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, status FROM users ORDER BY created_at DESC LIMIT #{limit}",
+  "parameterMappings": [
+    {"name": "status", "type": "string"},
+    {"name": "limit", "type": "integer"}
+  ],
+  "paramExample": {"status": "active", "limit": 10},
+  "locators": {"statementId": "ifWhereOrderByLimit", "range": {"startLine": 526, "startColumn": 13, "endLine": 537, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name, status FROM users\n<where>\n    <if test=\"status != null\">\n        AND status = #{status}\n    </if>\n</where>\nORDER BY created_at DESC\n<if test=\"limit != null\">\n    LIMIT #{limit}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "LIMIT"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "LIMIT"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

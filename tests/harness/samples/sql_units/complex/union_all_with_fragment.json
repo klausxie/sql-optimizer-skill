@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.unionAllWithFragment#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "unionAllWithFragment",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status FROM users WHERE status = 'active' UNION ALL SELECT id, name, email, status FROM users WHERE status = 'pending' UNION ALL SELECT id, name, email, status FROM users WHERE status = 'inactive' ORDER BY #{sortField}",
+  "parameterMappings": [
+    {"name": "sortField", "type": "string"}
+  ],
+  "paramExample": {"sortField": "name"},
+  "locators": {"statementId": "unionAllWithFragment", "range": {"startLine": 382, "startColumn": 13, "endLine": 391, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT <include refid=\"Frag_UserBasic\"/> FROM users WHERE status = 'active'\nUNION ALL\nSELECT <include refid=\"Frag_UserBasic\"/> FROM users WHERE status = 'pending'\nUNION ALL\nSELECT <include refid=\"Frag_UserBasic\"/> FROM users WHERE status = 'inactive'\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["INCLUDE", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": ["Frag_UserBasic"],
+  "dynamicTrace": {"statementFeatures": ["INCLUDE", "DOLLAR_SUBSTITUTION"], "includeFragments": ["Frag_UserBasic"]},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

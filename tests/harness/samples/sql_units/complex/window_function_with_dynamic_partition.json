@@ -1,0 +1,28 @@
+{
+  "sqlKey": "demo.test.complex.windowFunctionWithDynamicPartition#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "windowFunctionWithDynamicPartition",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT u.id, u.name, u.department, u.salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY id) as rn, COUNT(*) OVER (PARTITION BY department) as partition_cnt, SUM(salary) OVER (PARTITION BY department ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as running_sum FROM users u WHERE u.status = #{status} AND u.department_id IN (#{deptIds})",
+  "parameterMappings": [
+    {"name": "partitionBy", "type": "string"},
+    {"name": "orderBy", "type": "string"},
+    {"name": "status", "type": "string"},
+    {"name": "deptIds", "type": "list"},
+    {"name": "minRank", "type": "integer"},
+    {"name": "maxRank", "type": "integer"}
+  ],
+  "paramExample": {"partitionBy": "department", "orderBy": "salary_desc", "status": "active", "deptIds": [1, 2], "minRank": 1, "maxRank": 10},
+  "locators": {"statementId": "windowFunctionWithDynamicPartition", "range": {"startLine": 601, "startColumn": 5, "endLine": 649, "endColumn": 12}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "WITH ranked_data AS (\n    SELECT\n        u.id, u.name, u.department, u.salary,\n        ROW_NUMBER() OVER (\n            <choose>\n                <when test=\"partitionBy == 'department'\">PARTITION BY department</when>\n                <when test=\"partitionBy == 'status'\">PARTITION BY status</when>\n                <otherwise>PARTITION BY department, status</otherwise>\n            </choose>\n            ORDER BY\n            <choose>\n                <when test=\"orderBy == 'salary_desc'\">salary DESC</when>\n                <when test=\"orderBy == 'name'\">name</when>\n                <otherwise>id</otherwise>\n            </choose>\n        ) as rn,\n        COUNT(*) OVER (\n            <if test=\"partitionBy != null\">PARTITION BY ${partitionBy}</if>\n            <if test=\"partitionBy == null\">PARTITION BY department</if>\n        ) as partition_cnt,\n        SUM(salary) OVER (\n            <if test=\"partitionBy != null\">PARTITION BY ${partitionBy}</if>\n            <if test=\"partitionBy == null\">PARTITION BY department</if>\n            ORDER BY id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) as running_sum\n    FROM users u\n    <where>\n        <if test=\"status != null\">\n            AND u.status = #{status}\n        </if>\n        <if test=\"deptIds != null and deptIds.size() > 0\">\n            AND u.department_id IN\n            <foreach collection=\"deptIds\" item=\"did\" open=\"(\" separator=\",\" close=\")\">\n                #{did}\n            </foreach>\n        </if>\n    </where>\n)\nSELECT * FROM ranked_data\n<if test=\"minRank != null\">\n    WHERE rn &gt;= #{minRank}\n</if>\n<if test=\"maxRank != null\">\n    AND rn &lt;= #{maxRank}\n</if>",
+  "dynamicFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "FOREACH", "CHOOSE", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}

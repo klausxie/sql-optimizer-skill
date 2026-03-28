@@ -1,0 +1,26 @@
+{
+  "sqlKey": "demo.test.complex.ifWithOrderBy#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "ifWithOrderBy",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name FROM users ORDER BY ${sortField}",
+  "parameterMappings": [{"name": "sortField", "type": "string"}],
+  "paramExample": {"sortField": "created_at"},
+  "locators": {"statementId": "ifWithOrderBy", "range": {"startLine": 68, "startColumn": 13, "endLine": 71, "endColumn": 16}},
+  "riskFlags": ["DOLLAR_SUBSTITUTION"],
+  "scanWarnings": null,
+  "templateSql": "SELECT id, name FROM users\n<if test=\"sortField != null\">\n    ORDER BY ${sortField}\n</if>",
+  "dynamicFeatures": ["IF", "DOLLAR_SUBSTITUTION"],
+  "includeTrace": [],
+  "dynamicTrace": {"statementFeatures": ["IF", "DOLLAR_SUBSTITUTION"], "includeFragments": []},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null,
+  "conditionalLogic": {
+    "conditions": [
+      {"test": "sortField != null", "branch": "ORDER BY ${sortField}", "unsafe": true}
+    ]
+  }
+}

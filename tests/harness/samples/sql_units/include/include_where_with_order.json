@@ -1,0 +1,23 @@
+{
+  "sqlKey": "demo.test.complex.includeWhereWithOrder#v1",
+  "xmlPath": "/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+  "namespace": "demo.test.complex",
+  "statementId": "includeWhereWithOrder",
+  "statementType": "SELECT",
+  "variantId": "v1",
+  "sql": "SELECT id, name, email, status FROM users WHERE status = 'active' ORDER BY created_at DESC",
+  "parameterMappings": [
+    {"name": "active", "type": "boolean"}
+  ],
+  "paramExample": {"active": true},
+  "locators": {"statementId": "includeWhereWithOrder", "range": {"startLine": 826, "startColumn": 13, "endLine": 834, "endColumn": 16}},
+  "riskFlags": [],
+  "scanWarnings": null,
+  "templateSql": "SELECT <include refid=\"UserBasicInfo\"/> FROM users\n<where>\n    <if test=\"active\">\n        AND status = 'active'\n    </if>\n</where>\nORDER BY created_at DESC",
+  "dynamicFeatures": ["INCLUDE", "WHERE", "IF", "ORDER"],
+  "includeTrace": ["UserBasicInfo"],
+  "dynamicTrace": {"statementFeatures": ["INCLUDE", "WHERE", "IF", "ORDER"], "includeFragments": ["UserBasicInfo"]},
+  "includeBindings": [],
+  "templateTarget": "DYNAMIC_SQL",
+  "primaryFragmentTarget": null
+}
