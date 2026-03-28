@@ -183,6 +183,54 @@ class XMLMapping:
 
 
 @dataclass
+class TableRelationship:
+    """Inferred from SQL JOIN/WHERE, not DB foreign key constraints."""
+
+    source_table: str
+    target_table: str
+    via_column: str
+    target_column: str
+    direction: str
+    confidence: float
+    sql_keys: List[str]
+    join_condition: str
+    is_explicit_join: bool
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, json_str: str) -> TableRelationship:
+        """Deserialize from JSON string."""
+        data = json.loads(json_str)
+        return cls(**data)
+
+
+@dataclass
+class TableHotspot:
+    """Table热度/风险 profile derived from SQL analysis."""
+
+    table_name: str
+    incoming_ref_count: int
+    outgoing_ref_count: int
+    co_occurrence_tables: List[str]
+    hotspot_score: float
+    risk_level: str
+    sql_keys: List[str]
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, json_str: str) -> TableHotspot:
+        """Deserialize from JSON string."""
+        data = json.loads(json_str)
+        return cls(**data)
+
+
+@dataclass
 class InitOutput:
     """Output contract for the init operation."""
 
@@ -192,6 +240,8 @@ class InitOutput:
     sql_fragments: List[SQLFragment] = field(default_factory=list)
     table_schemas: Dict[str, TableSchema] = field(default_factory=dict)
     xml_mappings: Optional[XMLMapping] = None
+    table_relationships: List[TableRelationship] = field(default_factory=list)
+    table_hotspots: Dict[str, TableHotspot] = field(default_factory=dict)
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -202,6 +252,8 @@ class InitOutput:
             "sql_fragments": [asdict(frag) for frag in self.sql_fragments],
             "table_schemas": {k: asdict(v) for k, v in self.table_schemas.items()},
             "xml_mappings": asdict(self.xml_mappings) if self.xml_mappings else None,
+            "table_relationships": [asdict(r) for r in self.table_relationships],
+            "table_hotspots": {k: asdict(v) for k, v in self.table_hotspots.items()},
         }
         return json.dumps(data)
 
@@ -225,6 +277,8 @@ class InitOutput:
                 sql_fragments=[],
                 table_schemas={},
                 xml_mappings=None,
+                table_relationships=[],
+                table_hotspots={},
             )
 
         # Full InitOutput object format
@@ -233,6 +287,8 @@ class InitOutput:
         table_schemas = {k: TableSchema(**v) for k, v in data.get("table_schemas", {}).items()}
         xml_mappings_data = data.get("xml_mappings")
         xml_mappings = XMLMapping.from_json(json.dumps(xml_mappings_data)) if xml_mappings_data else None
+        table_relationships = [TableRelationship(**r) for r in data.get("table_relationships", [])]
+        table_hotspots = {k: TableHotspot(**v) for k, v in data.get("table_hotspots", {}).items()}
         return cls(
             sql_units=sql_units,
             run_id=data["run_id"],
@@ -240,4 +296,6 @@ class InitOutput:
             sql_fragments=sql_fragments,
             table_schemas=table_schemas,
             xml_mappings=xml_mappings,
+            table_relationships=table_relationships,
+            table_hotspots=table_hotspots,
         )

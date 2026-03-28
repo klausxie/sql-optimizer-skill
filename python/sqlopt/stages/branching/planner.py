@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import combinations
 
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.stages.branching.dimension_extractor import BranchDimension
 
 
@@ -12,10 +13,10 @@ class DimensionCandidate:
     score: float
 
 
-class LadderBranchPlanner:
+class RiskGuidedLadderPlanner:
     """Budget-aware planner for ladder strategy without full enumeration."""
 
-    def __init__(self, max_branches: int = 100) -> None:
+    def __init__(self, max_branches: int = DEFAULT_MAX_BRANCHES) -> None:
         self.max_branches = max_branches
 
     def generate(

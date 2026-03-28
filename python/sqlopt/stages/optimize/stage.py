@@ -144,11 +144,6 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             table_schema = str(self._table_schemas.get(unit_id, ""))
 
             for baseline in unit_baselines:
-                if baseline.plan is None:
-                    key = f"{baseline.sql_unit_id}.{baseline.path_id}"
-                    logger.debug(f"[OPTIMIZE]   [SKIP] Skipping optimization for baseline_only (no plan): {key}")
-                    continue
-
                 branch_condition = self._branch_conditions.get(unit_id, {}).get(baseline.path_id)
 
                 try:

@@ -32,7 +32,11 @@ def create_llm_provider_from_config(config: SQLOptConfig | None, db_connector: A
     from sqlopt.common.llm_mock_generator import OpenAILLMProvider, OpenCodeRunLLMProvider
 
     if config.llm_provider == "openai":
-        return OpenAILLMProvider(db_connector=db_connector)
+        return OpenAILLMProvider(
+            db_connector=db_connector,
+            base_url=config.openai_base_url,
+            model=config.openai_model or "gpt-4o-mini",
+        )
     if config.llm_provider == "opencode_run":
         return OpenCodeRunLLMProvider(db_connector=db_connector)
     return None

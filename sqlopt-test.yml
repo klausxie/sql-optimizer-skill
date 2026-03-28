@@ -1,0 +1,16 @@
+config_version: v1
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: sqlopt
+db_user: postgres
+db_password: postgres
+llm_provider: opencode_run
+llm_enabled: true
+project_root_path: .
+scan_mapper_globs:
+  - "tests/real/mybatis-test/src/main/resources/mapper/UserMapper.xml"
+
+concurrency:
+  enabled: false
+  max_workers: 1

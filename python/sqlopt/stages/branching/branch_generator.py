@@ -13,6 +13,7 @@ from itertools import product
 import re
 from typing import TYPE_CHECKING, Any, List, Dict, Optional
 
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.stages.branching.branch_strategy import (
     BranchGenerationStrategy,
     create_strategy,
@@ -23,7 +24,7 @@ from sqlopt.stages.branching.branch_validator import BranchValidator
 from sqlopt.stages.branching.dimension_extractor import DimensionExtractor
 from sqlopt.stages.branching.mutex_branch_detector import MutexBranchDetector
 from sqlopt.stages.branching.dynamic_context import DynamicContext
-from sqlopt.stages.branching.planner import DimensionCandidate, LadderBranchPlanner
+from sqlopt.stages.branching.planner import DimensionCandidate, RiskGuidedLadderPlanner
 from sqlopt.stages.branching.risk_scorer import SQLDeltaRiskScorer
 
 if TYPE_CHECKING:
@@ -38,17 +39,14 @@ class BranchGenerator:
     and generates different branch combinations based on the configured strategy.
 
     Usage:
-        generator = BranchGenerator(
-            strategy="all_combinations",
-            max_branches=100
-        )
+        generator = BranchGenerator(strategy="all_combinations")
         branches = generator.generate(sql_node)
     """
 
     def __init__(
         self,
         strategy: str = "all_combinations",
-        max_branches: int = 100,
+        max_branches: int = DEFAULT_MAX_BRANCHES,
         strategy_seed: int | None = None,
         condition_weights: dict[str, float] | None = None,
         table_metadata: dict[str, dict] | None = None,
@@ -246,7 +244,7 @@ class BranchGenerator:
             for dimension in dimensions
         ]
 
-        planner = LadderBranchPlanner(max_branches=self.max_branches)
+        planner = RiskGuidedLadderPlanner(max_branches=self.max_branches)
         selected = planner.generate(candidates)
         filtered: List[List[str]] = []
         seen: set[tuple[str, ...]] = set()

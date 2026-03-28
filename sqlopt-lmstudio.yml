@@ -1,0 +1,9 @@
+config_version: v1
+project_root_path: tests/real/mybatis-test
+scan_mapper_globs:
+  - "src/main/resources/mapper/**/*.xml"
+
+llm_enabled: true
+llm_provider: openai
+openai_base_url: http://127.0.0.1:1234/v1
+openai_model: qwen3.5-27b-claude-4.6-opus-reasoning-distilled

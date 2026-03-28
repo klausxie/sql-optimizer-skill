@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List
 
 import yaml
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES, MAX_CAP
 
 
 @dataclass
@@ -58,9 +59,12 @@ class SQLOptConfig:
     db_dsn: str = ""
     llm_enabled: bool = True
     llm_provider: str = "opencode_run"
+    openai_base_url: str | None = None
+    openai_model: str | None = None
     contracts_version: str = "current"
     parse_strategy: str = "ladder"
-    parse_max_branches: int = 50
+    parse_max_branches: int = DEFAULT_MAX_BRANCHES
+    max_cap: int = MAX_CAP
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 
 
@@ -101,9 +105,12 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         db_dsn=data.get("db_dsn", ""),
         llm_enabled=data.get("llm_enabled", True),
         llm_provider=data.get("llm_provider", "opencode_run"),
+        openai_base_url=data.get("openai_base_url"),
+        openai_model=data.get("openai_model"),
         contracts_version=data.get("contracts_version", "current"),
         parse_strategy=data.get("parse_strategy", "ladder"),
-        parse_max_branches=data.get("parse_max_branches", 50),
+        parse_max_branches=data.get("parse_max_branches", DEFAULT_MAX_BRANCHES),
+        max_cap=data.get("max_cap", MAX_CAP),
         concurrency=ConcurrencyConfig(
             **(data.get("concurrency", {}) if isinstance(data.get("concurrency"), dict) else {})
         ),

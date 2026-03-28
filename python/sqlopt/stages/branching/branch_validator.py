@@ -55,15 +55,33 @@ class BranchValidator:
             if existing is None or self._is_better_branch(branch, existing):
                 kept[sql] = branch
 
-        ordered = sorted(
-            kept.values(),
-            key=lambda branch: (
-                float(branch.get("risk_score", 0.0)),
-                len(branch.get("active_conditions", [])),
-                branch.get("branch_id", 0),
+        # "Guarantee baseline + risk-priority fill" strategy (Option B)
+        # Always include the all-false branch (no conditions active)
+        all_false = None
+        risk_ranked: list[dict[str, Any]] = []
+
+        for branch in kept.values():
+            if not branch.get("active_conditions"):
+                all_false = branch
+            else:
+                risk_ranked.append(branch)
+
+        # Sort non-baseline branches by risk_score descending
+        risk_ranked.sort(
+            key=lambda b: (
+                float(b.get("risk_score", 0.0)),
+                len(b.get("active_conditions", [])),
+                b.get("branch_id", 0),
             ),
             reverse=True,
-        )[:max_branches]
+        )
+
+        # Build final list: baseline first, then risk-priority fill
+        ordered: list[dict[str, Any]] = []
+        if all_false is not None:
+            ordered.append(all_false)
+        remaining_slots = max_branches - len(ordered)
+        ordered.extend(risk_ranked[:remaining_slots])
 
         for index, branch in enumerate(ordered):
             branch["branch_id"] = index

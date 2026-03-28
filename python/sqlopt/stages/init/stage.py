@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from sqlopt.common.config import SQLOptConfig
+from sqlopt.common.relationship_report_generator import generate_relationship_report
 from sqlopt.common.summary_generator import generate_init_summary_markdown
 from sqlopt.contracts.init import (
     FieldDistribution,
@@ -22,6 +23,7 @@ from sqlopt.contracts.init import (
 from sqlopt.stages.base import Stage
 
 from .parser import ParsedFragment, ParsedStatement, parse_mapper_file
+from .relationship_extractor import extract_inter_table_relationships
 from .scanner import find_mapper_files
 from .table_extractor import (
     extract_condition_fields_by_table,
@@ -195,6 +197,9 @@ class InitStage(Stage[None, InitOutput]):
 
         xml_mappings = XMLMapping(files=list(file_mappings.values()))
 
+        table_relationships, table_hotspots = extract_inter_table_relationships(sql_units)
+        logger.info(f"[INIT] Extracted {len(table_relationships)} table relationships, {len(table_hotspots)} hotspots")
+
         table_schemas: dict = {}
         schema_extraction_success = False
         field_distributions: list[FieldDistribution] = []
@@ -284,6 +289,8 @@ class InitStage(Stage[None, InitOutput]):
             sql_fragments=sql_fragments,
             xml_mappings=xml_mappings,
             table_schemas=table_schemas,
+            table_relationships=table_relationships,
+            table_hotspots=table_hotspots,
         )
         self._write_output(output)
         self._write_field_distributions(field_distributions, rid)
@@ -328,6 +335,22 @@ class InitStage(Stage[None, InitOutput]):
             xml_mappings_file.write_text(output.xml_mappings.to_json(), encoding="utf-8")
         else:
             xml_mappings_file.write_text(json.dumps({"files": []}), encoding="utf-8")
+
+        # 5. table_relationships.json
+        rels_file = output_dir / "table_relationships.json"
+        rels_file.write_text(json.dumps([asdict(r) for r in output.table_relationships]), encoding="utf-8")
+
+        # 6. table_hotspots.json
+        hots_file = output_dir / "table_hotspots.json"
+        hots_file.write_text(json.dumps({k: asdict(v) for k, v in output.table_hotspots.items()}), encoding="utf-8")
+
+        # 7. relationship_report.html
+        report_file = output_dir / "relationship_report.html"
+        generate_relationship_report(
+            relationships=output.table_relationships,
+            hotspots=output.table_hotspots,
+            output_path=str(report_file),
+        )
 
     def _write_field_distributions(
         self,

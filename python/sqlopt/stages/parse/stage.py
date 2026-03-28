@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from sqlopt.common.concurrent import BatchOptions, ConcurrentExecutor
 from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.summary_generator import generate_parse_summary_markdown
 from sqlopt.contracts.init import FieldDistribution, InitOutput
@@ -92,7 +93,7 @@ class ParseStage(Stage[None, ParseOutput]):
         field_distributions = _load_field_distributions(field_distributions_file)
 
         strategy = self.config.parse_strategy if self.config else "ladder"
-        max_branches = self.config.parse_max_branches if self.config else 50
+        max_branches = self.config.parse_max_branches if self.config else DEFAULT_MAX_BRANCHES
         expander = BranchExpander(
             strategy=strategy,
             max_branches=max_branches,

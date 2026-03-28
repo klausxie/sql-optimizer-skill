@@ -14,6 +14,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List
 
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
+
 if TYPE_CHECKING:
     from sqlopt.stages.branching.sql_node import IfSqlNode
 
@@ -26,9 +28,7 @@ class BranchGenerationStrategy(ABC):
     """
 
     @abstractmethod
-    def generate(
-        self, conditions: List[str], max_branches: int = 100
-    ) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate branch combinations from a list of conditions.
 
         Args:
@@ -50,9 +50,7 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
     This provides 100% coverage but can grow exponentially.
     """
 
-    def generate(
-        self, conditions: List[str], max_branches: int = 100
-    ) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate all 2^n combinations.
 
         Args:
@@ -117,9 +115,7 @@ class PairwiseStrategy(BranchGenerationStrategy):
     Total: 2 branches
     """
 
-    def generate(
-        self, conditions: List[str], max_branches: int = 100
-    ) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate pairwise combinations.
 
         Args:
@@ -161,9 +157,7 @@ class BoundaryStrategy(BranchGenerationStrategy):
     For n conditions: exactly 2 branches.
     """
 
-    def generate(
-        self, conditions: List[str], max_branches: int = 100
-    ) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate boundary test cases.
 
         Args:
@@ -192,9 +186,7 @@ class BoundaryStrategy(BranchGenerationStrategy):
         return combinations[:max_branches]
 
 
-def create_strategy(
-    strategy_name: str, seed: int | None = None
-) -> BranchGenerationStrategy:
+def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenerationStrategy:
     """Factory function to create a branch generation strategy.
 
     Args:
@@ -215,9 +207,7 @@ def create_strategy(
     }
 
     if strategy_name not in strategies:
-        raise ValueError(
-            f"Unknown strategy: {strategy_name}. Available: {list(strategies.keys())}"
-        )
+        raise ValueError(f"Unknown strategy: {strategy_name}. Available: {list(strategies.keys())}")
 
     strategy_class = strategies[strategy_name]
     return strategy_class()

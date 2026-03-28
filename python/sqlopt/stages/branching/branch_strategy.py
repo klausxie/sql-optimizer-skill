@@ -15,6 +15,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar, List
 
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
+
 if TYPE_CHECKING:
     from sqlopt.contracts.init import FieldDistribution
 
@@ -27,7 +29,7 @@ class BranchGenerationStrategy(ABC):
     """
 
     @abstractmethod
-    def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate branch combinations from a list of conditions.
 
         Args:
@@ -49,7 +51,7 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
     This provides 100% coverage but can grow exponentially.
     """
 
-    def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate all 2^n combinations.
 
         Args:
@@ -114,7 +116,7 @@ class PairwiseStrategy(BranchGenerationStrategy):
     Total: 2 branches
     """
 
-    def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate pairwise combinations.
 
         Args:
@@ -156,7 +158,7 @@ class BoundaryStrategy(BranchGenerationStrategy):
     For n conditions: exactly 2 branches.
     """
 
-    def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate boundary test cases.
 
         Args:
@@ -325,7 +327,7 @@ class LadderSamplingStrategy(BranchGenerationStrategy):
         self.table_metadata = table_metadata or {}
         self.field_distributions = field_distributions or {}
 
-    def generate(self, conditions: List[str], max_branches: int = 100) -> List[List[str]]:
+    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
         """Generate ladder-sampled combinations.
 
         Args:

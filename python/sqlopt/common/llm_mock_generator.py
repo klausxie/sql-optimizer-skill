@@ -474,6 +474,7 @@ class OpenAILLMProvider(LLMProviderBase):
         db_connector: Any = None,
         api_key: str | None = None,
         model: str = "gpt-4o-mini",
+        base_url: str | None = None,
     ) -> None:
         """Initialize OpenAI LLM provider.
 
@@ -481,10 +482,12 @@ class OpenAILLMProvider(LLMProviderBase):
             db_connector: Database connector for EXPLAIN plans (DBConnector instance)
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             model: OpenAI model to use
+            base_url: Custom base URL for OpenAI-compatible APIs (e.g., LM Studio)
         """
         self.db_connector = db_connector
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "dummy")
         self.model = model
+        self.base_url = base_url
         self._client: Any = None
 
     def _get_client(self) -> Any:
@@ -496,12 +499,10 @@ class OpenAILLMProvider(LLMProviderBase):
                     "openai package is required for OpenAILLMProvider but not installed. "
                     "Install with: pip install openai"
                 )
-            if not self.api_key:
-                raise ValueError(
-                    "OpenAI API key not provided. Set OPENAI_API_KEY environment variable "
-                    "or pass api_key to constructor."
-                )
-            self._client = openai.OpenAI(api_key=self.api_key)
+            kwargs: dict[str, Any] = {"api_key": self.api_key}
+            if self.base_url:
+                kwargs["base_url"] = self.base_url
+            self._client = openai.OpenAI(**kwargs)
         return self._client
 
     def generate_optimization(
@@ -514,18 +515,21 @@ class OpenAILLMProvider(LLMProviderBase):
         branch_condition: str | None = None,
     ) -> str:
         prompt = self._build_optimization_prompt(sql, description, xml_context, table_schema, branch_condition)
-        response = self._get_client().chat.completions.create(
-            model=self.model,
-            messages=[
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are a SQL optimization expert. Return ONLY valid JSON with no markdown formatting.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.1,
-            response_format={"type": "json_object"},
-        )
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+        if not self.base_url:
+            kwargs["response_format"] = {"type": "json_object"}
+        response = self._get_client().chat.completions.create(**kwargs)
         content = response.choices[0].message.content or "{}"
         return self._parse_optimization_response(content, sql)
 
@@ -569,8 +573,17 @@ Example output:
 
     @staticmethod
     def _parse_optimization_response(content: str, original_sql: str) -> str:
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+
         try:
-            data = json.loads(content)
+            data = json.loads(cleaned)
             actions = data.get("actions", [])
             if actions:
                 avg_confidence = sum(a.get("confidence", 0.8) for a in actions) / len(actions) if actions else 0.8

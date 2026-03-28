@@ -13,6 +13,7 @@ import xml.etree.ElementTree
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.contracts.init import FieldDistribution
 from sqlopt.stages.branching.branch_validator import BranchValidator
 from sqlopt.stages.branching.fragment_registry import FragmentRegistry
@@ -54,33 +55,35 @@ def count_conditions_from_sql(sql_text: str) -> int:
     return len(set(matches))
 
 
-def adaptive_max_branches(cond_count: int) -> tuple[int, str]:
+def adaptive_max_branches(
+    cond_count: int,
+    base: int | None = None,
+    cap: int | None = None,
+) -> tuple[int, str]:
     """Determine max branches and strategy based on condition count.
 
-    Args:
-        cond_count: Number of independent conditions in the SQL unit.
+    Formula:
+        - cond_count <= 0                             -> (1, "all_combinations")
+        - 2**cond_count <= BASE                       -> (2**cond_count, "all_combinations")
+        - otherwise                                   -> (max(BASE, 2**(cond_count-1), CAP), "ladder")
 
-    Returns:
-        Tuple of (max_branches, strategy_name):
-        - If 2^cond_count <= 100: (2^cond_count, "all_combinations") - full coverage
-        - If 2^cond_count > 100: adaptive cap with "ladder" strategy
-            * 7 conditions -> (100, "ladder")
-            * 8 conditions -> (150, "ladder")
-            * 9 conditions -> (180, "ladder")
-            * 10+ conditions -> (200, "ladder")  # cap at 200
+    Args:
+        cond_count: Number of conditions.
+        base: Override BASE (defaults to DEFAULT_MAX_BRANCHES).
+        cap:  Override CAP (defaults to MAX_CAP).
     """
+    from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES, MAX_CAP
+
+    effective_base = base if base is not None else DEFAULT_MAX_BRANCHES
+    effective_cap = cap if cap is not None else MAX_CAP
+
     if cond_count <= 0:
         return (1, "all_combinations")
     theoretical = 2**cond_count
-    if theoretical <= 100:
+    if theoretical <= effective_base:
         return (theoretical, "all_combinations")
-    if cond_count == 7:
-        return (100, "ladder")
-    if cond_count == 8:
-        return (150, "ladder")
-    if cond_count == 9:
-        return (180, "ladder")
-    return (200, "ladder")
+    adaptive_cap = min(max(effective_base, 2 ** (cond_count - 1)), effective_cap)
+    return (adaptive_cap, "ladder")
 
 
 class BranchExpander:
@@ -90,14 +93,14 @@ class BranchExpander:
     XML dynamic SQL and generate all possible execution branches.
 
     Usage:
-        expander = BranchExpander(strategy="ladder", max_branches=50)
+        expander = BranchExpander(strategy="ladder", max_branches=100)
         branches = expander.expand(sql_text)
     """
 
     def __init__(
         self,
         strategy: str = "ladder",
-        max_branches: int = 50,
+        max_branches: int = DEFAULT_MAX_BRANCHES,
         fragments: FragmentRegistry | None = None,
         table_metadata: dict[str, dict[str, Any]] | None = None,
         field_distributions: dict[str, list[FieldDistribution]] | None = None,
@@ -147,7 +150,8 @@ class BranchExpander:
                 effective_strategy = self.strategy
             else:
                 effective_max = min(max_br, self.max_branches)
-                effective_strategy = adaptive_strategy
+                # Only override strategy if user didn't explicitly choose a non-ladder strategy
+                effective_strategy = "ladder" if self.strategy == "ladder" else adaptive_strategy
             generator = BranchGenerator(
                 strategy=effective_strategy,
                 max_branches=effective_max,

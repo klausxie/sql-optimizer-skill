@@ -22,7 +22,7 @@ def expand_branches(sql_text: str) -> list[ExpandedBranch]:
     """
     from sqlopt.stages.parse.branch_expander import BranchExpander
 
-    expander = BranchExpander(strategy="ladder", max_branches=50)
+    expander = BranchExpander(strategy="ladder")
     raw_branches = expander.expand(sql_text)
     return [
         ExpandedBranch(
