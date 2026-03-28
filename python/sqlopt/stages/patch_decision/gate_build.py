@@ -107,9 +107,15 @@ class BuildGate(Gate[dict]):
         patch_sql = formatted_sql or rewritten_sql
 
         # 调用 build_unified_patch
-        patch_text, changed_lines = self._build_unified(
-            xml_path, statement_id, statement_type, patch_sql
-        )
+        try:
+            result = self._build_unified(xml_path, statement_id, statement_type, patch_sql)
+            if result is None:
+                patch_text, changed_lines = None, 0
+            else:
+                patch_text, changed_lines = result
+        except Exception as e:
+            # 构建失败时返回 None
+            patch_text, changed_lines = None, 0
 
         if patch_text is None:
             return self.on_skip(

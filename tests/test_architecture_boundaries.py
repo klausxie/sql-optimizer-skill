@@ -109,7 +109,8 @@ class ArchitectureBoundariesTest(unittest.TestCase):
     def test_patch_generate_delegates_to_decision_and_verification_modules(self) -> None:
         path = ROOT / "python" / "sqlopt" / "stages" / "patch_generate.py"
         imports = set(_import_targets(path))
-        self.assertIn(".patch_decision_engine", imports)
+        # 现在使用新的 patch_decision 模块（含兼容层）
+        self.assertIn(".patch_decision", imports)
         self.assertIn(".patch_verification", imports)
         self.assertIn(".patch_formatting", imports)
 
