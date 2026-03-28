@@ -14,6 +14,7 @@ from .materialization_constants import (
 from .patchability_models import PlannedPatchStrategy, RegisteredPatchStrategy
 from .template_materializer import build_rewrite_materialization
 from .template_rendering import collect_fragments, normalize_sql_text, render_template_body_sql
+from .union_collapse_strategy import SafeUnionCollapseStrategy
 
 _COUNT_SQL_RE = re.compile(
     r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+(?P<from_suffix>from\b.+)$",
@@ -194,6 +195,12 @@ class DynamicStatementTemplateEditStrategy:
 
 def iter_patch_strategies() -> tuple[RegisteredPatchStrategy, ...]:
     return (
+        RegisteredPatchStrategy(
+            strategy_type=SafeUnionCollapseStrategy.strategy_type,
+            priority=250,
+            required_capability=SafeUnionCollapseStrategy.required_capability,
+            implementation=SafeUnionCollapseStrategy(),
+        ),
         RegisteredPatchStrategy(
             strategy_type=SafeWrapperCollapseStrategy.strategy_type,
             priority=200,
