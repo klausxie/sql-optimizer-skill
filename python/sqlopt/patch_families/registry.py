@@ -29,6 +29,9 @@ from .specs.static_coalesce_simplification import STATIC_COALESCE_SIMPLIFICATION
 from .specs.static_expression_folding import STATIC_EXPRESSION_FOLDING_SPEC
 from .specs.static_exists_rewrite import STATIC_EXISTS_REWRITE_SPEC
 from .specs.static_join_left_to_inner import STATIC_JOIN_LEFT_TO_INNER_SPEC
+from .specs.static_join_elimination import STATIC_JOIN_ELIMINATION_SPEC
+from .specs.static_join_reordering import STATIC_JOIN_REORDERING_SPEC
+from .specs.static_join_consolidation import STATIC_JOIN_CONSOLIDATION_SPEC
 from .specs.static_null_comparison import STATIC_NULL_COMPARISON_SPEC
 from .specs.static_union_collapse import STATIC_UNION_COLLAPSE_SPEC
 
@@ -69,6 +72,9 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_EXPRESSION_FOLDING_SPEC,
     STATIC_EXISTS_REWRITE_SPEC,
     STATIC_JOIN_LEFT_TO_INNER_SPEC,
+    STATIC_JOIN_ELIMINATION_SPEC,
+    STATIC_JOIN_REORDERING_SPEC,
+    STATIC_JOIN_CONSOLIDATION_SPEC,
     STATIC_NULL_COMPARISON_SPEC,
     STATIC_UNION_COLLAPSE_SPEC,
     DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC,

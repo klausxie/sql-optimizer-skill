@@ -37,7 +37,7 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertTrue(assessment.eligible)
         self.assertEqual(
             assessment.allowed_capabilities,
-            ["SAFE_WRAPPER_COLLAPSE", "EXACT_TEMPLATE_EDIT"],
+            ["SAFE_EXISTS_REWRITE", "SAFE_UNION_COLLAPSE", "SAFE_WRAPPER_COLLAPSE", "EXACT_TEMPLATE_EDIT"],
         )
         self.assertEqual(assessment.blocking_reasons, [])
 
