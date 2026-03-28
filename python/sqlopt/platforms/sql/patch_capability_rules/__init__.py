@@ -3,11 +3,17 @@ from __future__ import annotations
 from ..patchability_models import RegisteredCapabilityRule
 from .dynamic_statement_edit import DynamicStatementCanonicalEditCapabilityRule
 from .exact_template_edit import ExactTemplateEditCapabilityRule
+from .safe_union_collapse import SafeUnionCollapseCapabilityRule
 from .safe_wrapper_collapse import SafeWrapperCollapseCapabilityRule
 
 
 def iter_capability_rules() -> tuple[RegisteredCapabilityRule, ...]:
     return (
+        RegisteredCapabilityRule(
+            capability=SafeUnionCollapseCapabilityRule.capability,
+            priority=250,
+            implementation=SafeUnionCollapseCapabilityRule(),
+        ),
         RegisteredCapabilityRule(
             capability=SafeWrapperCollapseCapabilityRule.capability,
             priority=200,
