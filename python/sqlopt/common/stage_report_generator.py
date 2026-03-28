@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+from typing import Any
 
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
@@ -40,7 +41,10 @@ DARK_THEME = """
     .badge-update { background: #f59e0b; color: white; }
     .badge-delete { background: #dc2626; color: white; }
     .badge-info { background: #6366f1; color: white; }
+    .badge-warning { background: #f59e0b; color: white; }
     .risk-flag { display: inline-block; background: #dc2626; color: white; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem; margin-right: 0.25rem; }
+    .risk-flag-medium { background: #f59e0b; }
+    .risk-flag-low { background: #22c55e; }
     .chart-container { height: 280px; margin: 1rem 0; position: relative; }
     .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
     .empty { color: #64748b; font-style: italic; }
@@ -63,6 +67,32 @@ DARK_THEME = """
     .tooltip { position: relative; }
     .tooltip::after { content: attr(data-full); display: none; position: absolute; background: #1e293b; border: 1px solid #475569; padding: 0.5rem; border-radius: 4px; font-size: 0.75rem; z-index: 100; width: 400px; right: 0; top: 100%; }
     .tooltip:hover::after { display: block; }
+    .funnel { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
+    .funnel-step { flex: 1; background: linear-gradient(135deg, #334155 0%, #1e293b 100%); border-radius: 8px; padding: 1rem; text-align: center; position: relative; }
+    .funnel-step::after { content: '→'; position: absolute; right: -1.5rem; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 1.5rem; }
+    .funnel-step:last-child::after { display: none; }
+    .funnel-value { font-size: 2rem; font-weight: bold; color: #3b82f6; }
+    .funnel-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 0.25rem; }
+    .funnel-reduction { color: #22c55e; font-size: 0.75rem; }
+    .branch-detail { background: #1a2744; padding: 0.75rem; border-radius: 4px; margin: 0.25rem 0; }
+    .branch-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .branch-path { color: #a5b4fc; font-family: monospace; }
+    .branch-condition { color: #94a3b8; font-size: 0.8125rem; margin: 0.25rem 0; }
+    .branch-reasons { margin-top: 0.5rem; }
+    .reason-tag { display: inline-block; background: #334155; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; margin-right: 0.25rem; margin-bottom: 0.25rem; }
+    .reason-tag.high { background: #dc262640; color: #fca5a5; border: 1px solid #dc2626; }
+    .reason-tag.medium { background: #f59e0b40; color: #fcd34d; border: 1px solid #f59e0b; }
+    .strategy-tag { display: inline-block; background: #6366f140; color: #a5b4fc; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; margin-left: 0.5rem; }
+    .metric-pair { display: flex; gap: 2rem; margin: 0.5rem 0; }
+    .metric { text-align: center; }
+    .metric-value { font-size: 1.25rem; font-weight: bold; }
+    .metric-label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; }
+    .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 0.25rem 0; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .progress-fill.high { background: #dc2626; }
+    .progress-fill.medium { background: #f59e0b; }
+    .progress-fill.low { background: #22c55e; }
+    .sql-preview { background: #0f172a; padding: 0.5rem; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: #a5b4fc; margin-top: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-height: 60px; }
 </style>
 """
 
@@ -76,29 +106,18 @@ function initSortableTables() {
             const rows = Array.from(tbody.querySelectorAll('tr'));
             const col = this.dataset.sort;
             const isAsc = this.classList.contains('asc');
-            
-            // Remove sort classes from all headers
             table.querySelectorAll('th').forEach(h => { h.classList.remove('asc', 'desc'); });
-            
-            // Add appropriate class
             this.classList.add(isAsc ? 'desc' : 'asc');
-            
-            // Sort rows
             rows.sort((a, b) => {
                 const aVal = a.dataset[col] || a.children[parseInt(this.dataset.col)].textContent;
                 const bVal = b.dataset[col] || b.children[parseInt(this.dataset.col)].textContent;
-                
-                // Try numeric comparison
                 const aNum = parseFloat(aVal);
                 const bNum = parseFloat(bVal);
                 if (!isNaN(aNum) && !isNaN(bNum)) {
                     return isAsc ? bNum - aNum : aNum - bNum;
                 }
-                
-                // String comparison
                 return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
             });
-            
             rows.forEach(row => tbody.appendChild(row));
         });
     });
@@ -123,28 +142,50 @@ document.addEventListener('DOMContentLoaded', function() {
 """
 
 
+def _get_risk_level(score: float | None) -> tuple[str, str]:
+    if score is None:
+        return "unknown", ""
+    if score >= 0.7:
+        return "high", "badge-high"
+    if score >= 0.4:
+        return "medium", "badge-medium"
+    return "low", "badge-low"
+
+
 def generate_parse_report(output: ParseOutput, output_path: str) -> None:
-    """Generate rich HTML report for parse stage."""
     total_units = len(output.sql_units_with_branches)
     total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
-    valid_branches = sum(1 for u in output.sql_units_with_branches for b in u.branches if b.is_valid)
-    invalid_branches = total_branches - valid_branches
 
-    # Risk distribution
+    # Aggregate stats
     high_risk = sum(
         1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score >= 0.7
     )
     medium_risk = sum(
         1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and 0.4 <= b.risk_score < 0.7
     )
-    low_risk = total_branches - high_risk - medium_risk
+    low_risk = sum(1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4)
+    no_score = total_branches - high_risk - medium_risk - low_risk
+
+    # Theoretical max (all_combinations would generate 2^n per unit)
+    # We estimate based on active_conditions
+    theoretical_branches = 0
+    for u in output.sql_units_with_branches:
+        n_conditions = len(u.branches[0].active_conditions) if u.branches else 0
+        theoretical_branches += min(2**n_conditions, 100) if n_conditions > 0 else 1
 
     # Branch type distribution
-    branch_types = {}
+    branch_types: dict[str, int] = {}
     for u in output.sql_units_with_branches:
         for b in u.branches:
             bt = b.branch_type or "unknown"
             branch_types[bt] = branch_types.get(bt, 0) + 1
+
+    # Risk flags distribution
+    all_flags: dict[str, int] = {}
+    for u in output.sql_units_with_branches:
+        for b in u.branches:
+            for f in b.risk_flags:
+                all_flags[f] = all_flags.get(f, 0) + 1
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -161,105 +202,172 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     <div class="summary-grid">
         <div class="card">
             <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL单元</div></div>
-            <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">总分支</div></div>
-            <div class="stat"><div class="stat-value">{valid_branches}</div><div class="stat-label">有效</div></div>
-            <div class="stat"><div class="stat-value">{invalid_branches}</div><div class="stat-label">无效</div></div>
+            <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
+            <div class="stat"><div class="stat-value">{theoretical_branches}</div><div class="stat-label">理论分支</div></div>
+            <div class="stat"><div class="stat-value">{high_risk}</div><div class="stat-label">高风险</div></div>
         </div>
+    </div>
+
+    <h2>分支筛选漏斗</h2>
+    <div class="card">
+        <div class="funnel">
+            <div class="funnel-step">
+                <div class="funnel-value">{theoretical_branches}</div>
+                <div class="funnel-label">理论分支</div>
+                <div class="funnel-reduction">100%</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-value">{total_branches}</div>
+                <div class="funnel-label">风险评估后</div>
+                <div class="funnel-reduction">-{int((1 - total_branches / max(theoretical_branches, 1)) * 100)}%%</div>
+            </div>
+            <div class="funnel-step">
+                <div class="funnel-value">{high_risk}</div>
+                <div class="funnel-label">高风险保留</div>
+                <div class="funnel-reduction">-{int((1 - high_risk / max(total_branches, 1)) * 100)}%%</div>
+            </div>
+        </div>
+        <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 1rem;">
+            通过 <strong>风险评分策略</strong> 从理论 {theoretical_branches} 个分支中筛选出 <strong>{total_branches}</strong> 个进行优化分析,
+            其中 <strong>{high_risk}</strong> 个为高风险分支需要重点关注。
+        </p>
     </div>
 
     <div class="charts-grid">
         <div class="card">
-            <h3>风险分布</h3>
+            <h3>风险等级分布</h3>
             <div class="chart-container"><canvas id="riskChart"></canvas></div>
         </div>
         <div class="card">
-            <h3>分支类型</h3>
-            <div class="chart-container"><canvas id="typeChart"></canvas></div>
+            <h3>风险标志分布</h3>
+            <div class="chart-container"><canvas id="flagsChart"></canvas></div>
         </div>
     </div>
 
-    <h2>分支详情（按SQL单元分组）</h2>
-    <table id="mainTable">
-        <thead>
-            <tr>
-                <th data-sort="unit" data-col="0">SQL单元</th>
-                <th data-sort="branches" data-col="1">分支数</th>
-                <th data-sort="valid" data-col="2">有效</th>
-                <th data-sort="risk" data-col="3">最大风险</th>
-                <th data-sort="flags" data-col="4">风险标志</th>
-            </tr>
-        </thead>
-        <tbody>
+    <h2>各单元分支详情</h2>
 """
 
     for unit in output.sql_units_with_branches:
-        valid_cnt = sum(1 for b in unit.branches if b.is_valid)
-        max_risk = max((b.risk_score or 0) for b in unit.branches)
-        all_flags = list(set(f for b in unit.branches for f in b.risk_flags))[:3]
-        risk_display = f"{max_risk:.2f}" if max_risk > 0 else "-"
-        flags_display = "".join(f'<span class="risk-flag">{f}</span>' for f in all_flags) if all_flags else "-"
+        n_conditions = len(unit.branches[0].active_conditions) if unit.branches else 0
+        theoretical = min(2**n_conditions, 100) if n_conditions > 0 else 1
+        unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
+        unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
+        unit_low = len(unit.branches) - unit_high - unit_medium
 
-        html += f"""            <tr class="group-header" data-unit="{unit.sql_unit_id}">
-                <td><span class="expand-btn" data-group="{unit.sql_unit_id}">▶</span><code>{unit.sql_unit_id}</code></td>
-                <td>{len(unit.branches)}</td>
-                <td>{valid_cnt}/{len(unit.branches)}</td>
-                <td>{risk_display}</td>
-                <td>{flags_display}</td>
-            </tr>
+        # Determine strategy based on branch count
+        strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
+
+        html += f"""
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;"><code>{unit.sql_unit_id}</code></h3>
+            <span class="strategy-tag">{strategy}</span>
+        </div>
+        <div class="metric-pair">
+            <div class="metric">
+                <div class="metric-value">{theoretical}</div>
+                <div class="metric-label">理论分支</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">{len(unit.branches)}</div>
+                <div class="metric-label">实际分支</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #dc2626;">{unit_high}</div>
+                <div class="metric-label">高风险</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #f59e0b;">{unit_medium}</div>
+                <div class="metric-label">中风险</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #22c55e;">{unit_low}</div>
+                <div class="metric-label">低风险</div>
+            </div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill high" style="width: {unit_high / max(len(unit.branches), 1) * 100}%"></div>
+            <div class="progress-fill medium" style="width: {unit_medium / max(len(unit.branches), 1) * 100}%; margin-left: -{unit_high / max(len(unit.branches), 1) * 100}%"></div>
+            <div class="progress-fill low" style="width: {unit_low / max(len(unit.branches), 1) * 100}%; margin-left: -{(unit_high + unit_medium) / max(len(unit.branches), 1) * 100}%"></div>
+        </div>
 """
-        for b in unit.branches:
-            is_valid_icon = "✓" if b.is_valid else "✗"
-            risk_str = f"{b.risk_score:.2f}" if b.risk_score is not None else "-"
-            flags_str = (
-                "".join(f'<span class="risk-flag">{f}</span>' for f in b.risk_flags[:2]) if b.risk_flags else "-"
-            )
-            cond = b.condition[:50] + "..." if b.condition and len(b.condition) > 50 else (b.condition or "-")
-            html += f"""            <tr class="child-row" data-parent="{unit.sql_unit_id}">
-                <td><code style="margin-left: 1rem;">{b.path_id}</code></td>
-                <td>{b.branch_type or "-"}</td>
-                <td>{is_valid_icon}</td>
-                <td>{risk_str}</td>
-                <td>{flags_str}</td>
-            </tr>
+
+        # Sort branches by risk score descending
+        sorted_branches = sorted(unit.branches, key=lambda b: b.risk_score or 0, reverse=True)
+
+        for b in sorted_branches:
+            risk_level, badge_class = _get_risk_level(b.risk_score)
+            score_str = f"{b.risk_score:.2f}" if b.risk_score is not None else "-"
+
+            # Risk flags as tags
+            flags_html = ""
+            for f in b.risk_flags:
+                flag_class = "high" if risk_level == "high" else "medium" if risk_level == "medium" else ""
+                flags_html += f'<span class="reason-tag {flag_class}">{f}</span>'
+
+            # Score reasons as tags
+            reasons_html = ""
+            for r in b.score_reasons or []:
+                reasons_html += f'<span class="reason-tag">{r}</span>'
+
+            # SQL preview
+            sql_preview = b.expanded_sql[:100] + "..." if len(b.expanded_sql) > 100 else b.expanded_sql
+
+            html += f"""
+        <div class="branch-detail">
+            <div class="branch-detail-header">
+                <span><span class="branch-path">{b.path_id}</span> <span class="badge {badge_class}">{risk_level.upper()}</span> <span style="color: #94a3b8;">{score_str}</span></span>
+                <span class="badge badge-info">{b.branch_type or "unknown"}</span>
+            </div>
+"""
+
+            if b.condition:
+                html += f"""            <div class="branch-condition">条件: {b.condition[:80]}{"..." if len(b.condition or "") > 80 else ""}</div>
+"""
+
+            if flags_html:
+                html += f"""            <div style="margin-top: 0.5rem;">{flags_html}</div>
+"""
+
+            if reasons_html:
+                html += f"""            <div class="branch-reasons">{reasons_html}</div>
+"""
+
+            html += f"""            <div class="sql-preview" title="{b.expanded_sql}">{sql_preview}</div>
+        </div>
+"""
+
+        html += """    </div>
 """
 
     html += (
-        """        </tbody>
-    </table>
+        f"""
 </div>
 <script>
 const riskCtx = document.getElementById('riskChart').getContext('2d');
-new Chart(riskCtx, {
+new Chart(riskCtx, {{
     type: 'doughnut',
-    data: {
-        labels: ['High Risk', 'Medium Risk', 'Low Risk'],
-        datasets: [{
-            data: ["""
-        f"{high_risk}, {medium_risk}, {low_risk}"
-        """],
-            backgroundColor: ['#dc2626', '#f59e0b', '#22c55e']
-        }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-});
+    data: {{
+        labels: ['高风险', '中风险', '低风险', '未评分'],
+        datasets: [{{
+            data: [{high_risk}, {medium_risk}, {low_risk}, {no_score}],
+            backgroundColor: ['#dc2626', '#f59e0b', '#22c55e', '#64748b']
+        }}]
+    }},
+    options: {{ responsive: true, maintainAspectRatio: false, plugins: {{ legend: {{ position: 'bottom' }} }} }}
+}});
 
-const typeCtx = document.getElementById('typeChart').getContext('2d');
-new Chart(typeCtx, {
+const flagsLabels = {list(all_flags.keys())};
+const flagsData = {list(all_flags.values())};
+const flagsCtx = document.getElementById('flagsChart').getContext('2d');
+new Chart(flagsCtx, {{
     type: 'bar',
-    data: {
-        labels: """
-        f"{list(branch_types.keys())}"
-        """,
-        datasets: [{
-            label: 'Count',
-            data: """
-        f"{list(branch_types.values())}"
-        """,
-            backgroundColor: '#3b82f6'
-        }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
+    data: {{
+        labels: flagsLabels,
+        datasets: [{{ label: '出现次数', data: flagsData, backgroundColor: '#6366f1' }}]
+    }},
+    options: {{ responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: {{ legend: {{ display: false }} }} }}
+}});
 </script>
 """
         + BASE_JS
@@ -272,20 +380,17 @@ new Chart(typeCtx, {
 
 
 def generate_recognition_report(output: RecognitionOutput, output_path: str) -> None:
-    """Generate rich HTML report for recognition stage."""
     baselines = output.baselines if hasattr(output, "baselines") else []
     total = len(baselines)
     slow = sum(1 for b in baselines if b.actual_time_ms and b.actual_time_ms > 100)
     high_cost = sum(1 for b in baselines if b.estimated_cost and b.estimated_cost > 100)
 
-    # Group by sql_unit_id
-    by_unit = {}
+    by_unit: dict[str, list[Any]] = {}
     for b in baselines:
         if b.sql_unit_id not in by_unit:
             by_unit[b.sql_unit_id] = []
         by_unit[b.sql_unit_id].append(b)
 
-    # Cost distribution for chart
     cost_buckets = {"0-10": 0, "10-50": 0, "50-100": 0, "100-500": 0, "500+": 0}
     for b in baselines:
         c = b.estimated_cost or 0
@@ -406,18 +511,18 @@ new Chart(costCtx, {
     type: 'bar',
     data: {
         labels: """
-        f"{list(cost_buckets.keys())}"
-        """,
+         f"{list(cost_buckets.keys())}"
+         """,
         datasets: [{ label: 'Plans', data: """
-        f"{list(cost_buckets.values())}"
-        """, backgroundColor: '#6366f1' }]
+         f"{list(cost_buckets.values())}"
+         """, backgroundColor: '#6366f1' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const timeData = """
-        f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
-        """;
+         f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
+         """;
 const timeCtx = document.getElementById('timeChart').getContext('2d');
 new Chart(timeCtx, {
     type: 'bar',
@@ -439,22 +544,18 @@ new Chart(timeCtx, {
 
 
 def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
-    """Generate rich HTML report for optimize stage."""
     proposals = output.proposals if hasattr(output, "proposals") else []
     total = len(proposals)
     high_conf = sum(1 for p in proposals if p.confidence and p.confidence > 0.8)
     medium_conf = sum(1 for p in proposals if p.confidence and 0.5 < (p.confidence or 0) <= 0.8)
-    low_conf = total - high_conf - medium_conf
     avg_gain = sum((p.gain_ratio or 0) for p in proposals) / total if total else 0
 
-    # Group by unit
-    by_unit = {}
+    by_unit: dict[str, list[Any]] = {}
     for p in proposals:
         if p.sql_unit_id not in by_unit:
             by_unit[p.sql_unit_id] = []
         by_unit[p.sql_unit_id].append(p)
 
-    # Confidence distribution for chart
     conf_buckets = {"0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
     for p in proposals:
         c = p.confidence or 0
@@ -473,7 +574,7 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Optimize Stage Report</title>
+    <title>优化阶段报告</title>
     {CHART_JS}
     <style>{DARK_THEME}</style>
 </head>
@@ -563,18 +664,18 @@ new Chart(confCtx, {
     type: 'bar',
     data: {
         labels: """
-        f"{list(conf_buckets.keys())}"
-        """,
+         f"{list(conf_buckets.keys())}"
+         """,
         datasets: [{ label: 'Proposals', data: """
-        f"{list(conf_buckets.values())}"
-        """, backgroundColor: '#22c55e' }]
+         f"{list(conf_buckets.values())}"
+         """, backgroundColor: '#22c55e' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const gainData = """
-        f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
-        """;
+         f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
+         """;
 const gainCtx = document.getElementById('gainChart').getContext('2d');
 new Chart(gainCtx, {
     type: 'bar',
@@ -596,7 +697,6 @@ new Chart(gainCtx, {
 
 
 def generate_result_report(output: ResultOutput, output_path: str) -> None:
-    """Generate rich HTML report for result stage."""
     summary = output.summary if hasattr(output, "summary") else {}
     patches = summary.get("patches", []) if isinstance(summary, dict) else []
 
