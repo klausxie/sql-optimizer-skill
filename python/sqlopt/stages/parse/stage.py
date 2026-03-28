@@ -10,6 +10,7 @@ from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.stage_report_generator import generate_parse_report
 from sqlopt.common.summary_generator import generate_parse_summary_markdown
 from sqlopt.contracts.init import FieldDistribution, InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
@@ -289,6 +290,9 @@ class ParseStage(Stage[None, ParseOutput]):
             f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
             f"+ index + compat file ({compat_bytes} bytes)"
         )
+
+        report_path = parse_dir / "parse_report.html"
+        generate_parse_report(output, str(report_path))
 
     def _generate_summary(
         self,

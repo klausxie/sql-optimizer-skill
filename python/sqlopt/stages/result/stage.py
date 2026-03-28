@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.stage_report_generator import generate_result_report
 from sqlopt.common.xml_patch_engine import XmlPatchEngine
 from sqlopt.contracts.init import InitOutput, TableSchema
 from sqlopt.contracts.optimize import OptimizationProposal, OptimizeOutput
@@ -493,6 +494,9 @@ class ResultStage(Stage[None, ResultOutput]):
 
         output_file = output_dir / "report.json"
         output_file.write_text(output.to_json())
+
+        report_path = output_dir / "result_report.html"
+        generate_result_report(output, str(report_path))
 
     def _write_summary(
         self,

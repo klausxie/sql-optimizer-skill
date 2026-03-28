@@ -15,6 +15,7 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
+from sqlopt.common.stage_report_generator import generate_recognition_report
 from sqlopt.common.summary_generator import (
     generate_recognition_summary_markdown,
 )
@@ -579,6 +580,10 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             f"[RECOGNITION] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
             f"+ index + compat file ({compat_bytes} bytes)"
         )
+
+        report_path = output_dir / "recognition_report.html"
+        generate_recognition_report(output, str(report_path))
+
         return {"unit_count": len(unit_ids), "file_size_bytes": total_bytes + compat_bytes}
 
     def _write_summary(self, run_id: str, output: RecognitionOutput, duration_seconds: float, file_stats: dict) -> None:

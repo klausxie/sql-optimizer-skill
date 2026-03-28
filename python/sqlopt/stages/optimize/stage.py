@@ -14,6 +14,7 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.llm_mock_generator import LLMProviderBase, MockLLMProvider
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.runtime_factory import create_db_connector_from_config
+from sqlopt.common.stage_report_generator import generate_optimize_report
 from sqlopt.common.summary_generator import generate_optimize_summary_markdown
 from sqlopt.contracts.init import SQLUnit, TableSchema
 from sqlopt.contracts.optimize import (
@@ -790,6 +791,9 @@ class OptimizeStage(Stage[None, OptimizeOutput]):
             f"[OPTIMIZE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
             f"+ index + compat file ({compat_bytes} bytes)"
         )
+
+        report_path = output_dir / "optimize_report.html"
+        generate_optimize_report(output, str(report_path))
 
     def _generate_summary(
         self,
