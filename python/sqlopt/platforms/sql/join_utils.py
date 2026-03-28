@@ -167,3 +167,78 @@ def join_elimination_candidate(sql: str) -> Optional[dict]:
             }
 
     return None
+
+
+def get_join_order(sql: str) -> list[str]:
+    """获取 JOIN 的顺序（表列表）"""
+    import re
+    # 提取 FROM 子句后的所有表
+    pattern = r'FROM\s+(\w+)\s*(?:\w+)?.*?(?:JOIN\s+(\w+))?'
+    matches = re.findall(pattern, sql, re.IGNORECASE)
+    tables = []
+    for match in matches:
+        if match[0]:
+            tables.append(match[0])
+        if match[1]:
+            tables.append(match[1])
+    return tables
+
+
+def can_reorder_joins(sql: str) -> bool:
+    """检查 JOIN 是否可以重排
+
+    目前检查是否有阻止重排的条件
+    """
+    # 简化版本：只检查是否有复杂条件
+    import re
+    # 检查是否有 UNION、DISTINCT、GROUP BY 等可能阻止重排
+    blockers = ['UNION', 'DISTINCT', 'GROUP BY', 'HAVING']
+    sql_upper = sql.upper()
+    for blocker in blockers:
+        if blocker in sql_upper:
+            return False
+    return True
+
+
+def find_consolidation_candidates(sql: str) -> Optional[list[dict]]:
+    """查找可以合并的 JOIN 候选
+
+    检测多个小表是否连接到同一个主表
+    """
+    if not contains_join(sql):
+        return None
+
+    import re
+    # 查找所有 JOIN 及其 ON 条件
+    pattern = r'(\w+)\s+JOIN\s+(\w+)\s+(?:AS\s+)?(\w+)?\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)'
+    matches = re.findall(pattern, sql, re.IGNORECASE)
+
+    if len(matches) < 2:
+        return None
+
+    # 按连接的列分组
+    connection_map = {}
+    for match in matches:
+        left_table = match[3] if match[3] else match[1]
+        right_table = match[5] if match[5] else match[2]
+        join_key = match[4]
+
+        key = (left_table, join_key)
+        if key not in connection_map:
+            connection_map[key] = []
+        connection_map[key].append({
+            "join_type": match[0],
+            "table": right_table,
+        })
+
+    # 找出连接到同一个表的多个 JOIN
+    candidates = []
+    for key, joins in connection_map.items():
+        if len(joins) >= 2:
+            candidates.append({
+                "main_table": key[0],
+                "join_key": key[1],
+                "tables": [j["table"] for j in joins],
+            })
+
+    return candidates if candidates else None
