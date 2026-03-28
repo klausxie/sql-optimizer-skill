@@ -28,6 +28,7 @@ from .specs.static_case_simplification import STATIC_CASE_SIMPLIFICATION_SPEC
 from .specs.static_coalesce_simplification import STATIC_COALESCE_SIMPLIFICATION_SPEC
 from .specs.static_expression_folding import STATIC_EXPRESSION_FOLDING_SPEC
 from .specs.static_null_comparison import STATIC_NULL_COMPARISON_SPEC
+from .specs.static_union_collapse import STATIC_UNION_COLLAPSE_SPEC
 
 
 def _canonicalize_family_id(family: str) -> str:
@@ -65,6 +66,7 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_COALESCE_SIMPLIFICATION_SPEC,
     STATIC_EXPRESSION_FOLDING_SPEC,
     STATIC_NULL_COMPARISON_SPEC,
+    STATIC_UNION_COLLAPSE_SPEC,
     DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC,
     DYNAMIC_FILTER_WRAPPER_COLLAPSE_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
