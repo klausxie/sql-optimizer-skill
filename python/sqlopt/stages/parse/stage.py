@@ -240,12 +240,11 @@ class ParseStage(Stage[None, ParseOutput]):
         return SQLUnitWithBranches(sql_unit_id=sql_unit_id, branches=[error_branch]), True
 
     def _write_output(self, run_id: str | None, output: ParseOutput) -> None:
-        """Write parse output to per-unit files and backward-compatible single file.
+        """Write parse output to per-unit files.
 
         Creates:
         - runs/{run_id}/parse/units/{unit_id}.json (per unit)
         - runs/{run_id}/parse/units/_index.json (unit ID list)
-        - runs/{run_id}/parse/sql_units_with_branches.json (backward compat)
         """
         if not run_id:
             logger.debug("[PARSE] No run_id, skipping file output")
@@ -282,14 +281,7 @@ class ParseStage(Stage[None, ParseOutput]):
         index_path = file_manager.write_index(unit_ids)
         total_bytes += file_manager.get_file_size(index_path)
 
-        compat_path = parse_dir / "sql_units_with_branches.json"
-        compat_path.write_text(output.to_json(), encoding="utf-8")
-        compat_bytes = file_manager.get_file_size(compat_path)
-
-        logger.info(
-            f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) "
-            f"+ index + compat file ({compat_bytes} bytes)"
-        )
+        logger.info(f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) + index")
 
         report_path = parse_dir / "parse_report.html"
         generate_parse_report(output, str(report_path))
@@ -320,11 +312,6 @@ class ParseStage(Stage[None, ParseOutput]):
                 for f in units_dir.glob("*.json"):
                     file_size += f.stat().st_size
                     files_count += 1
-
-            compat_file = parse_dir / "sql_units_with_branches.json"
-            if compat_file.exists():
-                file_size += compat_file.stat().st_size
-                files_count += 1
 
             output_with_run_id = ParseOutput(
                 sql_units_with_branches=output.sql_units_with_branches,

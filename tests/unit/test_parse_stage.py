@@ -147,11 +147,8 @@ class TestParseStage:
         output = stage.run()
 
         assert output.sql_units_with_branches == []
-        compat_file = tmp_path / "runs" / "parse-empty-test" / "parse" / "sql_units_with_branches.json"
         index_file = tmp_path / "runs" / "parse-empty-test" / "parse" / "units" / "_index.json"
-        assert compat_file.exists()
         assert index_file.exists()
-        assert ParseOutput.from_json(compat_file.read_text(encoding="utf-8")).sql_units_with_branches == []
         assert json.loads(index_file.read_text(encoding="utf-8")) == []
 
     def test_parse_stage_isolates_unit_failures_in_concurrent_mode(
