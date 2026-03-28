@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_escape
 import pathlib
 from typing import Any
 
@@ -87,8 +88,8 @@ DARK_THEME = """
     .metric { text-align: center; }
     .metric-value { font-size: 1.25rem; font-weight: bold; }
     .metric-label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; }
-    .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 0.25rem 0; }
-    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 0.25rem 0; display: flex; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; flex-shrink: 0; }
     .progress-fill.high { background: #dc2626; }
     .progress-fill.medium { background: #f59e0b; }
     .progress-fill.low { background: #22c55e; }
@@ -103,11 +104,12 @@ DARK_THEME = """
 BASE_JS = """
 <script>
 function initSortableBranches() {
-    document.querySelectorAll('.branch-card[data-sortable]').forEach(card => {
+    document.querySelectorAll('.card[data-sortable]').forEach(card => {
         card.querySelectorAll('.sort-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const sortKey = this.dataset.sort;
                 const isAsc = this.classList.contains('asc');
+                const newAsc = !isAsc;
                 const container = card.querySelector('.branch-list');
                 const branches = Array.from(container.querySelectorAll('.branch-detail'));
                 branches.sort((a, b) => {
@@ -120,12 +122,12 @@ function initSortableBranches() {
                         bVal = b.dataset.pathId || '';
                     }
                     if (sortKey === 'risk') {
-                        return isAsc ? aVal - bVal : bVal - aVal;
+                        return newAsc ? aVal - bVal : bVal - aVal;
                     }
-                    return isAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                    return newAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
                 });
                 card.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('asc', 'desc'));
-                this.classList.add(isAsc ? 'desc' : 'asc');
+                this.classList.add(newAsc ? 'asc' : 'desc');
                 branches.forEach(b => container.appendChild(b));
             });
         });
@@ -256,13 +258,14 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             theoretical = min(2**max_conditions, 100) if max_conditions > 0 else 1
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
-        unit_low = len(unit.branches) - unit_high - unit_medium
+        unit_low = sum(1 for b in unit.branches if b.risk_score is not None and b.risk_score < 0.4)
+        unit_unscored = len(unit.branches) - unit_high - unit_medium - unit_low
 
         # Determine strategy based on branch count
         strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
 
         html += f"""
-    <div class="card">
+    <div class="card" data-sortable>
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin: 0;"><code>{unit.sql_unit_id}</code></h3>
             <div>
@@ -295,8 +298,8 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         </div>
         <div class="progress-bar">
             <div class="progress-fill high" style="width: {unit_high / max(len(unit.branches), 1) * 100}%"></div>
-            <div class="progress-fill medium" style="width: {unit_medium / max(len(unit.branches), 1) * 100}%; margin-left: -{unit_high / max(len(unit.branches), 1) * 100}%"></div>
-            <div class="progress-fill low" style="width: {unit_low / max(len(unit.branches), 1) * 100}%; margin-left: -{(unit_high + unit_medium) / max(len(unit.branches), 1) * 100}%"></div>
+            <div class="progress-fill medium" style="width: {unit_medium / max(len(unit.branches), 1) * 100}%"></div>
+            <div class="progress-fill low" style="width: {unit_low / max(len(unit.branches), 1) * 100}%"></div>
         </div>
         <div class="branch-list">
 """
@@ -309,30 +312,32 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             score_str = f"{b.risk_score:.2f}" if b.risk_score is not None else "-"
             risk_score_val = b.risk_score if b.risk_score is not None else "0"
 
-            # Risk flags as tags
+            # Risk flags as tags (escape content)
             flags_html = ""
             for f in b.risk_flags:
                 flag_class = "high" if risk_level == "high" else "medium" if risk_level == "medium" else ""
-                flags_html += f'<span class="reason-tag {flag_class}">{f}</span>'
+                flags_html += f'<span class="reason-tag {flag_class}">{html_escape.escape(f)}</span>'
 
-            # Score reasons as tags
+            # Score reasons as tags (escape content)
             reasons_html = ""
             for r in b.score_reasons or []:
-                reasons_html += f'<span class="reason-tag">{r}</span>'
+                reasons_html += f'<span class="reason-tag">{html_escape.escape(r)}</span>'
 
-            # SQL preview
-            sql_preview = b.expanded_sql[:100] + "..." if len(b.expanded_sql) > 100 else b.expanded_sql
+            # SQL preview (escape for both title attribute and display)
+            safe_sql = html_escape.escape(b.expanded_sql)
+            sql_preview = safe_sql[:100] + "..." if len(safe_sql) > 100 else safe_sql
 
             html += f"""
-        <div class="branch-detail" data-risk-score="{risk_score_val}" data-path-id="{b.path_id}">
+        <div class="branch-detail" data-risk-score="{risk_score_val}" data-path-id="{html_escape.escape(b.path_id)}">
             <div class="branch-detail-header">
-                <span><span class="branch-path">{b.path_id}</span> <span class="badge {badge_class}">{risk_level.upper()}</span> <span style="color: #94a3b8;">{score_str}</span></span>
+                <span><span class="branch-path">{html_escape.escape(b.path_id)}</span> <span class="badge {badge_class}">{risk_level.upper()}</span> <span style="color: #94a3b8;">{score_str}</span></span>
                 <span class="badge badge-info">{b.branch_type or ("动态" if b.active_conditions else "静态")}</span>
             </div>
 """
 
             if b.condition:
-                html += f"""            <div class="branch-condition">条件: {b.condition[:80]}{"..." if len(b.condition or "") > 80 else ""}</div>
+                safe_cond = html_escape.escape(b.condition)
+                html += f"""            <div class="branch-condition">条件: {safe_cond[:80]}{"..." if len(safe_cond) > 80 else ""}</div>
 """
 
             if flags_html:
@@ -343,7 +348,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                 html += f"""            <div class="branch-reasons">{reasons_html}</div>
 """
 
-            html += f"""            <div class="sql-preview" title="{b.expanded_sql}">{sql_preview}</div>
+            html += f"""            <div class="sql-preview" title="{safe_sql}">{sql_preview}</div>
         </div>
 """
 
