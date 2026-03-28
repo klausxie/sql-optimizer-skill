@@ -1,0 +1,27 @@
+config_version: v1
+project_root_path: tests/real/mybatis-test
+scan_mapper_globs:
+  - src/main/resources/mapper/UserMapper.xml
+  - src/main/resources/mapper/OrderMapper.xml
+  - src/main/resources/mapper/CommonMapper.xml
+
+db_platform: postgresql
+db_host: localhost
+db_port: 5432
+db_name: postgres
+db_user: postgres
+db_password: postgres
+
+llm_enabled: true
+llm_provider: openai
+openai_base_url: http://localhost:1234/v1
+openai_model: qwen2.5-14b-instruct
+
+parse_strategy: ladder
+parse_max_branches: 100
+max_cap: 1000
+
+concurrency:
+  enabled: true
+  max_workers: 4
+  llm_max_concurrent: 2
