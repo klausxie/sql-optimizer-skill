@@ -150,43 +150,43 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Parse Stage Report</title>
+    <title>解析阶段报告</title>
     {CHART_JS}
     <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
-    <h1>Parse Stage Report</h1>
+    <h1>解析阶段报告</h1>
 
     <div class="summary-grid">
         <div class="card">
-            <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL Units</div></div>
-            <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">Total Branches</div></div>
-            <div class="stat"><div class="stat-value">{valid_branches}</div><div class="stat-label">Valid</div></div>
-            <div class="stat"><div class="stat-value">{invalid_branches}</div><div class="stat-label">Invalid</div></div>
+            <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL单元</div></div>
+            <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">总分支</div></div>
+            <div class="stat"><div class="stat-value">{valid_branches}</div><div class="stat-label">有效</div></div>
+            <div class="stat"><div class="stat-value">{invalid_branches}</div><div class="stat-label">无效</div></div>
         </div>
     </div>
 
     <div class="charts-grid">
         <div class="card">
-            <h3>Risk Distribution</h3>
+            <h3>风险分布</h3>
             <div class="chart-container"><canvas id="riskChart"></canvas></div>
         </div>
         <div class="card">
-            <h3>Branch Types</h3>
+            <h3>分支类型</h3>
             <div class="chart-container"><canvas id="typeChart"></canvas></div>
         </div>
     </div>
 
-    <h2>Branch Details (Grouped by SQL Unit)</h2>
+    <h2>分支详情（按SQL单元分组）</h2>
     <table id="mainTable">
         <thead>
             <tr>
-                <th data-sort="unit" data-col="0">SQL Unit</th>
-                <th data-sort="branches" data-col="1">#Branches</th>
-                <th data-sort="valid" data-col="2">Valid</th>
-                <th data-sort="risk" data-col="3">Max Risk</th>
-                <th data-sort="flags" data-col="4">Risk Flags</th>
+                <th data-sort="unit" data-col="0">SQL单元</th>
+                <th data-sort="branches" data-col="1">分支数</th>
+                <th data-sort="valid" data-col="2">有效</th>
+                <th data-sort="risk" data-col="3">最大风险</th>
+                <th data-sort="flags" data-col="4">风险标志</th>
             </tr>
         </thead>
         <tbody>
@@ -235,8 +235,8 @@ new Chart(riskCtx, {
         labels: ['High Risk', 'Medium Risk', 'Low Risk'],
         datasets: [{
             data: ["""
-         f"{high_risk}, {medium_risk}, {low_risk}"
-         """],
+        f"{high_risk}, {medium_risk}, {low_risk}"
+        """],
             backgroundColor: ['#dc2626', '#f59e0b', '#22c55e']
         }]
     },
@@ -248,13 +248,13 @@ new Chart(typeCtx, {
     type: 'bar',
     data: {
         labels: """
-         f"{list(branch_types.keys())}"
-         """,
+        f"{list(branch_types.keys())}"
+        """,
         datasets: [{
             label: 'Count',
             data: """
-         f"{list(branch_types.values())}"
-         """,
+        f"{list(branch_types.values())}"
+        """,
             backgroundColor: '#3b82f6'
         }]
     },
@@ -304,42 +304,42 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Recognition Stage Report</title>
+    <title>识别阶段报告</title>
     {CHART_JS}
     <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
-    <h1>Recognition Stage Report</h1>
+    <h1>识别阶段报告</h1>
 
     <div class="summary-grid">
         <div class="card">
-            <div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Total Plans</div></div>
-            <div class="stat"><div class="stat-value">{slow}</div><div class="stat-label">Slow (&gt;100ms)</div></div>
-            <div class="stat"><div class="stat-value">{high_cost}</div><div class="stat-label">High Cost</div></div>
+            <div class="stat"><div class="stat-value">{total}</div><div class="stat-label">总计划数</div></div>
+            <div class="stat"><div class="stat-value">{slow}</div><div class="stat-label">慢查询</div></div>
+            <div class="stat"><div class="stat-value">{high_cost}</div><div class="stat-label">高成本</div></div>
         </div>
     </div>
 
     <div class="charts-grid">
         <div class="card">
-            <h3>Cost Distribution</h3>
+            <h3>成本分布</h3>
             <div class="chart-container"><canvas id="costChart"></canvas></div>
         </div>
         <div class="card">
-            <h3>Execution Time (Top 10)</h3>
+            <h3>执行时间 (Top 10)</h3>
             <div class="chart-container"><canvas id="timeChart"></canvas></div>
         </div>
     </div>
 
-    <h2>Plan Details (Grouped by SQL Unit)</h2>
+    <h2>执行计划详情（按SQL单元分组）</h2>
     <table>
         <thead>
             <tr>
-                <th>SQL Unit</th>
-                <th data-sort="cost" data-col="1">Est. Cost</th>
-                <th data-sort="time" data-col="2">Time (ms)</th>
-                <th data-sort="rows" data-col="3">Rows</th>
-                <th>Plan Summary</th>
+                <th>SQL单元</th>
+                <th data-sort="cost" data-col="1">预估成本</th>
+                <th data-sort="time" data-col="2">时间(ms)</th>
+                <th data-sort="rows" data-col="3">行数</th>
+                <th>计划类型</th>
             </tr>
         </thead>
         <tbody>
@@ -352,23 +352,22 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
         max_time = max((b.actual_time_ms or 0) for b in unit_baselines)
         total_rows = sum((b.rows_returned or 0) for b in unit_baselines)
 
-        # Get plan type from first baseline
         plan_type = "-"
         if unit_baselines[0].plan:
             plan_str = str(unit_baselines[0].plan)
             if "Index Scan" in plan_str:
-                plan_type = "Index Scan"
+                plan_type = "索引扫描"
             elif "Seq Scan" in plan_str:
-                plan_type = "Seq Scan"
+                plan_type = "全表扫描"
             elif "Nested Loop" in plan_str:
-                plan_type = "Nested Loop"
+                plan_type = "嵌套循环"
             elif "Hash Join" in plan_str:
-                plan_type = "Hash Join"
+                plan_type = "哈希连接"
 
         cost_class = "rank-high" if max_cost > 100 else "rank-medium" if max_cost > 50 else ""
 
         html += f"""            <tr class="group-header">
-                <td><code>{unit_id}</code><span class="group-summary">{len(unit_baselines)} plans</span></td>
+                <td><code>{unit_id}</code><span class="group-summary">{len(unit_baselines)} 个计划</span></td>
                 <td class="{cost_class}">{max_cost:.2f}</td>
                 <td>{max_time:.2f}</td>
                 <td>{total_rows}</td>
@@ -380,13 +379,13 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
             if b.plan:
                 plan_str = str(b.plan)
                 if "Index Scan" in plan_str:
-                    plan_short = "Index Scan"
+                    plan_short = "索引扫描"
                 elif "Seq Scan" in plan_str:
-                    plan_short = "Seq Scan"
+                    plan_short = "全表扫描"
                 elif "Nested Loop" in plan_str:
-                    plan_short = "Nested Loop"
+                    plan_short = "嵌套循环"
                 elif "Hash Join" in plan_str:
-                    plan_short = "Hash Join"
+                    plan_short = "哈希连接"
             time_str = f"{b.actual_time_ms:.2f}" if b.actual_time_ms else "-"
             html += f"""            <tr class="child-row">
                 <td style="padding-left: 2rem;"><code>{b.path_id}</code></td>
@@ -407,18 +406,18 @@ new Chart(costCtx, {
     type: 'bar',
     data: {
         labels: """
-         f"{list(cost_buckets.keys())}"
-         """,
+        f"{list(cost_buckets.keys())}"
+        """,
         datasets: [{ label: 'Plans', data: """
-         f"{list(cost_buckets.values())}"
-         """, backgroundColor: '#6366f1' }]
+        f"{list(cost_buckets.values())}"
+        """, backgroundColor: '#6366f1' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const timeData = """
-         f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
-         """;
+        f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
+        """;
 const timeCtx = document.getElementById('timeChart').getContext('2d');
 new Chart(timeCtx, {
     type: 'bar',
@@ -480,36 +479,36 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
 </head>
 <body>
 <div class="container">
-    <h1>Optimize Stage Report</h1>
+    <h1>优化阶段报告</h1>
 
     <div class="summary-grid">
         <div class="card">
-            <div class="stat"><div class="stat-value">{total}</div><div class="stat-label">Proposals</div></div>
-            <div class="stat"><div class="stat-value">{high_conf}</div><div class="stat-label">High Conf</div></div>
-            <div class="stat"><div class="stat-value">{medium_conf}</div><div class="stat-label">Med Conf</div></div>
-            <div class="stat"><div class="stat-value">{avg_gain:.1f}%</div><div class="stat-label">Avg Gain</div></div>
+            <div class="stat"><div class="stat-value">{total}</div><div class="stat-label">优化建议</div></div>
+            <div class="stat"><div class="stat-value">{high_conf}</div><div class="stat-label">高置信</div></div>
+            <div class="stat"><div class="stat-value">{medium_conf}</div><div class="stat-label">中置信</div></div>
+            <div class="stat"><div class="stat-value">{avg_gain:.1f}%</div><div class="stat-label">平均收益</div></div>
         </div>
     </div>
 
     <div class="charts-grid">
         <div class="card">
-            <h3>Confidence Distribution</h3>
+            <h3>置信度分布</h3>
             <div class="chart-container"><canvas id="confChart"></canvas></div>
         </div>
         <div class="card">
-            <h3>Gain Ratio (Top 10)</h3>
+            <h3>收益比率 (Top 10)</h3>
             <div class="chart-container"><canvas id="gainChart"></canvas></div>
         </div>
     </div>
 
-    <h2>Optimization Proposals (Grouped by SQL Unit)</h2>
+    <h2>优化建议（按SQL单元分组）</h2>
     <table>
         <thead>
             <tr>
-                <th>SQL Unit</th>
-                <th data-sort="conf" data-col="1">Confidence</th>
-                <th data-sort="gain" data-col="2">Gain Ratio</th>
-                <th>Rationale</th>
+                <th>SQL单元</th>
+                <th data-sort="conf" data-col="1">置信度</th>
+                <th data-sort="gain" data-col="2">收益比率</th>
+                <th>优化理由</th>
             </tr>
         </thead>
         <tbody>
@@ -521,15 +520,15 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
         max_conf = max((p.confidence or 0) for p in unit_proposals)
         avg_gain_unit = sum((p.gain_ratio or 0) for p in unit_proposals) / len(unit_proposals)
         conf_badge = (
-            '<span class="badge badge-high">HIGH</span>'
+            '<span class="badge badge-high">高</span>'
             if max_conf > 0.8
-            else '<span class="badge badge-medium">MED</span>'
+            else '<span class="badge badge-medium">中</span>'
             if max_conf > 0.5
-            else '<span class="badge badge-low">LOW</span>'
+            else '<span class="badge badge-low">低</span>'
         )
 
         html += f"""            <tr class="group-header">
-                <td><code>{unit_id}</code><span class="group-summary">{len(unit_proposals)} proposals</span></td>
+                <td><code>{unit_id}</code><span class="group-summary">{len(unit_proposals)} 个建议</span></td>
                 <td>{conf_badge} {max_conf:.2f}</td>
                 <td>{avg_gain_unit:.1f}%</td>
                 <td>-</td>
@@ -538,11 +537,11 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
         for p in unit_proposals:
             conf = p.confidence or 0
             conf_b = (
-                '<span class="badge badge-high">HIGH</span>'
+                '<span class="badge badge-high">高</span>'
                 if conf > 0.8
-                else '<span class="badge badge-medium">MED</span>'
+                else '<span class="badge badge-medium">中</span>'
                 if conf > 0.5
-                else '<span class="badge badge-low">LOW</span>'
+                else '<span class="badge badge-low">低</span>'
             )
             gain_str = f"{p.gain_ratio:.1f}%" if p.gain_ratio else "-"
             rationale_short = p.rationale[:60] + "..." if len(p.rationale) > 60 else p.rationale
@@ -564,18 +563,18 @@ new Chart(confCtx, {
     type: 'bar',
     data: {
         labels: """
-         f"{list(conf_buckets.keys())}"
-         """,
+        f"{list(conf_buckets.keys())}"
+        """,
         datasets: [{ label: 'Proposals', data: """
-         f"{list(conf_buckets.values())}"
-         """, backgroundColor: '#22c55e' }]
+        f"{list(conf_buckets.values())}"
+        """, backgroundColor: '#22c55e' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const gainData = """
-         f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
-         """;
+        f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
+        """;
 const gainCtx = document.getElementById('gainChart').getContext('2d');
 new Chart(gainCtx, {
     type: 'bar',
@@ -609,29 +608,29 @@ def generate_result_report(output: ResultOutput, output_path: str) -> None:
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Result Stage Report</title>
+    <title>结果阶段报告</title>
     {CHART_JS}
     <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
-    <h1>Result Stage Report</h1>
+    <h1>结果阶段报告</h1>
 
     <div class="summary-grid">
         <div class="card">
-            <div class="stat"><div class="stat-value">{len(patches)}</div><div class="stat-label">Patches</div></div>
-            <div class="stat"><div class="stat-value">{high_conf}</div><div class="stat-label">High Conf</div></div>
-            <div class="stat"><div class="stat-value">{medium_conf}</div><div class="stat-label">Med Conf</div></div>
-            <div class="stat"><div class="stat-value">{low_conf}</div><div class="stat-label">Low Conf</div></div>
+            <div class="stat"><div class="stat-value">{len(patches)}</div><div class="stat-label">补丁数</div></div>
+            <div class="stat"><div class="stat-value">{high_conf}</div><div class="stat-label">高置信</div></div>
+            <div class="stat"><div class="stat-value">{medium_conf}</div><div class="stat-label">中置信</div></div>
+            <div class="stat"><div class="stat-value">{low_conf}</div><div class="stat-label">低置信</div></div>
         </div>
     </div>
 
     <div class="card">
-        <h3>Summary</h3>
-        <p>{summary.get("summary", "No summary available") if isinstance(summary, dict) else str(summary)}</p>
+        <h3>摘要</h3>
+        <p>{summary.get("summary", "暂无摘要") if isinstance(summary, dict) else str(summary)}</p>
     </div>
 
-    <h2>Recommendations</h2>
+    <h2>建议</h2>
     <div class="card">
 """
 
@@ -640,7 +639,7 @@ def generate_result_report(output: ResultOutput, output_path: str) -> None:
         for rec in recommendations:
             html += f"        <div style='margin-bottom: 0.5rem;'>• {rec}</div>\n"
     else:
-        html += "        <p class='empty'>No recommendations</p>\n"
+        html += "        <p class='empty'>暂无建议</p>\n"
 
     html += (
         """    </div>
