@@ -97,3 +97,73 @@ def left_to_inner_rewrite(sql: str) -> Optional[str]:
             return sql
 
     return None
+
+
+def get_select_columns(sql: str) -> list[str]:
+    """提取 SELECT 子句中的列"""
+    import re
+    # 提取 SELECT ... FROM 之间的内容
+    match = re.search(r'SELECT\s+(.+?)\s+FROM', sql, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return []
+    select_part = match.group(1)
+    if select_part.strip() == '*':
+        return ['*']
+    # 分割列名
+    columns = [col.strip().split()[-1] for col in select_part.split(',')]
+    return columns
+
+
+def is_join_table_used(sql: str, table_name: str) -> bool:
+    """检查被 JOIN 的表是否在查询中被使用
+
+    检查 SELECT、WHERE、ORDER BY、GROUP BY、HAVING 等子句
+    """
+    import re
+    sql_upper = sql.upper()
+    table_name_upper = table_name.upper()
+
+    # 检查是否在 SELECT 中使用
+    select_match = re.search(r'SELECT\s+(.+?)\s+FROM', sql, re.IGNORECASE | re.DOTALL)
+    if select_match:
+        select_part = select_match.group(1).upper()
+        if table_name_upper in select_part and f'{table_name_upper}.' in sql_upper:
+            return True
+
+    # 检查是否在 WHERE 中使用（排除 JOIN...ON 条件）
+    where_match = re.search(r'WHERE\s+(.+?)(?:GROUP|ORDER|LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+    if where_match:
+        where_part = where_match.group(1).upper()
+        # 排除 ON 条件
+        on_match = re.search(r'ON\s+.+?(?=\s+WHERE|\s+GROUP|\s+ORDER|\s+LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+        if on_match:
+            on_part = on_match.group(0).upper()
+            where_part = where_part.replace(on_part, '')
+        if f'{table_name_upper}.' in where_part:
+            return True
+
+    return False
+
+
+def join_elimination_candidate(sql: str) -> Optional[dict]:
+    """检测 JOIN 消除候选
+
+    返回候选信息或 None
+    """
+    if not contains_join(sql):
+        return None
+
+    # 提取所有被 JOIN 的表
+    join_tables = extract_join_tables(sql)
+    if not join_tables:
+        return None
+
+    for table in join_tables:
+        # 如果表没有被使用，可能是消除候选
+        if not is_join_table_used(sql, table):
+            return {
+                "table": table,
+                "reason": "UNUSED_TABLE",
+            }
+
+    return None
