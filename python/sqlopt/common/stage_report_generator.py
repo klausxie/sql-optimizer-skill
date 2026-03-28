@@ -93,50 +93,47 @@ DARK_THEME = """
     .progress-fill.medium { background: #f59e0b; }
     .progress-fill.low { background: #22c55e; }
     .sql-preview { background: #0f172a; padding: 0.5rem; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: #a5b4fc; margin-top: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-height: 60px; }
+    .sort-btn { cursor: pointer; background: #334155; color: #94a3b8; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; margin-left: 0.25rem; user-select: none; }
+    .sort-btn:hover { background: #475569; color: #e2e8f0; }
+    .sort-btn.asc, .sort-btn.desc { background: #3b82f6; color: white; }
+    .branch-list { margin-top: 0.5rem; }
 </style>
 """
 
 BASE_JS = """
 <script>
-function initSortableTables() {
-    document.querySelectorAll('th[data-sort]').forEach(th => {
-        th.addEventListener('click', function() {
-            const table = this.closest('table');
-            const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            const col = this.dataset.sort;
-            const isAsc = this.classList.contains('asc');
-            table.querySelectorAll('th').forEach(h => { h.classList.remove('asc', 'desc'); });
-            this.classList.add(isAsc ? 'desc' : 'asc');
-            rows.sort((a, b) => {
-                const aVal = a.dataset[col] || a.children[parseInt(this.dataset.col)].textContent;
-                const bVal = b.dataset[col] || b.children[parseInt(this.dataset.col)].textContent;
-                const aNum = parseFloat(aVal);
-                const bNum = parseFloat(bVal);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return isAsc ? bNum - aNum : aNum - bNum;
-                }
-                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+function initSortableBranches() {
+    document.querySelectorAll('.branch-card[data-sortable]').forEach(card => {
+        card.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const sortKey = this.dataset.sort;
+                const isAsc = this.classList.contains('asc');
+                const container = card.querySelector('.branch-list');
+                const branches = Array.from(container.querySelectorAll('.branch-detail'));
+                branches.sort((a, b) => {
+                    let aVal, bVal;
+                    if (sortKey === 'risk') {
+                        aVal = parseFloat(a.dataset.riskScore) || 0;
+                        bVal = parseFloat(b.dataset.riskScore) || 0;
+                    } else if (sortKey === 'path') {
+                        aVal = a.dataset.pathId || '';
+                        bVal = b.dataset.pathId || '';
+                    }
+                    if (sortKey === 'risk') {
+                        return isAsc ? aVal - bVal : bVal - aVal;
+                    }
+                    return isAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                });
+                card.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('asc', 'desc'));
+                this.classList.add(isAsc ? 'desc' : 'asc');
+                branches.forEach(b => container.appendChild(b));
             });
-            rows.forEach(row => tbody.appendChild(row));
-        });
-    });
-}
-
-function initExpandable() {
-    document.querySelectorAll('.expand-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const groupId = this.dataset.group;
-            const childRows = document.querySelectorAll(`.child-row[data-parent="${groupId}"]`);
-            childRows.forEach(row => row.classList.toggle('expanded'));
-            this.textContent = this.textContent === '▶' ? '▼' : '▶';
         });
     });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    initSortableTables();
-    initExpandable();
+    initSortableBranches();
 });
 </script>
 """
@@ -166,12 +163,15 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     low_risk = sum(1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4)
     no_score = total_branches - high_risk - medium_risk - low_risk
 
-    # Theoretical max (all_combinations would generate 2^n per unit)
-    # We estimate based on active_conditions
+    # Theoretical max: estimate based on max active_conditions across all branches
+    # Use max to avoid underestimation when first branch has fewer conditions
     theoretical_branches = 0
     for u in output.sql_units_with_branches:
-        n_conditions = len(u.branches[0].active_conditions) if u.branches else 0
-        theoretical_branches += min(2**n_conditions, 100) if n_conditions > 0 else 1
+        if not u.branches:
+            theoretical_branches += 1
+            continue
+        max_conditions = max(len(b.active_conditions) for b in u.branches)
+        theoretical_branches += min(2**max_conditions, 100) if max_conditions > 0 else 1
 
     # Branch type distribution
     branch_types: dict[str, int] = {}
@@ -248,8 +248,12 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
 """
 
     for unit in output.sql_units_with_branches:
-        n_conditions = len(unit.branches[0].active_conditions) if unit.branches else 0
-        theoretical = min(2**n_conditions, 100) if n_conditions > 0 else 1
+        if not unit.branches:
+            max_conditions = 0
+            theoretical = 1
+        else:
+            max_conditions = max(len(b.active_conditions) for b in unit.branches)
+            theoretical = min(2**max_conditions, 100) if max_conditions > 0 else 1
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
         unit_low = len(unit.branches) - unit_high - unit_medium
@@ -261,7 +265,11 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin: 0;"><code>{unit.sql_unit_id}</code></h3>
-            <span class="strategy-tag">{strategy}</span>
+            <div>
+                <span class="strategy-tag">{strategy}</span>
+                <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
+                <span class="sort-btn" data-sort="path" title="按路径排序">路径↓</span>
+            </div>
         </div>
         <div class="metric-pair">
             <div class="metric">
@@ -290,6 +298,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             <div class="progress-fill medium" style="width: {unit_medium / max(len(unit.branches), 1) * 100}%; margin-left: -{unit_high / max(len(unit.branches), 1) * 100}%"></div>
             <div class="progress-fill low" style="width: {unit_low / max(len(unit.branches), 1) * 100}%; margin-left: -{(unit_high + unit_medium) / max(len(unit.branches), 1) * 100}%"></div>
         </div>
+        <div class="branch-list">
 """
 
         # Sort branches by risk score descending
@@ -298,6 +307,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         for b in sorted_branches:
             risk_level, badge_class = _get_risk_level(b.risk_score)
             score_str = f"{b.risk_score:.2f}" if b.risk_score is not None else "-"
+            risk_score_val = b.risk_score if b.risk_score is not None else "0"
 
             # Risk flags as tags
             flags_html = ""
@@ -314,10 +324,10 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             sql_preview = b.expanded_sql[:100] + "..." if len(b.expanded_sql) > 100 else b.expanded_sql
 
             html += f"""
-        <div class="branch-detail">
+        <div class="branch-detail" data-risk-score="{risk_score_val}" data-path-id="{b.path_id}">
             <div class="branch-detail-header">
                 <span><span class="branch-path">{b.path_id}</span> <span class="badge {badge_class}">{risk_level.upper()}</span> <span style="color: #94a3b8;">{score_str}</span></span>
-                <span class="badge badge-info">{b.branch_type or "unknown"}</span>
+                <span class="badge badge-info">{b.branch_type or ("动态" if b.active_conditions else "静态")}</span>
             </div>
 """
 
@@ -337,7 +347,8 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         </div>
 """
 
-        html += """    </div>
+        html += """        </div>
+    </div>
 """
 
     html += (
@@ -511,18 +522,18 @@ new Chart(costCtx, {
     type: 'bar',
     data: {
         labels: """
-         f"{list(cost_buckets.keys())}"
-         """,
+        f"{list(cost_buckets.keys())}"
+        """,
         datasets: [{ label: 'Plans', data: """
-         f"{list(cost_buckets.values())}"
-         """, backgroundColor: '#6366f1' }]
+        f"{list(cost_buckets.values())}"
+        """, backgroundColor: '#6366f1' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const timeData = """
-         f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
-         """;
+        f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
+        """;
 const timeCtx = document.getElementById('timeChart').getContext('2d');
 new Chart(timeCtx, {
     type: 'bar',
@@ -664,18 +675,18 @@ new Chart(confCtx, {
     type: 'bar',
     data: {
         labels: """
-         f"{list(conf_buckets.keys())}"
-         """,
+        f"{list(conf_buckets.keys())}"
+        """,
         datasets: [{ label: 'Proposals', data: """
-         f"{list(conf_buckets.values())}"
-         """, backgroundColor: '#22c55e' }]
+        f"{list(conf_buckets.values())}"
+        """, backgroundColor: '#22c55e' }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
 const gainData = """
-         f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
-         """;
+        f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
+        """;
 const gainCtx = document.getElementById('gainChart').getContext('2d');
 new Chart(gainCtx, {
     type: 'bar',
