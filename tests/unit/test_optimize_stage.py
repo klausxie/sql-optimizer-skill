@@ -124,11 +124,33 @@ class TestOptimizeStageRun:
         baselines_file.write_text(output.to_json(), encoding="utf-8")
 
     def _write_parse_file(self, run_path: Path, sql_units: list[SQLUnitWithBranches]) -> None:
-        """Write sql_units_with_branches.json file."""
+        """Write parse output in per-unit format."""
         parse_dir = run_path / "parse"
-        parse_file = parse_dir / "sql_units_with_branches.json"
-        output = ParseOutput(sql_units_with_branches=sql_units)
-        parse_file.write_text(output.to_json(), encoding="utf-8")
+        units_dir = parse_dir / "units"
+        units_dir.mkdir(parents=True, exist_ok=True)
+
+        unit_ids = [u.sql_unit_id for u in sql_units]
+        (units_dir / "_index.json").write_text(json.dumps(unit_ids), encoding="utf-8")
+
+        for unit in sql_units:
+            unit_data = {
+                "sql_unit_id": unit.sql_unit_id,
+                "branches": [
+                    {
+                        "path_id": b.path_id,
+                        "condition": b.condition,
+                        "expanded_sql": b.expanded_sql,
+                        "is_valid": b.is_valid,
+                        "risk_flags": b.risk_flags,
+                        "active_conditions": b.active_conditions,
+                        "risk_score": b.risk_score,
+                        "score_reasons": b.score_reasons,
+                        "branch_type": b.branch_type,
+                    }
+                    for b in unit.branches
+                ],
+            }
+            (units_dir / f"{unit.sql_unit_id}.json").write_text(json.dumps(unit_data), encoding="utf-8")
 
     def test_run_with_valid_run_id_and_data_returns_proposals(self):
         """Test that run() returns proposals when valid run_id and data exist."""

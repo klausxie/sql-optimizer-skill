@@ -12,7 +12,7 @@ Recognition 阶段为每个 SQL 分支生成**性能基准数据**（EXPLAIN 执
 
 | File | 内容 |
 |------|------|
-| `parse/sql_units_with_branches.json` 或 `parse/units/*.json` | Parse 阶段输出的分支 SQL |
+| `parse/units/*.json` | Parse 阶段输出的分支 SQL |
 | `init/table_schemas.json` | 表元数据（用于参数替换和类型推断） |
 
 ### 执行模式依赖
@@ -31,8 +31,7 @@ Recognition 阶段为每个 SQL 分支生成**性能基准数据**（EXPLAIN 执
 
 Recognition 支持两种输入格式：
 
-- **Per-Unit 文件**（推荐）：`parse/units/{unit_id}.json` + `parse/units/_index.json`
-- **兼容性文件**（冗余堆积）：`parse/sql_units_with_branches.json`
+- **Per-Unit 文件**：`parse/units/{unit_id}.json` + `parse/units/_index.json`
 
 按 `sql_unit_id` + `path_id` 遍历每个分支。
 

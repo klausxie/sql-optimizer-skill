@@ -64,51 +64,54 @@ class DBBackedRecognitionProvider(MockLLMProvider):
         self.db_connector = db_connector
 
     def generate_baseline(self, sql: str, platform: str = "postgresql") -> dict:
-        raise AssertionError(f"generate_baseline should not be called when DB connector is available: {sql} / {platform}")
+        raise AssertionError(
+            f"generate_baseline should not be called when DB connector is available: {sql} / {platform}"
+        )
 
 
 class TestRecognitionStageRun:
     """Tests for RecognitionStage.run() method."""
 
     def _create_parse_file(self, run_dir: Path, run_id: str) -> None:
-        """Helper to create a valid parse file."""
+        """Helper to create parse output in per-unit format."""
         parse_dir = run_dir / "runs" / run_id / "parse"
-        parse_dir.mkdir(parents=True, exist_ok=True)
-        parse_file = parse_dir / "sql_units_with_branches.json"
+        units_dir = parse_dir / "units"
+        units_dir.mkdir(parents=True, exist_ok=True)
 
-        parse_data = ParseOutput(
-            sql_units_with_branches=[
-                SQLUnitWithBranches(
-                    sql_unit_id="sql_unit_1",
-                    branches=[
-                        SQLBranch(
-                            path_id="path_1",
-                            condition="status = 'active'",
-                            expanded_sql="SELECT * FROM users WHERE status = 'active'",
-                            is_valid=True,
-                        ),
-                        SQLBranch(
-                            path_id="path_2",
-                            condition="status = 'inactive'",
-                            expanded_sql="SELECT * FROM users WHERE status = 'inactive'",
-                            is_valid=True,
-                        ),
-                    ],
-                ),
-                SQLUnitWithBranches(
-                    sql_unit_id="sql_unit_2",
-                    branches=[
-                        SQLBranch(
-                            path_id="path_3",
-                            condition=None,
-                            expanded_sql="SELECT * FROM orders",
-                            is_valid=True,
-                        ),
-                    ],
-                ),
-            ]
-        )
-        parse_file.write_text(parse_data.to_json(), encoding="utf-8")
+        unit_ids = ["sql_unit_1", "sql_unit_2"]
+        (units_dir / "_index.json").write_text(json.dumps(unit_ids), encoding="utf-8")
+
+        sql_unit_1_data = {
+            "sql_unit_id": "sql_unit_1",
+            "branches": [
+                {
+                    "path_id": "path_1",
+                    "condition": "status = 'active'",
+                    "expanded_sql": "SELECT * FROM users WHERE status = 'active'",
+                    "is_valid": True,
+                },
+                {
+                    "path_id": "path_2",
+                    "condition": "status = 'inactive'",
+                    "expanded_sql": "SELECT * FROM users WHERE status = 'inactive'",
+                    "is_valid": True,
+                },
+            ],
+        }
+        (units_dir / "sql_unit_1.json").write_text(json.dumps(sql_unit_1_data), encoding="utf-8")
+
+        sql_unit_2_data = {
+            "sql_unit_id": "sql_unit_2",
+            "branches": [
+                {
+                    "path_id": "path_3",
+                    "condition": None,
+                    "expanded_sql": "SELECT * FROM orders",
+                    "is_valid": True,
+                },
+            ],
+        }
+        (units_dir / "sql_unit_2.json").write_text(json.dumps(sql_unit_2_data), encoding="utf-8")
 
     def test_run_with_valid_run_id_and_parse_data(self):
         """Test RecognitionStage.run() with valid run_id and parse data."""

@@ -99,12 +99,6 @@ runs/{run_id}/parse/units/{unit_id}.json
 runs/{run_id}/parse/units/_index.json
 ```
 
-### 兼容性文件（冗余堆积，建议移除）
-
-```
-runs/{run_id}/parse/sql_units_with_branches.json
-```
-
 ### 字段说明
 
 #### `SQLBranch`

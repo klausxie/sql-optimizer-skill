@@ -94,7 +94,7 @@ Important files:
 
 - `runs/{run_id}/init/sql_units.json`
 - `runs/{run_id}/init/field_distributions.json`
-- `runs/{run_id}/parse/sql_units_with_branches.json`
+- `runs/{run_id}/parse/units/*.json` — Per-unit SQL with branches
 - `runs/{run_id}/recognition/baselines.json`
 - `runs/{run_id}/optimize/proposals.json`
 - `runs/{run_id}/result/report.json`

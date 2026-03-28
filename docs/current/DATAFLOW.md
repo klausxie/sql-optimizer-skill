@@ -16,7 +16,7 @@ Mapper XML
 | Stage | Reads | Produces | Main file |
 | --- | --- | --- | --- |
 | `init` | mapper XML files, optional DB metadata | `InitOutput` plus side files | `runs/{run_id}/init/sql_units.json` |
-| `parse` | `init/sql_units.json`, fragments, schema, field distributions | `ParseOutput` | `runs/{run_id}/parse/sql_units_with_branches.json` |
+| `parse` | `init/sql_units.json`, fragments, schema, field distributions | `ParseOutput` | `runs/{run_id}/parse/units/*.json` |
 | `recognition` | parse branches, optional DB connector | `RecognitionOutput` | `runs/{run_id}/recognition/baselines.json` |
 | `optimize` | baselines, schema, optional DB connector and LLM provider | `OptimizeOutput` | `runs/{run_id}/optimize/proposals.json` |
 | `result` | init SQL units, baselines, proposals | `ResultOutput` | `runs/{run_id}/result/report.json` |
@@ -76,7 +76,6 @@ runs/{run_id}/
     xml_mappings.json
     SUMMARY.md
   parse/
-    sql_units_with_branches.json
     units/
       _index.json
       {unit_id}.json

@@ -80,7 +80,6 @@ def run(stage: str, config: str, run_id: str | None, mock: bool) -> None:
 
 MOCK_FILE_STAGE_MAP = {
     "sql_units.json": "init",
-    "sql_units_with_branches.json": "parse",
     "baselines.json": "recognition",
     "proposals.json": "optimize",
     "report.json": "result",

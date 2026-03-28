@@ -137,7 +137,7 @@ class StageRunner:
         logger.info("[RUNNER] Initializing ParseStage...")
         stage = ParseStage(self.run_id, use_mock=use_mock, config=self.config, base_dir=self.base_dir)
         stage.run(progress_callback=progress_cb)
-        logger.info(f"[RUNNER] Parse stage output: {self.paths.parse_sql_units_with_branches}")
+        logger.info(f"[RUNNER] Parse stage output: {self.paths.parse_units_dir}")
 
     def _run_recognition_stage(self, use_mock: bool = True, progress_cb: Any = None) -> None:
         from sqlopt.stages.recognition import RecognitionStage

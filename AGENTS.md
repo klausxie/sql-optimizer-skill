@@ -74,7 +74,7 @@ sql-optimizer-skill/
 | Stage | Input | Output | Output File |
 |-------|-------|--------|-------------|
 | init | None | `InitOutput` | `runs/{run_id}/init/sql_units.json` |
-| parse | `InitOutput` | `ParseOutput` | `runs/{run_id}/parse/sql_units_with_branches.json` |
+| parse | `InitOutput` | `ParseOutput` | `runs/{run_id}/parse/units/*.json` |
 | recognition | `ParseOutput` | `RecognitionOutput` | `runs/{run_id}/recognition/baselines.json` |
 | optimize | `ParseOutput` + `RecognitionOutput` | `OptimizeOutput` | `runs/{run_id}/optimize/proposals.json` |
 | result | `OptimizeOutput` | `ResultOutput` | `runs/{run_id}/result/report.json` |
@@ -96,7 +96,7 @@ Each stage writes to `runs/{run_id}/{stage}/`:
 | Stage | Output Files |
 |-------|--------------|
 | init | `sql_units.json`, `sql_fragments.json`, `table_schemas.json`, `xml_mappings.json`, `field_distributions.json`, `SUMMARY.md` |
-| parse | `sql_units_with_branches.json` + `units/*.json` |
+| parse | `units/*.json` + `units/_index.json` |
 | recognition | `baselines.json` + `units/*.json` |
 | optimize | `proposals.json` + `units/*.json` |
 | result | `report.json`, `SUMMARY.md` + `units/*.patch`, `units/*.meta.json`, `units/_index.json` |
