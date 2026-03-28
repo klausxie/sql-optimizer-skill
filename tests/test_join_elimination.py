@@ -29,7 +29,8 @@ class TestGetSelectColumns:
 
 class TestIsJoinTableUsed:
     def test_table_in_select(self):
-        sql = "SELECT u.id, u.name FROM users u JOIN orders o ON u.id = o.user_id"
+        # 测试当表在 SELECT 中使用时返回 True
+        sql = "SELECT u.id, o.amount FROM users u JOIN orders o ON u.id = o.user_id"
         assert is_join_table_used(sql, "o") is True
 
     def test_table_not_used(self):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..patchability_models import CapabilityDecision
 from ..rewrite_facts_models import RewriteFacts
-from .support import common_gate_failures
+from .support import aggregation_blockers, common_gate_failures, dynamic_template_blockers, semantic_gate_ready
 
 
 class SafeUnionCollapseCapabilityRule:
@@ -16,28 +16,21 @@ class SafeUnionCollapseCapabilityRule:
     capability = "SAFE_UNION_COLLAPSE"
 
     def evaluate(self, rewrite_facts: RewriteFacts) -> CapabilityDecision:
-        # 检查通用语义门失败
-        semantic_failures = common_gate_failures(rewrite_facts)
-        if semantic_failures:
-            reason = semantic_failures[0]
+        aggregation_reasons = aggregation_blockers(rewrite_facts)
+        dynamic_reasons = dynamic_template_blockers(rewrite_facts)
+        if semantic_gate_ready(rewrite_facts) and not aggregation_reasons and not dynamic_reasons:
+            if rewrite_facts.effective_change:
+                return CapabilityDecision(capability=self.capability, allowed=True, priority=250)
             return CapabilityDecision(
                 capability=self.capability,
                 allowed=False,
-                priority=250,  # 高于 WRAPPER_COLLAPSE (200)
-                reason=reason,
+                priority=250,
+                reason="NO_EFFECTIVE_CHANGE",
             )
-
-        # 检查是否有 UNION 相关的重写事实
-        # 如果没有明确的 UNION 包装模式，则不允许
-        # 这里的逻辑由 rewrite_facts 决定
-        # 如果存在有效变化，允许 UNION 折叠
-        if rewrite_facts.effective_change:
-            return CapabilityDecision(capability=self.capability, allowed=True, priority=250)
-
-        # 没有有效变化，不允许
+        failures = common_gate_failures(rewrite_facts) + aggregation_reasons + dynamic_reasons
         return CapabilityDecision(
             capability=self.capability,
             allowed=False,
             priority=250,
-            reason="NO_EFFECTIVE_CHANGE",
+            reason=failures[0] if failures else "PATCH_STRATEGY_UNAVAILABLE",
         )

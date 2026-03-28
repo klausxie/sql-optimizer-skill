@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..patchability_models import CapabilityDecision
 from ..rewrite_facts_models import RewriteFacts
-from .support import common_gate_failures
+from .support import aggregation_blockers, common_gate_failures, dynamic_template_blockers, semantic_gate_ready
 
 
 class SafeJoinConsolidationCapability:
@@ -13,21 +13,21 @@ class SafeJoinConsolidationCapability:
     capability = "SAFE_JOIN_CONSOLIDATION"
 
     def evaluate(self, rewrite_facts: RewriteFacts) -> CapabilityDecision:
-        semantic_failures = common_gate_failures(rewrite_facts)
-        if semantic_failures:
+        aggregation_reasons = aggregation_blockers(rewrite_facts)
+        dynamic_reasons = dynamic_template_blockers(rewrite_facts)
+        if semantic_gate_ready(rewrite_facts) and not aggregation_reasons and not dynamic_reasons:
+            if rewrite_facts.effective_change:
+                return CapabilityDecision(capability=self.capability, allowed=True, priority=255)
             return CapabilityDecision(
                 capability=self.capability,
                 allowed=False,
                 priority=255,
-                reason=semantic_failures[0],
+                reason="NO_EFFECTIVE_CHANGE",
             )
-
-        if rewrite_facts.effective_change:
-            return CapabilityDecision(capability=self.capability, allowed=True, priority=255)
-
+        failures = common_gate_failures(rewrite_facts) + aggregation_reasons + dynamic_reasons
         return CapabilityDecision(
             capability=self.capability,
             allowed=False,
             priority=255,
-            reason="NO_EFFECTIVE_CHANGE",
+            reason=failures[0] if failures else "PATCH_STRATEGY_UNAVAILABLE",
         )
