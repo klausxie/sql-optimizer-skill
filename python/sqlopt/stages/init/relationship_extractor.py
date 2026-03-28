@@ -6,14 +6,14 @@ import re
 from typing import Dict, List, Set, Tuple
 
 from sqlopt.contracts.init import SQLUnit, TableHotspot, TableRelationship
-from sqlopt.stages.init.table_extractor import extract_table_references_from_sql
+from sqlopt.stages.init.table_extractor import _normalize_identifier, extract_table_references_from_sql
 
 _FK_NAMING = re.compile(r"^(?P<table>\w+)[_](?P<column>id)$", re.IGNORECASE)
 _PK_NAMES = {"id", "pk", "uuid", "guid"}
 
 _EXPLICIT_JOIN = re.compile(
     r"(?:(?P<join_type>INNER|LEFT|RIGHT|FULL|OUTER)?\s*JOIN)"
-    r"\s+(?P<target>\w+)"
+    r"\s+(?P<target>\w+(?:\.\w+)*)"
     r"(?:\s+(?:AS\s+)?(?P<alias>\w+))?"
     r"\s+ON\s+(?P<condition>\w+\.\w+\s*=\s*\w+\.\w+)"
     r"(?=\s*(?:WHERE|AND|OR|JOIN|UNION|ORDER|GROUP|HAVING|LIMIT|\s*$))",
@@ -21,7 +21,7 @@ _EXPLICIT_JOIN = re.compile(
 )
 
 _IMPLICIT_EQ = re.compile(
-    r"(?P<table_a>\w+)\.(?P<col_a>\w+)\s*=\s*(?P<table_b>\w+)\.(?P<col_b>\w+)",
+    r"(?P<table_a>\w+(?:\.\w+)*)\.(?P<col_a>\w+)\s*=\s*(?P<table_b>\w+(?:\.\w+)*)\.(?P<col_b>\w+)",
     re.IGNORECASE,
 )
 
@@ -85,8 +85,8 @@ def _extract_from_sql_unit(unit: SQLUnit) -> Tuple[List[TableRelationship], Set[
         if src_table is None or tgt_table is None:
             continue
 
-        src_table = src_table.lower()
-        tgt_table = tgt_table.lower()
+        src_table = _normalize_identifier(src_table)
+        tgt_table = _normalize_identifier(tgt_table)
         if src_table == tgt_table:
             continue
 
@@ -117,9 +117,10 @@ def _extract_from_sql_unit(unit: SQLUnit) -> Tuple[List[TableRelationship], Set[
         explicit_pairs.add((r.source_table.lower(), r.target_table.lower()))
 
     for m in _IMPLICIT_EQ.finditer(normalized):
-        ta, ca = m.group("table_a"), m.group("col_a")
-        tb, cb = m.group("table_b"), m.group("col_b")
-        if ta.lower() == tb.lower():
+        ta = _normalize_identifier(m.group("table_a"))
+        tb = _normalize_identifier(m.group("table_b"))
+        ca, cb = m.group("col_a"), m.group("col_b")
+        if ta == tb:
             continue
         src_table, tgt_table = ta, tb
         direction, src_col, tgt_col = _infer_fk_direction(ca, cb)
