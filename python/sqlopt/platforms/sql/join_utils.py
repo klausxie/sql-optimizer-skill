@@ -55,12 +55,13 @@ def extract_join_tables(sql: str) -> list[str]:
 def has_not_null_condition(sql: str, table_name: str) -> bool:
     """检测 WHERE 条件是否保证非空"""
     sql_upper = sql.upper()
+    table_name_upper = table_name.upper()
     # 检查 IS NOT NULL 条件
     patterns = [
-        rf'{table_name}\.\w+\s+IS\s+NOT\s+NULL',
-        rf'{table_name}\.\w+\s+!=\s*NULL',
-        rf'{table_name}\.\w+\s+<>\s*NULL',
-        rf'IS\s+NOT\s+NULL\s*\(\s*{table_name}\.\w+\s*\)',
+        rf'{table_name_upper}\.\w+\s+IS\s+NOT\s+NULL',
+        rf'{table_name_upper}\.\w+\s+!=\s*NULL',
+        rf'{table_name_upper}\.\w+\s+<>\s*NULL',
+        rf'IS\s+NOT\s+NULL\s*\(\s*{table_name_upper}\.\w+\s*\)',
     ]
     import re
     for pattern in patterns:
