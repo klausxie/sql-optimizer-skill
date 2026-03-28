@@ -17,6 +17,7 @@ dependencies = [
   "PyYAML>=6.0.0",
   "jsonpath-ng>=1.6.0",
   "rich>=13.0.0",
+  "sqlglot>=30.0.0",
 ]
 
 [project.optional-dependencies]

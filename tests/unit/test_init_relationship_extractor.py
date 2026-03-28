@@ -5,7 +5,7 @@ from sqlopt.contracts.init import SQLUnit
 from sqlopt.stages.init.relationship_extractor import (
     _compute_confidence,
     _infer_fk_direction,
-    _normalize_for_analysis,
+    _normalize_sql_for_analysis,
     extract_inter_table_relationships,
 )
 
@@ -64,24 +64,24 @@ class TestComputeConfidence:
         assert conf == 0.5
 
 
-class TestNormalizeForAnalysis:
-    """Tests for _normalize_for_analysis function."""
+class TestNormalizeSqlForAnalysis:
+    """Tests for _normalize_sql_for_analysis function."""
 
     def test_removes_mybatis_tags(self):
         sql = "<if test='id != null'>SELECT * FROM users</if>"
-        result = _normalize_for_analysis(sql)
+        result = _normalize_sql_for_analysis(sql)
         assert "<" not in result
         assert "users" in result
 
     def test_removes_parameter_placeholders(self):
         sql = "SELECT * FROM users WHERE id = #{id}"
-        result = _normalize_for_analysis(sql)
+        result = _normalize_sql_for_analysis(sql)
         assert "#{" not in result
         assert "?" in result
 
     def test_removes_string_literals(self):
         sql = "SELECT * FROM users WHERE name = 'John'"
-        result = _normalize_for_analysis(sql)
+        result = _normalize_sql_for_analysis(sql)
         assert "'" not in result
 
 
