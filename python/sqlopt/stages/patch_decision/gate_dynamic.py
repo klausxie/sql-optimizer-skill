@@ -10,25 +10,43 @@ import re
 from .gates import Gate, GateContext, GateResult, extract_fallback_reason_codes, build_selection_evidence
 from .constants import ReasonCode, GateResultStatus
 
-# 已支持的动态模板类型
+# 已支持的动态模板类型（可自动生成补丁）
 SUPPORTED_BLOCKING_REASONS = {
-    "",
-    "NO_TEMPLATE_PRESERVING_INTENT",
-    "INCLUDE_DYNAMIC_SUBTREE",
-    "DYNAMIC_FILTER_SUBTREE",
-    "DYNAMIC_FILTER_NO_EFFECTIVE_DIFF",
+    "",  # 无阻塞原因
+    "NO_TEMPLATE_PRESERVING_INTENT",  # 无模板保留意图
+    "INCLUDE_DYNAMIC_SUBTREE",  # 包含动态子树
+    "DYNAMIC_FILTER_SUBTREE",  # 动态过滤子树
+    "DYNAMIC_FILTER_NO_EFFECTIVE_DIFF",  # 动态过滤无有效差异
+    # 新增：更多可自动处理的类型
+    "NO_EFFECTIVE_TEMPLATE_CHANGE",  # 无有效模板变更
+    "INCLUDE_STATIC_SUBTREE",  # 静态包含子树
+    "STATIC_ALIAS_PROJECTION_CLEANUP_SCOPE_MISMATCH",  # 静态别名清理范围不匹配
 }
 
+# 已支持的形状家族（可自动生成补丁）
 SUPPORTED_SHAPE_FAMILIES = {
-    "IF_GUARDED_FILTER_STATEMENT",
-    "IF_GUARDED_COUNT_WRAPPER",
+    "IF_GUARDED_FILTER_STATEMENT",  # IF 保护的过滤语句
+    "IF_GUARDED_COUNT_WRAPPER",  # IF 保护的计数包装
+    # 新增：更多可支持的形状
+    "STATIC_FILTER_SAFE_SCOPE",  # 静态过滤安全范围
+    "STATIC_COUNT_WRAPPER_SAFE",  # 静态计数包装安全
+    "STATIC_INCLUDE_WRAPPER",  # 静态包含包装
+    "STATIC_PROJECTION_CLEANUP",  # 静态投影清理
+    "SIMPLE_IF_GUARD",  # 简单 IF 保护
+    "IF_WHERE_GUARD",  # IF WHERE 保护
+    "IF_SET_GUARD",  # IF SET 保护
 }
 
-# 需人工审查的类型
+# 需人工审查的类型（不支持自动生成）
 REVIEW_REQUIRED_BLOCKING_REASONS = {
-    "FOREACH_COLLECTION_PREDICATE",
-    "FOREACH_INCLUDE_PREDICATE",
-    "DYNAMIC_SET_CLAUSE",
+    "FOREACH_COLLECTION_PREDICATE",  # FOREACH 集合谓词
+    "FOREACH_INCLUDE_PREDICATE",  # FOREACH 包含谓词
+    "DYNAMIC_SET_CLAUSE",  # 动态 SET 子句
+    # 新增：需要人工审查的类型
+    "DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS",  # 非平凡别名
+    "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE",  # 需要谓词重写
+    "COMPLEX_DYNAMIC_CHAIN",  # 复杂动态链
+    "MULTI_LEVEL_NESTED_DYNAMIC",  # 多层嵌套动态
 }
 
 _TEMPLATE_TAG_PATTERN = re.compile(r"</?(if|where|set|trim|foreach|choose|when|otherwise|bind|include)\b")
@@ -204,20 +222,33 @@ class DynamicTemplateGate(Gate[dict]):
         if not blocking_reason and not shape_family:  # 无动态特征也算支持
             return True, None, None
 
-        # 需人工审查的类型
-        if blocking_reason.startswith("FOREACH_") or shape_family == "FOREACH_IN_PREDICATE":
-            return False, ReasonCode.PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED, \
-                "dynamic foreach predicate requires template-aware rewrite before patch generation"
+        # 需人工审查的类型 - 返回对应的审查原因码
+        if blocking_reason in REVIEW_REQUIRED_BLOCKING_REASONS:
+            if blocking_reason.startswith("FOREACH_") or shape_family == "FOREACH_IN_PREDICATE":
+                return False, ReasonCode.PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED, \
+                    "dynamic foreach predicate requires template-aware rewrite before patch generation"
 
-        if blocking_reason == "DYNAMIC_SET_CLAUSE":
-            return False, ReasonCode.PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED, \
-                "dynamic set clause requires template-aware rewrite before patch generation"
+            if blocking_reason == "DYNAMIC_SET_CLAUSE" or shape_family == "SET_SELECTIVE_UPDATE":
+                return False, ReasonCode.PATCH_DYNAMIC_SET_TEMPLATE_REVIEW_REQUIRED, \
+                    "dynamic set clause requires template-aware rewrite before patch generation"
 
-        if blocking_reason.startswith("DYNAMIC_FILTER_"):
-            return False, ReasonCode.PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED, \
-                "dynamic filter subtree requires template-aware rewrite before patch generation"
+            if blocking_reason.startswith("DYNAMIC_FILTER_"):
+                return False, ReasonCode.PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED, \
+                    "dynamic filter subtree requires template-aware rewrite before patch generation"
 
-        # 默认不支持
+            if "SELECT_LIST" in blocking_reason:
+                return False, ReasonCode.PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED, \
+                    "dynamic select-list with non-trivial aliases requires template-aware rewrite"
+
+            if "ALIAS" in blocking_reason:
+                return False, ReasonCode.PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED, \
+                    "dynamic alias cleanup requires template-aware rewrite"
+
+            # 默认返回需要审查
+            return False, ReasonCode.PATCH_TARGET_CONTRACT_MISSING, \
+                "dynamic template type requires manual review before patch generation"
+
+        # 未知类型 - 返回默认不支持
         return False, ReasonCode.PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE, \
             "dynamic mapper statement cannot be replaced by flattened sql"
 
@@ -231,18 +262,41 @@ class DynamicTemplateGate(Gate[dict]):
         """检测使用的策略类型"""
         blocking_reason = str(dynamic_template.get("blockingReason") or "").strip().upper()
         shape_family = str(dynamic_template.get("shapeFamily") or "").strip().upper()
+        dynamic_features_str = str(dynamic_features)
 
-        if "COUNT" in str(dynamic_features) or "WRAPPER" in blocking_reason:
-            if "DYNAMIC" in blocking_reason:
+        # 计数包装器策略
+        if "COUNT" in dynamic_features_str or "WRAPPER" in blocking_reason or "COUNT" in shape_family:
+            if "DYNAMIC" in blocking_reason or "DYNAMIC" in shape_family:
                 return "DYNAMIC_COUNT_WRAPPER_COLLAPSE"
             return "SAFE_WRAPPER_COLLAPSE"
 
-        if "FILTER" in str(dynamic_features) or "FILTER" in blocking_reason:
+        # 过滤策略
+        if "FILTER" in dynamic_features_str or "FILTER" in blocking_reason:
+            if "ALIAS" in blocking_reason or "ALIAS" in shape_family:
+                return "SAFE_ALIAS_CLEANUP"
             return "DYNAMIC_FILTER_WRAPPER_COLLAPSE"
 
-        if "INCLUDE" in dynamic_features:
-            return "STATIC_INCLUDE_WRAPPER_COLLAPSE"
+        # 包含策略
+        if "INCLUDE" in dynamic_features_str:
+            if "STATIC" in blocking_reason or "STATIC" in shape_family:
+                return "STATIC_INCLUDE_WRAPPER_COLLAPSE"
+            return "DYNAMIC_INCLUDE_WRAPPER_COLLAPSE"
 
+        # SET 策略
+        if "SET" in dynamic_features_str or "SET" in blocking_reason:
+            return "DYNAMIC_SET_TEMPLATE_EDIT"
+
+        # IF 保护策略
+        if "IF" in dynamic_features_str:
+            if "WHERE" in dynamic_features_str or "WHERE" in shape_family:
+                return "SAFE_IF_WHERE_GUARD"
+            if "ORDER" in dynamic_features_str:
+                return "SAFE_IF_ORDER_BY_GUARD"
+            if "LIMIT" in dynamic_features_str:
+                return "SAFE_IF_LIMIT_GUARD"
+            return "SAFE_IF_GUARD"
+
+        # 简单语句模板编辑
         return "DYNAMIC_STATEMENT_TEMPLATE_EDIT"
 
     def _skip_for_unsupported(
