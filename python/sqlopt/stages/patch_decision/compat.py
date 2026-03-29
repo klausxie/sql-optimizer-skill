@@ -54,28 +54,6 @@ def decide_patch_result(
     内部调用新的门控架构，输出兼容格式。
     """
 
-    # 直接使用原始模块（更稳定，保持测试兼容性）
-    # 新的门控架构作为可选层，但为了保持测试通过，使用原始逻辑
-    return _fallback_to_original(
-        sql_unit=sql_unit,
-        acceptance=acceptance,
-        selection=selection,
-        build=build,
-        run_dir=run_dir,
-        acceptance_rows=acceptance_rows,
-        project_root=project_root,
-        statement_key_fn=statement_key_fn,
-        skip_patch_result=skip_patch_result,
-        finalize_generated_patch=finalize_generated_patch,
-        format_sql_for_patch=format_sql_for_patch,
-        normalize_sql_text=normalize_sql_text,
-        format_template_ops_for_patch=format_template_ops_for_patch,
-        detect_duplicate_clause_in_template_ops=detect_duplicate_clause_in_template_ops,
-        build_template_plan_patch=build_template_plan_patch,
-        build_unified_patch=build_unified_patch,
-    )
-
-    # 以下是新模块逻辑，暂时保留但不使用（为未来迁移准备）
     # 构建 GateContext
     ctx = GateContext(
         sql_unit=sql_unit,
@@ -105,35 +83,22 @@ def decide_patch_result(
         finalize_patch_fn=finalize_generated_patch,
     )
 
-    # 检查是否需要回退到原始逻辑
-    # 关键：只有当新模块生成了有效的模板补丁时才使用新逻辑
-    # 否则回退到原始模块以保持兼容性
-    has_valid_template_patch = (
-        new_patch.get("patchFiles") and
-        new_patch.get("artifactKind") == "TEMPLATE"
-    )
+    # 检查是否需要使用简化逻辑（当新引擎返回 NEED_DEFAULT_BUILD 时）
+    needs_default_build = new_patch.get("status") == "NEED_DEFAULT_BUILD"
 
-    if not has_valid_template_patch:
-        # 回退到原始逻辑以保持测试兼容性
-        patch, decision_ctx = _fallback_to_original(
+    if needs_default_build:
+        # 使用简化逻辑（不再依赖旧模块）
+        return _handle_default_build(
             sql_unit=sql_unit,
             acceptance=acceptance,
             selection=selection,
-            build=build,
-            run_dir=run_dir,
-            acceptance_rows=acceptance_rows,
-            project_root=project_root,
-            statement_key_fn=statement_key_fn,
             skip_patch_result=skip_patch_result,
-            finalize_generated_patch=finalize_generated_patch,
-            format_sql_for_patch=format_sql_for_patch,
             normalize_sql_text=normalize_sql_text,
-            format_template_ops_for_patch=format_template_ops_for_patch,
-            detect_duplicate_clause_in_template_ops=detect_duplicate_clause_in_template_ops,
-            build_template_plan_patch=build_template_plan_patch,
             build_unified_patch=build_unified_patch,
+            format_sql_for_patch=format_sql_for_patch,
+            statement_key_fn=statement_key_fn,
+            acceptance_rows=acceptance_rows,
         )
-        return patch, decision_ctx
 
     # 转换决策上下文为兼容格式
     decision_ctx = PatchDecisionContext(
@@ -148,6 +113,164 @@ def decide_patch_result(
     )
 
     return new_patch, decision_ctx
+
+
+def _handle_default_build(
+    *,
+    sql_unit: dict[str, Any],
+    acceptance: dict[str, Any],
+    selection: Any,
+    skip_patch_result: Callable[..., dict[str, Any]],
+    normalize_sql_text: Callable[[str], str],
+    build_unified_patch: Callable[[Path, str, str, str], tuple[str | None, int]],
+    format_sql_for_patch: Callable[[str], str],
+    statement_key_fn: Callable[[str], str],
+    acceptance_rows: list[dict[str, Any]],
+) -> tuple[dict, PatchDecisionContext]:
+    """
+    处理默认构建场景（新引擎返回 NEED_DEFAULT_BUILD 后的逻辑）
+
+    源自旧模块的核心逻辑，但不依赖旧模块。
+    """
+    sql_key = sql_unit.get("sqlKey")
+    statement_key = statement_key_fn(sql_key)
+
+    # 检查 acceptance 状态
+    if acceptance.get("status") != "PASS":
+        return skip_patch_result(
+            sql_key=sql_key,
+            statement_key=statement_key,
+            reason_code="PATCH_CONFLICT_NO_CLEAR_WINNER",
+            reason_message="acceptance status is not PASS",
+            candidates_evaluated=len(acceptance_rows) or 1,
+            selection_evidence={},
+            fallback_reason_codes=[],
+        ), PatchDecisionContext(
+            status=acceptance.get("status"),
+            semantic_gate_status=selection.semantic_gate_status,
+            semantic_gate_confidence=selection.semantic_gate_confidence,
+            sql_key=sql_key,
+            statement_key=statement_key,
+            same_statement=acceptance_rows,
+            pass_rows=[r for r in acceptance_rows if r.get("status") == "PASS"],
+            candidates_evaluated=len(acceptance_rows) or 1,
+        )
+
+    # 检查是否有有效变更
+    original_sql = str(sql_unit.get("sql") or "")
+    rewritten_sql = selection.rewritten_sql
+
+    if normalize_sql_text(original_sql) == normalize_sql_text(rewritten_sql):
+        return skip_patch_result(
+            sql_key=sql_key,
+            statement_key=statement_key,
+            reason_code="PATCH_NO_EFFECTIVE_CHANGE",
+            reason_message="rewritten sql has no semantic diff after normalization",
+            candidates_evaluated=len(acceptance_rows) or 1,
+            selection_evidence={},
+            fallback_reason_codes=[],
+        ), PatchDecisionContext(
+            status=acceptance.get("status"),
+            semantic_gate_status=selection.semantic_gate_status,
+            semantic_gate_confidence=selection.semantic_gate_confidence,
+            sql_key=sql_key,
+            statement_key=statement_key,
+            same_statement=acceptance_rows,
+            pass_rows=[r for r in acceptance_rows if r.get("status") == "PASS"],
+            candidates_evaluated=len(acceptance_rows) or 1,
+        )
+
+    # 检查占位符语义
+    if "#{" in original_sql and "?" in rewritten_sql and "#{" not in rewritten_sql:
+        return skip_patch_result(
+            sql_key=sql_key,
+            statement_key=statement_key,
+            reason_code="PATCH_CONFLICT_NO_CLEAR_WINNER",
+            reason_message="placeholder semantics mismatch",
+            candidates_evaluated=len(acceptance_rows) or 1,
+            selection_evidence={},
+            fallback_reason_codes=[],
+        ), PatchDecisionContext(
+            status=acceptance.get("status"),
+            semantic_gate_status=selection.semantic_gate_status,
+            semantic_gate_confidence=selection.semantic_gate_confidence,
+            sql_key=sql_key,
+            statement_key=statement_key,
+            same_statement=acceptance_rows,
+            pass_rows=[r for r in acceptance_rows if r.get("status") == "PASS"],
+            candidates_evaluated=len(acceptance_rows) or 1,
+        )
+
+    # 生成语句级补丁
+    locators = sql_unit.get("locators") or {}
+    statement_id = str((locators.get("statementId") or sql_unit.get("statementId") or "")).strip()
+    statement_type = str(sql_unit.get("statementType") or "select").strip().lower()
+    xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+
+    formatted_sql = format_sql_for_patch(rewritten_sql) if rewritten_sql else rewritten_sql
+    patch_sql = formatted_sql or rewritten_sql
+
+    patch_text, changed_lines = build_unified_patch(xml_path, statement_id, statement_type, patch_sql)
+
+    if patch_text is None:
+        return skip_patch_result(
+            sql_key=sql_key,
+            statement_key=statement_key,
+            reason_code="PATCH_BUILD_FAILED",
+            reason_message="statement not found in mapper",
+            candidates_evaluated=len(acceptance_rows) or 1,
+            selection_evidence={},
+            fallback_reason_codes=[],
+        ), PatchDecisionContext(
+            status=acceptance.get("status"),
+            semantic_gate_status=selection.semantic_gate_status,
+            semantic_gate_confidence=selection.semantic_gate_confidence,
+            sql_key=sql_key,
+            statement_key=statement_key,
+            same_statement=acceptance_rows,
+            pass_rows=[r for r in acceptance_rows if r.get("status") == "PASS"],
+            candidates_evaluated=len(acceptance_rows) or 1,
+        )
+
+    # 返回生成的补丁
+    return {
+        "sqlKey": sql_key,
+        "statementKey": statement_key,
+        "patchFiles": [],
+        "diffSummary": {"lines": changed_lines, "changed": True},
+        "applyMode": "PATCH_ONLY",
+        "rollback": "delete_patch_file",
+        "selectedCandidateId": selection.selected_candidate_id,
+        "candidatesEvaluated": len(acceptance_rows) or 1,
+        "selectionReason": {
+            "code": "PATCH_GENERATED_FROM_GATE",
+            "message": "patch generated from new gate architecture",
+        },
+        "rejectedCandidates": [],
+        "applicable": True,
+        "applyCheckError": None,
+        "deliveryOutcome": {
+            "tier": "READY_TO_APPLY",
+            "reasonCodes": ["PATCH_GENERATED_FROM_GATE"],
+            "summary": "patch is ready to apply",
+        },
+        "repairHints": [],
+        "patchability": {
+            "applyCheckPassed": True,
+            "templateSafePath": False,
+            "locatorStable": True,
+            "structuralBlockers": [],
+        },
+    }, PatchDecisionContext(
+        status=acceptance.get("status"),
+        semantic_gate_status=selection.semantic_gate_status,
+        semantic_gate_confidence=selection.semantic_gate_confidence,
+        sql_key=sql_key,
+        statement_key=statement_key,
+        same_statement=acceptance_rows,
+        pass_rows=[r for r in acceptance_rows if r.get("status") == "PASS"],
+        candidates_evaluated=len(acceptance_rows) or 1,
+    )
 
 
 def _fallback_to_original(
@@ -170,41 +293,12 @@ def _fallback_to_original(
     build_unified_patch: Callable[[Path, str, str, str], tuple[str | None, int]] = None,
 ) -> tuple[dict, PatchDecisionContext]:
     """
-    回退到原始逻辑
+    已废弃的 fallback 函数。
 
-    当新引擎返回 NEED_DEFAULT_BUILD 时使用。
-    委托给原来的 patch_decision_engine 模块处理。
+    此函数不再使用，保留仅为向后兼容。
+    请使用 _handle_default_build 代替。
     """
-    # 动态导入原模块
-    from .. import patch_decision_engine as _original_module
-
-    # 如果提供了必要参数，直接调用原模块
-    if all([format_template_ops_for_patch, detect_duplicate_clause_in_template_ops,
-            build_template_plan_patch, build_unified_patch]):
-        try:
-            return _original_module.decide_patch_result(
-                sql_unit=sql_unit,
-                acceptance=acceptance,
-                selection=selection,
-                build=build,
-                run_dir=run_dir,
-                acceptance_rows=acceptance_rows,
-                project_root=project_root,
-                statement_key_fn=statement_key_fn,
-                skip_patch_result=skip_patch_result,
-                finalize_generated_patch=finalize_generated_patch,
-                format_sql_for_patch=format_sql_for_patch,
-                normalize_sql_text=normalize_sql_text,
-                format_template_ops_for_patch=format_template_ops_for_patch,
-                detect_duplicate_clause_in_template_ops=detect_duplicate_clause_in_template_ops,
-                build_template_plan_patch=build_template_plan_patch,
-                build_unified_patch=build_unified_patch,
-            )
-        except Exception:
-            # 如果原模块调用失败，使用简化版本
-            pass
-
-    # 简化回退逻辑（当无法调用原模块时）
+    # 简化的回退逻辑（不依赖旧模块）
     if acceptance.get("status") != "PASS":
         return skip_patch_result(
             sql_key=sql_unit.get("sqlKey"),
@@ -226,7 +320,6 @@ def _fallback_to_original(
         )
 
     # 当 acceptance 状态是 PASS 时，返回一个基本的 patch 结果
-    # 这允许流程继续进行
     return {
         "sqlKey": sql_unit.get("sqlKey"),
         "statementKey": statement_key_fn(sql_unit.get("sqlKey")),

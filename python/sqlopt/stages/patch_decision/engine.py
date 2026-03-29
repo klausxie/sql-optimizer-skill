@@ -108,9 +108,9 @@ class PatchDecisionEngine:
                 "message": result.reason_message,
             },
             "rejectedCandidates": [{"reason_code": result.reason_code}],
-            "candidates_evaluated": len(ctx.acceptance_rows) or 1,
-            "selectionEvidence": result.context.get("selection_evidence", {}),
-            "fallbackReasonCodes": result.context.get("fallback_reason_codes", []),
+            "candidatesEvaluated": len(ctx.acceptance_rows) or 1,
+            "selectionEvidence": result.context.get("selection_evidence", {}) or {},
+            "fallbackReasonCodes": list(result.context.get("fallback_reason_codes", []) or []),
             "deliveryOutcome": {
                 "tier": tier,
                 "reasonCodes": [result.reason_code] if result.reason_code else [],
@@ -123,7 +123,6 @@ class PatchDecisionEngine:
                 "locatorStable": True,
                 "structuralBlockers": [result.reason_code] if result.reason_code else [],
             },
-            **extra_context,
         }
 
     def _build_success_result(
