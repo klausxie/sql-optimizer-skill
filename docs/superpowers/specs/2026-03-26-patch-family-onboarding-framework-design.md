@@ -401,6 +401,14 @@ Provide at least:
 
 A family must not enter the authoritative frozen `AUTO_PATCH` set before the previous six steps are complete.
 
+### 10.8 Complete Harness Review Handoff
+
+Before review closes, the onboarding change should include:
+
+1. a completed `Harness Plan` in the family-facing spec or design note
+2. a completed copy of `docs/superpowers/specs/templates/patch-harness-review-checklist.md` in the review summary or PR description
+3. an explicit statement of which `L1` through `L4` layers changed
+
 ## 11. Minimum Viable Framework
 
 The first implementation must stay small.
@@ -500,6 +508,7 @@ The framework is successful when:
 2. family scope is declared once and referenced consistently across stages
 3. `AUTO_PATCH` cannot be expanded without explicit replay and verification policy
 4. fixture and runtime proof assertions stay aligned with family registration
+5. review handoff stays concrete rather than relying on ad-hoc prose
 
 ## 15. Design Outcome
 
@@ -508,3 +517,72 @@ The recommended next step after this spec is not immediate family expansion.
 It is:
 
 `Build the patch family onboarding framework MVP, register one stable family, then onboard STATIC_ALIAS_PROJECTION_CLEANUP through that framework.`
+
+## Harness Plan
+
+### Proof Obligations
+
+1. family scope is declared once and consumed consistently across validate, patch, replay, verification, and fixture layers
+2. onboarding a new family cannot silently widen `AUTO_PATCH`
+3. fixture obligations stay aligned with registry state
+4. representative ready and blocked-neighbor cases exist for each onboarded family
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove registry construction, family model invariants, and family-scope validation rules
+- Scope: family identity, acceptance policy, replay policy, fixture obligation invariants
+- Allowed Mocks: synthetic family specs are acceptable
+- Artifacts Checked: in-memory family models and registry payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove family registration stays aligned with fixture scenarios and downstream contracts
+- Scope: `fixture_scenarios.json`, validate/patch/report family expectations, blocked-neighbor coverage
+- Allowed Mocks: synthetic validate evidence is acceptable when the goal is family contract alignment
+- Artifacts Checked: fixture matrix, acceptance artifacts, patch artifacts, verification artifacts, report aggregates
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove a newly onboarded family works through a real selected workflow slice
+- Scope: one family or one representative SQL key per family
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected run outputs across validate, patch, verification, and report
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove family onboarding does not destabilize the broader fixture portfolio
+- Scope: full fixture-project regression after family onboarding
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run artifacts and report summaries
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. family readiness and frozen-scope checks should reuse registry-derived semantics
+2. fixture obligations should not become an untracked parallel taxonomy
+
+### Artifacts And Diagnostics
+
+1. `tests/fixtures/project/fixture_scenarios.json`
+2. `pipeline/validate/acceptance.results.jsonl`
+3. `pipeline/patch_generate/patch.results.jsonl`
+4. `pipeline/verification/ledger.jsonl`
+5. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` should run for framework and family-onboarding changes
+2. `L3` should run for each newly onboarded family before widening scope
+3. `L4` should remain the governed broad-regression layer
+
+### Regression Ownership
+
+1. every new patch family
+2. every change to family registry semantics
+3. every change to fixture obligation interpretation
+4. every validate/patch/report field that encodes family identity

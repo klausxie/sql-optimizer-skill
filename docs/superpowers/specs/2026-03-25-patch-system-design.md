@@ -447,6 +447,90 @@ The patch subsystem should explicitly test:
 5. no-op patch suppression
 6. `git apply --check` success combined with replay failure
 
+## Harness Plan
+
+### Proof Obligations
+
+The patch subsystem must prove:
+
+1. target uniqueness at the validate-to-patch boundary
+2. replay proof back to the selected target SQL
+3. syntax proof for XML, template render, and SQL parsing where applicable
+4. patch applicability proof distinct from replay proof
+5. report aggregation consistency across acceptance, patch, verification, and report artifacts
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove local patch decision, replay, formatting, family-registry, and verification logic
+- Scope: engine ordering, replay drift and placeholder or anchor loss, reason-code mapping, and family registration invariants
+- Allowed Mocks: liberal mocking is acceptable for local orchestration and helper behavior
+- Artifacts Checked: in-memory contracts and synthetic patch payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove scenario-matrix stability and cross-stage contract alignment
+- Scope: fixture scenario matrix, registry-derived family obligations, patch/report aggregate assertions, and validate-to-patch handoff expectations
+- Allowed Mocks: synthetic validate evidence is allowed when the goal is contract proof rather than DB realism
+- Artifacts Checked: `pipeline/validate/acceptance.results.jsonl`, `pipeline/patch_generate/patch.results.jsonl`, `pipeline/verification/ledger.jsonl`, and `overview/report.json`
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove real patch workflow behavior on a constrained slice
+- Scope: selected SQL keys, selected mappers, and selected families
+- Allowed Mocks: infrastructure availability patches may be used, but patch proof and report generation should remain real
+- Artifacts Checked: real run directories for the selected workflow slice and emitted patch and report artifacts
+- Budget: small enough for targeted PR or local verification
+
+#### L4 Full Workflow Harness
+
+- Goal: prove broad regression closure across the representative fixture project
+- Scope: full fixture-project runs and cross-slice report and verification integrity
+- Allowed Mocks: only infrastructure-stability patches that preserve patch/report semantics
+- Artifacts Checked: full run outputs across validate, patch, verification, and report
+- Budget: separately governed from routine fast-path checks
+
+### Shared Classification Logic
+
+Patch-facing harnesses should avoid test-only parallel semantics for:
+
+1. blocker family
+2. delivery class or readiness classification
+3. applicability-ready classification
+4. dynamic delivery classification when production logic already exists
+
+### Artifacts And Diagnostics
+
+Primary patch harness artifact surfaces are:
+
+1. `pipeline/validate/acceptance.results.jsonl`
+2. `pipeline/patch_generate/patch.results.jsonl`
+3. `pipeline/verification/ledger.jsonl`
+4. `pipeline/verification/summary.json`
+5. `overview/report.json`
+6. diagnostics under `sql/<sql-key>/...` and `diagnostics/...`
+
+### Execution Budget
+
+Expected default layering:
+
+1. `L1` and `L2` are expected in normal patch-facing change validation
+2. `L3` should be used for real workflow proof on targeted slices
+3. `L4` should be treated as a governed broader regression lane
+
+### Regression Ownership
+
+The patch harness surface must be updated when changing:
+
+1. patch family onboarding
+2. patch decision or replay rules
+3. report aggregate classification
+4. workflow-state transitions affecting patch/report delivery
+5. patch artifact contracts or diagnostics layout
+
 ## 11. Current Recommended Scope
 
 The near-term implementation scope should focus on making existing safe baseline families provable and stable, not on broadening family coverage.

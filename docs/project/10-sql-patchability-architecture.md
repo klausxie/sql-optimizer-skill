@@ -224,7 +224,50 @@
    - `DISTINCT_FROM_ALIAS_CLEANUP`
 9. 下一阶段不再优先扩 dynamic ready family，而是转向剩余候选稳定性尾项与新的 aggregation safe baseline 评估
 
-## 8. 后续建议
+## 8. Harness Mapping
+
+当前 patchability / patch delivery 链路应按统一 harness stack 理解，而不是只看成若干零散测试。
+
+### 8.1 Unit Harness
+
+单测层主要证明：
+
+1. internal engines and rule registries
+2. replay / formatting / proof helpers
+3. gate ordering and branch behavior
+
+### 8.2 Fixture / Contract Harness
+
+fixture 层主要证明：
+
+1. `rewrite_facts -> validate acceptance -> patch -> verification -> report` 的 contract 对齐
+2. family onboarding obligations
+3. scenario matrix 与 registry 的一致性
+
+### 8.3 Scoped Workflow Harness
+
+scoped workflow 层主要证明：
+
+1. 真实 `run_service / workflow / report` 流程在受控 slice 上成立
+2. 单 SQL / 单 family / 单 mapper 的真实 artifact 产出保持一致
+
+### 8.4 Full Workflow Harness
+
+full workflow 层主要证明：
+
+1. fixture project 范围内的系统回归闭环
+2. broad report / verification integrity
+
+### 8.5 Primary Artifact Surfaces
+
+这一链路的主要 artifact 对照面是：
+
+1. `acceptance.results.jsonl`
+2. `patch.results.jsonl`
+3. `verification/ledger.jsonl`
+4. `report.json`
+
+## 9. 后续建议
 
 如果继续按“只做对架构有利的事”推进，优先级建议如下：
 

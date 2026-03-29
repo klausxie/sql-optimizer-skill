@@ -1,7 +1,7 @@
 # EXISTS 重写功能设计
 
 **日期**: 2026-03-28
-**状态**: 已批准
+**状态**: 已批准，2026-03-30 harness review 收紧 v1 边界
 **功能**: 为 SQL Optimizer 添加 EXISTS 重写功能
 
 ---
@@ -10,7 +10,7 @@
 
 ### 1.1 目的
 
-为 SQL Optimizer 添加 EXISTS 重写功能，支持将 EXISTS 查询转换为更高效的 IN 或 JOIN 形式。
+为 SQL Optimizer 添加一个窄安全边界的 `EXISTS` 重写功能，在 v1 中只支持正向相关 `EXISTS -> IN` 改写。
 
 ### 1.2 背景
 
@@ -27,8 +27,6 @@
 | 场景 | 输入 | 输出 |
 |------|------|------|
 | EXISTS → IN | `WHERE EXISTS (SELECT 1 FROM t WHERE t.id = a.id)` | `WHERE a.id IN (SELECT t.id FROM t)` |
-| NOT EXISTS → NOT IN | `WHERE NOT EXISTS (SELECT 1 FROM t WHERE t.id = a.id)` | `WHERE a.id NOT IN (SELECT t.id FROM t)` |
-| EXISTS → JOIN | `WHERE EXISTS (SELECT 1 FROM t WHERE t.id = a.id)` | 特定场景下转换为 JOIN |
 
 ### 2.2 关键约束
 
@@ -36,6 +34,16 @@
 - **语义验证**：必须通过 DB EXPLAIN 验证
 - **回放验证**：必须通过模板回放验证
 - **置信度**：要求 HIGH
+- **v1 边界**：只允许正向 `EXISTS -> IN` 安全基线，不在 v1 内混入更宽语义路径
+
+### 2.3 v1 显式排除项
+
+下列路径不属于本设计的 v1 family boundary：
+
+1. `NOT EXISTS -> NOT IN`
+2. `EXISTS -> JOIN`
+3. 需要借助 `DISTINCT` 修复重复行的 rewrite
+4. 无法证明关联键安全投影的相关子查询
 
 ---
 
@@ -75,14 +83,12 @@ def detect_exists_pattern(sql: str) -> dict:
         "type": "EXISTS" | "NOT_EXISTS",
         "subquery": str,
         "correlation": str,
+        "positive_exists": bool,
     }
     """
 
 def rewrite_exists_to_in(sql: str, pattern: dict) -> str | None:
     """将 EXISTS 重写为 IN"""
-
-def rewrite_exists_to_join(sql: str, pattern: dict) -> str | None:
-    """将 EXISTS 重写为 JOIN (谨慎使用)"""
 
 def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool, str | None]:
     """验证重写安全性"""
@@ -98,7 +104,8 @@ class SafeExistsRewriteCapabilityRule:
 
     def evaluate(self, rewrite_facts: RewriteFacts) -> CapabilityDecision:
         # 检查语义门
-        # 检查 EXISTS 模式
+        # 检查正向 EXISTS 模式
+        # 检查相关键是否可安全投影
         # 检查重写安全性
 ```
 
@@ -117,23 +124,10 @@ SELECT * FROM a WHERE EXISTS (SELECT 1 FROM b WHERE b.id = a.id)
 SELECT * FROM a WHERE a.id IN (SELECT b.id FROM b)
 ```
 
-#### NOT EXISTS → NOT IN
-```sql
--- 原始
-SELECT * FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.id = a.id)
+v1 不包含：
 
--- 重写后
-SELECT * FROM a WHERE a.id NOT IN (SELECT b.id FROM b)
-```
-
-#### EXISTS → JOIN
-```sql
--- 原始
-SELECT * FROM a WHERE EXISTS (SELECT 1 FROM b WHERE b.id = a.id)
-
--- 重写后 (仅在特定场景)
-SELECT DISTINCT a.* FROM a INNER JOIN b ON b.id = a.id
-```
+1. `NOT EXISTS -> NOT IN`
+2. `EXISTS -> JOIN`
 
 ### 4.2 安全性检查
 
@@ -146,13 +140,13 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
         ("correlation_required", not has_correlation(original),
          "CORRELATION_REQUIRED"),
 
-        # NULL 语义检查 (NOT IN 可能产生不同结果)
-        ("null_semantics", is_not_in and may_have_nulls(subquery),
-         "NULL_SEMANTICS_MAY_DIFFER"),
+        # 只允许正向 EXISTS family，NOT EXISTS 不进入 v1 family
+        ("positive_exists_only", not pattern["positive_exists"],
+         "NEGATED_EXISTS_OUT_OF_SCOPE"),
 
-        # JOIN 转换需要更严格验证
-        ("join_complexity", is_join and is_complex_join(original),
-         "JOIN_COMPLEXITY_TOO_HIGH"),
+        # 关联键必须能安全投影为 IN 子查询目标
+        ("unsafe_projection_key", not has_safe_projection_key(pattern),
+         "UNSAFE_EXISTS_PROJECTION_KEY"),
     ]
 
     for check_name, failed, reason in checks:
@@ -173,8 +167,9 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 | test_contains_exists | EXISTS 检测 |
 | test_detect_exists_pattern | EXISTS 模式检测 |
 | test_rewrite_exists_to_in | EXISTS → IN 重写 |
-| test_rewrite_not_exists_to_not_in | NOT EXISTS → NOT IN 重写 |
 | test_validate_exists_safety | 安全性验证 |
+| test_negated_exists_blocked | `NOT EXISTS` 被阻断 |
+| test_exists_join_path_blocked | `EXISTS -> JOIN` 不进入 v1 family |
 
 ### 5.2 集成测试
 
@@ -182,6 +177,8 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 |----------|------|
 | test_capability_rule | Capability 规则测试 |
 | test_patch_generation | Patch 生成测试 |
+| test_exists_ready_and_blocked_neighbors | ready 与 blocked-neighbor 场景同时锁住 |
+| test_exists_scoped_workflow | 一条真实 workflow slice 证明 v1 family |
 
 ---
 
@@ -193,9 +190,9 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 | Capability 规则实现 | 1.5 天 |
 | Family Spec 定义 | 0.5 天 |
 | 注册策略和 Family | 0.5 天 |
-| 单元测试 | 1 天 |
-| 集成测试 | 1 天 |
-| **总计** | **6 天 (~1.5 周)** |
+| 单元测试与 blocked-neighbor 覆盖 | 1 天 |
+| 集成测试与 scoped workflow harness | 1.5 天 |
+| **总计** | **6.5 天 (~1.5 周)** |
 
 ---
 
@@ -203,8 +200,8 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 
 | 风险 | 缓解措施 |
 |------|----------|
-| NULL 语义差异 | NOT IN 转换需严格验证子查询无 NULL |
-| JOIN 复杂度 | 仅在简单场景支持 EXISTS → JOIN |
+| v1 边界被悄悄放宽 | 将 `NOT EXISTS -> NOT IN` 与 `EXISTS -> JOIN` 显式定义为 out-of-scope |
+| 相关键不可安全投影 | 要求 family 级 blocker，拒绝进入 ready path |
 | 相关子查询 | 必须存在关联条件才能转换 |
 | 性能退化 | 强制 DB EXPLAIN 验证 |
 
@@ -213,11 +210,12 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 ## 8. 验收标准
 
 - [ ] EXISTS → IN 重写正常工作
-- [ ] NOT EXISTS → NOT IN 重写正常工作
-- [ ] EXISTS → JOIN 重写正常工作
+- [ ] `NOT EXISTS -> NOT IN` 在 v1 中保持 blocked / out-of-scope
+- [ ] `EXISTS -> JOIN` 在 v1 中保持 blocked / out-of-scope
 - [ ] 安全性检查通过
 - [ ] 回放验证通过
 - [ ] 单元测试覆盖主要场景
+- [ ] 至少一条 scoped workflow harness 通过
 - [ ] 与现有系统无缝集成
 
 ---
@@ -234,6 +232,78 @@ def validate_exists_rewrite_safety(original: str, rewritten: str) -> tuple[bool,
 - `platforms/sql/materialization_constants.py`
 - `patch_families/registry.py`
 - `patch_families/specs/static_exists_rewrite.py`
+
+---
+
+## Harness Plan
+
+### Proof Obligations
+
+1. `EXISTS` rewrite stays within an explicitly approved positive-`EXISTS -> IN` safe family boundary
+2. replay closes back to the selected target SQL
+3. placeholder and correlation semantics do not drift
+4. `NOT EXISTS` and `EXISTS -> JOIN` remain blocked or out-of-scope in v1
+5. ready and blocked-neighbor cases are both locked
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove `EXISTS` detection, capability gating, and strategy selection
+- Scope: family classification, blocker logic, positive-`EXISTS` safe boundaries
+- Allowed Mocks: synthetic SQL and planner inputs are acceptable
+- Artifacts Checked: in-memory family and strategy payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture scenarios and patch/report contracts for the `EXISTS` family
+- Scope: ready case, blocked neighbors, replay and verification assertions, out-of-scope family paths
+- Allowed Mocks: synthetic validate evidence is acceptable for contract proof
+- Artifacts Checked: fixture matrix, patch artifacts, verification artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove one selected `EXISTS` example through a real workflow slice before family onboarding closes
+- Scope: one SQL key or one mapper example
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove `EXISTS` onboarding does not regress the broader fixture project
+- Scope: full patch/report workflow regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run patch, verification, and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. family readiness
+2. blocker family
+3. delivery classification
+
+### Artifacts And Diagnostics
+
+1. `pipeline/validate/acceptance.results.jsonl`
+2. `pipeline/patch_generate/patch.results.jsonl`
+3. `pipeline/verification/ledger.jsonl`
+4. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are required for family onboarding
+2. `L3` is required to prove one representative real example before onboarding closes
+3. `L4` remains the broad-regression layer
+
+### Regression Ownership
+
+1. `EXISTS` family scope changes
+2. correlation or placeholder handling changes
+3. any future widening to `NOT EXISTS` or `JOIN` paths
+4. report fields derived from the new family
 
 ---
 

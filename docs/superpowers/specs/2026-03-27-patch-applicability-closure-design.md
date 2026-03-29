@@ -284,3 +284,71 @@ This phase is complete only when all of the following are true:
 4. patch applicability decisions no longer depend on artifact-kind-specific hidden semantics
 5. thin public patch results remain intact while still exposing necessary delivery-facing identity
 6. full regression remains green
+
+## Harness Plan
+
+### Proof Obligations
+
+1. `apply-ready` means one thing across statement, fragment, and template artifacts
+2. build failure, applicability failure, and proof failure are normalized consistently
+3. artifact kind affects build identity but not hidden delivery semantics
+4. report-facing delivery stage and failure class remain stable
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove delivery verdict mapping and artifact-kind normalization logic
+- Scope: build/applicability/proof failure routing, delivery stage, failure class, thin result shaping
+- Allowed Mocks: synthetic patch artifacts are acceptable
+- Artifacts Checked: in-memory patch result payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove patch/report consumers observe one applicability contract across artifact kinds
+- Scope: fixture patch results, aggregate stats, selection reasons, delivery-stage invariants
+- Allowed Mocks: synthetic validate evidence is acceptable when proving delivery semantics
+- Artifacts Checked: patch results, verification ledger, report aggregates
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove a selected workflow slice emits the expected delivery stage and failure class on real artifacts
+- Scope: one artifact kind or one representative SQL slice at a time
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run artifacts
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove artifact-kind normalization remains stable across the broader fixture project
+- Scope: full patch/report regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run patch and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. `apply-ready`
+2. delivery stage
+3. failure class
+4. artifact-kind identity
+
+### Artifacts And Diagnostics
+
+1. `pipeline/patch_generate/patch.results.jsonl`
+2. `pipeline/verification/ledger.jsonl`
+3. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are expected for applicability-semantics changes
+2. `L3` should prove at least one real artifact path
+3. `L4` remains the broad-regression layer
+
+### Regression Ownership
+
+1. artifact-kind additions
+2. delivery verdict refactors
+3. report aggregate changes derived from applicability semantics

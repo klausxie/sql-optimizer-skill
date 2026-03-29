@@ -554,3 +554,71 @@ def create_default_engine(
 - [ ] 动态模板样例能生成真实补丁（不再全部返回 BLOCKED）
 - [ ] 新增 20+ 单元测试覆盖各个门控
 - [ ] 代码审查通过
+
+## Harness Plan
+
+### Proof Obligations
+
+1. gate ordering changes must not silently alter existing decision semantics
+2. `ReasonCode`, delivery-tier, skip, and block semantics must remain stable
+3. dynamic-template paths must enter the correct patch-build branch instead of collapsing into blocked-only outcomes
+4. the refactored engine must preserve downstream patch and report contracts
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove gate ordering, shared-context propagation, skip or continue behavior, and reason-code mapping remain stable
+- Scope: engine orchestration, gate branches, backward-compatibility wrappers, and dynamic-template decision branches
+- Allowed Mocks: synthetic gates and mocked selection or build payloads are acceptable
+- Artifacts Checked: in-memory decision contexts and decision-result payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture-matrix and downstream patch or report contracts do not drift after the engine refactor
+- Scope: fixture patch outputs, selection reasons, strategy classification, and report aggregates
+- Allowed Mocks: synthetic validate evidence is acceptable when the goal is contract proof
+- Artifacts Checked: patch artifacts, verification artifacts, and report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove a selected real workflow slice still flows through the refactored decision engine
+- Scope: one real patch workflow for a selected SQL key or family
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real-run patch, verification, and report outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove the decision-engine refactor does not break broader fixture-project regression
+- Scope: full fixture-project patch and report workflow
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full-run patch, verification, and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. `ReasonCode`
+2. delivery tier and blocker family
+3. applicability-ready and strategy classification
+
+### Artifacts And Diagnostics
+
+1. `pipeline/patch_generate/patch.results.jsonl`
+2. `pipeline/verification/ledger.jsonl`
+3. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` should cover routine validation for decision-engine refactor changes
+2. `L3` should prove at least one real workflow slice
+3. `L4` remains the slower but necessary broad-regression layer
+
+### Regression Ownership
+
+1. gate-order changes
+2. new gate onboarding
+3. dynamic-template decision paths
+4. decision-result fields consumed by downstream patch or report layers

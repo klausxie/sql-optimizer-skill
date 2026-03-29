@@ -219,3 +219,71 @@ This design keeps the project aligned with the existing product goal:
 3. explicit proof before auto-patch
 
 It expands family coverage without reopening the dangerous `dynamic subtree rewrite` problem.
+
+## Harness Plan
+
+### Proof Obligations
+
+1. only the static envelope is cleaned up while dynamic `<if>` / `<where>` behavior remains preserved
+2. `DYNAMIC_FILTER_SELECT_LIST_CLEANUP` and `DYNAMIC_FILTER_FROM_ALIAS_CLEANUP` stay narrow and distinct
+3. blocked neighbors remain blocked instead of widening to generic dynamic subtree rewrite
+4. replay, verification, and report surfaces agree on the delivered family and outcome
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove dynamic envelope classification and family-specific shape detection
+- Scope: select-list cleanup vs from-alias cleanup boundaries, preserved dynamic structure, blocker logic
+- Allowed Mocks: synthetic dynamic traces and family inputs are acceptable
+- Artifacts Checked: in-memory shape and family classification payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture scenarios, family obligations, and downstream contracts stay aligned
+- Scope: ready cases, blocked-neighbor cases, replay requirements, report summaries
+- Allowed Mocks: synthetic validate evidence may be used when proving contract alignment
+- Artifacts Checked: fixture matrix, acceptance artifacts, patch artifacts, verification artifacts, report aggregates
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove one selected dynamic filter family through a real workflow slice
+- Scope: one SQL key or one mapper slice per dynamic family
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs across validate, patch, verification, and report
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove dynamic envelope onboarding does not destabilize the broader patch portfolio
+- Scope: full fixture-project regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run outputs and report summaries
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. dynamic baseline family and delivery class should reuse production semantics
+2. blocked-neighbor classification should not drift into fixture-only logic
+
+### Artifacts And Diagnostics
+
+1. `tests/fixtures/project/fixture_scenarios.json`
+2. `pipeline/validate/acceptance.results.jsonl`
+3. `pipeline/patch_generate/patch.results.jsonl`
+4. `pipeline/verification/ledger.jsonl`
+5. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are expected for family-onboarding edits
+2. `L3` should be used before treating a dynamic family as stable
+3. `L4` remains the broad-regression governance layer
+
+### Regression Ownership
+
+1. any expansion of dynamic safe-baseline scope
+2. any change to dynamic envelope classification
+3. any report field derived from dynamic family or delivery class

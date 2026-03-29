@@ -88,6 +88,29 @@ def blocker_family_for_outcome(
     return "TEMPLATE_UNSUPPORTED"
 
 
+def blocker_family_for_patch_row(
+    patch_row: dict[str, Any] | None,
+    *,
+    semantic_gate_status: str | None = None,
+) -> str:
+    patch_payload = dict(patch_row or {})
+    strategy_type = str(patch_payload.get("strategyType") or "").strip().upper()
+    selection_code = str(((patch_payload.get("selectionReason") or {}).get("code") or "")).strip().upper()
+    gate_status = str(
+        ((patch_payload.get("gates") or {}).get("semanticEquivalenceStatus") or semantic_gate_status or "")
+    ).strip().upper()
+    if strategy_type or _patch_apply_ready(patch_payload):
+        return "READY"
+    if selection_code in {"PATCH_VALIDATION_BLOCKED_SECURITY", "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"}:
+        return "SECURITY"
+    if gate_status == "FAIL" or selection_code in {
+        "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS",
+        "PATCH_SEMANTIC_CONFIDENCE_LOW",
+    }:
+        return "SEMANTIC"
+    return "TEMPLATE_UNSUPPORTED"
+
+
 def _aggregation_profile(acceptance_row: dict[str, Any]) -> dict[str, Any]:
     aggregation = dict(((acceptance_row.get("rewriteFacts") or {}).get("aggregationQuery") or {}))
     profile = dict(aggregation.get("capabilityProfile") or {})
@@ -822,7 +845,12 @@ def build_top_actionable_sql(
                 "evidence_missing_reason": evidence_missing_reason,
                 "evidence_next_required": evidence_next_required,
                 "blocker_primary_code": blocker_primary_code,
-                "blocker_family": blocker_family_for_outcome(
+                "blocker_family": blocker_family_for_patch_row(
+                    patch_row,
+                    semantic_gate_status=semantic_gate.get("status") or "UNKNOWN",
+                )
+                if patch_row
+                else blocker_family_for_outcome(
                     delivery_status=delivery_status,
                     blocker_primary_code=blocker_primary_code,
                     semantic_gate_status=semantic_gate.get("status") or "UNKNOWN",

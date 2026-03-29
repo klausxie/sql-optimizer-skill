@@ -336,3 +336,70 @@ This refactor is complete only if all of the following are true:
 3. `patch_result` becomes the single persisted source of patch-planning truth
 4. the verification-closure behavior remains intact after decoupling
 5. new runs pass the full test suite without backward-compatibility shims for old acceptance artifacts
+
+## Harness Plan
+
+### Proof Obligations
+
+1. acceptance artifacts become validate-owned and patch-thin
+2. patch planning is recomputed in `patch_generate`, not leaked from `validate`
+3. patch, verification, and report consumers read patch-owned fields from patch artifacts instead of acceptance noise
+4. the decoupled stage boundary remains stable under fixture and workflow regression
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove thin-acceptance handling and patch-stage recomputation logic
+- Scope: missing patch-owned fields in acceptance, patch-stage derivation branches, contract shape reductions
+- Allowed Mocks: synthetic acceptance payloads are acceptable
+- Artifacts Checked: in-memory acceptance and patch payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture harnesses and downstream consumers follow the new stage ownership boundary
+- Scope: acceptance contract expectations, patch artifact expectations, verification/report handoff
+- Allowed Mocks: synthetic validate evidence is acceptable when the goal is contract decoupling proof
+- Artifacts Checked: acceptance artifacts, patch artifacts, verification artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove a selected real workflow slice runs correctly from thin acceptance inputs
+- Scope: one selected SQL key or mapper slice through validate, patch, verification, and report
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove stage decoupling remains stable across the broader fixture project
+- Scope: full patch/report workflow regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run artifacts across validate, patch, verification, and report
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. patch-owned classifications should be derived from patch artifacts, not reinterpreted from acceptance fields
+2. fixture and report consumers should avoid parallel patch-planning semantics in tests
+
+### Artifacts And Diagnostics
+
+1. `pipeline/validate/acceptance.results.jsonl`
+2. `pipeline/patch_generate/patch.results.jsonl`
+3. `pipeline/verification/ledger.jsonl`
+4. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are expected for stage-boundary refactors
+2. `L3` should prove at least one real thin-acceptance workflow slice
+3. `L4` remains the broad-regression governance layer
+
+### Regression Ownership
+
+1. acceptance contract changes
+2. patch-stage recomputation logic
+3. downstream readers that previously consumed acceptance patch fields

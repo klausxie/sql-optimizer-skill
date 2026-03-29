@@ -237,3 +237,69 @@ This phase is complete only when all of the following are true:
 4. no patch-stage module carries legacy fallback for historical patch-planning fields
 5. downstream consumers no longer depend on internal patch-planning payloads
 6. full test regression remains green
+
+## Harness Plan
+
+### Proof Obligations
+
+1. `patch_generate` owns patch planning end-to-end
+2. public `patch_result` stays thin while internal proof still works
+3. downstream report and fixture consumers function without public `patchTarget`
+4. legacy patch-planning fallbacks are removed rather than silently preserved
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove thin-result shaping and internal proof behavior remain compatible
+- Scope: patch result fields, internal patch target use, fallback removal branches
+- Allowed Mocks: synthetic patch payloads are acceptable
+- Artifacts Checked: in-memory patch outputs and proof payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove patch/report/fixture consumers still work from thin public outputs
+- Scope: fixture patch rows, verification rows, report aggregates, downstream reader expectations
+- Allowed Mocks: synthetic validate evidence is acceptable when proving patch-result contract shape
+- Artifacts Checked: patch artifacts, verification artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove a selected real workflow slice survives the patch-owned pipeline finalization
+- Scope: one selected SQL key or mapper slice
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove the finalized patch pipeline remains stable across the broader fixture project
+- Scope: full patch/report regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run patch, verification, and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. thin public delivery-facing fields should reuse production patch semantics
+2. downstream consumers should not rebuild hidden patch-planning meaning from tests alone
+
+### Artifacts And Diagnostics
+
+1. `pipeline/patch_generate/patch.results.jsonl`
+2. `pipeline/verification/ledger.jsonl`
+3. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are expected for pipeline-finalization changes
+2. `L3` should prove one real patch-owned workflow slice
+3. `L4` remains the governed broad-regression layer
+
+### Regression Ownership
+
+1. any patch-result contract change
+2. any internal/public boundary change around `patchTarget`
+3. any downstream consumer rewiring for patch artifacts

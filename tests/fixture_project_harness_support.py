@@ -11,6 +11,7 @@ from sqlopt.contracts import ContractValidator
 from sqlopt.io_utils import read_jsonl, write_jsonl
 from sqlopt.platforms.sql.validator_sql import validate_proposal
 from sqlopt.run_paths import canonical_paths
+from sqlopt.stages.report_stats import blocker_family_for_patch_row
 from sqlopt.stages.patch_generate import execute_one as execute_patch_one
 from sqlopt.stages.report_builder import build_report_artifacts
 from sqlopt.stages.report_interfaces import ReportInputs, ReportStateSnapshot
@@ -250,15 +251,7 @@ def validate_blocker_family(result: dict) -> str:
 
 
 def patch_blocker_family(patch: dict) -> str:
-    if patch.get("strategyType") or patch_apply_ready(patch):
-        return "READY"
-    reason_code = str(((patch.get("selectionReason") or {}).get("code") or "")).strip().upper()
-    if reason_code == "PATCH_VALIDATION_BLOCKED_SECURITY":
-        return "SECURITY"
-    gate_status = str(((patch.get("gates") or {}).get("semanticEquivalenceStatus") or "")).strip().upper()
-    if reason_code == "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS" or gate_status == "FAIL":
-        return "SEMANTIC"
-    return "TEMPLATE_UNSUPPORTED"
+    return blocker_family_for_patch_row(patch)
 
 
 def proposal_for_candidate(candidate_sql: str) -> dict:
@@ -391,7 +384,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
         write_jsonl(paths.scan_fragments_path, list(fragment_catalog.values()))
 
         patch_config = {
-            "project": {"root_path": str(ROOT)},
+            "project": {"root_path": str(FIXTURE_PROJECT)},
             "patch": {"llm_assist": {"enabled": False}},
             "llm": {"enabled": False},
         }

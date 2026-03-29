@@ -10,7 +10,8 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from sqlopt.application import run_service
-from sqlopt.io_utils import read_json, write_json
+from sqlopt.io_utils import read_json, read_jsonl, write_json
+from sqlopt.stages.report_stats import blocker_family_for_patch_row
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PROJECT = (ROOT / "tests" / "fixtures" / "project").resolve()
@@ -37,9 +38,15 @@ def _write_cfg(td: str, *, report_enabled: bool = True) -> Path:
     return cfg
 
 
-def _run_with_preflight_patch(config: Path, to_stage: str, run_id: str) -> tuple[str, dict]:
+def _run_with_preflight_patch(
+    config: Path,
+    to_stage: str,
+    run_id: str,
+    *,
+    selection: dict[str, object] | None = None,
+) -> tuple[str, dict]:
     with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-        return run_service.start_run(config, to_stage, run_id, repo_root=ROOT)
+        return run_service.start_run(config, to_stage, run_id, repo_root=ROOT, selection=selection)
 
 
 def _resume_with_preflight_patch(run_id: str) -> dict:
@@ -48,9 +55,16 @@ def _resume_with_preflight_patch(run_id: str) -> dict:
 
 
 class WorkflowGoldenE2ETest(unittest.TestCase):
-    def _run_until_complete(self, config: Path, run_id: str, *, to_stage: str) -> tuple[Path, int, float]:
+    def _run_until_complete(
+        self,
+        config: Path,
+        run_id: str,
+        *,
+        to_stage: str,
+        selection: dict[str, object] | None = None,
+    ) -> tuple[Path, int, float]:
         started = time.monotonic()
-        _, first = _run_with_preflight_patch(config, to_stage, run_id)
+        _, first = _run_with_preflight_patch(config, to_stage, run_id, selection=selection)
         steps = 1
         if first.get("complete"):
             return FIXTURE_PROJECT / "runs" / run_id, steps, time.monotonic() - started
@@ -194,6 +208,34 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertGreaterEqual(len(optimize_lines), sql_count)
             self.assertGreaterEqual(len(validate_lines), sql_count)
             self.assertGreaterEqual(len(patch_lines), sql_count)
+
+    def test_selected_single_sql_workflow_report_blocker_counts_match_patch_results(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_golden_single_sql_") as td:
+            cfg = _write_cfg(td, report_enabled=True)
+            run_id = f"run_golden_single_sql_{uuid4().hex[:8]}"
+            run_dir, _steps, _elapsed = self._run_until_complete(
+                cfg,
+                run_id,
+                to_stage="patch_generate",
+                selection={"sql_keys": ["demo.user.advanced.listUsersFilteredAliased#v17"]},
+            )
+            self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
+
+            report = read_json(run_dir / "overview" / "report.json")
+            patch_rows = read_jsonl(run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl")
+
+            blocker_family_counts: dict[str, int] = {}
+            patch_applicable_count = 0
+            for row in patch_rows:
+                family = blocker_family_for_patch_row(row)
+                blocker_family_counts[family] = blocker_family_counts.get(family, 0) + 1
+                delivery_stage = str(row.get("deliveryStage") or "").strip().upper()
+                if delivery_stage == "APPLY_READY" or (not delivery_stage and row.get("applicable") is True):
+                    patch_applicable_count += 1
+
+            self.assertEqual(len(patch_rows), 1)
+            self.assertEqual(((report.get("stats") or {}).get("blocker_family_counts") or {}), blocker_family_counts)
+            self.assertEqual(((report.get("stats") or {}).get("patch_applicable_count")), patch_applicable_count)
 
 
 if __name__ == "__main__":

@@ -217,3 +217,71 @@ To keep the phase closed, implementation must reject opportunistic side work:
 3. fill the verification regression matrix last
 
 This ordering keeps the base semantics stable before expanding the matrix built on top of it.
+
+## Harness Plan
+
+### Proof Obligations
+
+1. verification operates on the real generated patch artifact
+2. statement and fragment proof paths share consistent replay semantics
+3. syntax evidence is contract-driven rather than placeholder-driven
+4. verification failures are attributable to artifact, replay, or syntax layers
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove patch artifact loading, replay checks, syntax checks, and verification verdict mapping
+- Scope: artifact mismatch, replay drift, syntax failures, verdict composition
+- Allowed Mocks: synthetic patch and proof payloads are acceptable
+- Artifacts Checked: in-memory verification records and patch proof payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove verification ledger and summary semantics align with patch and report artifacts
+- Scope: fixture patch verification outcomes, ledger fields, report summary expectations
+- Allowed Mocks: synthetic validate evidence is acceptable when the goal is verification contract proof
+- Artifacts Checked: verification ledger, verification summary, patch artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove one selected real workflow slice produces correct verification artifacts
+- Scope: one selected SQL key or mapper slice
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run verification and patch outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove verification closure remains stable across the broader fixture project
+- Scope: full verification and report regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run verification summaries and related report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. verification status mapping
+2. reason-code attribution
+3. artifact, replay, and syntax layer failure classification
+
+### Artifacts And Diagnostics
+
+1. `pipeline/verification/ledger.jsonl`
+2. `pipeline/verification/summary.json`
+3. `pipeline/patch_generate/patch.results.jsonl`
+4. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are expected for verification-path changes
+2. `L3` should prove at least one real verification workflow slice
+3. `L4` remains the broader governance layer
+
+### Regression Ownership
+
+1. patch verification logic
+2. verification ledger or summary contract changes
+3. report readers that consume verification outcomes

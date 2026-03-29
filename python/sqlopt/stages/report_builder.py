@@ -48,6 +48,7 @@ from .report_stats import (
     build_prioritized_sql_keys,
     build_proposal_rows,
     build_sql_rows,
+    blocker_family_for_patch_row,
     build_top_blockers,
     compute_release_readiness,
     compute_verdict,
@@ -572,10 +573,17 @@ def build_report_artifacts(
         limit=None,
     )
     blocker_family_counts = {}
-    for row in all_sql_outcomes:
-        family = str(row.get("blocker_family") or "").strip().upper()
-        if family:
-            blocker_family_counts[family] = blocker_family_counts.get(family, 0) + 1
+    blocker_family_rows = inputs.patches if inputs.patches else all_sql_outcomes
+    if inputs.patches:
+        for row in blocker_family_rows:
+            family = blocker_family_for_patch_row(row)
+            if family:
+                blocker_family_counts[family] = blocker_family_counts.get(family, 0) + 1
+    else:
+        for row in blocker_family_rows:
+            family = str(row.get("blocker_family") or "").strip().upper()
+            if family:
+                blocker_family_counts[family] = blocker_family_counts.get(family, 0) + 1
     stats["blocker_family_counts"] = blocker_family_counts
     stats["top_actionable_sql"] = all_sql_outcomes[:10]
     sql_artifact_rows = _build_sql_artifact_rows(

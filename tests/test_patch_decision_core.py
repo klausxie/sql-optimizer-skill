@@ -8,6 +8,7 @@ from unittest.mock import Mock, MagicMock
 
 from sqlopt.stages.patch_decision import (
     GateContext,
+    Gate,
     GateResult,
     GateResultStatus,
     ReasonCode,
@@ -16,6 +17,8 @@ from sqlopt.stages.patch_decision import (
     extract_fallback_reason_codes,
     build_selection_evidence,
     PatchDecisionContext,
+    PatchDecisionEngine,
+    EngineConfig,
 )
 
 
@@ -215,3 +218,119 @@ class TestPatchDecisionContext:
             candidates_evaluated=2
         )
         assert not ctx2.has_single_pass_candidate
+
+
+class _RecorderGate(Gate[dict]):
+    def __init__(self, name: str, order: int, callback):
+        super().__init__(name=name, order=order)
+        self._callback = callback
+
+    def execute(self, ctx: GateContext) -> GateResult[dict]:
+        return self._callback(ctx)
+
+
+class TestPatchDecisionEngine:
+    def _ctx(self) -> GateContext:
+        selection = Mock()
+        selection.semantic_gate_status = "PASS"
+        selection.semantic_gate_confidence = "HIGH"
+        selection.selected_candidate_id = "c1"
+        return GateContext(
+            sql_unit={"sqlKey": "demo.user.find#v1"},
+            acceptance={"status": "PASS"},
+            selection=selection,
+            build=Mock(),
+            run_dir=Path("/tmp"),
+            acceptance_rows=[{"sqlKey": "demo.user.find#v1", "status": "PASS"}],
+            project_root=Path("/tmp"),
+            statement_key_fn=lambda sql_key: sql_key.split("#")[0],
+        )
+
+    def test_engine_executes_gates_in_order_and_propagates_pass_data(self):
+        call_order = []
+
+        def later_gate(ctx: GateContext) -> GateResult[dict]:
+            call_order.append(("later", ctx.context.get("token")))
+            return GateResult(status=GateResultStatus.PASS)
+
+        def earlier_gate(_ctx: GateContext) -> GateResult[dict]:
+            call_order.append(("earlier", None))
+            return GateResult(
+                status=GateResultStatus.PASS,
+                data={"token": "from-earlier"},
+            )
+
+        engine = PatchDecisionEngine()
+        engine.register(_RecorderGate("later", 20, later_gate))
+        engine.register(_RecorderGate("earlier", 10, earlier_gate))
+
+        patch_result, decision_ctx = engine.execute(self._ctx())
+
+        assert call_order == [("earlier", None), ("later", "from-earlier")]
+        assert patch_result["status"] == "NEED_DEFAULT_BUILD"
+        assert decision_ctx.candidates_evaluated == 1
+
+    def test_engine_stops_on_first_skip_and_builds_skip_payload(self):
+        call_order = []
+
+        def first_gate(_ctx: GateContext) -> GateResult[dict]:
+            call_order.append("first")
+            return GateResult(
+                status=GateResultStatus.SKIP,
+                reason_code="PATCH_NO_EFFECTIVE_CHANGE",
+                reason_message="no effective change",
+                context={
+                    "selection_evidence": {"acceptanceStatus": "PASS"},
+                    "fallback_reason_codes": ["VALIDATE_DB_UNREACHABLE"],
+                },
+            )
+
+        def never_gate(_ctx: GateContext) -> GateResult[dict]:
+            call_order.append("never")
+            return GateResult(status=GateResultStatus.PASS)
+
+        engine = PatchDecisionEngine()
+        engine.register(_RecorderGate("first", 10, first_gate))
+        engine.register(_RecorderGate("never", 20, never_gate))
+
+        patch_result, _decision_ctx = engine.execute(self._ctx())
+
+        assert call_order == ["first"]
+        assert patch_result["selectionReason"]["code"] == "PATCH_NO_EFFECTIVE_CHANGE"
+        assert patch_result["selectionEvidence"] == {"acceptanceStatus": "PASS"}
+        assert patch_result["fallbackReasonCodes"] == ["VALIDATE_DB_UNREACHABLE"]
+        assert patch_result["deliveryOutcome"]["tier"] == DeliveryTier.BLOCKED.value
+
+    def test_engine_can_continue_past_skip_when_config_allows_it(self):
+        call_order = []
+
+        def skip_gate(_ctx: GateContext) -> GateResult[dict]:
+            call_order.append("skip")
+            return GateResult(
+                status=GateResultStatus.SKIP,
+                reason_code="PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+                reason_message="needs template-aware rewrite",
+            )
+
+        def build_gate(ctx: GateContext) -> GateResult[dict]:
+            call_order.append("build")
+            return GateResult(
+                status=GateResultStatus.PASS,
+                data={
+                    "patch_text": "@@ -1 +1 @@\n-SELECT *\n+SELECT id\n",
+                    "changed_lines": 1,
+                    "artifact_kind": "STATEMENT",
+                    "patch_file": "/tmp/demo.patch",
+                },
+                context={"strategy": "EXACT_TEMPLATE_EDIT"},
+            )
+
+        engine = PatchDecisionEngine(config=EngineConfig(stop_on_first_skip=False))
+        engine.register(_RecorderGate("skip", 10, skip_gate))
+        engine.register(_RecorderGate("build", 20, build_gate))
+
+        patch_result, _decision_ctx = engine.execute(self._ctx())
+
+        assert call_order == ["skip", "build"]
+        assert patch_result["strategyType"] == "EXACT_TEMPLATE_EDIT"
+        assert patch_result["patchFiles"] == ["/tmp/demo.patch"]

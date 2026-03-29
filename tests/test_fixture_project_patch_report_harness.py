@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 from .fixture_project_harness_support import (
+    FIXTURE_PROJECT,
     fixture_registered_families,
     patch_apply_ready,
     patch_blocker_family,
@@ -175,11 +178,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(stats["dollar_substitution_count"], expected_security_count)
         self.assertEqual(stats["wrapper_collapse_recovered_count"], expected_wrapper_count)
         self.assertEqual(stats["blocked_sql_count"], expected_blocked_sql_count)
-        # NOTE: blocker_family_counts comparison skipped due to different calculation logic:
-        # - Test uses patch_blocker_family() which checks patch.applyable/deliveryStage
-        # - Report uses blocker_family_for_outcome() which checks delivery_status from outcome
-        # Individual scenario tests (line 87) already verify patch blocker family matches expected
-        # self.assertEqual(stats["blocker_family_counts"], dict(expected_family_counts))
+        self.assertEqual(stats["blocker_family_counts"], dict(expected_family_counts))
         self.assertEqual(stats["aggregation_shape_counts"], dict(expected_aggregation_shape_counts))
         self.assertEqual(stats["aggregation_constraint_counts"], dict(expected_aggregation_constraint_counts))
         self.assertEqual(stats["aggregation_safe_baseline_counts"], dict(expected_aggregation_safe_baseline_counts))
@@ -271,6 +270,24 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             sql_rows["demo.order.harness.findOrdersByNos#v1"]["dynamic_blocking_reason"],
             "FOREACH_INCLUDE_PREDICATE",
         )
+
+    def test_fixture_patch_harness_uses_fixture_project_as_apply_check_root(self) -> None:
+        seen_cwds: list[Path] = []
+
+        def _completed_process(*_args: object, **kwargs: object):
+            cwd = kwargs.get("cwd")
+            if cwd is not None:
+                seen_cwds.append(Path(str(cwd)).resolve())
+            from subprocess import CompletedProcess
+
+            return CompletedProcess(args=["git"], returncode=0, stdout="", stderr="")
+
+        with patch("sqlopt.stages.patch_generate.subprocess.run", side_effect=_completed_process):
+            _scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
+
+        self.assertTrue(any(patch_apply_ready(row) for row in patches))
+        self.assertTrue(seen_cwds)
+        self.assertEqual(set(seen_cwds), {FIXTURE_PROJECT.resolve()})
 
 
 if __name__ == "__main__":

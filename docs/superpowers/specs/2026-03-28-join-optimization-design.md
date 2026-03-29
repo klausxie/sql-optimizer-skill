@@ -338,3 +338,71 @@ class JoinAnalyzer:
 - [ ] JOIN 复杂度的具体阈值？如最大表数量？
 - [ ] 是否需要支持跨数据库的 JOIN 优化差异？
 - [ ] 如何处理动态模板中的 JOIN？
+
+## Harness Plan
+
+### Proof Obligations
+
+1. each JOIN family has an explicit safe boundary rather than a generic "join optimization" promise
+2. semantic safety and patchability are proven separately for each family
+3. ready cases and blocked neighbors are both represented
+4. report and verification surfaces can attribute JOIN-family outcomes correctly
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove JOIN detectors, family classification, and capability gating
+- Scope: LEFT→INNER, elimination, reordering, consolidation boundaries
+- Allowed Mocks: synthetic SQL analysis inputs are acceptable
+- Artifacts Checked: in-memory analysis and strategy payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture scenarios and downstream contracts for JOIN families
+- Scope: ready cases, blocked neighbors, replay and verification expectations, report aggregates
+- Allowed Mocks: synthetic validate evidence is acceptable when proving contract alignment
+- Artifacts Checked: fixture matrix, acceptance artifacts, patch artifacts, verification artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove one selected JOIN family through a real workflow slice
+- Scope: one SQL key or one mapper example per delivered family
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove JOIN-family onboarding does not regress the broader fixture project
+- Scope: full patch/report workflow regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run patch, verification, and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. family identity
+2. blocker family
+3. delivery readiness and outcome classification
+
+### Artifacts And Diagnostics
+
+1. `pipeline/validate/acceptance.results.jsonl`
+2. `pipeline/patch_generate/patch.results.jsonl`
+3. `pipeline/verification/ledger.jsonl`
+4. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are required before any JOIN family is considered delivered
+2. `L3` should prove at least one real workflow slice per delivered JOIN family
+3. `L4` remains the broader governance layer
+
+### Regression Ownership
+
+1. JOIN family scope changes
+2. JOIN detector or planner changes
+3. report fields derived from JOIN-family delivery outcomes

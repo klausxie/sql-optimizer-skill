@@ -336,4 +336,74 @@ RegisteredPatchStrategy(
 
 ---
 
+## Harness Plan
+
+### Proof Obligations
+
+1. UNION collapse stays within an explicitly approved safe family boundary
+2. replay closes back to the selected target SQL
+3. wrapper removal does not drift ordering, placeholders, or branch structure
+4. ready and blocked-neighbor cases are both locked
+
+### Harness Layers
+
+#### L1 Unit Harness
+
+- Goal: prove UNION wrapper detection, capability gating, and strategy selection
+- Scope: wrapper shape, branch preservation, blocker logic
+- Allowed Mocks: synthetic SQL and planner inputs are acceptable
+- Artifacts Checked: in-memory family and strategy payloads
+- Budget: fast PR-safe runtime
+
+#### L2 Fixture / Contract Harness
+
+- Goal: prove fixture scenarios and patch/report contracts for the UNION family
+- Scope: ready case, blocked neighbors, replay and verification assertions
+- Allowed Mocks: synthetic validate evidence is acceptable for contract proof
+- Artifacts Checked: fixture matrix, patch artifacts, verification artifacts, report outputs
+- Budget: moderate PR-safe runtime
+
+#### L3 Scoped Workflow Harness
+
+- Goal: prove one selected UNION example through a real workflow slice
+- Scope: one SQL key or one mapper example
+- Allowed Mocks: infrastructure-availability patches only
+- Artifacts Checked: selected real run outputs
+- Budget: targeted workflow runtime
+
+#### L4 Full Workflow Harness
+
+- Goal: prove UNION onboarding does not regress the broader fixture project
+- Scope: full patch/report workflow regression
+- Allowed Mocks: only workflow-stability patches that preserve patch semantics
+- Artifacts Checked: full run patch, verification, and report outputs
+- Budget: separately governed broader regression lane
+
+### Shared Classification Logic
+
+1. family readiness
+2. blocker family
+3. delivery classification
+
+### Artifacts And Diagnostics
+
+1. `pipeline/validate/acceptance.results.jsonl`
+2. `pipeline/patch_generate/patch.results.jsonl`
+3. `pipeline/verification/ledger.jsonl`
+4. `overview/report.json`
+
+### Execution Budget
+
+1. `L1` and `L2` are required for family onboarding
+2. `L3` should prove one representative real example
+3. `L4` remains the broad-regression layer
+
+### Regression Ownership
+
+1. UNION family scope changes
+2. wrapper-preservation logic changes
+3. report fields derived from the new family
+
+---
+
 **设计批准日期**: 2026-03-28
