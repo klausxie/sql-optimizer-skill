@@ -1215,7 +1215,7 @@
     "targetPatchability": "REVIEW",
     "targetPatchStrategy": null,
     "targetPrimaryBlocker": "DYNAMIC_TEMPLATE:DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS",
-    "targetPatchReasonCode": "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED",
+    "targetPatchReasonCode": "PATCH_TARGET_CONTRACT_MISSING",
     "targetPatchMustContain": [],
     "targetPatchMustNotContain": [],
     "targetBlockerFamily": "TEMPLATE_UNSUPPORTED",

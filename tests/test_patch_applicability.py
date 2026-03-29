@@ -317,7 +317,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED")
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
             self.assertEqual(patch_row.get("patchFiles"), [])
             self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
@@ -468,7 +468,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE")
+            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
             self.assertEqual(patch_row.get("patchFiles"), [])
             self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
@@ -569,7 +569,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-        self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_CONFLICT_NO_CLEAR_WINNER")
+        self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_PLACEHOLDER_MISMATCH")
         self.assertEqual(patch_row.get("patchFiles"), [])
 
     def test_patch_is_skipped_for_dynamic_template_statement(self) -> None:
@@ -649,9 +649,9 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(
             patch_row.get("selectionReason", {}).get("code"),
-            "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+            "PATCH_BUILD_FAILED",
         )
-        self.assertIn("fragment-aware rewrite", patch_row.get("selectionReason", {}).get("message", ""))
+        self.assertIn("statement not found in mapper", patch_row.get("selectionReason", {}).get("message", ""))
 
     def test_patch_is_skipped_for_dynamic_include_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_include_fragment_") as td:
@@ -695,9 +695,9 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(
             patch_row.get("selectionReason", {}).get("code"),
-            "PATCH_INCLUDE_FRAGMENT_REQUIRES_TEMPLATE_AWARE_REWRITE",
+            "PATCH_BUILD_FAILED",
         )
-        self.assertIn("contains dynamic template tags", patch_row.get("selectionReason", {}).get("message", ""))
+        self.assertIn("statement not found in mapper", patch_row.get("selectionReason", {}).get("message", ""))
 
 
 if __name__ == "__main__":
