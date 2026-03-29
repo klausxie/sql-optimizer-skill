@@ -30,8 +30,8 @@ from .engine import (
 
 from .compat import decide_patch_result
 
-# 重新导出旧 patch_decision_helpers.py 中的辅助函数（保持向后兼容）
-from sqlopt.stages.patch_decision_helpers import (
+# Helper functions (inlined from patch_decision_helpers.py)
+from .helpers import (
     attach_patch_diagnostics,
     build_patch_repair_hints,
     should_call_llm_assist,

@@ -1,9 +1,16 @@
+"""
+Helper functions for patch decision module.
+
+Inlined from patch_decision_helpers.py
+"""
+
 from __future__ import annotations
 
 from typing import Any
 
-from .patch_build import PatchBuildResult
-from .patch_select import PatchSelectionContext
+# Import from sibling modules (within stages package)
+from ..patch_build import PatchBuildResult
+from ..patch_select import PatchSelectionContext
 
 BUILD_FAILURE_REASON_CODES = {
     "PATCH_LOCATOR_AMBIGUOUS",
