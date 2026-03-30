@@ -134,13 +134,7 @@ class BranchExpander:
                 fragments=self.fragments,
                 default_namespace=default_namespace,
             )
-            tmp_gen = BranchGenerator(
-                strategy=self.strategy,
-                max_branches=self.max_branches,
-                table_metadata=self.table_metadata,
-                field_distributions=self.field_distributions,
-            )
-            cond_count = len(tmp_gen._collect_if_nodes(sql_node))
+            cond_count = BranchGenerator.count_if_nodes(sql_node)
             max_br, adaptive_strategy = adaptive_max_branches(cond_count)
             if max_branches_override is not None:
                 effective_max = max_branches_override

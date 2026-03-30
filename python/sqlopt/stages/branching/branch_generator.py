@@ -99,12 +99,14 @@ class BranchGenerator:
             - sql: The generated SQL string
         """
         conditions = self._collect_conditions(sql_node)
-        valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
-        theoretical_branches = len(valid_combinations)
 
         if self.strategy == "ladder":
+            # Ladder uses dimension-based planning - no need for full enumeration
+            theoretical_branches = 2 ** len(conditions)  # Estimate: each condition can be on/off
             selected_combinations = self._plan_ladder_condition_combinations(sql_node)
         else:
+            valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
+            theoretical_branches = len(valid_combinations)
             selected_combinations = self._select_condition_combinations(
                 valid_combinations,
                 conditions,
@@ -850,6 +852,68 @@ class BranchGenerator:
         if isinstance(sql_node, ChooseSqlNode):
             for when_node in sql_node.if_sql_nodes:
                 self._collect_if_nodes_recursive(when_node, if_nodes)
+            return
+
+    @staticmethod
+    def count_if_nodes(sql_node: SqlNode) -> int:
+        """Count IfSqlNode instances without creating a BranchGenerator.
+
+        Args:
+            sql_node: Root SqlNode.
+
+        Returns:
+            Number of IfSqlNode instances found.
+        """
+        if_nodes: dict = {}
+        BranchGenerator._collect_if_nodes_static(sql_node, if_nodes)
+        return len(if_nodes)
+
+    @staticmethod
+    def _collect_if_nodes_static(sql_node: SqlNode, if_nodes: dict) -> None:
+        """Recursively collect IfSqlNode instances (static version)."""
+        from sqlopt.stages.branching.sql_node import (
+            IfSqlNode,
+            MixedSqlNode,
+            ChooseSqlNode,
+            TrimSqlNode,
+            WhereSqlNode,
+            SetSqlNode,
+            ForEachSqlNode,
+            IncludeSqlNode,
+        )
+
+        if isinstance(sql_node, IfSqlNode):
+            if sql_node.test:
+                if_nodes[sql_node.test] = sql_node
+            if sql_node.contents:
+                BranchGenerator._collect_if_nodes_static(sql_node.contents, if_nodes)
+            return
+
+        if isinstance(sql_node, IncludeSqlNode):
+            if sql_node.fragment_registry:
+                fragment = sql_node.fragment_registry.lookup(sql_node.refid)
+                if fragment:
+                    BranchGenerator._collect_if_nodes_static(fragment, if_nodes)
+            return
+
+        if isinstance(sql_node, MixedSqlNode):
+            for child in sql_node.contents:
+                BranchGenerator._collect_if_nodes_static(child, if_nodes)
+            return
+
+        if isinstance(sql_node, (TrimSqlNode, WhereSqlNode, SetSqlNode)):
+            if sql_node.contents:
+                BranchGenerator._collect_if_nodes_static(sql_node.contents, if_nodes)
+            return
+
+        if isinstance(sql_node, ForEachSqlNode):
+            if sql_node.contents:
+                BranchGenerator._collect_if_nodes_static(sql_node.contents, if_nodes)
+            return
+
+        if isinstance(sql_node, ChooseSqlNode):
+            for when_node in sql_node.if_sql_nodes:
+                BranchGenerator._collect_if_nodes_static(when_node, if_nodes)
             return
 
     def _create_filtered_sql_node(
