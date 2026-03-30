@@ -109,39 +109,169 @@ DARK_THEME = """
 
 BASE_JS = """
 <script>
-function initSortableBranches() {
-    document.querySelectorAll('.card[data-sortable]').forEach(card => {
-        card.querySelectorAll('.sort-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const sortKey = this.dataset.sort;
-                const isAsc = this.classList.contains('asc');
-                const newAsc = !isAsc;
-                const container = card.querySelector('.branch-list');
-                const branches = Array.from(container.querySelectorAll('.branch-detail'));
-                branches.sort((a, b) => {
-                    let aVal, bVal;
-                    if (sortKey === 'risk') {
-                        aVal = parseFloat(a.dataset.riskScore) || 0;
-                        bVal = parseFloat(b.dataset.riskScore) || 0;
-                    } else if (sortKey === 'path') {
-                        aVal = a.dataset.pathId || '';
-                        bVal = b.dataset.pathId || '';
-                    }
-                    if (sortKey === 'risk') {
-                        return newAsc ? aVal - bVal : bVal - aVal;
-                    }
-                    return newAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                });
-                card.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('asc', 'desc'));
-                this.classList.add(newAsc ? 'asc' : 'desc');
-                branches.forEach(b => container.appendChild(b));
+function initSortableBranches(card) {
+    card.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const sortKey = this.dataset.sort;
+            const isAsc = this.classList.contains('asc');
+            const newAsc = !isAsc;
+            const container = card.querySelector('.branch-list');
+            if (!container) return;
+            const branches = Array.from(container.querySelectorAll('.branch-detail'));
+            branches.sort((a, b) => {
+                let aVal, bVal;
+                if (sortKey === 'risk') {
+                    aVal = parseFloat(a.dataset.riskScore) || 0;
+                    bVal = parseFloat(b.dataset.riskScore) || 0;
+                } else if (sortKey === 'path') {
+                    aVal = a.dataset.pathId || '';
+                    bVal = b.dataset.pathId || '';
+                }
+                if (sortKey === 'risk') {
+                    return newAsc ? aVal - bVal : bVal - aVal;
+                }
+                return newAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
             });
+            card.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('asc', 'desc'));
+            this.classList.add(newAsc ? 'asc' : 'desc');
+            branches.forEach(b => container.appendChild(b));
         });
     });
 }
 
+function getRiskLevel(score) {
+    if (score === null || score === undefined) return { level: 'unknown', badgeClass: '' };
+    if (score >= 0.7) return { level: 'high', badgeClass: 'badge-high' };
+    if (score >= 0.4) return { level: 'medium', badgeClass: 'badge-medium' };
+    return { level: 'low', badgeClass: 'badge-low' };
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderBranches(unitCard) {
+    const unitBody = unitCard.querySelector('.unit-body');
+    const branchList = unitCard.querySelector('.branch-list');
+    if (!branchList || branchList.dataset.loaded === 'true') return;
+
+    const jsonPath = unitCard.dataset.jsonPath;
+    if (!jsonPath) return;
+
+    branchList.innerHTML = '<div style="color: #94a3b8; padding: 1rem; text-align: center;">加载中...</div>';
+
+    fetch(jsonPath)
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            const branches = data.branches || [];
+            const theoretical = data.theoretical_branches || 1;
+            const actual = branches.length;
+
+            // Sort by risk_score descending
+            branches.sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+
+            // Calculate risk counts
+            let highCount = 0, medCount = 0, lowCount = 0;
+            branches.forEach(b => {
+                const s = b.risk_score || 0;
+                if (s >= 0.7) highCount++;
+                else if (s >= 0.4) medCount++;
+                else lowCount++;
+            });
+
+            // Update filter info
+            const filterInfo = unitBody.querySelector('.filter-info');
+            if (filterInfo) {
+                filterInfo.innerHTML =
+                    '<strong style="color: #e2e8f0;">筛选依据:</strong> risk scoring based on score_reasons and risk_flags; ' +
+                    'high-risk(' + highCount + ') kept first, medium/low sorted by score within limit. ' +
+                    'Branches sorted by risk_score descending.';
+            }
+
+            // Update progress bar
+            const progressBar = unitBody.querySelector('.progress-bar');
+            if (progressBar) {
+                const total = Math.max(actual, 1);
+                progressBar.innerHTML =
+                    '<div class="progress-fill high" style="width: ' + (highCount / total * 100) + '%"></div>' +
+                    '<div class="progress-fill medium" style="width: ' + (medCount / total * 100) + '%"></div>' +
+                    '<div class="progress-fill low" style="width: ' + (lowCount / total * 100) + '%"></div>';
+            }
+
+            // Render branches
+            let html = '';
+            branches.forEach(b => {
+                const risk = getRiskLevel(b.risk_score);
+                const scoreStr = b.risk_score !== null && b.risk_score !== undefined ? b.risk_score.toFixed(2) : '-';
+                const riskScoreVal = b.risk_score !== null && b.risk_score !== undefined ? b.risk_score : '0';
+                const safeSql = escapeHtml(b.expanded_sql || '');
+                const sqlPreview = safeSql.length > 100 ? safeSql.substring(0, 100) + '...' : safeSql;
+                const safePathId = escapeHtml(b.path_id || '');
+                const safeCond = escapeHtml(b.condition || '');
+                const branchType = b.branch_type || (b.active_conditions && b.active_conditions.length > 0 ? '动态' : '静态');
+
+                html += '<div class="branch-detail" data-risk-score="' + riskScoreVal + '" data-path-id="' + safePathId + '">';
+                html += '<div class="branch-detail-header">';
+                html += '<span><span class="branch-path">' + safePathId + '</span> ';
+                html += '<span class="badge ' + risk.badgeClass + '">' + risk.level.toUpperCase() + '</span> ';
+                html += '<span style="color: #94a3b8;">' + scoreStr + '</span></span>';
+                html += '<span class="badge badge-info">' + escapeHtml(branchType) + '</span>';
+                html += '</div>';
+
+                if (b.condition) {
+                    html += '<div class="branch-condition">条件: ' + (safeCond.length > 80 ? safeCond.substring(0, 80) + '...' : safeCond) + '</div>';
+                }
+
+                // Risk flags
+                if (b.risk_flags && b.risk_flags.length > 0) {
+                    html += '<div style="margin-top: 0.5rem;">';
+                    b.risk_flags.forEach(f => {
+                        const fc = risk.level === 'high' ? 'high' : risk.level === 'medium' ? 'medium' : '';
+                        html += '<span class="reason-tag ' + fc + '">' + escapeHtml(f) + '</span>';
+                    });
+                    html += '</div>';
+                }
+
+                // Score reasons
+                if (b.score_reasons && b.score_reasons.length > 0) {
+                    html += '<div class="branch-reasons">';
+                    b.score_reasons.forEach(r => {
+                        html += '<span class="reason-tag">' + escapeHtml(r) + '</span>';
+                    });
+                    html += '</div>';
+                }
+
+                html += '<div class="sql-preview" title="' + safeSql + '">' + sqlPreview + '</div>';
+                html += '</div>';
+            });
+
+            branchList.innerHTML = html;
+            branchList.dataset.loaded = 'true';
+            initSortableBranches(unitCard);
+        })
+        .catch(err => {
+            branchList.innerHTML = '<div style="color: #dc2626; padding: 1rem;">加载失败: ' + escapeHtml(err.message) + '</div>';
+        });
+}
+
+function toggleUnit(header) {
+    const card = header.closest('.collapsible-unit');
+    if (!card) return;
+    const wasExpanded = card.classList.contains('expanded');
+    card.classList.toggle('expanded');
+    if (!wasExpanded) {
+        renderBranches(card);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    initSortableBranches();
+    // Sort buttons on non-lazy cards (recognition/optimize tables)
+    document.querySelectorAll('.card[data-sortable]').forEach(initSortableBranches);
 });
 </script>
 """
@@ -251,16 +381,18 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         theoretical = unit.theoretical_branches if unit.theoretical_branches > 0 else 1
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
-        unit_low = sum(1 for b in unit.branches if b.risk_score is not None and b.risk_score < 0.4)
 
         # Determine strategy based on branch count
         strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
 
+        safe_unit_id = html_escape.escape(unit.sql_unit_id)
+        json_path = f"units/{unit.sql_unit_id}.json"
+
         html += f"""
-    <div class="card collapsible-unit" data-sortable>
-        <div class="unit-header" onclick="this.parentElement.classList.toggle('expanded')">
+    <div class="card collapsible-unit" data-sortable data-unit-id="{safe_unit_id}" data-json-path="{json_path}">
+        <div class="unit-header" onclick="toggleUnit(this)">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;"><span class="collapse-icon">▶</span> <code>{unit.sql_unit_id}</code></h3>
+                <h3 style="margin: 0;"><span class="collapse-icon">▶</span> <code>{safe_unit_id}</code></h3>
                 <div onclick="event.stopPropagation()">
                     <span class="strategy-tag">{strategy}</span>
                     <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
@@ -291,68 +423,9 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             </div>
         </div>
         <div class="unit-body">
-        <div style="margin-top: 0.5rem; padding: 0.5rem; background: #1e293b; border-radius: 0.375rem; font-size: 0.75rem; color: #94a3b8;">
-            <strong style="color: #e2e8f0;">筛选依据:</strong> risk scoring based on score_reasons and risk_flags;
-            high-risk({unit_high}) kept first, medium/low sorted by score within limit.
-            Branches sorted by risk_score descending.
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill high" style="width: {unit_high / max(len(unit.branches), 1) * 100}%"></div>
-            <div class="progress-fill medium" style="width: {unit_medium / max(len(unit.branches), 1) * 100}%"></div>
-            <div class="progress-fill low" style="width: {unit_low / max(len(unit.branches), 1) * 100}%"></div>
-        </div>
-        <div class="branch-list">
-"""
-
-        # Sort branches by risk score descending
-        sorted_branches = sorted(unit.branches, key=lambda b: b.risk_score or 0, reverse=True)
-
-        for b in sorted_branches:
-            risk_level, badge_class = _get_risk_level(b.risk_score)
-            score_str = f"{b.risk_score:.2f}" if b.risk_score is not None else "-"
-            risk_score_val = b.risk_score if b.risk_score is not None else "0"
-
-            # Risk flags as tags (escape content)
-            flags_html = ""
-            for f in b.risk_flags:
-                flag_class = "high" if risk_level == "high" else "medium" if risk_level == "medium" else ""
-                flags_html += f'<span class="reason-tag {flag_class}">{html_escape.escape(f)}</span>'
-
-            # Score reasons as tags (escape content)
-            reasons_html = ""
-            for r in b.score_reasons or []:
-                reasons_html += f'<span class="reason-tag">{html_escape.escape(r)}</span>'
-
-            # SQL preview (escape for both title attribute and display)
-            safe_sql = html_escape.escape(b.expanded_sql)
-            sql_preview = safe_sql[:100] + "..." if len(safe_sql) > 100 else safe_sql
-
-            html += f"""
-        <div class="branch-detail" data-risk-score="{risk_score_val}" data-path-id="{html_escape.escape(b.path_id)}">
-            <div class="branch-detail-header">
-                <span><span class="branch-path">{html_escape.escape(b.path_id)}</span> <span class="badge {badge_class}">{risk_level.upper()}</span> <span style="color: #94a3b8;">{score_str}</span></span>
-                <span class="badge badge-info">{b.branch_type or ("动态" if b.active_conditions else "静态")}</span>
+            <div class="branch-list" data-loaded="false">
+                <div style="color: #64748b; padding: 0.5rem; font-style: italic;">点击展开加载分支详情...</div>
             </div>
-"""
-
-            if b.condition:
-                safe_cond = html_escape.escape(b.condition)
-                html += f"""            <div class="branch-condition">条件: {safe_cond[:80]}{"..." if len(safe_cond) > 80 else ""}</div>
-"""
-
-            if flags_html:
-                html += f"""            <div style="margin-top: 0.5rem;">{flags_html}</div>
-"""
-
-            if reasons_html:
-                html += f"""            <div class="branch-reasons">{reasons_html}</div>
-"""
-
-            html += f"""            <div class="sql-preview" title="{safe_sql}">{sql_preview}</div>
-        </div>
-"""
-
-        html += """        </div>
         </div>
     </div>
 """
