@@ -98,6 +98,12 @@ DARK_THEME = """
     .sort-btn:hover { background: #475569; color: #e2e8f0; }
     .sort-btn.asc, .sort-btn.desc { background: #3b82f6; color: white; }
     .branch-list { margin-top: 0.5rem; }
+    .collapsible-unit .unit-body { display: none; }
+    .collapsible-unit.expanded .unit-body { display: block; }
+    .unit-header { cursor: pointer; padding: 0.25rem; }
+    .unit-header:hover { background: #33415540; border-radius: 0.375rem; }
+    .collapse-icon { display: inline-block; transition: transform 0.2s; font-size: 0.75rem; color: #64748b; margin-right: 0.25rem; }
+    .collapsible-unit.expanded .collapse-icon { transform: rotate(90deg); }
 </style>
 """
 
@@ -251,37 +257,40 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
 
         html += f"""
-    <div class="card" data-sortable>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0;"><code>{unit.sql_unit_id}</code></h3>
-            <div>
-                <span class="strategy-tag">{strategy}</span>
-                <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
-                <span class="sort-btn" data-sort="path" title="按路径排序">路径↓</span>
+    <div class="card collapsible-unit" data-sortable>
+        <div class="unit-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;"><span class="collapse-icon">▶</span> <code>{unit.sql_unit_id}</code></h3>
+                <div onclick="event.stopPropagation()">
+                    <span class="strategy-tag">{strategy}</span>
+                    <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
+                    <span class="sort-btn" data-sort="path" title="按路径排序">路径↓</span>
+                </div>
+            </div>
+            <div class="metric-pair">
+                <div class="metric">
+                    <div class="metric-value">{theoretical}</div>
+                    <div class="metric-label">理论分支</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{len(unit.branches)}</div>
+                    <div class="metric-label">实际分支</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{int(len(unit.branches) / max(theoretical, 1) * 100)}%</div>
+                    <div class="metric-label">覆盖率</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #dc2626;">{unit_high}</div>
+                    <div class="metric-label">高风险</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #f59e0b;">{unit_medium}</div>
+                    <div class="metric-label">中风险</div>
+                </div>
             </div>
         </div>
-        <div class="metric-pair">
-            <div class="metric">
-                <div class="metric-value">{theoretical}</div>
-                <div class="metric-label">理论分支</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value">{len(unit.branches)}</div>
-                <div class="metric-label">实际分支</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value">{int(len(unit.branches) / max(theoretical, 1) * 100)}%</div>
-                <div class="metric-label">覆盖率</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value" style="color: #dc2626;">{unit_high}</div>
-                <div class="metric-label">高风险</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value" style="color: #f59e0b;">{unit_medium}</div>
-                <div class="metric-label">中风险</div>
-            </div>
-        </div>
+        <div class="unit-body">
         <div style="margin-top: 0.5rem; padding: 0.5rem; background: #1e293b; border-radius: 0.375rem; font-size: 0.75rem; color: #94a3b8;">
             <strong style="color: #e2e8f0;">筛选依据:</strong> risk scoring based on score_reasons and risk_flags;
             high-risk({unit_high}) kept first, medium/low sorted by score within limit.
@@ -344,6 +353,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
 """
 
         html += """        </div>
+        </div>
     </div>
 """
 
