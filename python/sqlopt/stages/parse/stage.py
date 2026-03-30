@@ -213,6 +213,7 @@ class ParseStage(Stage[None, ParseOutput]):
                 SQLUnitWithBranches(
                     sql_unit_id=sql_unit_id,
                     branches=[_to_sql_branch(branch) for branch in expanded],
+                    theoretical_branches=expander.theoretical_branches,
                 ),
                 False,
             )
@@ -273,6 +274,7 @@ class ParseStage(Stage[None, ParseOutput]):
                     }
                     for b in unit.branches
                 ],
+                "theoretical_branches": unit.theoretical_branches,
             }
             path = file_manager.write_unit_file(unit.sql_unit_id, unit_data)
             total_bytes += file_manager.get_file_size(path)

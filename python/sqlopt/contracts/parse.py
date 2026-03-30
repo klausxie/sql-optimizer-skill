@@ -55,12 +55,14 @@ class SQLUnitWithBranches:
 
     sql_unit_id: str
     branches: List[SQLBranch] = field(default_factory=list)
+    theoretical_branches: int = 0
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "sql_unit_id": self.sql_unit_id,
                 "branches": [json.loads(b.to_json()) for b in self.branches],
+                "theoretical_branches": self.theoretical_branches,
             }
         )
 
@@ -70,6 +72,7 @@ class SQLUnitWithBranches:
         return cls(
             sql_unit_id=data["sql_unit_id"],
             branches=[SQLBranch.from_json(json.dumps(b)) for b in data["branches"]],
+            theoretical_branches=data.get("theoretical_branches", 0),
         )
 
 

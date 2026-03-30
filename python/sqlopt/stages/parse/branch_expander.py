@@ -159,6 +159,7 @@ class BranchExpander:
                 field_distributions=self.field_distributions,
             )
             branch_dicts = generator.generate(sql_node)
+            self.theoretical_branches = generator.theoretical_branches
             return self._map_branches(branch_dicts)
 
         except (
@@ -169,6 +170,7 @@ class BranchExpander:
             xml.etree.ElementTree.ParseError,
         ) as e:
             logging.warning(f"Branch expansion failed, returning default branch: {e}")
+            self.theoretical_branches = 1
             return [
                 ExpandedBranch(
                     path_id="default",

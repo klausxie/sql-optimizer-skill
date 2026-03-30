@@ -74,6 +74,7 @@ class BranchGenerator:
             field_distributions=field_distributions,
         )
         self._mutex_detector: MutexBranchDetector = MutexBranchDetector()
+        self.theoretical_branches: int = 0
 
     @property
     def strategy_instance(self) -> BranchGenerationStrategy:
@@ -100,8 +101,10 @@ class BranchGenerator:
         conditions = self._collect_conditions(sql_node)
         if self.strategy == "ladder":
             selected_combinations = self._plan_ladder_condition_combinations(sql_node)
+            theoretical_branches = len(selected_combinations)
         else:
             valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
+            theoretical_branches = len(valid_combinations)
             selected_combinations = self._select_condition_combinations(
                 valid_combinations,
                 conditions,
@@ -221,6 +224,7 @@ class BranchGenerator:
 
         validator = BranchValidator()
         validated = validator.validate_and_deduplicate(branches, self.max_branches)
+        self.theoretical_branches = theoretical_branches
         return validated.branches
 
     def _plan_ladder_condition_combinations(

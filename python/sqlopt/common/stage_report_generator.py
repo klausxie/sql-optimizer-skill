@@ -165,15 +165,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     low_risk = sum(1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4)
     no_score = total_branches - high_risk - medium_risk - low_risk
 
-    # Theoretical max: estimate based on max active_conditions across all branches
-    # Use max to avoid underestimation when first branch has fewer conditions
-    theoretical_branches = 0
-    for u in output.sql_units_with_branches:
-        if not u.branches:
-            theoretical_branches += 1
-            continue
-        max_conditions = max(len(b.active_conditions) for b in u.branches)
-        theoretical_branches += min(2**max_conditions, 100) if max_conditions > 0 else 1
+    theoretical_branches = sum(u.theoretical_branches for u in output.sql_units_with_branches)
 
     # Branch type distribution
     branch_types: dict[str, int] = {}
@@ -250,12 +242,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
 """
 
     for unit in output.sql_units_with_branches:
-        if not unit.branches:
-            max_conditions = 0
-            theoretical = 1
-        else:
-            max_conditions = max(len(b.active_conditions) for b in unit.branches)
-            theoretical = min(2**max_conditions, 100) if max_conditions > 0 else 1
+        theoretical = unit.theoretical_branches if unit.theoretical_branches > 0 else 1
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
         unit_low = sum(1 for b in unit.branches if b.risk_score is not None and b.risk_score < 0.4)

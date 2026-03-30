@@ -688,9 +688,8 @@ def generate_parse_summary_markdown(
             for c in b.active_conditions:
                 unique_conds.add(c)
         cond_count = len(unique_conds)
-        theo_max = 2**cond_count if cond_count > 0 else 1
         per_unit_cond_count.append(cond_count)
-        per_unit_theoretical.append(theo_max)
+        per_unit_theoretical.append(u.theoretical_branches)
         per_unit_actual.append(len(u.branches))
 
     sum_theoretical = sum(per_unit_theoretical)
@@ -799,11 +798,10 @@ def generate_parse_summary_markdown(
             for c in b.active_conditions:
                 unique_conds.add(c)
         cond_count = len(unique_conds)
-        theo_max = 2**cond_count if cond_count > 0 else 1
         valid_cnt = sum(1 for b in u.branches if b.is_valid)
         unit_flags = [f for b in u.branches for f in b.risk_flags]
         top_flag = Counter(unit_flags).most_common(1)[0][0] if unit_flags else "-"
-        unit_details.append((u.sql_unit_id, cond_count, len(u.branches), theo_max, valid_cnt, top_flag))
+        unit_details.append((u.sql_unit_id, cond_count, len(u.branches), u.theoretical_branches, valid_cnt, top_flag))
 
     unit_details.sort(key=lambda x: x[2], reverse=True)
     for unit_id, cond_cnt, branch_cnt, theo_max, valid_cnt, top_flag in unit_details:
