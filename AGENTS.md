@@ -349,7 +349,7 @@ For detailed information, refer to:
 - `docs/project/02-system-spec.md`: System specification
 - `docs/project/03-workflow-and-state-machine.md`: Workflow and state management
 - `docs/project/04-data-contracts.md`: Data contracts and schemas
-- `docs/project/05-config-and-conventions.md`: Configuration options detailed reference
+- `docs/CONFIG.md`: Configuration options detailed reference
 - `docs/project/06-delivery-checklist.md`: Delivery and deployment checklist
 - `docs/project/08-artifact-governance.md`: Run artifacts and source-of-truth rules
 - `docs/TROUBLESHOOTING.md`: Common issues and solutions

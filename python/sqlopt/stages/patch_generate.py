@@ -24,9 +24,11 @@ from .patch_decision import build_patch_repair_hints as _build_patch_repair_hint
 from .patch_decision import should_call_llm_assist as _should_call_llm_assist_impl
 from .patch_decision import decide_patch_result as _decide_patch_result
 from .patch_finalize import finalize_generated_patch as _finalize_generated_patch_impl
-from .patch_formatting import detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops
-from .patch_formatting import format_sql_for_patch as _format_sql_for_patch
-from .patch_formatting import format_template_ops_for_patch as _format_template_ops_for_patch
+from .sql_formatter import format_sql_for_patch as _format_sql_for_patch
+from .template_formatter import (
+    detect_duplicate_clause_in_template_ops as _detect_duplicate_clause_in_template_ops,
+    format_template_ops_for_patch as _format_template_ops_for_patch,
+)
 from .patch_proof import prove_patch_plan as _prove_patch_plan
 from .patch_select import build_patch_selection_context as _build_patch_selection_context
 from .patch_generate_llm import (

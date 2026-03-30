@@ -102,5 +102,5 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-sta
 
 - 安装细节：[`INSTALL.md`](INSTALL.md)
 - 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
-- 配置约定：[`project/05-config-and-conventions.md`](project/05-config-and-conventions.md)
+- 配置约定：[`CONFIG.md`](CONFIG.md)
 - 命令与状态机：[`project/03-workflow-and-state-machine.md`](project/03-workflow-and-state-machine.md)

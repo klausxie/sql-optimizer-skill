@@ -8,7 +8,7 @@
 
 ## 常见任务
 
-- 配置说明：[`project/05-config-and-conventions.md`](project/05-config-and-conventions.md)
+- 配置说明：[`CONFIG.md`](CONFIG.md)
 - 命令与状态机：[`project/03-workflow-and-state-machine.md`](project/03-workflow-and-state-machine.md)
 - 失败码解释：[`failure-codes.md`](failure-codes.md)
 - 升级：[`UPGRADE.md`](UPGRADE.md)

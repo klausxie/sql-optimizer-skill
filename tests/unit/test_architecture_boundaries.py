@@ -112,7 +112,8 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         # 现在使用新的 patch_decision 模块（含兼容层）
         self.assertIn(".patch_decision", imports)
         self.assertIn(".patch_verification", imports)
-        self.assertIn(".patch_formatting", imports)
+        self.assertIn(".sql_formatter", imports)
+        self.assertIn(".template_formatter", imports)
 
 
 if __name__ == "__main__":

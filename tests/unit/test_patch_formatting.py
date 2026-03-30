@@ -4,8 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sqlopt.stages.patch_formatting import detect_duplicate_clause_in_template_ops
-from sqlopt.stages.patch_formatting import format_sql_for_patch, format_template_ops_for_patch
+from sqlopt.stages.sql_formatter import format_sql_for_patch
+from sqlopt.stages.template_formatter import (
+    detect_duplicate_clause_in_template_ops,
+    format_template_ops_for_patch,
+)
 
 
 class PatchFormattingTest(unittest.TestCase):

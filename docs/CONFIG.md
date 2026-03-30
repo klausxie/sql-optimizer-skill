@@ -15,7 +15,12 @@
 5. `llm`
 6. `report`
 
-### 1.2 已移除根键（兼容忽略）
+### 1.2 命名约束
+
+1. 全部使用 `snake_case`
+2. 非 snake_case 视为配置错误
+
+### 1.3 已移除根键（兼容忽略）
 
 以下根键在 v1 已移除，加载时会被自动忽略（并由内部默认值注入）：
 
@@ -51,10 +56,11 @@
 | `dsn` | string | 是 | 数据库连接串 |
 | `schema` | string/null | 否 | PostgreSQL 非默认 schema 时建议显式设置 |
 
-说明：
+边界说明：
 
-- MySQL 支持 5.6+（含 5.7、8.0+），不支持 MariaDB。
-- MySQL 场景遇 PostgreSQL 方言（如 `ILIKE`）时，不做自动改写，会按语法错误上报。
+- MySQL 支持 5.6+（含 5.7、8.0+），不支持 MariaDB
+- MySQL 5.6 不支持 `MAX_EXECUTION_TIME` 时会自动降级，不阻塞 evidence / compare
+- MySQL 场景遇 PostgreSQL 方言（如 `ILIKE`）时，不做自动改写，会按语法错误上报
 
 ### 2.4 `llm`
 
@@ -69,6 +75,11 @@
 | `api_model` | string/null | 条件必填 | 仅 `direct_openai_compatible` |
 | `api_timeout_ms` | int/null | 否 | 仅 `direct_openai_compatible` |
 | `api_headers` | object/null | 否 | 仅 `direct_openai_compatible` |
+
+约束：
+
+- `direct_openai_compatible` 必须配置 `api_base/api_key/api_model`
+- `opencode_run` 与 `direct_openai_compatible` 保持严格失败语义
 
 ### 2.5 `report`
 
@@ -90,7 +101,17 @@
 
 这些节是执行层实现细节，不是用户配置边界。即使用户配置里声明了它们，也会被兼容层忽略。
 
-## 4. 加载与校验流程
+## 4. 内置固定策略
+
+以下配置已收敛为内部固定常量，用户不再通过 `sqlopt.yml` 修改：
+
+1. validate 策略（profile / selection / evidence gate）
+2. policy 阈值与安全口径
+3. runtime 超时与重试
+4. apply 模式（默认 `PATCH_ONLY`）
+5. diagnostics / verification / patch 辅助策略
+
+## 5. 加载与校验流程
 
 1. 读取 `sqlopt.yml`
 2. 校验用户配置根键与字段（已移除键先兼容忽略）
@@ -98,7 +119,7 @@
 4. 注入内部节
 5. 写入 `runs/<run-id>/config.resolved.json`
 
-## 5. 示例
+## 6. 示例
 
 ```yaml
 config_version: v1
@@ -121,9 +142,60 @@ report:
   enabled: true
 ```
 
-## 6. 相关文档
+## 7. 运行目录规范
+
+统一路径：`<project.root_path>/runs/<run-id>/`
+
+分层主路径（canonical）：
+
+1. `run.index.json`（目录索引）
+2. `overview/report.json`
+3. `overview/report.md`
+4. `overview/report.summary.md`
+5. `overview/config.resolved.json`
+6. `pipeline/manifest.jsonl`
+7. `pipeline/scan/sqlunits.jsonl`
+8. `pipeline/scan/fragments.jsonl`
+9. `pipeline/optimize/optimization.proposals.jsonl`
+10. `pipeline/validate/acceptance.results.jsonl`
+11. `pipeline/patch_generate/patch.results.jsonl`
+12. `pipeline/supervisor/*`
+13. `pipeline/ops/*`
+14. `pipeline/verification/*`
+15. `sql/catalog.jsonl`
+16. `sql/<sql-key>/index.json`
+17. `diagnostics/sql_outcomes.jsonl`
+18. `diagnostics/sql_artifacts.jsonl`
+19. `diagnostics/blockers.summary.json`
+
+兼容策略：
+
+- 不再保留 legacy 路径写入
+- 运行目录读取默认仅认 canonical 路径
+
+## 8. 补丁与回滚约定
+
+1. 默认 `PATCH_ONLY`，`apply` 不会隐式修改源码
+2. 每个 `PatchResult` 必须提供 `rollback`
+3. 生成 patch 文件应可通过 `git apply --check`
+
+## 9. 架构分层约定
+
+当前默认分层：
+
+1. `models`：只定义内部文档对象与稳定导出 facade，不负责流程编排
+2. `policy / selection / builder / loader`：负责规则、聚合、读取，不直接持久化稳定契约
+3. `writer / stage`：负责 `to_contract()`、schema 校验和最终落盘
+
+依赖方向：
+
+1. `models` 不能反向依赖 `builder / writer / stage / policy`
+2. facade 模块只做 re-export，不承载业务逻辑
+3. 新增模型对外导出统一使用 `to_contract()`
+
+## 10. 相关文档
 
 - [快速入门](QUICKSTART.md)
 - [安装指南](INSTALL.md)
 - [故障排查](TROUBLESHOOTING.md)
-- [配置与工程约定](project/05-config-and-conventions.md)
+- [命令与状态机](project/03-workflow-and-state-machine.md)
