@@ -246,7 +246,6 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
         unit_low = sum(1 for b in unit.branches if b.risk_score is not None and b.risk_score < 0.4)
-        unit_unscored = len(unit.branches) - unit_high - unit_medium - unit_low
 
         # Determine strategy based on branch count
         strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
@@ -271,6 +270,10 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                 <div class="metric-label">实际分支</div>
             </div>
             <div class="metric">
+                <div class="metric-value">{int(len(unit.branches) / max(theoretical, 1) * 100)}%</div>
+                <div class="metric-label">覆盖率</div>
+            </div>
+            <div class="metric">
                 <div class="metric-value" style="color: #dc2626;">{unit_high}</div>
                 <div class="metric-label">高风险</div>
             </div>
@@ -278,10 +281,11 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                 <div class="metric-value" style="color: #f59e0b;">{unit_medium}</div>
                 <div class="metric-label">中风险</div>
             </div>
-            <div class="metric">
-                <div class="metric-value" style="color: #22c55e;">{unit_low}</div>
-                <div class="metric-label">低风险</div>
-            </div>
+        </div>
+        <div style="margin-top: 0.5rem; padding: 0.5rem; background: #1e293b; border-radius: 0.375rem; font-size: 0.75rem; color: #94a3b8;">
+            <strong style="color: #e2e8f0;">筛选依据:</strong> risk scoring based on score_reasons and risk_flags;
+            high-risk({unit_high}) kept first, medium/low sorted by score within limit.
+            Branches sorted by risk_score descending.
         </div>
         <div class="progress-bar">
             <div class="progress-fill high" style="width: {unit_high / max(len(unit.branches), 1) * 100}%"></div>
