@@ -1,1 +1,0 @@
-{"ts": "2026-03-30T13:22:58.664945+00:00", "phase": "scan", "status": "FAILED", "sql_key": null, "reason_code": "SCAN_MAPPER_NOT_FOUND", "artifact_refs": ["/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_auto_report_f8fdc9d7/pipeline/manifest.jsonl"], "detail": {"message": "scan produced no sql units"}}
