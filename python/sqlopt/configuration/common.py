@@ -14,56 +14,18 @@ except Exception:  # pragma: no cover
 
 SNAKE_CASE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
-LEGACY_DOTTED_KEYS = {
-    "project.root",
-    "db.type",
-    "runtime.scan_timeout_ms",
-    "runtime.optimize_timeout_ms",
-    "runtime.validate_timeout_ms",
-    "runtime.apply_timeout_ms",
-    "runtime.report_timeout_ms",
-    "runtime.scan_retry_max",
-    "runtime.optimize_retry_max",
-    "runtime.validate_retry_max",
-    "runtime.apply_retry_max",
-    "runtime.report_retry_max",
+# Root sections that are auto-injected internally (silently ignored if present)
+AUTO_INJECTED_SECTIONS = {
+    "validate",
+    "policy",
+    "apply",
+    "patch",
+    "diagnostics",
+    "runtime",
+    "verification",
+    "rules",
+    "prompt_injections",
 }
-
-# Removed keys with migration hints
-REMOVED_KEYS_WITH_HINTS = {
-    # Root sections - now auto-injected internally
-    "validate": "This section is now auto-injected internally. Remove it from your config file.",
-    "policy": "This section is now auto-injected internally. Remove it from your config file.",
-    "apply": "This section is now auto-injected internally. Remove it from your config file.",
-    "patch": "This section is now auto-injected internally. Remove it from your config file.",
-    "diagnostics": "This section is now auto-injected internally. Remove it from your config file.",
-    "runtime": "This section is now auto-injected internally. Remove it from your config file.",
-    "verification": "This section is now auto-injected internally. Remove it from your config file.",
-    "rules": "Custom rules have been removed. Only built-in rules are supported now. Remove this section.",
-    "prompt_injections": "Prompt injections have been removed. Remove this section.",
-    # Validate section keys
-    "validate.sample_count": "Validation settings are now managed internally. Remove this key.",
-    "validate.min_sample_rows_for_hash": "Validation settings are now managed internally. Remove this key.",
-    "validate.db_unreachable_high_rate_threshold": "Validation settings are now managed internally. Remove this key.",
-    "validate.key_columns": "Validation settings are now managed internally. Remove this key.",
-    "validate.compare_columns": "Validation settings are now managed internally. Remove this key.",
-    # Scan section keys
-    "scan.max_variants_per_statement": "Scanner settings are now managed internally. Remove this key.",
-    "scan.java_scanner": "Scanner configuration is now managed internally. Remove this key.",
-    "scan.class_resolution": "Scanner configuration is now managed internally. Remove this key.",
-    "scan.enable_fragment_catalog": "Fragment catalog is now managed internally. Remove this key.",
-    # Database section keys
-    "db.statement_timeout_ms": "Database timeout settings are now managed internally. Remove this key.",
-    "db.allow_explain_analyze": "EXPLAIN ANALYZE settings are now managed internally. Remove this key.",
-    # LLM section keys
-    "llm.retry": "LLM retry is always enabled. Remove this key.",
-    "llm.output_validation": "LLM output validation is always enabled. Remove this key.",
-    "llm.executor": "LLM executor settings are now managed internally. Remove this key.",
-    "llm.strict_required": "LLM strict mode is now managed internally. Remove this key.",
-}
-
-# Backward compatibility: keep REMOVED_KEYS as a set for existing code
-REMOVED_KEYS = set(REMOVED_KEYS_WITH_HINTS.keys())
 
 
 def check_snake_case(obj: Any, path: str = "") -> None:
@@ -148,29 +110,21 @@ def remove_key(config: dict[str, Any], dotted: str) -> bool:
     return False
 
 
-def check_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
-    """Check for removed configuration keys and return warnings with hints.
+def strip_auto_injected_sections(config: dict[str, Any]) -> list[str]:
+    """Remove auto-injected sections from user config.
+
+    These sections are managed internally and should not be in user config.
+    They are silently ignored for backward compatibility.
 
     Args:
-        config: Configuration dictionary to check
+        config: Configuration dictionary
 
     Returns:
-        List of tuples (key, hint) for each removed key found
+        List of removed section names
     """
-    warnings = []
-    for dotted_key, hint in sorted(REMOVED_KEYS_WITH_HINTS.items()):
-        if has_key(config, dotted_key):
-            warnings.append((dotted_key, hint))
-    return warnings
-
-
-def strip_removed_keys(config: dict[str, Any]) -> list[tuple[str, str]]:
-    """Remove removed/deprecated keys from config and return what was stripped.
-
-    This keeps backward compatibility with older configs by silently ignoring
-    known removed keys.
-    """
-    removed = check_removed_keys(config)
-    for dotted_key, _ in sorted(removed, key=lambda item: item[0].count("."), reverse=True):
-        remove_key(config, dotted_key)
+    removed = []
+    for section in AUTO_INJECTED_SECTIONS:
+        if section in config:
+            del config[section]
+            removed.append(section)
     return removed

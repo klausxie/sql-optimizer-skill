@@ -47,7 +47,8 @@ verification:
         self.assertEqual(loaded["runtime"]["stage_retry_backoff_ms"], 1000)
         self.assertEqual(loaded["verification"]["critical_output_policy"], "warn")
 
-    def test_removed_scan_keys_are_ignored(self) -> None:
+    def test_removed_scan_keys_are_rejected(self) -> None:
+        """Unknown scan keys should be rejected."""
         cfg = self._write_cfg(
             """\
 scan:
@@ -57,10 +58,12 @@ scan:
     jar_path: /tmp/demo.jar
 """
         )
-        loaded = load_config(cfg)
-        self.assertNotIn("java_scanner", loaded["scan"])
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(cfg)
+        self.assertIn("scan.java_scanner", str(ctx.exception))
 
-    def test_removed_db_timeout_key_is_ignored(self) -> None:
+    def test_removed_db_timeout_key_is_rejected(self) -> None:
+        """Unknown db keys should be rejected."""
         cfg = self._write_cfg(
             """\
 db:
@@ -69,8 +72,9 @@ db:
   statement_timeout_ms: 5000
 """
         )
-        loaded = load_config(cfg)
-        self.assertEqual(loaded["db"]["statement_timeout_ms"], 3000)
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(cfg)
+        self.assertIn("db.statement_timeout_ms", str(ctx.exception))
 
     def test_db_schema_is_accepted(self) -> None:
         cfg = self._write_cfg(
@@ -84,7 +88,8 @@ db:
         loaded = load_config(cfg)
         self.assertEqual(loaded["db"]["schema"], "public")
 
-    def test_removed_llm_keys_are_ignored(self) -> None:
+    def test_removed_llm_keys_are_rejected(self) -> None:
+        """Unknown llm keys should be rejected."""
         cfg = self._write_cfg(
             """\
 llm:
@@ -93,8 +98,9 @@ llm:
     enabled: true
 """
         )
-        loaded = load_config(cfg)
-        self.assertNotIn("retry", loaded["llm"])
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(cfg)
+        self.assertIn("llm.retry", str(ctx.exception))
 
     def test_minimal_config_loads_and_internal_defaults_are_injected(self) -> None:
         loaded = load_config(self._write_cfg(""))

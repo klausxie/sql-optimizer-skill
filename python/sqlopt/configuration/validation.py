@@ -11,11 +11,7 @@ from typing import Any
 
 from ..constants import ROOT_KEYS
 from ..errors import ConfigError
-from .common import (
-    LEGACY_DOTTED_KEYS,
-    has_key as _has_key,
-    strip_removed_keys,
-)
+from .common import strip_auto_injected_sections
 
 
 # Allowed keys per section for user-facing configuration
@@ -149,7 +145,6 @@ def validate_user_config(cfg: dict[str, Any]) -> None:
     """Validate user-facing configuration.
 
     This validates the configuration file provided by users, checking:
-    - No legacy or removed keys
     - Only known root keys
     - Section keys are allowed
     - Required fields are present
@@ -161,14 +156,9 @@ def validate_user_config(cfg: dict[str, Any]) -> None:
     Raises:
         ConfigError: If validation fails
     """
-    # Check for legacy keys
-    for dotted in sorted(LEGACY_DOTTED_KEYS):
-        if _has_key(cfg, dotted):
-            raise ConfigError(f"legacy config key not supported: {dotted}")
-
-    # Strip known removed keys for backward compatibility.
-    # These keys are now auto-injected internally by defaults.
-    strip_removed_keys(cfg)
+    # Strip auto-injected sections for backward compatibility.
+    # These sections are now managed internally by defaults.
+    strip_auto_injected_sections(cfg)
 
     # Check for unknown root keys
     unknown = sorted(set(cfg.keys()) - ROOT_KEYS)
