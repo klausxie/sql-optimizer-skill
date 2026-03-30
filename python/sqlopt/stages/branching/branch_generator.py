@@ -100,15 +100,14 @@ class BranchGenerator:
         """
         conditions = self._collect_conditions(sql_node)
         foreach_nodes = self._collect_foreach_nodes(sql_node)
-        # Each foreach contributes 3 variants: base (empty/no iteration), singleton, large
         foreach_multiplier = 3 ** len(foreach_nodes)
 
+        valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
+        theoretical_branches = len(valid_combinations) * foreach_multiplier
+
         if self.strategy == "ladder":
-            theoretical_branches = 2 ** len(conditions) * foreach_multiplier
             selected_combinations = self._plan_ladder_condition_combinations(sql_node)
         else:
-            valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
-            theoretical_branches = len(valid_combinations) * foreach_multiplier
             selected_combinations = self._select_condition_combinations(
                 valid_combinations,
                 conditions,
