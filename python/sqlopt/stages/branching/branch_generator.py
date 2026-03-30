@@ -404,6 +404,8 @@ class BranchGenerator:
             return child_count + 1
 
         if isinstance(sql_node, ChooseSqlNode):
+            # Choose is mutex: at most one when branch is selected
+            # Total = sum(when_i分支数) + default(1)
             total = 0
             for when_node in sql_node.if_sql_nodes:
                 total += self._count_combinations_recursive(when_node.contents, include_stack)
@@ -432,7 +434,7 @@ class BranchGenerator:
         if isinstance(sql_node, ForEachSqlNode):
             if sql_node.contents is None:
                 return 1
-            return self._count_combinations_recursive(sql_node.contents, include_stack)
+            return 3 * self._count_combinations_recursive(sql_node.contents, include_stack)
 
         if isinstance(sql_node, VarDeclSqlNode):
             return 1
