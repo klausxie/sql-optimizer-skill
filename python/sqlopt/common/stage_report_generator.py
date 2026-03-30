@@ -153,13 +153,13 @@ function escapeHtml(text) {
 }
 
 function renderBranches(unitCard) {
-    const unitBody = unitCard.querySelector('.unit-body');
     const branchList = unitCard.querySelector('.branch-list');
-    if (!branchList || branchList.dataset.loaded === 'true') return;
+    if (!branchList || branchList.dataset.loaded === 'true' || branchList.dataset.loading === 'true') return;
 
     const jsonPath = unitCard.dataset.jsonPath;
     if (!jsonPath) return;
 
+    branchList.dataset.loading = 'true';
     branchList.innerHTML = '<div style="color: #94a3b8; padding: 1rem; text-align: center;">加载中...</div>';
 
     fetch(jsonPath)
@@ -169,41 +169,16 @@ function renderBranches(unitCard) {
         })
         .then(data => {
             const branches = data.branches || [];
-            const theoretical = data.theoretical_branches || 1;
-            const actual = branches.length;
 
-            // Sort by risk_score descending
+            if (branches.length === 0) {
+                branchList.innerHTML = '<div style="color: #64748b; padding: 1rem; font-style: italic;">无分支数据</div>';
+                branchList.dataset.loaded = 'true';
+                branchList.dataset.loading = '';
+                return;
+            }
+
             branches.sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
 
-            // Calculate risk counts
-            let highCount = 0, medCount = 0, lowCount = 0;
-            branches.forEach(b => {
-                const s = b.risk_score || 0;
-                if (s >= 0.7) highCount++;
-                else if (s >= 0.4) medCount++;
-                else lowCount++;
-            });
-
-            // Update filter info
-            const filterInfo = unitBody.querySelector('.filter-info');
-            if (filterInfo) {
-                filterInfo.innerHTML =
-                    '<strong style="color: #e2e8f0;">筛选依据:</strong> risk scoring based on score_reasons and risk_flags; ' +
-                    'high-risk(' + highCount + ') kept first, medium/low sorted by score within limit. ' +
-                    'Branches sorted by risk_score descending.';
-            }
-
-            // Update progress bar
-            const progressBar = unitBody.querySelector('.progress-bar');
-            if (progressBar) {
-                const total = Math.max(actual, 1);
-                progressBar.innerHTML =
-                    '<div class="progress-fill high" style="width: ' + (highCount / total * 100) + '%"></div>' +
-                    '<div class="progress-fill medium" style="width: ' + (medCount / total * 100) + '%"></div>' +
-                    '<div class="progress-fill low" style="width: ' + (lowCount / total * 100) + '%"></div>';
-            }
-
-            // Render branches
             let html = '';
             branches.forEach(b => {
                 const risk = getRiskLevel(b.risk_score);
@@ -227,7 +202,6 @@ function renderBranches(unitCard) {
                     html += '<div class="branch-condition">条件: ' + (safeCond.length > 80 ? safeCond.substring(0, 80) + '...' : safeCond) + '</div>';
                 }
 
-                // Risk flags
                 if (b.risk_flags && b.risk_flags.length > 0) {
                     html += '<div style="margin-top: 0.5rem;">';
                     b.risk_flags.forEach(f => {
@@ -237,7 +211,6 @@ function renderBranches(unitCard) {
                     html += '</div>';
                 }
 
-                // Score reasons
                 if (b.score_reasons && b.score_reasons.length > 0) {
                     html += '<div class="branch-reasons">';
                     b.score_reasons.forEach(r => {
@@ -252,10 +225,12 @@ function renderBranches(unitCard) {
 
             branchList.innerHTML = html;
             branchList.dataset.loaded = 'true';
+            branchList.dataset.loading = '';
             initSortableBranches(unitCard);
         })
         .catch(err => {
             branchList.innerHTML = '<div style="color: #dc2626; padding: 1rem;">加载失败: ' + escapeHtml(err.message) + '</div>';
+            branchList.dataset.loading = '';
         });
 }
 
@@ -270,7 +245,6 @@ function toggleUnit(header) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Sort buttons on non-lazy cards (recognition/optimize tables)
     document.querySelectorAll('.card[data-sortable]').forEach(initSortableBranches);
 });
 </script>
