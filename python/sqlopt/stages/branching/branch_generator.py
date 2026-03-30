@@ -102,12 +102,12 @@ class BranchGenerator:
         foreach_nodes = self._collect_foreach_nodes(sql_node)
         foreach_multiplier = 3 ** len(foreach_nodes)
 
-        valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
-        theoretical_branches = len(valid_combinations) * foreach_multiplier
-
         if self.strategy == "ladder":
+            theoretical_branches = self._count_valid_condition_combinations(sql_node) * foreach_multiplier
             selected_combinations = self._plan_ladder_condition_combinations(sql_node)
         else:
+            valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
+            theoretical_branches = len(valid_combinations) * foreach_multiplier
             selected_combinations = self._select_condition_combinations(
                 valid_combinations,
                 conditions,
@@ -377,6 +377,67 @@ class BranchGenerator:
             return [[f"bind:{sql_node.name}"]]
 
         return [[]]
+
+    def _count_valid_condition_combinations(self, sql_node: SqlNode) -> int:
+        """O(n) count of valid condition combinations without materializing them.
+
+        Mirrors _enumerate_valid_condition_combinations but returns count instead of list.
+        Uses integer arithmetic instead of list operations for efficiency.
+        """
+        return self._count_combinations_recursive(sql_node, set())
+
+    def _count_combinations_recursive(self, sql_node: SqlNode, include_stack: set[str]) -> int:
+        from sqlopt.stages.branching.sql_node import (
+            ChooseSqlNode,
+            ForEachSqlNode,
+            IfSqlNode,
+            IncludeSqlNode,
+            MixedSqlNode,
+            TrimSqlNode,
+            VarDeclSqlNode,
+            WhereSqlNode,
+            SetSqlNode,
+        )
+
+        if isinstance(sql_node, IfSqlNode):
+            child_count = self._count_combinations_recursive(sql_node.contents, include_stack)
+            return child_count + 1
+
+        if isinstance(sql_node, ChooseSqlNode):
+            total = 0
+            for when_node in sql_node.if_sql_nodes:
+                total += self._count_combinations_recursive(when_node.contents, include_stack)
+            total += 1
+            return total
+
+        if isinstance(sql_node, IncludeSqlNode):
+            if not sql_node.fragment_registry or sql_node.refid in include_stack:
+                return 1
+            fragment = sql_node.fragment_registry.lookup(sql_node.refid)
+            if fragment is None:
+                return 1
+            next_stack = set(include_stack)
+            next_stack.add(sql_node.refid)
+            return self._count_combinations_recursive(fragment, next_stack)
+
+        if isinstance(sql_node, MixedSqlNode):
+            total = 1
+            for child in sql_node.contents:
+                total *= self._count_combinations_recursive(child, include_stack)
+            return total
+
+        if isinstance(sql_node, (TrimSqlNode, WhereSqlNode, SetSqlNode)):
+            return self._count_combinations_recursive(sql_node.contents, include_stack)
+
+        if isinstance(sql_node, ForEachSqlNode):
+            if sql_node.contents is None:
+                return 1
+            return self._count_combinations_recursive(sql_node.contents, include_stack)
+
+        if isinstance(sql_node, VarDeclSqlNode):
+            return 1
+
+        return 1
 
     @staticmethod
     def _merge_condition_lists(
