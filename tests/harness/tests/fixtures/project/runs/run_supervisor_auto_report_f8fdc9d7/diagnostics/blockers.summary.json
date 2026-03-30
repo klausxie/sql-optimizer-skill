@@ -1,0 +1,33 @@
+{
+  "run_id": "run_supervisor_auto_report_f8fdc9d7",
+  "generated_at": "2026-03-30T13:22:58.666197+00:00",
+  "top_blockers": [
+    {
+      "code": "SCAN_MAPPER_NOT_FOUND",
+      "count": 3,
+      "ratio": null,
+      "severity": "fatal",
+      "sql_keys": []
+    }
+  ],
+  "reason_counts": {
+    "SCAN_MAPPER_NOT_FOUND": 3
+  },
+  "phase_reason_code_counts": {
+    "scan": {
+      "SCAN_MAPPER_NOT_FOUND": 3
+    }
+  },
+  "next_actions": [
+    {
+      "action_id": "resume",
+      "title": "平台：恢复运行",
+      "reason": "尚无就绪的优化，继续运行",
+      "applicability": "等待中或降级的流水线",
+      "expected_outcome": "继续或最终确定处理",
+      "commands": [
+        "PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id run_supervisor_auto_report_f8fdc9d7"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "run_id": "run_supervisor_report_rebuild_ebde32db",
+  "total_sql": 0,
+  "records_by_phase": {},
+  "verified_count": 0,
+  "partial_count": 0,
+  "unverified_count": 0,
+  "coverage_by_phase": {},
+  "top_reason_codes": [],
+  "blocking_sql_keys": [],
+  "generated_at": "2026-03-30T13:22:55.500628+00:00"
+}

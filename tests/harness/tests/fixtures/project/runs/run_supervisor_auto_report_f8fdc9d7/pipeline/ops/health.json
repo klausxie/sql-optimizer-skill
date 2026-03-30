@@ -1,0 +1,11 @@
+{
+  "run_id": "run_supervisor_auto_report_f8fdc9d7",
+  "mode": "analyze",
+  "generated_at": "2026-03-30T13:22:58.666197+00:00",
+  "status": "ok",
+  "failure_count": 0,
+  "fatal_failure_count": 3,
+  "retryable_failure_count": 0,
+  "degradable_count": 0,
+  "report_json": "/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_auto_report_f8fdc9d7/overview/report.json"
+}

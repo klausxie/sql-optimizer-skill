@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run_supervisor_optimize_report_81be33f1",
+  "generated_at": "2026-03-30T13:22:57.617107+00:00",
+  "layout_version": "logical-layered-v3",
+  "authoritative": {
+    "runtime_state": "pipeline/supervisor/state.json",
+    "events": "pipeline/manifest.jsonl",
+    "consumer_summary": [
+      "overview/report.json",
+      "sql/catalog.jsonl",
+      "diagnostics/sql_outcomes.jsonl"
+    ]
+  },
+  "read_order": {
+    "human": [
+      "overview/report.summary.md",
+      "overview/report.md",
+      "diagnostics/blockers.summary.json",
+      "diagnostics/sql_outcomes.jsonl"
+    ],
+    "machine": [
+      "run.index.json",
+      "overview/report.json",
+      "diagnostics/sql_outcomes.jsonl",
+      "sql/catalog.jsonl",
+      "pipeline/verification/ledger.jsonl"
+    ]
+  },
+  "groups": {
+    "overview": [
+      "overview/report.json",
+      "overview/report.md",
+      "overview/report.summary.md",
+      "overview/config.resolved.json"
+    ],
+    "pipeline": [
+      "pipeline/manifest.jsonl",
+      "pipeline/scan/sqlunits.jsonl",
+      "pipeline/scan/fragments.jsonl",
+      "pipeline/optimize/optimization.proposals.jsonl",
+      "pipeline/validate/acceptance.results.jsonl",
+      "pipeline/patch_generate/patch.results.jsonl",
+      "pipeline/supervisor/state.json",
+      "pipeline/supervisor/plan.json",
+      "pipeline/supervisor/results/preflight.jsonl",
+      "pipeline/supervisor/results/scan.jsonl",
+      "pipeline/supervisor/results/optimize.jsonl",
+      "pipeline/supervisor/results/validate.jsonl",
+      "pipeline/supervisor/results/patch_generate.jsonl",
+      "pipeline/supervisor/results/report.jsonl",
+      "pipeline/ops/topology.json",
+      "pipeline/ops/preflight.json",
+      "pipeline/ops/health.json",
+      "pipeline/ops/failures.jsonl",
+      "pipeline/verification/ledger.jsonl",
+      "pipeline/verification/summary.json"
+    ],
+    "sql": {
+      "catalog": "sql/catalog.jsonl",
+      "sql_keys": []
+    },
+    "diagnostics": [
+      "diagnostics/sql_outcomes.jsonl",
+      "diagnostics/sql_artifacts.jsonl",
+      "diagnostics/blockers.summary.json"
+    ]
+  },
+  "integrity": {
+    "status": "OK",
+    "warning_codes": [],
+    "sql_key_alignment_ok": true,
+    "sql_artifact_count": 0,
+    "sql_ref_null_counts": {},
+    "sql_ref_issue_counts": {},
+    "sql_ref_issues": [],
+    "phase_status": {
+      "preflight": "DONE",
+      "scan": "FAILED",
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING",
+      "report": "DONE"
+    }
+  }
+}

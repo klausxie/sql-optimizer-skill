@@ -1,0 +1,4 @@
+{"ts": "2026-03-30T13:22:56.604217+00:00", "stage": "initialize", "event": "done", "payload": {"run_id": "run_supervisor_optimize_report_81be33f1"}}
+{"ts": "2026-03-30T13:22:56.609563+00:00", "stage": "scan", "event": "failed", "payload": {"severity": "fatal", "reason_code": "SCAN_MAPPER_NOT_FOUND", "message": "no mapper files matched"}}
+{"ts": "2026-03-30T13:22:57.615237+00:00", "stage": "scan", "event": "failed", "payload": {"severity": "fatal", "reason_code": "SCAN_MAPPER_NOT_FOUND", "message": "no mapper files matched"}}
+{"ts": "2026-03-30T13:22:57.616208+00:00", "stage": "scan", "event": "failed", "payload": {"reason_code": "SCAN_MAPPER_NOT_FOUND", "message": "scan produced no sql units"}}

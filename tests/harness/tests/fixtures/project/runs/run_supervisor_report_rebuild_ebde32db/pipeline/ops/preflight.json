@@ -1,0 +1,24 @@
+{
+  "run_id": "run_supervisor_report_rebuild_ebde32db",
+  "checked_at": "2026-03-30T13:22:54.488955+00:00",
+  "ok": true,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "llm",
+      "enabled": false,
+      "ok": true,
+      "reason": "llm.enabled=false"
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

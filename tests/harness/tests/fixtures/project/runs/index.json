@@ -1,0 +1,22 @@
+{
+  "run_supervisor_report_rebuild_ebde32db": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_report_rebuild_ebde32db",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_cfg_abp8spvv/sqlopt.yml",
+    "updated_at": "2026-03-30T13:22:54.485667+00:00"
+  },
+  "run_supervisor_optimize_no_report_57653453": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_optimize_no_report_57653453",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_cfg_18vl5uk3/sqlopt.yml",
+    "updated_at": "2026-03-30T13:22:55.566140+00:00"
+  },
+  "run_supervisor_optimize_report_81be33f1": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_optimize_report_81be33f1",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_cfg_ba2i0mvq/sqlopt.yml",
+    "updated_at": "2026-03-30T13:22:56.604391+00:00"
+  },
+  "run_supervisor_auto_report_f8fdc9d7": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/harness/tests/fixtures/project/runs/run_supervisor_auto_report_f8fdc9d7",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_cfg_wngcqngw/sqlopt.yml",
+    "updated_at": "2026-03-30T13:22:57.652168+00:00"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "current_phase": "scan",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "FAILED",
+    "optimize": "PENDING",
+    "validate": "PENDING",
+    "patch_generate": "PENDING",
+    "report": "PENDING"
+  },
+  "statements": {},
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 0,
+    "optimize": 0,
+    "validate": 0,
+    "patch_generate": 0,
+    "report": 0
+  },
+  "report_rebuild_required": false,
+  "last_error": "scan produced no sql units",
+  "last_reason_code": "SCAN_MAPPER_NOT_FOUND",
+  "updated_at": "2026-03-30T13:22:56.575559+00:00"
+}
