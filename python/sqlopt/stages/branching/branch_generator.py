@@ -99,18 +99,22 @@ class BranchGenerator:
             - sql: The generated SQL string
         """
         conditions = self._collect_conditions(sql_node)
+        foreach_nodes = self._collect_foreach_nodes(sql_node)
+        # Each foreach contributes 3 variants: base (empty/no iteration), singleton, large
+        foreach_multiplier = 3 ** len(foreach_nodes)
 
         if self.strategy == "ladder":
-            # Ladder uses dimension-based planning - no need for full enumeration
-            theoretical_branches = 2 ** len(conditions)  # Estimate: each condition can be on/off
+            theoretical_branches = 2 ** len(conditions) * foreach_multiplier
             selected_combinations = self._plan_ladder_condition_combinations(sql_node)
         else:
             valid_combinations = self._enumerate_valid_condition_combinations(sql_node)
-            theoretical_branches = len(valid_combinations)
+            theoretical_branches = len(valid_combinations) * foreach_multiplier
             selected_combinations = self._select_condition_combinations(
                 valid_combinations,
                 conditions,
             )
+
+        self.theoretical_branches = theoretical_branches
 
         branches = self._render_condition_combinations(sql_node, selected_combinations)
         if not branches:
@@ -128,7 +132,6 @@ class BranchGenerator:
         # Generate additional cardinality bucket variants for foreach clauses
         # by re-rendering the full tree, not by string replacement.
         branches = self._generate_foreach_boundary_branches(branches, sql_node)
-        self.theoretical_branches = len(branches)
 
         # Collect risk_flags from bind conditions with pattern detection
         # First, collect all bind expressions from the sql_node tree
