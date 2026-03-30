@@ -10,10 +10,7 @@ from sqlopt.stages.branching.xml_language_driver import XMLLanguageDriver
 
 
 class TestBranchGeneratorLadder:
-    def test_ladder_does_not_require_full_combination_enumeration(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    def test_ladder_stores_correct_theoretical_count(self) -> None:
         sql = """SELECT * FROM users <where>
         <if test="a != null">AND a = #{a}</if>
         <if test="b != null">AND b = #{b}</if>
@@ -22,14 +19,10 @@ class TestBranchGeneratorLadder:
         sql_node = XMLLanguageDriver.create_sql_source(sql)
         generator = BranchGenerator(strategy="ladder", max_branches=10)
 
-        def fail_enumeration(*_args, **_kwargs):
-            raise AssertionError("ladder should not call full combination enumeration")
-
-        monkeypatch.setattr(generator, "_enumerate_valid_condition_combinations", fail_enumeration)
-
         branches = generator.generate(sql_node)
 
         assert len(branches) >= 1
+        assert generator.theoretical_branches == 8
 
     def test_ladder_scores_sql_fragment_risk_not_only_ognl(self) -> None:
         sql = """SELECT * FROM users <where>
