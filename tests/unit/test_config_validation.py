@@ -36,8 +36,6 @@ class ValidationModuleTest(unittest.TestCase):
         self.assertIn("db", SECTION_ALLOWED_KEYS)
         self.assertIn("llm", SECTION_ALLOWED_KEYS)
         self.assertIn("report", SECTION_ALLOWED_KEYS)
-        self.assertIn("rules", SECTION_ALLOWED_KEYS)
-        self.assertIn("prompt_injections", SECTION_ALLOWED_KEYS)
 
     def test_validate_section_keys_accepts_valid_config(self) -> None:
         """Test that valid configuration passes section key validation."""
@@ -139,21 +137,6 @@ class ValidationModuleTest(unittest.TestCase):
     def test_validate_user_config_accepts_valid_config(self) -> None:
         """Test that valid user configuration is accepted."""
         cfg = copy.deepcopy(BASE_CONFIG)
-        validate_user_config(cfg)  # Should not raise
-
-    def test_validate_user_config_accepts_rules_and_prompt_injections(self) -> None:
-        """Test that extensibility root keys are accepted in user config."""
-        cfg = copy.deepcopy(BASE_CONFIG)
-        cfg["rules"] = {
-            "enabled": True,
-            "builtin_rules": {"SELECT_STAR": False},
-            "custom_rules": [],
-            "custom_rules_path": None,
-        }
-        cfg["prompt_injections"] = {
-            "system": [{"content": "focus on index usage"}],
-            "by_rule": [{"rule_id": "SELECT_STAR", "prompt": "avoid select *"}],
-        }
         validate_user_config(cfg)  # Should not raise
 
     def test_validate_user_config_ignores_removed_keys(self) -> None:

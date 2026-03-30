@@ -24,7 +24,7 @@ description: 面向 MyBatis 项目的 SQL 优化执行与排障技能，覆盖 r
 | Phase 1 | LLM 输出质量控制（语法/启发式检查） | `proposals/*.llmValidationResults` |
 | Phase 2 | LLM 重试 + 反馈机制 | `proposals/*.llmRetryStats` |
 | Phase 3 | validate 阶段 LLM 语义判断 | `acceptance/*.llmSemanticCheck` |
-| Phase 4 | 规则引擎 ↔ LLM 双向反馈 | `ops/llm_feedback.jsonl` |
+| Phase 4 | LLM 反馈收集 | `ops/llm_feedback.jsonl` |
 | Phase 5 | patch_generate 阶段 LLM 辅助 | `ops/template_suggestions/*.json` |
 | Phase 6 | LLM Trace 完整性增强 | `traces/*.optimize.llm.json` |
 

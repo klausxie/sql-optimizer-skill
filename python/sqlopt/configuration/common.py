@@ -39,6 +39,8 @@ REMOVED_KEYS_WITH_HINTS = {
     "diagnostics": "This section is now auto-injected internally. Remove it from your config file.",
     "runtime": "This section is now auto-injected internally. Remove it from your config file.",
     "verification": "This section is now auto-injected internally. Remove it from your config file.",
+    "rules": "Custom rules have been removed. Only built-in rules are supported now. Remove this section.",
+    "prompt_injections": "Prompt injections have been removed. Remove this section.",
     # Validate section keys
     "validate.sample_count": "Validation settings are now managed internally. Remove this key.",
     "validate.min_sample_rows_for_hash": "Validation settings are now managed internally. Remove this key.",
@@ -69,14 +71,6 @@ def check_snake_case(obj: Any, path: str = "") -> None:
         for key, value in obj.items():
             # Allow arbitrary HTTP header keys under llm.api_headers.
             if path.endswith("llm.api_headers."):
-                check_snake_case(value, path + key + ".")
-                continue
-            # Allow rule-id keyed overrides under diagnostics.severity_overrides.
-            if path.endswith("diagnostics.severity_overrides."):
-                check_snake_case(value, path + key + ".")
-                continue
-            # Allow rule IDs (uppercase) under rules.builtin_rules.
-            if path.endswith("rules.builtin_rules."):
                 check_snake_case(value, path + key + ".")
                 continue
             if not SNAKE_CASE_RE.match(key):

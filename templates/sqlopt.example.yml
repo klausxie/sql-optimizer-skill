@@ -2,9 +2,8 @@
 # 复制为项目根目录 sqlopt.yml 后按需修改。
 #
 # 外部可配置主根键：project / scan / db / llm / report / config_version
-# 外部可配置扩展键：rules / prompt_injections
 # 以下历史键已移除（出现即报错）：
-# validate, policy, apply, patch, diagnostics, runtime, verification
+# validate, policy, apply, patch, diagnostics, runtime, verification, rules, prompt_injections
 
 config_version: v1
 
@@ -42,63 +41,3 @@ llm:
 
 report:
   enabled: true
-
-# =============================================
-# 可选：自定义规则配置
-# =============================================
-# 详细规则定义示例见 templates/sqlopt-rules.example.yml
-
-# 方式一：引用外部规则文件
-# rules:
-#   enabled: true
-#   custom_rules_path: "./sqlopt-rules.yml"
-
-# 方式二：内联自定义规则
-# rules:
-#   enabled: true
-#   custom_rules:
-#     - id: MY_CUSTOM_RULE
-#       severity: warn
-#       category: performance
-#       message: "自定义规则消息"
-#       match:
-#         sql_contains: "PATTERN"
-#       action:
-#         suggestion: "优化建议"
-
-# 方式三：控制内置规则启用状态
-# rules:
-#   builtin_rules:
-#     DOLLAR_SUBSTITUTION: true      # 启用
-#     SELECT_STAR: false              # 禁用
-#     FULL_SCAN_RISK: true
-
-# =============================================
-# 可选：LLM Prompt 注入
-# =============================================
-# 通过注入 Prompt 增强 LLM 分析能力
-
-# prompt_injections:
-#   # 全局 Prompt，对所有 SQL 分析生效
-#   system:
-#     - role: system
-#       content: |
-#         你是一个 SQL 性能优化专家。请特别关注以下业务规则：
-#         1. 禁止查询已删除的订单 (order_status = 'DELETED')
-#         2. 隐私字段 (phone, id_card) 必须脱敏
-#         3. 日志查询必须带时间范围限制
-#
-#   # 按规则注入，仅当对应规则匹配时生效
-#   by_rule:
-#     - rule_id: MISSING_INDEX_IN_WHERE
-#       prompt: |
-#         该字段可能缺少索引。请分析：
-#         1. 字段选择度如何？
-#         2. 表的数据量估计？
-#         3. 推荐创建什么类型的索引？
-#
-#     - rule_id: SENSITIVE_COLUMN_EXPOSED
-#       prompt: |
-#         检测到敏感字段暴露风险。请：
-#         1. 确认该字段是否确实敏感
-#         2. 建议脱敏方案（掩码/加密/移除）

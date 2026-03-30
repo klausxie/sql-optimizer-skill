@@ -3,20 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from ..dispatch import collect_sql_evidence
-from .rules import evaluate_rules
 
 
-def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
+def _estimate_actionability(sql_unit: dict[str, Any]) -> dict[str, Any]:
+    """Estimate actionability of a SQL unit for automatic optimization."""
     sql = str(sql_unit.get("sql") or "")
     dynamic_features = [str(x) for x in (sql_unit.get("dynamicFeatures") or []) if str(x).strip()]
-    suggestions = [row for row in (proposal.get("suggestions") or []) if isinstance(row, dict)]
-    issues = [row for row in (proposal.get("issues") or []) if isinstance(row, dict)]
-    verdict = str(proposal.get("verdict") or "").strip()
-    blocked_trigger_rules = [
-        str(row.get("ruleId") or "").strip()
-        for row in (proposal.get("triggeredRules") or [])
-        if isinstance(row, dict) and bool(row.get("blocksActionability")) and str(row.get("ruleId") or "").strip()
-    ]
 
     if "${" in sql:
         return {
@@ -26,18 +18,9 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
             "reasons": ["unsafe dynamic substitution blocks safe auto-fix"],
             "blockedBy": ["DOLLAR_SUBSTITUTION"],
         }
-    if blocked_trigger_rules:
-        return {
-            "score": 0,
-            "tier": "BLOCKED",
-            "autoPatchLikelihood": "LOW",
-            "reasons": ["custom diagnostics rule blocks automatic optimization rollout"],
-            "blockedBy": blocked_trigger_rules,
-        }
 
     score = 70
     reasons: list[str] = []
-    blocked_by: list[str] = []
 
     if dynamic_features:
         score -= 20
@@ -45,12 +28,6 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
     if "INCLUDE" in dynamic_features:
         score -= 10
         reasons.append("include fragments reduce direct patchability")
-    if not suggestions:
-        score -= 30
-        reasons.append("no concrete rewrite suggestion available")
-    if verdict and (issues or suggestions):
-        score += 10
-        reasons.append("proposal includes structured issue and suggestion evidence")
     if not dynamic_features:
         score += 10
         reasons.append("static statement is easier to patch automatically")
@@ -79,63 +56,8 @@ def _estimate_actionability(sql_unit: dict[str, Any], proposal: dict[str, Any]) 
         "tier": tier,
         "autoPatchLikelihood": auto_patch_likelihood,
         "reasons": reasons,
-        "blockedBy": blocked_by,
+        "blockedBy": [],
     }
-
-
-def _get_matched_prompt_injections(
-    triggered_rules: list[dict[str, Any]],
-    config: dict[str, Any],
-) -> list[str]:
-    """Get Prompt injections that match triggered rules.
-
-    Args:
-        triggered_rules: List of triggered rule definitions
-        config: Full configuration dictionary
-
-    Returns:
-        List of prompt strings to inject
-    """
-    prompt_cfg = dict(config.get("prompt_injections") or {})
-    by_rule = list(prompt_cfg.get("by_rule") or [])
-
-    if not by_rule:
-        return []
-
-    # Get triggered rule IDs
-    triggered_rule_ids = {str(r.get("ruleId") or "") for r in triggered_rules}
-
-    # Find matching prompts
-    matched_prompts = []
-    for injection in by_rule:
-        rule_id = str(injection.get("rule_id") or "").strip()
-        if rule_id and rule_id in triggered_rule_ids:
-            prompt = str(injection.get("prompt") or "").strip()
-            if prompt:
-                matched_prompts.append(prompt)
-
-    return matched_prompts
-
-
-def _get_system_prompts(config: dict[str, Any]) -> list[str]:
-    """Get system-level prompt injections.
-
-    Args:
-        config: Full configuration dictionary
-
-    Returns:
-        List of system prompt strings
-    """
-    prompt_cfg = dict(config.get("prompt_injections") or {})
-    system_prompts = list(prompt_cfg.get("system") or [])
-
-    prompts = []
-    for sp in system_prompts:
-        content = str(sp.get("content") or "").strip()
-        if content:
-            prompts.append(content)
-
-    return prompts
 
 
 def build_optimize_prompt(
@@ -143,19 +65,18 @@ def build_optimize_prompt(
     proposal: dict[str, Any],
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build optimization prompt with optional prompt injections.
+    """Build optimization prompt for LLM.
 
     Args:
         sql_unit: SQL unit to analyze
         proposal: Current proposal with issues and suggestions
-        config: Full configuration (optional, for prompt injections)
+        config: Full configuration (optional)
 
     Returns:
         Prompt dictionary for LLM
     """
     db_summary = proposal.get("dbEvidenceSummary", {}) or {}
 
-    # Build base prompt
     prompt = {
         "task": "sql_optimize_candidate_generation",
         "sqlKey": sql_unit["sqlKey"],
@@ -183,36 +104,31 @@ def build_optimize_prompt(
         },
     }
 
-    # Inject prompts if config is provided
-    if config:
-        # Add system prompts
-        system_prompts = _get_system_prompts(config)
-        if system_prompts:
-            prompt["systemPrompts"] = system_prompts
-
-        # Add rule-matched prompts
-        triggered_rules = proposal.get("triggeredRules", [])
-        rule_matched_prompts = _get_matched_prompt_injections(triggered_rules, config)
-        if rule_matched_prompts:
-            prompt["ruleInjectedPrompts"] = rule_matched_prompts
-
     return prompt
 
 
 def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
-    rule_result = evaluate_rules(sql_unit, config)
+    """Generate optimization proposal for a SQL unit.
+
+    Args:
+        sql_unit: SQL unit to analyze
+        config: Configuration dictionary
+
+    Returns:
+        Proposal dictionary with issues, suggestions, and actionability
+    """
     db_evidence, plan_summary = collect_sql_evidence(config, sql_unit["sql"])
     proposal = {
         "sqlKey": sql_unit["sqlKey"],
-        "issues": rule_result["issues"],
+        "issues": [],
         "dbEvidenceSummary": db_evidence,
-        "planSummary": plan_summary if plan_summary else {"risk": "low" if rule_result["suggestions"] else "none"},
-        "suggestions": rule_result["suggestions"],
-        "verdict": rule_result["verdict"],
+        "planSummary": plan_summary if plan_summary else {"risk": "none"},
+        "suggestions": [],
+        "verdict": "NOOP",
         "confidence": "medium",
         "estimatedBenefit": "unknown",
-        "triggeredRules": rule_result["triggeredRules"],
+        "triggeredRules": [],
     }
-    proposal["actionability"] = _estimate_actionability(sql_unit, proposal)
-    proposal["recommendedSuggestionIndex"] = 0 if rule_result["suggestions"] else None
+    proposal["actionability"] = _estimate_actionability(sql_unit)
+    proposal["recommendedSuggestionIndex"] = None
     return proposal

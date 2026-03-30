@@ -15,10 +15,6 @@ Configuration Flow:
 │    • db:       Database connection                                  │
 │    • llm:      LLM provider settings                                │
 │    • report:   Report generation                                    │
-│                                                                      │
-│  User-Facing Extensibility Sections (optional):                     │
-│    • rules: Rule toggles and custom rules                           │
-│    • prompt_injections: Prompt hints for optimization                │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
                     load_config() + validation
@@ -45,7 +41,7 @@ Configuration Flow:
 └─────────────────────────────────────────────────────────────────────┘
 
 Key Design Principles:
-1. User config keeps a stable main surface (6 root keys + 2 optional extensibility keys)
+1. User config keeps a stable main surface (6 root keys)
 2. Internal config is comprehensive and flexible (7 additional keys)
 3. Users never need to specify internal sections
 4. Internal sections are auto-injected with sensible defaults
@@ -188,39 +184,7 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
             "generate_template_suggestions": True,
         }
     }
-    cfg["diagnostics"] = {
-        "rulepacks": [{"builtin": "core"}, {"builtin": "performance"}],
-        "loaded_rulepacks": [],
-        "severity_overrides": {},
-        "disabled_rules": [],
-        "llm_feedback": {
-            "enabled": False,
-            "log_detected_issues": True,
-            "auto_learn_patterns": False,
-        },
-    }
+    cfg["diagnostics"] = {}
     cfg["runtime"] = deepcopy(DEFAULT_RUNTIME)
     cfg["report"] = {"enabled": bool((cfg.get("report") or {}).get("enabled", True))}
     cfg["verification"] = {"enforce_verified_outputs": False, "critical_output_policy": "warn"}
-
-    # User-extensible rules configuration
-    # - rules.enabled: Enable custom rule system
-    # - rules.custom_rules_path: Path to external YAML rules file
-    # - rules.custom_rules: Inline custom rules
-    # - rules.builtin_rules: Control which built-in rules are active
-    rules_cfg = cfg.setdefault("rules", {})
-    rules_cfg.setdefault("enabled", True)
-    rules_cfg.setdefault("custom_rules_path", None)
-    rules_cfg.setdefault("custom_rules", [])
-    rules_cfg.setdefault("builtin_rules", {
-        "DOLLAR_SUBSTITUTION": True,
-        "SELECT_STAR": True,
-        "FULL_SCAN_RISK": True,
-    })
-
-    # User-extensible prompt injections for LLM enhancement
-    # - prompt_injections.system: Global prompts applied to all LLM calls
-    # - prompt_injections.by_rule: Rule-specific prompts injected when rules match
-    prompt_cfg = cfg.setdefault("prompt_injections", {})
-    prompt_cfg.setdefault("system", [])
-    prompt_cfg.setdefault("by_rule", [])

@@ -9,10 +9,6 @@
 5. `report`
 6. `config_version`
 
-用户可配置扩展根键（可选）：
-1. `rules`
-2. `prompt_injections`
-
 命名约束：
 1. 全部使用 `snake_case`
 2. 非 snake_case 视为配置错误
@@ -25,6 +21,8 @@
 5. `diagnostics`
 6. `runtime`
 7. `verification`
+8. `rules`
+9. `prompt_injections`
 
 ## 2. 必填与类型
 必填：
@@ -41,8 +39,6 @@
 4. `db.schema`（非默认 schema/database 时建议显式配置）
 5. `llm.api_*` 与 `llm.api_headers`（仅 `direct_openai_compatible`）
 6. `report.enabled`（默认 `true`）
-7. `rules.*`（自定义/开关规则）
-8. `prompt_injections.*`（LLM 提示注入）
 
 ## 3. 内置固定策略（不再外露）
 以下配置已收敛为内部固定常量：

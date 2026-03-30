@@ -1,6 +1,6 @@
 # SQL Optimizer 配置参考（v1）
 
-本文档是配置边界的单一事实来源（source of truth）。
+本文档是配置边界的单一事实来源。
 
 ## 1. 用户可配置边界
 
@@ -15,14 +15,7 @@
 5. `llm`
 6. `report`
 
-### 1.2 扩展根键（可选）
-
-在主根键之外，支持两个扩展根键：
-
-1. `rules`
-2. `prompt_injections`
-
-### 1.3 已移除根键（兼容忽略）
+### 1.2 已移除根键（兼容忽略）
 
 以下根键在 v1 已移除，加载时会被自动忽略（并由内部默认值注入）：
 
@@ -33,6 +26,8 @@
 - `diagnostics`
 - `runtime`
 - `verification`
+- `rules`
+- `prompt_injections`
 
 ## 2. 主根键字段
 
@@ -81,25 +76,7 @@
 |---|---|---|---|
 | `enabled` | bool | 否 | 默认 `true` |
 
-## 3. 扩展根键字段
-
-### 3.1 `rules`
-
-| 字段 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| `enabled` | bool | 否 | 是否启用规则系统 |
-| `custom_rules_path` | string/null | 否 | 外部规则文件路径 |
-| `custom_rules` | array | 否 | 内联规则列表 |
-| `builtin_rules` | object | 否 | 内置规则启停开关 |
-
-### 3.2 `prompt_injections`
-
-| 字段 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| `system` | array | 否 | 全局系统提示 |
-| `by_rule` | array | 否 | 按规则触发的提示 |
-
-## 4. 内部注入配置（用户声明会被忽略）
+## 3. 内部注入配置（用户声明会被忽略）
 
 运行时会在 `config.resolved.json` 注入内部节：
 
@@ -113,7 +90,7 @@
 
 这些节是执行层实现细节，不是用户配置边界。即使用户配置里声明了它们，也会被兼容层忽略。
 
-## 5. 加载与校验流程
+## 4. 加载与校验流程
 
 1. 读取 `sqlopt.yml`
 2. 校验用户配置根键与字段（已移除键先兼容忽略）
@@ -121,9 +98,7 @@
 4. 注入内部节
 5. 写入 `runs/<run-id>/config.resolved.json`
 
-## 6. 示例
-
-### 6.1 最小配置
+## 5. 示例
 
 ```yaml
 config_version: v1
@@ -146,42 +121,7 @@ report:
   enabled: true
 ```
 
-### 6.2 启用扩展键示例
-
-```yaml
-config_version: v1
-
-project:
-  root_path: .
-
-scan:
-  mapper_globs:
-    - src/main/resources/**/*.xml
-
-db:
-  platform: mysql
-  dsn: mysql://user:pass@127.0.0.1:3306/db
-
-llm:
-  provider: direct_openai_compatible
-  api_base: https://api.openai.com/v1
-  api_key: sk-xxxx
-  api_model: gpt-4o-mini
-
-report:
-  enabled: true
-
-rules:
-  builtin_rules:
-    SELECT_STAR: false
-
-prompt_injections:
-  system:
-    - role: system
-      content: "优先给出可安全落地的改写建议。"
-```
-
-## 7. 相关文档
+## 6. 相关文档
 
 - [快速入门](QUICKSTART.md)
 - [安装指南](INSTALL.md)

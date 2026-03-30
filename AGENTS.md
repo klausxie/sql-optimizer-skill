@@ -320,12 +320,7 @@ All LLM enhancement phases are fully implemented and tested:
 5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
 6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
 
-Configuration:
-- `llm.output_validation.enabled`: Enable Phase 1 quality control
-- `llm.retry.enabled`: Enable Phase 2 retry mechanism
-- `validate.llm_semantic_check.enabled`: Enable Phase 3 semantic checking
-- `diagnostics.llm_feedback.enabled`: Enable Phase 4 feedback collection
-- `patch.llm_assist.enabled`: Enable Phase 5 patch assistance
+Note: LLM enhancement features are now integrated into the main pipeline and controlled internally. User configuration for these features has been removed.
 
 Test coverage: 84 new tests covering all LLM enhancement features
 

@@ -35,9 +35,6 @@ SECTION_ALLOWED_KEYS = {
         "api_headers",
     },
     "report": {"enabled"},
-    # User-extensible sections (internal, but allowed in user config for migration)
-    "rules": {"enabled", "custom_rules_path", "custom_rules", "builtin_rules"},
-    "prompt_injections": {"system", "by_rule"},
 }
 
 
@@ -146,40 +143,6 @@ def validate_types(cfg: dict[str, Any]) -> None:
     report_cfg = _require_object(cfg, "report")
     if "enabled" in report_cfg and not isinstance(report_cfg.get("enabled"), bool):
         raise ConfigError("report.enabled must be boolean")
-
-    # Validate rules section (if present)
-    if "rules" in cfg:
-        rules_cfg = cfg["rules"]
-        if not isinstance(rules_cfg, dict):
-            raise ConfigError("rules must be object")
-        if "enabled" in rules_cfg and not isinstance(rules_cfg.get("enabled"), bool):
-            raise ConfigError("rules.enabled must be boolean")
-        if "custom_rules_path" in rules_cfg:
-            path = rules_cfg.get("custom_rules_path")
-            if path is not None and not isinstance(path, str):
-                raise ConfigError("rules.custom_rules_path must be string or null")
-        if "custom_rules" in rules_cfg:
-            rules_list = rules_cfg.get("custom_rules")
-            if not isinstance(rules_list, list):
-                raise ConfigError("rules.custom_rules must be array")
-        if "builtin_rules" in rules_cfg:
-            builtin = rules_cfg.get("builtin_rules")
-            if not isinstance(builtin, dict):
-                raise ConfigError("rules.builtin_rules must be object")
-
-    # Validate prompt_injections section (if present)
-    if "prompt_injections" in cfg:
-        prompt_cfg = cfg["prompt_injections"]
-        if not isinstance(prompt_cfg, dict):
-            raise ConfigError("prompt_injections must be object")
-        if "system" in prompt_cfg:
-            system = prompt_cfg.get("system")
-            if not isinstance(system, list):
-                raise ConfigError("prompt_injections.system must be array")
-        if "by_rule" in prompt_cfg:
-            by_rule = prompt_cfg.get("by_rule")
-            if not isinstance(by_rule, list):
-                raise ConfigError("prompt_injections.by_rule must be array")
 
 
 def validate_user_config(cfg: dict[str, Any]) -> None:
