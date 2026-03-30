@@ -1,5 +1,0 @@
-version: 1
-interface:
-  display_name: SQL 优化器
-  short_description: 执行 SQL 优化工作流。
-  default_prompt: 使用此 skill 端到端执行 SQL 优化。不要在首个时间片后停止；需要自动循环执行 run_until_budget，直到 complete=true 或出现 FAILED/error，并在每个时间片汇报进度。

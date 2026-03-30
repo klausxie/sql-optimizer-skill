@@ -1,4 +1,4 @@
-# SQL Optimizer Skill Installation
+# SQL Optimizer Installation
 
 ## 1. Prerequisites
 
@@ -6,114 +6,38 @@
 2. If using `llm.provider=opencode_run`, ensure `opencode` command is available
 3. Network access to your configured LLM endpoint and DB
 
-## 2. Build bundle (publisher machine)
-
-Linux/macOS:
+## 2. Clone and Setup
 
 ```bash
-python3 install/build_bundle.py
+git clone <repository-url>
+cd sql-optimizer-skill
+
+# Set PYTHONPATH
+export PYTHONPATH=$(pwd)/python
+
+# Or add to your shell profile for persistence
+echo 'export PYTHONPATH="<absolute-path>/python"' >> ~/.bashrc
 ```
 
-Windows PowerShell:
-
-```powershell
-python install/build_bundle.py
-```
-
-Artifact:
-
-```text
-dist/sql-optimizer-skill-bundle-v<version>.tar.gz
-```
-
-## 3. Install on teammate machine
-
-Linux/macOS:
+## 3. Install Dependencies
 
 ```bash
-cd /path/to/sql-optimizer-skill-bundle-v<version>
-python3 install/install_skill.py
-python3 install/install_skill.py --verify
+pip install -r install/requirements.txt
 ```
 
-Windows PowerShell:
-
-```powershell
-cd C:\path\to\sql-optimizer-skill-bundle-v<version>
-python install/install_skill.py
-python install/install_skill.py --verify
-```
-
-By default installer auto-updates PATH. Use `--no-auto-path` to disable it.
-
-What this does:
-
-1. Installs skill to `<home>/.opencode/skills/sql-optimizer`
-2. Creates runtime `.venv` and installs dependencies
-3. Installs opencode command docs under `<home>/.opencode/commands/`
-4. Creates `<project>/sqlopt.yml` if missing
-
-## 4. Run doctor
-
-Linux/macOS:
+## 4. Verify Installation
 
 ```bash
-python3 install/doctor.py --project /path/to/your/project
+PYTHONPATH=python python3 scripts/sqlopt_cli.py --help
 ```
 
-Windows PowerShell:
-
-```powershell
-python install/doctor.py --project C:\path\to\your\project
-```
-
-Note for Windows:
-
-1. Runtime uses soft-timeout fallback (no `SIGALRM` dependency).
-2. If a step appears slow, check `opencode`/DB connectivity first.
-
-## 5. Verify command path
-
-Linux/macOS:
+## 5. Run Doctor
 
 ```bash
-sqlopt-cli --help
+PYTHONPATH=python python3 install/doctor.py --project /path/to/your/project
 ```
 
-Windows PowerShell:
-
-```powershell
-sqlopt-cli --help
-```
-
-If PATH is still missing (auto-update failed or was disabled), installer prints exact PATH parameter and fix commands. Typical Windows fix:
-
-```powershell
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-[Environment]::SetEnvironmentVariable('Path', "$env:USERPROFILE\.opencode\skills\sql-optimizer\bin;$userPath", 'User')
-```
-
-Then reopen PowerShell.
-
-## 6. Optional: Direct LLM API mode
-
-If you want to bypass `opencode run`, set in `sqlopt.yml`:
-
-```yaml
-llm:
-  enabled: true
-  provider: direct_openai_compatible
-  timeout_ms: 15000
-  api_base: https://api.openai.com/v1
-  api_key: <your_api_key>
-  api_model: gpt-4o-mini
-  api_timeout_ms: 30000
-  # optional:
-  # api_headers:
-  #   x-env: prod
-```
-
-## 7. Verify local tests
+## 6. Verify Local Tests
 
 From the repository root, run:
 
@@ -121,7 +45,7 @@ From the repository root, run:
 python3 -m pytest -q
 ```
 
-## 8. Recommended Post-Install Smoke Run
+## 7. Recommended Post-Install Smoke Run
 
 在切换到真实 DB / 外部 LLM 前，先跑一轮离线 smoke：
 
@@ -132,15 +56,15 @@ llm:
 ```
 
 ```bash
-sqlopt-cli --quiet run --config sqlopt.yml --to-stage patch_generate
-sqlopt-cli status
-sqlopt-cli resume
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage patch_generate
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status
+PYTHONPATH=python python3 scripts/sqlopt_cli.py resume
 ```
 
 若 `status.next_action=report-rebuild`，执行：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
 发布前推荐统一验收入口：

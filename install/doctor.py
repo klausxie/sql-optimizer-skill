@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -24,7 +26,6 @@ def _bootstrap() -> None:
 
 _bootstrap()
 
-from sqlopt.install_support import cli_run_command, is_windows, skill_dir  # noqa: E402
 from sqlopt.subprocess_utils import run_capture_text  # noqa: E402
 
 
@@ -53,6 +54,10 @@ def _run_check(name: str, cmd: list[str]) -> bool:
     return False
 
 
+def is_windows() -> bool:
+    return platform.system().lower().startswith("win")
+
+
 class DiagnosticResult:
     """Result of a diagnostic check."""
 
@@ -67,27 +72,28 @@ class DiagnosticResult:
 class Doctor:
     """Enhanced diagnostic tool for SQL Optimizer."""
 
-    def __init__(self, project_dir: Path, verbose: bool = False, fix: bool = False):
+    def __init__(self, project_dir: Path, root_dir: Path, verbose: bool = False, fix: bool = False):
         self.project_dir = project_dir
+        self.root_dir = root_dir
         self.verbose = verbose
         self.fix = fix
         self.results: list[DiagnosticResult] = []
-        self.skill_root = skill_dir()
 
     def run_all_checks(self) -> bool:
         """Run all diagnostic checks."""
         print("=" * 70)
         print("SQL Optimizer Doctor - Diagnostic Report")
         print("=" * 70)
-        print(f"Project: {self.project_dir}")
-        print(f"Skill:   {self.skill_root}")
-        print(f"Mode:    {'Fix' if self.fix else 'Check'}")
+        print(f"Project:    {self.project_dir}")
+        print(f"Repository: {self.root_dir}")
+        print(f"Mode:       {'Fix' if self.fix else 'Check'}")
         print("=" * 70)
         print()
 
         # Run checks in order
         self.check_python_version()
-        self.check_skill_installation()
+        self.check_pythonpath()
+        self.check_cli_available()
         self.check_config_file()
         self.check_config_validity()
         self.check_scanner_runtime()
@@ -121,23 +127,49 @@ class Doctor:
         except Exception as e:
             self.add_result(DiagnosticResult("Python Version", False, str(e)))
 
-    def check_skill_installation(self) -> None:
-        """Check if skill is properly installed."""
-        cli = self.skill_root / "bin" / ("sqlopt-cli.cmd" if is_windows() else "sqlopt-cli")
+    def check_pythonpath(self) -> None:
+        """Check if PYTHONPATH is set correctly."""
+        pythonpath = os.environ.get("PYTHONPATH", "")
+        python_dir = self.root_dir / "python"
 
-        if cli.exists():
+        if str(python_dir) in pythonpath or python_dir.exists() and str(python_dir.resolve()) in pythonpath:
             self.add_result(DiagnosticResult(
-                "Skill CLI",
+                "PYTHONPATH",
                 True,
-                f"Found at {cli}"
+                f"Set to include {python_dir}"
+            ))
+        elif python_dir.exists():
+            self.add_result(DiagnosticResult(
+                "PYTHONPATH",
+                False,
+                "PYTHONPATH not set to include python/ directory",
+                f"Run: export PYTHONPATH={python_dir}",
+                fixable=True
             ))
         else:
             self.add_result(DiagnosticResult(
-                "Skill CLI",
+                "PYTHONPATH",
                 False,
-                f"Not found at {cli}",
-                "Run: python3 install/install_skill.py --project <path>",
-                fixable=True
+                "python/ directory not found",
+                "Ensure you are running from the repository root"
+            ))
+
+    def check_cli_available(self) -> None:
+        """Check if CLI is available."""
+        cli_script = self.root_dir / "scripts" / "sqlopt_cli.py"
+
+        if cli_script.exists():
+            self.add_result(DiagnosticResult(
+                "CLI Script",
+                True,
+                f"Found at {cli_script}"
+            ))
+        else:
+            self.add_result(DiagnosticResult(
+                "CLI Script",
+                False,
+                f"Not found at {cli_script}",
+                "Ensure you are running from the repository root"
             ))
 
     def check_config_file(self) -> None:
@@ -218,8 +250,8 @@ class Doctor:
             ))
 
     def check_scanner_runtime(self) -> None:
-        """Check optional scanner runtime artifact shipped with skill."""
-        jar = self.skill_root / "runtime" / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
+        """Check optional scanner runtime artifact."""
+        jar = self.root_dir / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if jar.exists():
             self.add_result(DiagnosticResult(
                 "Scanner Runtime",
@@ -355,7 +387,7 @@ class Doctor:
             ))
 
     def check_opencode_available(self) -> None:
-        """Check if opencode command is available."""
+        """Check if opencode command is available (optional)."""
         try:
             proc = run_capture_text(["opencode", "--version"])
             if proc.returncode == 0:
@@ -368,16 +400,14 @@ class Doctor:
             else:
                 self.add_result(DiagnosticResult(
                     "OpenCode CLI",
-                    False,
-                    "Command failed",
-                    "Install OpenCode or check PATH"
+                    True,
+                    "Not available (optional for llm.provider=opencode_run)"
                 ))
         except (FileNotFoundError, OSError):
             self.add_result(DiagnosticResult(
                 "OpenCode CLI",
-                False,
-                "Command not found",
-                "Install OpenCode or add to PATH" + (" (reopen PowerShell if just installed)" if is_windows() else "")
+                True,
+                "Not available (optional for llm.provider=opencode_run)"
             ))
 
     def check_runs_directory(self) -> None:
@@ -420,7 +450,7 @@ class Doctor:
     def fix_config_file(self) -> None:
         """Auto-fix: Copy example config to project."""
         try:
-            example = self.skill_root.parent / "templates" / "sqlopt.example.yml"
+            example = self.root_dir / "templates" / "sqlopt.example.yml"
             target = self.project_dir / "sqlopt.yml"
 
             if example.exists():
@@ -514,8 +544,9 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     project_dir = Path(args.project).resolve()
+    root_dir = Path(__file__).resolve().parent.parent
 
-    doctor = Doctor(project_dir, verbose=args.verbose, fix=args.fix)
+    doctor = Doctor(project_dir, root_dir, verbose=args.verbose, fix=args.fix)
     success = doctor.run_all_checks()
 
     raise SystemExit(0 if success else 1)

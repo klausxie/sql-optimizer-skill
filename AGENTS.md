@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-SQL Optimizer is a Python-based tool that analyzes MyBatis SQL statements, generates optimization proposals using LLM, validates them against a database, and produces XML patches for dynamic mapper templates. It's designed as an installable skill for the OpenCode platform.
+SQL Optimizer is a Python-based tool that analyzes MyBatis SQL statements, generates optimization proposals using LLM, validates them against a database, and produces XML patches for dynamic mapper templates.
 
 Supported databases: PostgreSQL, MySQL 5.6+ (including 5.7, 8.0+; MariaDB not supported)
 
@@ -35,11 +35,11 @@ python3 scripts/run_until_budget.py \
 
 ### CLI Usage
 
-The main CLI entry point is `scripts/sqlopt_cli.py`. When installed as a skill, use `~/.opencode/skills/sql-optimizer/bin/sqlopt-cli`:
+The main CLI entry point is `scripts/sqlopt_cli.py`:
 
 ```bash
-# Start a new optimization run
-python3 scripts/sqlopt_cli.py run --config sqlopt.yml
+# Start a new optimization run (set PYTHONPATH first)
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
 
 # Check run status
 python3 scripts/sqlopt_cli.py status --run-id <run_id>
@@ -57,42 +57,7 @@ python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey>
 python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
 
 # Apply generated patches
-python3 scripts/sqlopt_cli.py apply --run-id <run_id>
-```
-
-### CLI Usage
-
-Use `sqlopt-cli` directly for optimization runs:
-
-```bash
-# Navigate to project directory with sqlopt.yml
-cd /path/to/project
-
-# Run optimization (unlimited steps/time by default)
-sqlopt-cli run
-
-# Limit steps or time
-sqlopt-cli run --max-steps 5
-sqlopt-cli run --max-seconds 300
-
-# Resume previous run
-sqlopt-cli resume --run-id run_xxx
-
-# Target specific stage
-sqlopt-cli run --to-stage scan
-```
-
-### Skill Installation
-
-```bash
-# Build distribution bundle
-python3 install/build_bundle.py
-
-# Install to a project
-python3 install/install_skill.py --project /path/to/project
-
-# Run health check
-python3 install/doctor.py --project /path/to/project
+PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 ```
 
 ## Architecture
@@ -146,7 +111,7 @@ All runs maintain supervisor state in `runs/<run_id>/supervisor/`:
 - `state.json`: per-statement phase status, retry counts, errors
 - `results/*.jsonl`: structured step results for diagnostics
 
-The orchestrator advances one statement step per invocation (bounded by `max_step_ms` budget) to avoid 120s timeout limits in OpenCode execution.
+The orchestrator advances one statement step per invocation (bounded by `max_step_ms` budget).
 
 ### SQL View Constraints
 
@@ -366,7 +331,7 @@ This creates and populates tables: `users`, `orders`, `shipments`
 
 ## PYTHONPATH Setup
 
-When running scripts directly (not via installed skill), set PYTHONPATH:
+When running scripts directly, set PYTHONPATH:
 
 ```bash
 PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml

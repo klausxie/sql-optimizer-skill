@@ -6,18 +6,24 @@
 
 - Python 3.9+
 - MyBatis XML mapper 文件
-- 数据库（PostgreSQL 或 MySQL 5.6+）  
+- 数据库（PostgreSQL 或 MySQL 5.6+）
   仅安装链路 smoke 时可先使用离线配置（`llm.provider=opencode_builtin`）
 
-## 2. 安装并自检
+## 2. 克隆并设置环境
 
 ```bash
-python3 install/install_skill.py
-python3 install/install_skill.py --verify
-python3 install/doctor.py --project .
-```
+git clone <repository-url>
+cd sql-optimizer-skill
 
-如果 `sqlopt-cli` 不可用，先按 `install_skill.py --verify` 输出修复 PATH。
+# 设置 PYTHONPATH
+export PYTHONPATH=$(pwd)/python
+
+# 安装依赖
+pip install -r install/requirements.txt
+
+# 验证安装
+PYTHONPATH=python python3 scripts/sqlopt_cli.py --help
+```
 
 ## 3. 准备最小配置
 
@@ -51,9 +57,9 @@ llm:
 ## 4. 跑通主流程
 
 ```bash
-sqlopt-cli run --config sqlopt.yml
-sqlopt-cli status
-sqlopt-cli resume
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status
+PYTHONPATH=python python3 scripts/sqlopt_cli.py resume
 ```
 
 说明：
@@ -63,16 +69,16 @@ sqlopt-cli resume
 如果 `status.next_action=report-rebuild`：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
 ## 5. 查看产物并应用补丁
 
 ```bash
-sqlopt-cli status --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run-id>
 cat runs/<run-id>/overview/report.summary.md
 cat runs/<run-id>/overview/report.md
-sqlopt-cli apply --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 ```
 
 重点产物：
@@ -87,7 +93,7 @@ sqlopt-cli apply --run-id <run-id>
 - 只想先验证扫描：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage scan
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage scan
 ```
 
 - MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。

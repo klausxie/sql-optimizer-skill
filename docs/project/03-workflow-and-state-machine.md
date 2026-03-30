@@ -15,8 +15,8 @@
 ## 2. 执行语义
 1. 阶段顺序固定：`preflight -> scan -> optimize -> validate -> patch_generate -> report`。
 2. `run/resume` 每次调用最多推进一个 statement step（受 `max_step_ms` 预算约束）。
-3. `status.complete=true` 是“已达到目标阶段”的判断依据。
-4. 为什么一个个 statement step循环推进？因为opencode执行命令时最大超时 120s。若所有sql集中优化，正常项目多sql情况下很容易超过 120s。
+3. `status.complete=true` 是"已达到目标阶段"的判断依据。
+4. 分步执行是为了保证每个步骤可控可追踪，支持中断恢复。
 5. `report` 是唯一允许重生（regenerate）的阶段；其余已完成阶段默认跳过，不重复执行。
 
 ## 3. 监督状态文件（Supervisor）

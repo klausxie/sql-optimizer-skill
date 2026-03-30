@@ -1,4 +1,4 @@
-# SQL Optimizer Skill
+# SQL Optimizer
 
 面向 MyBatis SQL 的分析与优化工具链，支持从扫描到补丁应用的可恢复工作流。
 
@@ -13,43 +13,46 @@
 
 ## 快速开始
 
-### 1) 安装
+### 1) 环境准备
 
 ```bash
-python3 install/install_skill.py
-python3 install/install_skill.py --verify
+# 设置 PYTHONPATH
+export PYTHONPATH=$(pwd)/python
+
+# 或在每次命令前添加
+PYTHONPATH=python python3 scripts/sqlopt_cli.py --help
 ```
 
 ### 2) 最短运行链路
 
 ```bash
-sqlopt-cli run --config sqlopt.yml
-sqlopt-cli status
-sqlopt-cli resume
-sqlopt-cli apply
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status
+PYTHONPATH=python python3 scripts/sqlopt_cli.py resume
+PYTHONPATH=python python3 scripts/sqlopt_cli.py apply
 ```
 
 如果 `status.next_action=report-rebuild`：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml --to-stage report --run-id <run-id>
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run-id>
 ```
 
 ## 常用命令
 
 ```bash
-sqlopt-cli --help
-sqlopt-cli run --help
-sqlopt-cli resume --help
-sqlopt-cli status --help
-sqlopt-cli apply --help
-sqlopt-cli validate-config --config sqlopt.yml
+PYTHONPATH=python python3 scripts/sqlopt_cli.py --help
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --help
+PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --help
+PYTHONPATH=python python3 scripts/sqlopt_cli.py status --help
+PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --help
+PYTHONPATH=python python3 scripts/sqlopt_cli.py validate-config --config sqlopt.yml
 ```
 
 局部调试优先：
 
 ```bash
-sqlopt-cli run --config sqlopt.yml \
+PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml \
   --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml \
   --sql-key demo.user.advanced.listUsersFilteredAliased#v17
 ```

@@ -49,16 +49,14 @@ def build_bundle(root_dir: Path, dist_dir: Path) -> Path:
     dist_dir.mkdir(parents=True, exist_ok=True)
     pyproject = root_dir / "pyproject.toml"
     version = _parse_version_from_pyproject(pyproject.read_text(encoding="utf-8"))
-    bundle_name = f"sql-optimizer-skill-bundle-v{version}"
+    bundle_name = f"sql-optimizer-bundle-v{version}"
     stage_dir = Path(tempfile.mkdtemp(prefix="sqlopt_bundle."))
     out_root = stage_dir / bundle_name
     (out_root / "runtime").mkdir(parents=True, exist_ok=True)
     (out_root / "templates").mkdir(parents=True, exist_ok=True)
     (out_root / "install").mkdir(parents=True, exist_ok=True)
     (out_root / "docs").mkdir(parents=True, exist_ok=True)
-    (out_root / "skills").mkdir(parents=True, exist_ok=True)
 
-    _copy_tree(root_dir / "skills" / "sql-optimizer", out_root / "skills" / "sql-optimizer")
     _copy_tree(root_dir / "python", out_root / "runtime" / "python")
     _copy_tree(root_dir / "scripts", out_root / "runtime" / "scripts")
     _copy_tree(root_dir / "contracts", out_root / "runtime" / "contracts")
@@ -67,10 +65,6 @@ def build_bundle(root_dir: Path, dist_dir: Path) -> Path:
 
     shutil.copy2(root_dir / "templates" / "sqlopt.example.yml", out_root / "templates" / "sqlopt.example.yml")
     for file_name in [
-        "install_skill.sh",
-        "install_skill.py",
-        "uninstall_skill.sh",
-        "uninstall_skill.py",
         "doctor.sh",
         "doctor.py",
         "build_bundle.sh",
@@ -82,9 +76,8 @@ def build_bundle(root_dir: Path, dist_dir: Path) -> Path:
         shutil.copy2(root_dir / "docs" / doc_name, out_root / "docs" / doc_name)
 
     version_payload = {
-        "skill_name": "sql-optimizer",
-        "skill_version": version,
-        "runtime_version": version,
+        "name": "sql-optimizer",
+        "version": version,
         "build_time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "compat_contract_version": "v1.0.0",
     }
