@@ -630,9 +630,14 @@ def _build_html(
       <h2><span class="collapse-icon">▼</span> [5] Parse 策略建议</h2>
     </div>
     <div class="section-body hidden">
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem;">
-        策略规则: ≤3 条件 → all_combinations | ≤8 → ladder | &gt;8 → pairwise
-      </p>
+      <details style="margin-bottom:0.75rem; font-size:0.8rem; color:#94a3b8;">
+        <summary style="cursor:pointer; font-weight:600; color:#cbd5e1; margin-bottom:0.25rem;">Why 3 strategies?</summary>
+        <div style="margin-top:0.5rem; padding:0.75rem; background:#0f172a; border-radius:8px; border:1px solid #334155; line-height:1.7;">
+          <p style="margin-bottom:0.6rem;"><strong style="color:#60a5fa;">all_combinations</strong> (2^n branches): Full permutation of all conditions. Maximum coverage but exponential growth -- 5 conditions = 32 branches, 8 conditions = 256 branches, 10 conditions = 1024 branches. Selected when 2^n &lt;= 50.</p>
+          <p style="margin-bottom:0.6rem;"><strong style="color:#a78bfa;">ladder</strong> (weighted sampling): Activated when 2^n exceeds the threshold. Phased weighted coverage -- (1) all-false baseline (2) each condition true individually (3) high-risk pairs. Controls branch count while covering critical risks.</p>
+          <p><strong style="color:#34d399;">pairwise</strong> (pairs only): When conditions &gt; 8, tests each condition individually (n branches, linear growth), suitable for large condition counts requiring fast validation.</p>
+        </div>
+      </details>
       <table id="strategyTable">
         <thead>
           <tr>
