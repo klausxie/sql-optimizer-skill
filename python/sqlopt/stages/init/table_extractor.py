@@ -5,11 +5,16 @@ from __future__ import annotations
 import html
 import logging
 import re
+import time
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextlib import suppress
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
 from sqlopt.contracts.init import FieldDistribution, TableSchema
 
 if TYPE_CHECKING:
+    from sqlopt.common.config import FieldDistributionConcurrencyConfig
     from sqlopt.common.db_connector import DBConnector
 
 logger = logging.getLogger(__name__)
@@ -608,3 +613,119 @@ def _extract_count_value(rows: List[Dict[str, Any]]) -> int:
             return int(value) if value is not None else 0
     first_value = next(iter(row.values()), 0)
     return int(first_value) if first_value is not None else 0
+
+
+@dataclass
+class _ColumnTaskResult:
+    table_name: str
+    column_name: str
+    success: bool
+    distribution: FieldDistribution | None
+    error: str | None
+
+
+def _column_task(
+    pair: tuple[str, str],
+    connector_factory: Callable[[], "DBConnector"],
+    platform: str,
+    top_n: int,
+    timeout_per_field: int,
+    retry_count: int,
+) -> _ColumnTaskResult:
+    table_name, column_name = pair
+    last_error: str | None = None
+
+    for attempt in range(1, retry_count + 2):
+        connector: "DBConnector" | None = None
+        started_at = time.perf_counter()
+        try:
+            connector = connector_factory()
+            timeout_seconds = max(float(timeout_per_field), 0.0)
+            if timeout_seconds > 0 and (time.perf_counter() - started_at) * 1000 > timeout_seconds * 1000:
+                raise TimeoutError(f"field extraction exceeded timeout {timeout_seconds}s")
+            dist = _extract_single_column_distribution(table_name, column_name, connector, platform, top_n)
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            if timeout_seconds > 0 and elapsed_ms > timeout_seconds * 1000:
+                raise TimeoutError(f"field extraction exceeded timeout {timeout_seconds}s (elapsed={elapsed_ms:.1f}ms)")
+            return _ColumnTaskResult(
+                table_name=table_name,
+                column_name=column_name,
+                success=True,
+                distribution=dist,
+                error=None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_error = str(exc)
+        finally:
+            if connector is not None:
+                with suppress(Exception):
+                    connector.disconnect()
+
+        if attempt < retry_count + 1:
+            delay = 1.0 * (2 ** (attempt - 1))
+            time.sleep(delay)
+
+    return _ColumnTaskResult(
+        table_name=table_name,
+        column_name=column_name,
+        success=False,
+        distribution=None,
+        error=last_error,
+    )
+
+
+def extract_field_distributions_parallel(
+    field_by_table: dict[str, set[str]],
+    connector_factory: Callable[[], "DBConnector"],
+    platform: str,
+    config: "FieldDistributionConcurrencyConfig",
+    top_n: int = 10,
+    progress_callback: Callable[[str, tuple[int, int] | None], None] | None = None,
+) -> list[FieldDistribution]:
+    pairs: list[tuple[str, str]] = [
+        (tbl, col) for tbl in sorted(field_by_table.keys()) for col in sorted(field_by_table[tbl])
+    ]
+
+    if not pairs:
+        return []
+
+    total = len(pairs)
+
+    with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
+        futures: dict[Future, int] = {}
+        for idx, pair in enumerate(pairs):
+            future = executor.submit(
+                _column_task,
+                pair,
+                connector_factory,
+                platform,
+                top_n,
+                config.timeout_per_field,
+                config.retry_count,
+            )
+            futures[future] = idx
+
+        completed = 0
+        distributions: list[FieldDistribution] = []
+
+        while futures:
+            done, _ = wait(tuple(futures.keys()), return_when=FIRST_COMPLETED)
+            for future in done:
+                idx = futures.pop(future)
+                pair = pairs[idx]
+                result = future.result()
+
+                if result.success and result.distribution is not None:
+                    distributions.append(result.distribution)
+                else:
+                    tbl, col = pair
+                    logger.warning("Failed to extract distribution for %s.%s: %s", tbl, col, result.error)
+
+                completed += 1
+                if progress_callback:
+                    progress_callback(
+                        f"Extracting distribution: {pair[0]}.{pair[1]}",
+                        (completed, total),
+                    )
+
+    return distributions
