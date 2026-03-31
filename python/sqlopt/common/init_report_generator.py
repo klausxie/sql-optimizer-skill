@@ -287,21 +287,20 @@ def _build_html(
     if len(output.sql_fragments) > 10:
         fragment_items += f'<div class="fragment-more">... 还有 {len(output.sql_fragments) - 10} 个片段</div>'
 
-    # Parse strategy table
-    strategy_rows = ""
-    for unit in output.sql_units[:30]:
-        cond_count = _count_conditions(unit.sql_text)
-        suggested = _suggest_strategy(cond_count)
-        strategy_rows += f"""
-          <tr>
-            <td><code>{unit.sql_id}</code></td>
-            <td style="text-align:center">{cond_count}</td>
-            <td><span class="strategy-tag">{suggested}</span></td>
-          </tr>"""
-    if len(output.sql_units) > 30:
-        strategy_rows += (
-            f'<tr><td colspan="3" class="truncated">... 还有 {len(output.sql_units) - 30} 个SQL单元</td></tr>'
-        )
+    # Parse strategy table - sorted by condition count desc, no truncation
+    strategy_units = [
+        (unit, _count_conditions(unit.sql_text), _suggest_strategy(_count_conditions(unit.sql_text)))
+        for unit in output.sql_units
+    ]
+    strategy_units.sort(key=lambda x: x[1], reverse=True)
+    strategy_rows = "".join(
+        f'<tr data-strategy="{s}">'
+        f"<td><code>{u.sql_id}</code></td>"
+        f'<td style="text-align:center">{c}</td>'
+        f'<td><span class="strategy-tag">{s}</span></td>'
+        f"</tr>"
+        for u, c, s in strategy_units
+    )
 
     # Section 4 data (relationship/charts)
     hotspot_labels = [h.table_name for h in hotspots[:10]]
@@ -396,6 +395,13 @@ def _build_html(
 
   /* Strategy */
   .strategy-tag {{ background: #1e3a5f; color: #60a5fa; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.75rem; font-weight: 600; }}
+  .filter-btn {{ background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 0.3rem 0.75rem; color: #94a3b8; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }}
+  .filter-btn:hover {{ background: #1e293b; color: #e2e8f0; }}
+  .filter-btn.active {{ background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }}
+  .filter-count {{ background: #334155; border-radius: 3px; padding: 0.05rem 0.35rem; font-size: 0.7rem; margin-left: 0.25rem; }}
+  .filter-btn.active .filter-count {{ background: #60a5fa22; color: #60a5fa; }}
+  #strategyTable tbody tr {{ transition: opacity 0.15s; }}
+  #strategyTable tbody tr.hidden-row {{ opacity: 0.25; pointer-events: none; }}
 
   /* Section 4: Relationship */
   .rel-stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }}
@@ -629,10 +635,17 @@ def _build_html(
       <h2><span class="collapse-icon">▼</span> [5] Parse 策略建议</h2>
     </div>
     <div class="section-body hidden">
-      <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem;">
+      <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.75rem;">
         策略规则: ≤3 条件 → all_combinations | ≤8 → ladder | &gt;8 → pairwise
       </p>
-      <table>
+      <div class="strategy-filters" style="margin-bottom:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:0.8rem;color:#94a3b8;">筛选:</span>
+        <button class="filter-btn active" data-filter="all" onclick="filterStrategy('all')">全部 <span class="filter-count" id="count-all"></span></button>
+        <button class="filter-btn" data-filter="all_combinations" onclick="filterStrategy('all_combinations')">all_combinations <span class="filter-count" id="count-all_combinations"></span></button>
+        <button class="filter-btn" data-filter="ladder" onclick="filterStrategy('ladder')">ladder <span class="filter-count" id="count-ladder"></span></button>
+        <button class="filter-btn" data-filter="pairwise" onclick="filterStrategy('pairwise')">pairwise <span class="filter-count" id="count-pairwise"></span></button>
+      </div>
+      <table id="strategyTable">
         <thead>
           <tr><th>SQL Unit</th><th style="text-align:center">条件数</th><th>建议策略</th></tr>
         </thead>
@@ -662,6 +675,34 @@ def _build_html(
     header.classList.toggle('collapsed');
     header.nextElementSibling.classList.toggle('hidden');
   }}
+
+  // Strategy filter
+  function filterStrategy(strategy) {{
+    const rows = document.querySelectorAll('#strategyTable tbody tr[data-strategy]');
+    const btns = document.querySelectorAll('.filter-btn');
+    btns.forEach(b => b.classList.remove('active'));
+    const activeBtn = document.querySelector(`.filter-btn[data-filter="${{strategy}}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+    rows.forEach(row => {{
+      if (strategy === 'all' || row.dataset.strategy === strategy) {{
+        row.classList.remove('hidden-row');
+      }} else {{
+        row.classList.add('hidden-row');
+      }}
+    }});
+  }}
+
+  // Init strategy filter counts
+  document.addEventListener('DOMContentLoaded', () => {{
+    const strategies = ['all', 'all_combinations', 'ladder', 'pairwise'];
+    strategies.forEach(s => {{
+      const count = s === 'all'
+        ? document.querySelectorAll('#strategyTable tbody tr[data-strategy]').length
+        : document.querySelectorAll(`#strategyTable tbody tr[data-strategy="${{s}}"]`).length;
+      const el = document.getElementById('count-' + s);
+      if (el) el.textContent = count;
+    }});
+  }});
 
   const chartColors = {{
     blue: '#60a5fa',
