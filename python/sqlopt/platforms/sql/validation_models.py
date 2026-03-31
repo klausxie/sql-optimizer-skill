@@ -4,6 +4,16 @@ from dataclasses import dataclass
 from typing import Any
 
 
+class ValidationError(Exception):
+    """Base exception for validation errors."""
+    pass
+
+
+class MissingDSNError(ValidationError):
+    """Raised when database DSN is not configured."""
+    pass
+
+
 @dataclass(frozen=True)
 class AcceptanceDecision:
     status: str
@@ -14,10 +24,7 @@ class AcceptanceDecision:
 
 @dataclass(frozen=True)
 class ValidationResult:
-    """Validation result containing semantic and performance validation evidence.
-
-    Note: rewrite_facts is computed by patch_select stage, not validate.
-    """
+    """Validation result containing semantic and performance validation evidence."""
     sql_key: str
     status: str
     equivalence: dict[str, Any]

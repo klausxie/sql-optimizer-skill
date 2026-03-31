@@ -17,6 +17,7 @@ from .candidate_selection_models import (
     CandidateSelectionRank,
     CandidateSelectionTraceEntry,
 )
+from .models import MissingDSNError
 
 _SQL_CANDIDATE_PREFIX_RE = re.compile(r"^\s*(select|with|update|delete|insert)\b", flags=re.IGNORECASE)
 
@@ -112,7 +113,7 @@ def evaluate_candidate_selection(
     compare_enabled: bool,
 ) -> CandidateSelectionResult:
     if not compare_enabled:
-        raise ValueError(
+        raise MissingDSNError(
             "Validation requires database connection (db.dsn not configured). "
             "Configure db.dsn in your config file, or use --skip-validate for offline analysis."
         )

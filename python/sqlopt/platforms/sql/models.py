@@ -7,7 +7,7 @@ from .candidate_models import (
     EquivalenceCheck,
     PerfComparison,
 )
-from .validation_models import AcceptanceDecision, ValidationResult
+from .validation_models import AcceptanceDecision, MissingDSNError, ValidationResult, ValidationError
 
 __all__ = [
     "AcceptanceDecision",
@@ -15,6 +15,8 @@ __all__ = [
     "CandidateEvaluation",
     "CandidateSelectionResult",
     "EquivalenceCheck",
+    "MissingDSNError",
     "PerfComparison",
+    "ValidationError",
     "ValidationResult",
 ]

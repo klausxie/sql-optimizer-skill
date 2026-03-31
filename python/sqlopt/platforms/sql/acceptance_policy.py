@@ -10,11 +10,6 @@ def _terminal_decision_layers(
     phase: str,
     status: str,
     validation_profile: str,
-    selection_mode: str = "patchability_first",
-    require_semantic_match: bool = True,
-    require_perf_evidence_for_pass: bool = False,
-    require_verified_evidence_for_pass: bool = False,
-    delivery_bias: str = "conservative",
     feedback_reason_code: str | None = None,
     reason_codes: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -31,17 +26,9 @@ def _terminal_decision_layers(
             "degraded": phase == "db_unreachable",
             "reasonCodes": list(reason_codes or []),
         },
-        "delivery": {
-            "tier": "BLOCKED",
-            "selectionMode": selection_mode,
-            "deliveryBias": delivery_bias,
-        },
         "acceptance": {
             "status": status,
             "validationProfile": validation_profile,
-            "requireSemanticMatch": require_semantic_match,
-            "requirePerfEvidenceForPass": require_perf_evidence_for_pass,
-            "requireVerifiedEvidenceForPass": require_verified_evidence_for_pass,
             "feedbackReasonCode": feedback_reason_code,
         },
     }
@@ -51,12 +38,6 @@ def security_failure_result(
     sql_key: str,
     validation_profile: str,
     risk_flags: list[str],
-    *,
-    selection_mode: str = "patchability_first",
-    require_semantic_match: bool = True,
-    require_perf_evidence_for_pass: bool = False,
-    require_verified_evidence_for_pass: bool = False,
-    delivery_bias: str = "conservative",
 ) -> ValidationResult:
     status = "FAIL" if validation_profile == "strict" else "NEED_MORE_PARAMS"
     return ValidationResult(
@@ -74,11 +55,6 @@ def security_failure_result(
             phase="security_block",
             status=status,
             validation_profile=validation_profile,
-            selection_mode=selection_mode,
-            require_semantic_match=require_semantic_match,
-            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
-            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
-            delivery_bias=delivery_bias,
             feedback_reason_code="VALIDATE_SECURITY_DOLLAR_SUBSTITUTION",
             reason_codes=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
         ),
@@ -90,11 +66,6 @@ def invalid_candidate_result(
     risk_flags: list[str],
     *,
     validation_profile: str = "balanced",
-    selection_mode: str = "patchability_first",
-    require_semantic_match: bool = True,
-    require_perf_evidence_for_pass: bool = False,
-    require_verified_evidence_for_pass: bool = False,
-    delivery_bias: str = "conservative",
 ) -> ValidationResult:
     return ValidationResult(
         sql_key=sql_key,
@@ -111,11 +82,6 @@ def invalid_candidate_result(
             phase="invalid_candidate",
             status="FAIL",
             validation_profile=validation_profile,
-            selection_mode=selection_mode,
-            require_semantic_match=require_semantic_match,
-            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
-            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
-            delivery_bias=delivery_bias,
             feedback_reason_code="VALIDATE_EQUIVALENCE_MISMATCH",
             reason_codes=["VALIDATE_EQUIVALENCE_MISMATCH"],
         ),
@@ -127,11 +93,6 @@ def db_unreachable_result(
     risk_flags: list[str],
     *,
     validation_profile: str = "balanced",
-    selection_mode: str = "patchability_first",
-    require_semantic_match: bool = True,
-    require_perf_evidence_for_pass: bool = False,
-    require_verified_evidence_for_pass: bool = False,
-    delivery_bias: str = "conservative",
 ) -> ValidationResult:
     return ValidationResult(
         sql_key=sql_key,
@@ -148,11 +109,6 @@ def db_unreachable_result(
             phase="db_unreachable",
             status="NEED_MORE_PARAMS",
             validation_profile=validation_profile,
-            selection_mode=selection_mode,
-            require_semantic_match=require_semantic_match,
-            require_perf_evidence_for_pass=require_perf_evidence_for_pass,
-            require_verified_evidence_for_pass=require_verified_evidence_for_pass,
-            delivery_bias=delivery_bias,
             feedback_reason_code="VALIDATE_PARAM_INSUFFICIENT",
             reason_codes=["VALIDATE_DB_UNREACHABLE"],
         ),
@@ -164,7 +120,20 @@ def build_acceptance_decision(
     perf: PerfComparison,
     validation_profile: str,
     rejected_placeholder_semantics: int,
+    semantic_equivalence: dict[str, Any] | None = None,
 ) -> AcceptanceDecision:
+    """Build acceptance decision with semantic gate upgrade support.
+
+    Args:
+        equivalence: Equivalence check result
+        perf: Performance comparison result
+        validation_profile: strict/balanced/relaxed
+        rejected_placeholder_semantics: Count of rejected placeholder semantics
+        semantic_equivalence: Optional semantic equivalence result for gate upgrade
+
+    Returns:
+        AcceptanceDecision with determined status
+    """
     improved = bool(perf.improved)
     reason_codes = list(perf.reason_codes)
     warnings: list[str] = []
@@ -196,6 +165,27 @@ def build_acceptance_decision(
         if "VALIDATE_PERF_NOT_IMPROVED" not in reason_codes:
             reason_codes.append("VALIDATE_PERF_NOT_IMPROVED")
         feedback = {"reason_code": "VALIDATE_PERF_NOT_IMPROVED", "message": "no proven performance gain"}
+
+    # Semantic gate upgrade: if semantic gate passes with sufficient confidence,
+    # allow PASS even without performance improvement
+    if semantic_equivalence is not None:
+        semantic_gate_status = str(semantic_equivalence.get("status") or "PASS").strip().upper()
+        semantic_gate_confidence = str(semantic_equivalence.get("confidence") or "HIGH").strip().upper()
+
+        if (
+            status != "PASS"
+            and semantic_gate_status == "PASS"
+            and semantic_gate_confidence in {"MEDIUM", "HIGH"}
+        ):
+            # Upgrade to PASS
+            reason_codes = [
+                code for code in reason_codes
+                if code.strip().upper() != "VALIDATE_SEMANTIC_ERROR"
+            ]
+            if status == "NEED_MORE_PARAMS":
+                warnings.append("VALIDATE_PERF_NOT_IMPROVED_BUT_SEMANTIC_OK")
+            status = "PASS"
+            feedback = None
 
     if rejected_placeholder_semantics:
         warnings.append("VALIDATE_PLACEHOLDER_SEMANTICS_MISMATCH_WARN")
