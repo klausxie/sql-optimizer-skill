@@ -633,9 +633,9 @@ def _build_html(
       <details style="margin-bottom:0.75rem; font-size:0.8rem; color:#94a3b8;">
         <summary style="cursor:pointer; font-weight:600; color:#cbd5e1; margin-bottom:0.25rem;">Why 3 strategies?</summary>
         <div style="margin-top:0.5rem; padding:0.75rem; background:#0f172a; border-radius:8px; border:1px solid #334155; line-height:1.7;">
-          <p style="margin-bottom:0.6rem;"><strong style="color:#60a5fa;">all_combinations</strong> (2^n branches): Full permutation of all conditions. Maximum coverage but exponential growth -- 5 conditions = 32 branches, 8 conditions = 256 branches, 10 conditions = 1024 branches. Selected when 2^n &lt;= 50.</p>
-          <p style="margin-bottom:0.6rem;"><strong style="color:#a78bfa;">ladder</strong> (weighted sampling): Activated when 2^n exceeds the threshold. Phased weighted coverage -- (1) all-false baseline (2) each condition true individually (3) high-risk pairs. Controls branch count while covering critical risks.</p>
-          <p><strong style="color:#34d399;">pairwise</strong> (pairs only): When conditions &gt; 8, tests each condition individually (n branches, linear growth), suitable for large condition counts requiring fast validation.</p>
+          <p style="margin-bottom:0.6rem;"><strong style="color:#60a5fa;">all_combinations</strong> (2^n branches): Full permutation of all conditions. Maximum coverage but exponential growth -- 5 conditions = 32 branches, 8 conditions = 256 branches, 10 conditions = 1024 branches. Selected when 2^n &lt;= 50. &quot;all_combinations&quot; (全组合策略): 生成所有条件的全排列, 提供最完整的覆盖. 但分支数随条件数指数增长: 5个条件=32个分支, 8个条件=256个分支, 10个条件=1024个分支. 当2^n小于等于50时选择此策略.</p>
+          <p style="margin-bottom:0.6rem;"><strong style="color:#a78bfa;">ladder</strong> (weighted sampling): Activated when 2^n exceeds the threshold. Phased weighted coverage -- (1) all-false baseline (2) each condition true individually (3) high-risk pairs. Controls branch count while covering critical risks. &quot;ladder&quot; (阶梯策略): 当2^n超过阈值时激活, 采用加权采样分阶段覆盖: (1)全false基线 (2)逐个条件为true (3)高风险条件对. 在控制分支数量的同时确保关键风险被覆盖.</p>
+          <p><strong style="color:#34d399;">pairwise</strong> (pairs only): When conditions &gt; 8, tests each condition individually (n branches, linear growth), suitable for large condition counts requiring fast validation. &quot;pairwise&quot; (配对策略): 当条件数超过8时, 仅测试每个条件单独为true和false的情况, 分支数随条件数线性增长. 适用于大规模条件数的快速验证.</p>
         </div>
       </details>
       <table id="strategyTable">
