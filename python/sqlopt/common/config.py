@@ -23,6 +23,14 @@ class ConcurrencyConfig:
 
 
 @dataclass
+class FieldDistributionConcurrencyConfig:
+    enabled: bool = True
+    max_workers: int = 4
+    timeout_per_field: int = 60
+    retry_count: int = 3
+
+
+@dataclass
 class SQLOptConfig:
     """SQL Optimizer configuration.
 
@@ -66,6 +74,9 @@ class SQLOptConfig:
     parse_max_branches: int = DEFAULT_MAX_BRANCHES
     max_cap: int = MAX_CAP
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
+    field_distribution_concurrency: FieldDistributionConcurrencyConfig = field(
+        default_factory=FieldDistributionConcurrencyConfig
+    )
 
 
 def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
@@ -113,5 +124,12 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         max_cap=data.get("max_cap", MAX_CAP),
         concurrency=ConcurrencyConfig(
             **(data.get("concurrency", {}) if isinstance(data.get("concurrency"), dict) else {})
+        ),
+        field_distribution_concurrency=FieldDistributionConcurrencyConfig(
+            **(
+                data.get("field_distribution_concurrency", {})
+                if isinstance(data.get("field_distribution_concurrency"), dict)
+                else {}
+            )
         ),
     )
