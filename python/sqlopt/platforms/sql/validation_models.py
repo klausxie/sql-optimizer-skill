@@ -14,6 +14,10 @@ class AcceptanceDecision:
 
 @dataclass(frozen=True)
 class ValidationResult:
+    """Validation result containing semantic and performance validation evidence.
+
+    Note: rewrite_facts is computed by patch_select stage, not validate.
+    """
     sql_key: str
     status: str
     equivalence: dict[str, Any]
@@ -32,13 +36,7 @@ class ValidationResult:
     decision_layers: dict[str, Any] | None = None
     llm_semantic_check: dict[str, Any] | None = None
     semantic_equivalence: dict[str, Any] | None = None
-    repairability: dict[str, Any] | None = None
-    repair_hints: list[dict[str, Any]] | None = None
-    rewrite_safety_level: str | None = None
-    dynamic_candidate_intent: dict[str, Any] | None = None
     canonicalization: dict[str, Any] | None = None
-    rewrite_facts: dict[str, Any] | None = None
-    canonicalization_assessment: list[dict[str, Any]] | None = None
     candidate_selection_trace: list[dict[str, Any]] | None = None
 
     def to_contract(self) -> dict[str, Any]:
@@ -70,18 +68,8 @@ class ValidationResult:
             payload["llmSemanticCheck"] = self.llm_semantic_check
         if self.semantic_equivalence is not None:
             payload["semanticEquivalence"] = self.semantic_equivalence
-        if self.repairability is not None:
-            payload["repairability"] = self.repairability
-        if self.repair_hints is not None:
-            payload["repairHints"] = self.repair_hints
-        if self.rewrite_safety_level is not None:
-            payload["rewriteSafetyLevel"] = self.rewrite_safety_level
         if self.canonicalization is not None:
             payload["canonicalization"] = self.canonicalization
-        if self.rewrite_facts is not None:
-            payload["rewriteFacts"] = self.rewrite_facts
-        if self.canonicalization_assessment is not None:
-            payload["canonicalizationAssessment"] = self.canonicalization_assessment
         if self.candidate_selection_trace is not None:
             payload["candidateSelectionTrace"] = self.candidate_selection_trace
         return payload

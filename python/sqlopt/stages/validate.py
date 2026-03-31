@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..contracts import ContractValidator
-from ..io_utils import append_jsonl, read_jsonl, write_json
+from ..io_utils import append_jsonl, write_json
 from ..manifest import log_event
 from ..platforms.sql.validator_sql import validate_proposal
 from ..run_paths import canonical_paths
@@ -15,33 +15,25 @@ from ..verification.writer import append_verification_record
 def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: ContractValidator, db_reachable: bool, config: dict) -> dict:
     paths = canonical_paths(run_dir)
     evidence_dir = paths.sql_evidence_dir(sql_unit["sqlKey"])
-    fragments_path = paths.scan_fragments_path
-    fragment_rows = read_jsonl(fragments_path) if fragments_path.exists() else []
-    fragment_catalog = {str(row.get("fragmentKey") or ""): row for row in fragment_rows if str(row.get("fragmentKey") or "").strip()}
     result = validate_proposal(
         sql_unit,
         proposal,
         db_reachable=db_reachable,
         config=config,
         evidence_dir=evidence_dir,
-        fragment_catalog=fragment_catalog,
     )
     payload = result.to_contract()
     validator.validate("acceptance_result", payload)
     acceptance_path = paths.acceptance_path
     append_jsonl(acceptance_path, payload)
+
+    # Save canonicalization assessment if present (used by patch_generate for traceability)
     sql_artifact_dir = paths.sql_artifact_dir(sql_unit["sqlKey"])
-    if result.rewrite_facts is not None:
-        write_json(sql_artifact_dir / "rewrite_facts.json", result.rewrite_facts)
-        dynamic_template_facts = dict((result.rewrite_facts or {}).get("dynamicTemplate") or {})
-        if dynamic_template_facts:
-            write_json(sql_artifact_dir / "dynamic_template_facts.json", dynamic_template_facts)
-    if result.dynamic_candidate_intent is not None:
-        write_json(sql_artifact_dir / "dynamic_candidate_intent.json", result.dynamic_candidate_intent)
-    if result.canonicalization_assessment is not None:
-        write_json(sql_artifact_dir / "canonicalization.assessment.json", result.canonicalization_assessment)
+    if result.canonicalization is not None:
+        write_json(sql_artifact_dir / "canonicalization.json", result.canonicalization)
     if result.candidate_selection_trace is not None:
         write_json(sql_artifact_dir / "candidate.selection.trace.json", result.candidate_selection_trace)
+
     sql_key = str(payload.get("sqlKey") or sql_unit["sqlKey"])
     perf = dict(payload.get("perfComparison") or {})
     equivalence = dict(payload.get("equivalence") or {})

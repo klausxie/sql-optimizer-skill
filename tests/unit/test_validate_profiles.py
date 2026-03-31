@@ -6,59 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sqlopt.platforms.base import PlatformCapabilities
-from sqlopt.platforms.sql.models import AcceptanceDecision
-from sqlopt.platforms.sql.validator_sql import _normalize_dml_clean_blocker_decision, validate_proposal
+from sqlopt.platforms.sql.validator_sql import validate_proposal
 
 
 class ValidateProfilesTest(unittest.TestCase):
-    def test_dml_clean_blocker_is_normalized_to_pass(self) -> None:
-        decision = AcceptanceDecision(
-            status="NEED_MORE_PARAMS",
-            feedback={"reason_code": "VALIDATE_SEMANTIC_ERROR"},
-            warnings=[],
-            reason_codes=["VALIDATE_SEMANTIC_ERROR"],
-        )
-
-        normalized = _normalize_dml_clean_blocker_decision(
-            sql_unit={"sqlKey": "demo.user.advanced.updateUserSelective#v9", "statementType": "UPDATE"},
-            decision=decision,
-            semantic_equivalence={"status": "PASS"},
-            rewrite_facts={"effectiveChange": False},
-            patchability={
-                "blockingReason": "PATCH_NO_EFFECTIVE_CHANGE",
-                "dynamicBlockingReason": "DYNAMIC_SET_CLAUSE",
-            },
-        )
-
-        self.assertEqual(normalized.status, "PASS")
-        self.assertIsNone(normalized.feedback)
-        self.assertNotIn("VALIDATE_SEMANTIC_ERROR", normalized.reason_codes)
-        self.assertIn("VALIDATE_DML_COMPARE_SKIPPED_WARN", normalized.warnings)
-
-    def test_dml_perf_only_clean_blocker_is_normalized_to_pass(self) -> None:
-        decision = AcceptanceDecision(
-            status="NEED_MORE_PARAMS",
-            feedback={"reason_code": "VALIDATE_PERF_NOT_IMPROVED"},
-            warnings=[],
-            reason_codes=["VALIDATE_PERF_NOT_IMPROVED"],
-        )
-
-        normalized = _normalize_dml_clean_blocker_decision(
-            sql_unit={"sqlKey": "demo.order.harness.updateOrderStatusByNos#v6", "statementType": "UPDATE"},
-            decision=decision,
-            semantic_equivalence={"status": "PASS"},
-            rewrite_facts={"effectiveChange": False},
-            patchability={
-                "blockingReason": "PATCH_NO_EFFECTIVE_CHANGE",
-                "dynamicBlockingReason": "FOREACH_COLLECTION_PREDICATE",
-            },
-        )
-
-        self.assertEqual(normalized.status, "PASS")
-        self.assertIsNone(normalized.feedback)
-        self.assertNotIn("VALIDATE_PERF_NOT_IMPROVED", normalized.reason_codes)
-        self.assertIn("VALIDATE_DML_COMPARE_SKIPPED_WARN", normalized.warnings)
-
     def test_balanced_pass_with_warn_when_not_improved(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
         proposal = {
@@ -145,9 +96,6 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual(result["status"], "NEED_MORE_PARAMS")
         self.assertIn("DOLLAR_SUBSTITUTION", result.get("riskFlags", []))
         self.assertEqual(result.get("decisionLayers", {}).get("feasibility", {}).get("phase"), "security_block")
-        self.assertEqual((result.get("repairability") or {}).get("status"), "REPAIRABLE")
-        self.assertEqual(result.get("rewriteSafetyLevel"), "REVIEW")
-        self.assertGreaterEqual(len(result.get("repairHints") or []), 1)
 
     def test_dollar_substitution_strict_is_fail(self) -> None:
         sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
@@ -160,8 +108,6 @@ class ValidateProfilesTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "strict")
-        self.assertEqual((result.get("repairability") or {}).get("status"), "BLOCKED")
-        self.assertEqual(result.get("rewriteSafetyLevel"), "BLOCKED")
 
     def test_plan_and_semantic_compare_are_capability_gated(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}

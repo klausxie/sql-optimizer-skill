@@ -37,29 +37,16 @@
     },
     "securityChecks": {"type": "object"},
     "feedback": {"type": ["object", "null"]},
-    "rewriteStrategy": {"type": "string"},
-    "rewriteIntent": {"type": ["object", "null"]},
     "semanticRisk": {"type": "string"},
-    "regressionSignals": {"type": "array"},
-    "decisionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
     "selectedCandidateSource": {"type": "string"},
     "selectedCandidateId": {"type": ["string", "null"]},
     "candidateEvaluations": {"type": "array", "items": {"type": "object"}},
     "candidateEval": {"type": ["object", "null"]},
     "warnings": {"type": "array", "items": {"type": "string"}},
     "riskFlags": {"type": "array", "items": {"type": "string"}},
-    "llmTraceRefs": {"type": "array", "items": {"type": "string"}},
-    "selectionReason": {"type": ["object", "null"]},
     "selectionRationale": {"type": ["object", "null"]},
     "decisionLayers": {"type": ["object", "null"]},
-    "guardrailDecisions": {"type": ["array", "null"], "items": {"type": "object"}},
-    "repairability": {"type": ["object", "null"]},
-    "repairHints": {"type": ["array", "null"], "items": {"type": "object"}},
-    "rewriteSafetyLevel": {"type": ["string", "null"]},
-    "canonicalization": {"type": ["object", "null"]},
-    "rewriteFacts": {"type": ["object", "null"]},
-    "canonicalizationAssessment": {"type": ["array", "null"], "items": {"type": "object"}},
-    "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
+    "llmSemanticCheck": {"type": ["object", "null"]},
     "semanticEquivalence": {
       "type": ["object", "null"],
       "properties": {
@@ -78,6 +65,8 @@
         "coverage": {"type": ["object", "null"]},
         "evidence": {"type": ["object", "null"]}
       }
-    }
+    },
+    "canonicalization": {"type": ["object", "null"]},
+    "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}}
   }
 }

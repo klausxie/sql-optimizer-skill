@@ -59,28 +59,6 @@ def security_failure_result(
     delivery_bias: str = "conservative",
 ) -> ValidationResult:
     status = "FAIL" if validation_profile == "strict" else "NEED_MORE_PARAMS"
-    repairability_status = "BLOCKED" if status == "FAIL" else "REPAIRABLE"
-    repairability_reason = (
-        "SECURITY_POLICY_BLOCK"
-        if status == "FAIL"
-        else "SECURITY_DOLLAR_SUBSTITUTION_CANONICALIZE_TO_BINDING"
-    )
-    repair_hints = [
-        {
-            "hintId": "remove-dollar-substitution",
-            "title": "Replace ${} with bound parameters",
-            "detail": "convert unsafe ${} interpolation into #{} binding or controlled mapper branching",
-            "actionType": "SQL_REWRITE",
-            "command": None,
-        },
-        {
-            "hintId": "whitelist-order-by",
-            "title": "Whitelist dynamic sort inputs",
-            "detail": "map incoming sort keys to a closed whitelist before SQL rendering",
-            "actionType": "MANUAL_REVIEW",
-            "command": None,
-        },
-    ]
     return ValidationResult(
         sql_key=sql_key,
         status=status,
@@ -104,12 +82,6 @@ def security_failure_result(
             feedback_reason_code="VALIDATE_SECURITY_DOLLAR_SUBSTITUTION",
             reason_codes=["VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"],
         ),
-        repairability={
-            "status": repairability_status,
-            "reasonCode": repairability_reason,
-        },
-        repair_hints=repair_hints,
-        rewrite_safety_level="BLOCKED" if status == "FAIL" else "REVIEW",
     )
 
 

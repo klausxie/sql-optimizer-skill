@@ -13,10 +13,18 @@ class CapabilityDecision:
 
 @dataclass(frozen=True)
 class PatchabilityAssessment:
-    eligible: bool
+    """Patchability assessment without explicit 'eligible' field.
+
+    Eligibility is determined by whether there are allowed capabilities:
+    - allowed_capabilities != [] → patchable
+    - allowed_capabilities == [] → not patchable
+
+    blocking_reasons may contain reasons for individual capabilities that were blocked,
+    but as long as there's at least one allowed capability, the assessment is eligible.
+    """
+    blocking_reasons: list[str] = field(default_factory=list)
     allowed_capabilities: list[str] = field(default_factory=list)
     blocking_reason: str | None = None
-    blocking_reasons: list[str] = field(default_factory=list)
     capability_decisions: list[CapabilityDecision] = field(default_factory=list)
     aggregation_constraint_family: str | None = None
     aggregation_capability_tier: str | None = None
@@ -27,12 +35,15 @@ class PatchabilityAssessment:
     dynamic_patch_surface: str | None = None
     dynamic_blocking_reason: str | None = None
 
+    def is_eligible(self) -> bool:
+        """Check if patch is eligible (has at least one allowed capability)."""
+        return len(self.allowed_capabilities) > 0
+
     def to_dict(self) -> dict[str, object]:
         return {
-            "eligible": self.eligible,
+            "blockingReasons": list(self.blocking_reasons),
             "allowedCapabilities": list(self.allowed_capabilities),
             "blockingReason": self.blocking_reason,
-            "blockingReasons": list(self.blocking_reasons),
             "aggregationConstraintFamily": self.aggregation_constraint_family,
             "aggregationCapabilityTier": self.aggregation_capability_tier,
             "aggregationSafeBaselineFamily": self.aggregation_safe_baseline_family,

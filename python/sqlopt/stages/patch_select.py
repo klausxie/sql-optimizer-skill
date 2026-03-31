@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..platforms.sql.patch_strategy_planner import plan_patch_strategy
-from ..platforms.sql.validator_sql import (
-    _apply_static_alias_projection_cleanup_guard,
-    _derive_patch_target_family,
-    _dynamic_template_summary,
-    _patch_template_settings,
+from ..platforms.sql.patch_utils import (
+    apply_static_alias_projection_cleanup_guard,
+    derive_patch_target_family,
+    dynamic_template_summary,
+    patch_template_settings,
 )
 
 
@@ -68,7 +68,7 @@ def build_patch_selection_context(
             family=None,
         )
 
-    template_settings = _patch_template_settings(config)
+    template_settings = patch_template_settings(config)
     rewrite_facts, dynamic_candidate_intent, patchability, selected_patch_strategy, patch_strategy_candidates, rewrite_materialization, template_rewrite_ops = (
         plan_patch_strategy(
             sql_unit,
@@ -79,7 +79,7 @@ def build_patch_selection_context(
             enable_fragment_materialization=template_settings["enable_fragment_materialization"],
         )
     )
-    patchability, selected_patch_strategy, rewrite_materialization, template_rewrite_ops = _apply_static_alias_projection_cleanup_guard(
+    patchability, selected_patch_strategy, rewrite_materialization, template_rewrite_ops = apply_static_alias_projection_cleanup_guard(
         original_sql=str(sql_unit.get("sql") or ""),
         rewritten_sql=rewritten_sql,
         rewrite_facts=rewrite_facts,
@@ -88,7 +88,7 @@ def build_patch_selection_context(
         rewrite_materialization=rewrite_materialization,
         template_rewrite_ops=template_rewrite_ops,
     )
-    family = _derive_patch_target_family(
+    family = derive_patch_target_family(
         original_sql=str(sql_unit.get("sql") or ""),
         rewritten_sql=rewritten_sql,
         rewrite_facts=rewrite_facts,
@@ -103,7 +103,7 @@ def build_patch_selection_context(
         semantic_gate_confidence=semantic_gate_confidence,
         rewrite_facts=rewrite_facts,
         dynamic_candidate_intent=dynamic_candidate_intent,
-        dynamic_template=_dynamic_template_summary(rewrite_facts, patchability, selected_patch_strategy),
+        dynamic_template=dynamic_template_summary(rewrite_facts, patchability, selected_patch_strategy),
         patchability=patchability,
         selected_patch_strategy=selected_patch_strategy,
         patch_strategy_candidates=list(patch_strategy_candidates or []),

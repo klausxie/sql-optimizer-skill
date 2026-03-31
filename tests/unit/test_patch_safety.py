@@ -34,7 +34,7 @@ class PatchSafetyTest(unittest.TestCase):
             }
         )
 
-        self.assertTrue(assessment.eligible)
+        self.assertTrue(assessment.is_eligible())
         self.assertEqual(
             assessment.allowed_capabilities,
             [
@@ -83,7 +83,7 @@ class PatchSafetyTest(unittest.TestCase):
             )
         )
 
-        self.assertTrue(assessment.eligible)
+        self.assertTrue(assessment.is_eligible())
         self.assertEqual(assessment.blocking_reason, None)
 
     def test_aggregation_review_required_blocks_exact_template_edit(self) -> None:
@@ -126,7 +126,7 @@ class PatchSafetyTest(unittest.TestCase):
             },
         )
 
-        self.assertFalse(assessment.eligible)
+        self.assertFalse(assessment.is_eligible())
         self.assertEqual(assessment.allowed_capabilities, [])
         self.assertEqual(assessment.blocking_reason, "AGGREGATION_CONSTRAINT:DISTINCT_RELAXATION")
         self.assertIn("AGGREGATION_CONSTRAINT:DISTINCT_RELAXATION", assessment.blocking_reasons)
@@ -169,7 +169,7 @@ class PatchSafetyTest(unittest.TestCase):
             )
         )
 
-        self.assertTrue(assessment.eligible)
+        self.assertTrue(assessment.is_eligible())
         self.assertIn("EXACT_TEMPLATE_EDIT", assessment.allowed_capabilities)
         self.assertEqual(assessment.aggregation_constraint_family, "SAFE_BASELINE")
         self.assertEqual(assessment.aggregation_capability_tier, "SAFE_BASELINE")
@@ -212,7 +212,7 @@ class PatchSafetyTest(unittest.TestCase):
             },
         )
 
-        self.assertTrue(assessment.eligible)
+        self.assertTrue(assessment.is_eligible())
         self.assertIn("DYNAMIC_STATEMENT_CANONICAL_EDIT", assessment.allowed_capabilities)
         self.assertEqual(assessment.dynamic_shape_family, "STATIC_INCLUDE_ONLY")
         self.assertEqual(assessment.dynamic_capability_tier, "SAFE_BASELINE")
@@ -255,7 +255,7 @@ class PatchSafetyTest(unittest.TestCase):
             },
         )
 
-        self.assertFalse(assessment.eligible)
+        self.assertFalse(assessment.is_eligible())
         self.assertEqual(assessment.blocking_reason, "DYNAMIC_TEMPLATE:FOREACH_INCLUDE_PREDICATE")
         self.assertEqual(assessment.dynamic_shape_family, "FOREACH_IN_PREDICATE")
         self.assertEqual(assessment.dynamic_capability_tier, "REVIEW_REQUIRED")
@@ -276,7 +276,7 @@ class PatchSafetyTest(unittest.TestCase):
             )
         )
 
-        self.assertTrue(assessment.eligible)
+        self.assertTrue(assessment.is_eligible())
         self.assertIn("EXACT_TEMPLATE_EDIT", assessment.allowed_capabilities)
         self.assertIsNone(assessment.blocking_reason)
 
@@ -317,7 +317,7 @@ class PatchSafetyTest(unittest.TestCase):
             },
         )
 
-        self.assertFalse(assessment.eligible)
+        self.assertFalse(assessment.is_eligible())
         self.assertEqual(assessment.blocking_reason, "PATCH_NO_EFFECTIVE_CHANGE")
         self.assertEqual(assessment.dynamic_blocking_reason, "STATIC_INCLUDE_NO_EFFECTIVE_DIFF")
 
@@ -358,7 +358,7 @@ class PatchSafetyTest(unittest.TestCase):
             },
         )
 
-        self.assertFalse(assessment.eligible)
+        self.assertFalse(assessment.is_eligible())
         self.assertEqual(assessment.blocking_reason, "PATCH_NO_EFFECTIVE_CHANGE")
         self.assertEqual(assessment.dynamic_blocking_reason, "DYNAMIC_FILTER_NO_EFFECTIVE_DIFF")
 
@@ -393,7 +393,7 @@ class PatchSafetyTest(unittest.TestCase):
             ),
         )
 
-        self.assertFalse(assessment.eligible)
+        self.assertFalse(assessment.is_eligible())
         self.assertEqual(assessment.dynamic_blocking_reason, "STATIC_INCLUDE_FRAGMENT_DEPENDENT")
 
 

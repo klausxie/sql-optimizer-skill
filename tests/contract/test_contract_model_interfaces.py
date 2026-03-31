@@ -38,6 +38,7 @@ class ContractModelInterfacesTest(unittest.TestCase):
             equivalence=equivalence,
             perf=perf,
         )
+        # ValidationResult no longer includes patch-related fields like rewrite_facts
         result = sql_models.ValidationResult(
             sql_key="demo.user.listUsers#v1",
             status="PASS",
@@ -50,16 +51,6 @@ class ContractModelInterfacesTest(unittest.TestCase):
             selected_candidate_source="llm",
             warnings=[],
             risk_flags=[],
-            rewrite_facts={
-                "cteQuery": {"present": True},
-                "aggregationQuery": {
-                    "distinctPresent": True,
-                    "groupByColumns": ["status"],
-                    "aggregateFunctions": ["COUNT"],
-                    "capabilityProfile": {"shapeFamily": "DISTINCT", "constraintFamily": "DISTINCT_RELAXATION"},
-                },
-            },
-            canonicalization_assessment=[{"ruleId": "COUNT_CANONICAL_FORM"}],
             candidate_selection_trace=[{"candidateId": "c1"}],
         )
 
@@ -73,17 +64,11 @@ class ContractModelInterfacesTest(unittest.TestCase):
         self.assertFalse(hasattr(selection, "candidate_evaluations_payload"))
         self.assertEqual(selection.candidate_evaluations_to_contract()[0]["candidateId"], "c1")
         self.assertEqual(result.to_contract()["sqlKey"], "demo.user.listUsers#v1")
-        self.assertEqual(result.to_contract()["rewriteFacts"]["cteQuery"]["present"], True)
-        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["distinctPresent"], True)
-        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["groupByColumns"], ["status"])
-        self.assertEqual(result.to_contract()["rewriteFacts"]["aggregationQuery"]["aggregateFunctions"], ["COUNT"])
-        self.assertEqual(
-            result.to_contract()["rewriteFacts"]["aggregationQuery"]["capabilityProfile"]["shapeFamily"],
-            "DISTINCT",
-        )
+        # rewrite_facts is no longer in ValidationResult - it's computed by patch_generate stage
+        self.assertNotIn("rewriteFacts", result.to_contract())
         self.assertNotIn("patchStrategyCandidates", result.to_contract())
         self.assertNotIn("patchTarget", result.to_contract())
-        self.assertEqual(result.to_contract()["canonicalizationAssessment"][0]["ruleId"], "COUNT_CANONICAL_FORM")
+        self.assertNotIn("canonicalizationAssessment", result.to_contract())
         self.assertEqual(result.to_contract()["candidateSelectionTrace"][0]["candidateId"], "c1")
 
     def test_report_model_exports_use_to_contract_only(self) -> None:

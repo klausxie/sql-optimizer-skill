@@ -111,36 +111,20 @@ def evaluate_candidate_selection(
     *,
     compare_enabled: bool,
 ) -> CandidateSelectionResult:
+    if not compare_enabled:
+        raise ValueError(
+            "Validation requires database connection (db.dsn not configured). "
+            "Configure db.dsn in your config file, or use --skip-validate for offline analysis."
+        )
+
     candidate_sql = valid_candidates[0].rewritten_sql if valid_candidates else None
     rewritten_sql = candidate_sql if isinstance(candidate_sql, str) and candidate_sql.strip() else original_sql
-    equivalence = EquivalenceCheck(checked=True, method="static", evidence_refs=[])
-    perf = PerfComparison(
-        checked=True,
-        method="heuristic",
-        before_summary={},
-        after_summary={},
-        reason_codes=[],
-        improved=bool(proposal.get("suggestions")),
-        evidence_refs=[],
-    )
+
     selected_candidate_id = None
     selected_candidate_source = None
     candidate_evaluations: list[CandidateEvaluation] = []
     canonicalization_assessment: list[dict[str, Any]] = []
     candidate_selection_trace: list[dict[str, Any]] = []
-
-    if not compare_enabled:
-        return CandidateSelectionResult(
-            rewritten_sql=rewritten_sql,
-            selected_candidate_id=selected_candidate_id,
-            selected_candidate_source=selected_candidate_source,
-            candidate_evaluations=candidate_evaluations,
-            equivalence=equivalence,
-            perf=perf,
-            canonicalization=None,
-            canonicalization_assessment=[],
-            candidate_selection_trace=[],
-        )
 
     selected_canonicalization: dict[str, Any] | None = None
     if valid_candidates:

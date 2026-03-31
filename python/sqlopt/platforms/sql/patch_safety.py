@@ -233,6 +233,10 @@ def assess_patch_safety_model(
             ]
     if not allowed and not blocking_reasons:
         blocking_reasons.append("PATCH_STRATEGY_UNAVAILABLE")
+    # If there are allowed capabilities, clear blocking_reasons as the patch is still possible
+    # Only keep blockers if no capabilities are allowed
+    if allowed:
+        blocking_reasons = []
     blocking_reasons = [reason for reason in sorted(blocking_reasons, key=_blocking_reason_priority) if reason]
     blocking_reason = None if allowed else (blocking_reasons[0] if blocking_reasons else None)
     dynamic_blocking_reason = _derive_dynamic_blocking_reason(
@@ -241,10 +245,9 @@ def assess_patch_safety_model(
         dynamic_intent_blocker,
     )
     return PatchabilityAssessment(
-        eligible=bool(allowed),
-        allowed_capabilities=allowed,
-        blocking_reason=blocking_reason,
         blocking_reasons=blocking_reasons,
+        blocking_reason=blocking_reason,
+        allowed_capabilities=allowed,
         capability_decisions=[decision for _, decision in decisions],
         aggregation_constraint_family=(
             aggregation_profile.constraint_family

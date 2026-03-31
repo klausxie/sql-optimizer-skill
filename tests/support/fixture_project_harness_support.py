@@ -10,6 +10,7 @@ from sqlopt.adapters.scanner_java import run_scan
 from sqlopt.contracts import ContractValidator
 from sqlopt.io_utils import read_jsonl, write_jsonl
 from sqlopt.platforms.sql.validator_sql import validate_proposal
+from sqlopt.platforms.sql.patch_strategy_planner import plan_patch_strategy
 from sqlopt.run_paths import canonical_paths
 from sqlopt.stages.report_stats import blocker_family_for_patch_row
 from sqlopt.stages.patch_generate import execute_one as execute_patch_one
@@ -268,15 +269,14 @@ def proposal_for_candidate(candidate_sql: str) -> dict:
 
 
 def config_for_validate(mode: str) -> dict:
+    # Validation now requires db.dsn to be configured (even if we use mocks)
     config = {
-        "db": {"platform": "postgresql"},
+        "db": {"platform": "postgresql", "dsn": "postgresql://dummy"},
         "validate": {"validation_profile": "balanced"},
         "policy": {},
         "patch": {},
         "llm": {"enabled": False},
     }
-    if mode != "compare_disabled":
-        config["db"]["dsn"] = "postgresql://dummy"
     return config
 
 
@@ -332,7 +332,6 @@ def validate_fixture_scenario(
     *,
     scenario: dict,
     units_by_key: dict[str, dict],
-    fragment_catalog: dict[str, dict],
 ) -> tuple[dict, dict]:
     sql_key = str(scenario["sqlKey"])
     unit = units_by_key[sql_key]
@@ -343,13 +342,13 @@ def validate_fixture_scenario(
     with tempfile.TemporaryDirectory(prefix="sqlopt_fixture_validate_") as td:
         evidence_dir = Path(td)
         if mode == "compare_disabled":
-            result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir, fragment_catalog=fragment_catalog)
+            result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir)
         else:
             with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", return_value=fake_semantics_for_mode(mode)), patch(
                 "sqlopt.platforms.sql.validator_sql.compare_plan",
                 return_value=fake_plan_for_mode(mode),
             ):
-                result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir, fragment_catalog=fragment_catalog)
+                result = validate_proposal(unit, proposal, True, config=config, evidence_dir=evidence_dir)
     return proposal, result.to_contract()
 
 
@@ -363,10 +362,29 @@ def run_fixture_validate_harness() -> tuple[list[dict], list[dict], list[dict], 
         proposal, acceptance = validate_fixture_scenario(
             scenario=scenario,
             units_by_key=units_by_key,
-            fragment_catalog=fragment_catalog,
         )
         proposal["sqlKey"] = str(scenario["sqlKey"])
         proposals.append(proposal)
+
+        # Compute rewrite_facts using patch strategy planner (moved from validate stage)
+        sql_key = str(scenario["sqlKey"])
+        unit = units_by_key[sql_key]
+        rewritten_sql = str(acceptance.get("rewrittenSql") or "").strip()
+        if rewritten_sql and fragment_catalog:
+            try:
+                rewrite_facts, _, _, _, _, _, _ = plan_patch_strategy(
+                    unit,
+                    rewritten_sql,
+                    fragment_catalog,
+                    dict(acceptance.get("equivalence") or {}),
+                    dict(acceptance.get("semanticEquivalence") or {}),
+                    enable_fragment_materialization=False,
+                )
+                acceptance["rewriteFacts"] = rewrite_facts
+            except Exception:
+                # If patch planning fails, leave rewriteFacts empty
+                pass
+
         acceptance_rows.append(acceptance)
         acceptance_by_key[str(scenario["sqlKey"])] = acceptance
     return scenarios, proposals, acceptance_rows, units_by_key, acceptance_by_key, fragment_catalog

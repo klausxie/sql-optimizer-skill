@@ -54,16 +54,19 @@ def wrapper_blockers(rewrite_facts: RewriteFacts) -> list[str]:
     fingerprint_strength = rewrite_facts.semantic.fingerprint_strength
     wrapper = rewrite_facts.wrapper_query
 
-    reasons: list[str] = []
+    # If there's no wrapper query, there's nothing to block for wrapper collapse
+    # This is not a blocker - the SQL simply doesn't have a wrapper to collapse
     if not wrapper.present:
-        reasons.append("WRAPPER_QUERY_ABSENT")
+        return []
+
+    reasons: list[str] = []
     if fingerprint_strength != "EXACT":
         reasons.append("PATCH_FINGERPRINT_NOT_EXACT")
     if not wrapper.collapsible:
         blockers = list(wrapper.blockers)
         if blockers:
             reasons.append(f"WRAPPER_COLLAPSE_BLOCKED:{blockers[0]}")
-        elif wrapper.present:
+        else:
             reasons.append("WRAPPER_COLLAPSE_BLOCKED:UNKNOWN")
     if not wrapper.collapse_candidate:
         reasons.append("WRAPPER_COLLAPSE_CANDIDATE_MISMATCH")

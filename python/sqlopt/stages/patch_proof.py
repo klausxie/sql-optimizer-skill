@@ -29,7 +29,9 @@ def _build_patch_target(
 ) -> dict[str, Any] | None:
     if not selection.rewritten_sql or not selection.selected_candidate_id or not build.selected_patch_strategy:
         return None
-    if not bool((selection.patchability or {}).get("eligible")):
+    # Check if patchable using blockingReasons (empty list = patchable)
+    blocking_reasons = list((selection.patchability or {}).get("blockingReasons") or [])
+    if blocking_reasons:
         return None
 
     replay_contract = dict((build.rewrite_materialization or {}).get("replayContract") or {})

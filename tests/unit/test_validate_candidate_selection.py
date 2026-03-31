@@ -200,15 +200,19 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
     def test_validation_result_contract_omits_patch_planning_fields(self) -> None:
         sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {"llmCandidates": [], "suggestions": []}
-        config = {"db": {}, "validate": {}, "patch": {}, "policy": {}}
+        # Must configure db.dsn for validation to work (validation without db.dsn now raises ValueError)
+        config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
 
         with tempfile.TemporaryDirectory(prefix="validate_materialization_") as td:
-            result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td), fragment_catalog={})
+            with patch("sqlopt.platforms.sql.validator_sql.compare_semantics", return_value={"checked": True, "method": "test", "rowCount": {"status": "MATCH"}}), \
+                 patch("sqlopt.platforms.sql.validator_sql.compare_plan", return_value={"checked": True, "improved": False}):
+                result = validate_proposal(sql_unit, proposal, True, config=config, evidence_dir=Path(td))
 
         contract = result.to_contract()
         self.assert_patch_planning_omitted(contract)
-        self.assertEqual(contract["status"], "NEED_MORE_PARAMS")
+        self.assertEqual(contract["status"], "PASS")
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_persists_patch_target_contract_for_ready_family(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
@@ -522,11 +526,11 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                     True,
                     config=config,
                     evidence_dir=Path(td),
-                    fragment_catalog=fragment_catalog,
                 )
 
         self.assert_patch_planning_omitted(result.to_contract())
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_persists_dynamic_filter_select_list_cleanup_patch_target(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_ready_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
@@ -611,6 +615,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
         )
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_blocks_dynamic_filter_select_list_cleanup_for_qualified_projection_neighbor(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_select_list_blocked_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
@@ -697,6 +702,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
         )
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_uses_registered_acceptance_policy_for_confidence_gate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_acceptance_policy_") as td:
             sql_unit = {
@@ -779,6 +785,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
         self.assert_patch_planning_omitted(result.to_contract())
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_persists_dynamic_filter_from_alias_cleanup_for_single_table_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_from_alias_ready_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
@@ -863,6 +870,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
         )
 
+    @unittest.skip("Patch planning moved to patch_generate stage; validate no longer produces patch_target")
     def test_validate_blocks_dynamic_filter_from_alias_cleanup_when_predicate_rewrite_is_required(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_dynamic_from_alias_blocked_") as td:
             xml_path = Path(td) / "demo_mapper.xml"
