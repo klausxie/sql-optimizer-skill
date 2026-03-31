@@ -155,20 +155,11 @@ def _all_text_fallback(raw_candidates: list[dict[str, Any]]) -> bool:
     )
 
 
-def _is_low_value_candidate(
-    context: CandidateGenerationContext,
-    candidate: dict[str, Any],
-) -> LowValueAssessment | None:
-    """Check if a candidate is low-value (not worth applying).
+# ===== 独立的低值候选检测器 =====
 
-    Returns the assessment if low-value, None otherwise.
-    """
-    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
+def _check_text_fallback(candidate: dict[str, Any]) -> LowValueAssessment | None:
+    """检测 text fallback（ diagnostics only）"""
     strategy = str(candidate.get("rewriteStrategy") or "").strip()
-    strategy_lower = strategy.lower()
-    original_sql = context.original_sql
-
-    # Check text fallback
     if strategy == "opencode_text_fallback":
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -176,8 +167,12 @@ def _is_low_value_candidate(
             category="CANONICAL_NOOP_HINT",
             reason="text fallback is diagnostics only and not a consumable sql candidate",
         )
+    return None
 
-    # Check empty SQL
+
+def _check_empty_sql(candidate: dict[str, Any]) -> LowValueAssessment | None:
+    """检测空 SQL"""
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
     if not rewritten_sql:
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -185,9 +180,15 @@ def _is_low_value_candidate(
             category="IDENTITY_NOOP",
             reason="candidate has no rewritten sql",
         )
+    return None
 
-    # Check identity (no change)
-    norm_original = _normalize_sql(original_sql)
+
+def _check_identity(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测恒等变换（SQL 无实质改变）"""
+    from .canonicalization_support import normalize_sql
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    norm_original = _normalize_sql(context.original_sql)
     norm_rewritten = _normalize_sql(rewritten_sql)
     if norm_rewritten == norm_original:
         if strategy in _IDENTITY_STRATEGIES or not strategy:
@@ -203,149 +204,188 @@ def _is_low_value_candidate(
             category="CANONICAL_NOOP_HINT",
             reason="candidate only restates the original sql without a material change",
         )
+    return None
 
-    # Check comment-only changes
+
+def _check_comment_only(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测仅注释变更"""
     from .canonicalization_support import normalize_sql, strip_sql_comments
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
 
     def _comment_stripped_normalized_sql(value: str) -> str:
         return normalize_sql(strip_sql_comments(value))
 
+    original_sql = context.original_sql
     if _comment_stripped_normalized_sql(rewritten_sql) != _comment_stripped_normalized_sql(original_sql):
-        pass  # continue checking
-    elif normalize_sql(rewritten_sql) != normalize_sql(original_sql):
+        return None  # continue checking
+    if normalize_sql(rewritten_sql) != normalize_sql(original_sql):
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
             rule_id="COMMENT_ONLY_REWRITE",
             category="CANONICAL_NOOP_HINT",
             reason="candidate only changes sql comments or annotations without a material sql change",
         )
+    return None
 
-    # Check dynamic filter speculative rewrites
+
+def _check_dynamic_filter(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测动态过滤器的投机重写"""
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    strategy_lower = strategy.lower()
+    original_sql = context.original_sql
+
     features = _dynamic_filter_features(context.sql_unit)
-    if features & _DYNAMIC_FILTER_FEATURES:
-        norm_original = _normalize_sql(original_sql)
-        norm_rewritten = _normalize_sql(rewritten_sql)
+    if not (features & _DYNAMIC_FILTER_FEATURES):
+        return None
 
-        if _HINT_RE.search(rewritten_sql) or _HINT_STRATEGY_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate adds optimizer hints on a dynamic filter template without a stable template-preserving rewrite",
-            )
+    norm_original = _normalize_sql(original_sql)
+    norm_rewritten = _normalize_sql(rewritten_sql)
 
-        if norm_rewritten.startswith(f"{norm_original} AND ") or norm_rewritten.startswith(f"{norm_original} OR "):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate appends speculative predicates on a dynamic filter template",
-            )
+    # Check hint additions
+    if _HINT_RE.search(rewritten_sql) or _HINT_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate adds optimizer hints on a dynamic filter template without a stable template-preserving rewrite",
+        )
 
-        if norm_rewritten.startswith(f"{norm_original} LIMIT ") or norm_rewritten.startswith(f"{norm_original} FETCH "):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate appends speculative pagination on a dynamic filter template",
-            )
+    # Check predicate appending
+    if norm_rewritten.startswith(f"{norm_original} AND ") or norm_rewritten.startswith(f"{norm_original} OR "):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate appends speculative predicates on a dynamic filter template",
+        )
 
-        if _LIMIT_RE.search(norm_rewritten) and not _LIMIT_RE.search(norm_original):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces pagination on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check pagination appending
+    if norm_rewritten.startswith(f"{norm_original} LIMIT ") or norm_rewritten.startswith(f"{norm_original} FETCH "):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate appends speculative pagination on a dynamic filter template",
+        )
 
-        if _TIME_FILTER_STRATEGY_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces a time-based filter on a dynamic filter template without a safe template-preserving rewrite",
-            )
+    # Check LIMIT introduction
+    if _LIMIT_RE.search(norm_rewritten) and not _LIMIT_RE.search(norm_original):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces pagination on a dynamic filter template without a safe template-preserving baseline",
+        )
 
-        if _ORDER_BY_RE.search(norm_rewritten) and not _ORDER_BY_RE.search(norm_original):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate adds ordering on a dynamic filter template without a safe template-preserving rewrite",
-            )
+    # Check time filter strategy
+    if _TIME_FILTER_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces a time-based filter on a dynamic filter template without a safe template-preserving rewrite",
+        )
 
-        if _ORDER_STRATEGY_RE.search(strategy) and norm_rewritten != norm_original:
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate alters ordering on a dynamic filter template without a safe template-preserving rewrite",
-            )
+    # Check ORDER BY introduction
+    if _ORDER_BY_RE.search(norm_rewritten) and not _ORDER_BY_RE.search(norm_original):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate adds ordering on a dynamic filter template without a safe template-preserving rewrite",
+        )
 
-        if _JOIN_REWRITE_STRATEGY_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces a join-order or join-predicate rewrite on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check order strategy
+    if _ORDER_STRATEGY_RE.search(strategy) and norm_rewritten != norm_original:
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate alters ordering on a dynamic filter template without a safe template-preserving rewrite",
+        )
 
-        if _PREDICATE_REWRITE_STRATEGY_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate rewrites dynamic filter predicates without a safe template-preserving baseline",
-            )
+    # Check join rewrite strategy
+    if _JOIN_REWRITE_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces a join-order or join-predicate rewrite on a dynamic filter template without a safe template-preserving baseline",
+        )
 
-        if _COUNT_REWRITE_STRATEGY_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate rewrites count semantics on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check predicate rewrite strategy
+    if _PREDICATE_REWRITE_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate rewrites dynamic filter predicates without a safe template-preserving baseline",
+        )
 
-        if _WITH_RE.search(norm_rewritten) and not _WITH_RE.search(norm_original):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces a CTE-based structural rewrite on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check count rewrite
+    if _COUNT_REWRITE_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate rewrites count semantics on a dynamic filter template without a safe template-preserving baseline",
+        )
 
-        if _UNION_RE.search(norm_rewritten) and not _UNION_RE.search(norm_original):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces a UNION-based structural rewrite on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check CTE introduction
+    if _WITH_RE.search(norm_rewritten) and not _WITH_RE.search(norm_original):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces a CTE-based structural rewrite on a dynamic filter template without a safe template-preserving baseline",
+        )
 
-        if (
-            (_JOIN_SUBQUERY_RE.search(norm_rewritten) or _FROM_SUBQUERY_RE.search(norm_rewritten))
-            and not (_JOIN_SUBQUERY_RE.search(norm_original) or _FROM_SUBQUERY_RE.search(norm_original))
-        ):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate introduces a subquery pushdown rewrite on a dynamic filter template without a safe template-preserving baseline",
-            )
+    # Check UNION introduction
+    if _UNION_RE.search(norm_rewritten) and not _UNION_RE.search(norm_original):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces a UNION-based structural rewrite on a dynamic filter template without a safe template-preserving baseline",
+        )
 
-        original_on_clauses = _extract_on_clauses(norm_original)
-        rewritten_on_clauses = _extract_on_clauses(norm_rewritten)
-        if (
-            rewritten_on_clauses
-            and any("#{" in clause for clause in rewritten_on_clauses)
-            and not any("#{" in clause for clause in original_on_clauses)
-        ):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
-                reason="candidate pushes dynamic filter predicates into join conditions without a safe template-preserving baseline",
-            )
+    # Check subquery pushdown
+    if (
+        (_JOIN_SUBQUERY_RE.search(norm_rewritten) or _FROM_SUBQUERY_RE.search(norm_rewritten))
+        and not (_JOIN_SUBQUERY_RE.search(norm_original) or _FROM_SUBQUERY_RE.search(norm_original))
+    ):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces a subquery pushdown rewrite on a dynamic filter template without a safe template-preserving baseline",
+        )
+
+    # Check dynamic filter in ON clause
+    original_on_clauses = _extract_on_clauses(norm_original)
+    rewritten_on_clauses = _extract_on_clauses(norm_rewritten)
+    if (
+        rewritten_on_clauses
+        and any("#{" in clause for clause in rewritten_on_clauses)
+        and not any("#{" in clause for clause in original_on_clauses)
+    ):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate pushes dynamic filter predicates into join conditions without a safe template-preserving baseline",
+        )
+
+    return None
+
+
+def _check_aggregation_transform(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测聚合转换"""
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    strategy_lower = strategy.lower()
+    original_sql = context.original_sql
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
 
     # Check aggregation transforms (removing ORDER BY from GROUP BY)
     if strategy in _AGGREGATION_TRANSFORM_STRATEGIES and _AGGREGATION_RE.search(original_sql):
@@ -361,12 +401,12 @@ def _is_low_value_candidate(
     if "add_filter" in strategy_lower or "add_limit" in strategy_lower:
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
-                rule_id="SPECULATIVE_AGGREGATE_ADDITION",
-                category="SPECULATIVE_AGGREGATE_ADDITION",
-                reason="candidate adds speculative filter or limit to aggregation query without safe baseline",
-            )
+            rule_id="SPECULATIVE_AGGREGATE_ADDITION",
+            category="SPECULATIVE_AGGREGATE_ADDITION",
+            reason="candidate adds speculative filter or limit to aggregation query without safe baseline",
+        )
 
-    # Check window function extraction - any window-related strategy
+    # Check window function extraction
     if "window" in strategy_lower:
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -375,22 +415,65 @@ def _is_low_value_candidate(
             reason="candidate extracts window function without safe template-preserving baseline",
         )
 
-    # Check DML speculative candidates
-    if _UPDATE_RE.search(original_sql) or _DELETE_RE.search(original_sql):
-        if _DML_PARAM_SUBSTITUTION_RE.search(strategy):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DML_SPECULATIVE",
-                category="DML_SPECULATIVE",
-                reason="candidate applies speculative DML optimization without safe baseline",
-            )
-        if _MYBATIS_TAG_RE.search(rewritten_sql):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DML_SPECULATIVE",
-                category="DML_SPECULATIVE",
-                reason="candidate introduces MyBatis tags in DML without safe baseline",
-            )
+    return None
+
+
+def _check_dml_speculative(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测 DML 投机重写"""
+    original_sql = context.original_sql
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    strategy_lower = strategy.lower()
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
+
+    if not (_UPDATE_RE.search(original_sql) or _DELETE_RE.search(original_sql)):
+        return None
+
+    if _DML_PARAM_SUBSTITUTION_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DML_SPECULATIVE",
+            category="DML_SPECULATIVE",
+            reason="candidate applies speculative DML optimization without safe baseline",
+        )
+
+    if _MYBATIS_TAG_RE.search(rewritten_sql):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DML_SPECULATIVE",
+            category="DML_SPECULATIVE",
+            reason="candidate introduces MyBatis tags in DML without safe baseline",
+        )
+
+    return None
+
+
+def _check_static_include(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测静态包含的投机分页"""
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    strategy_lower = strategy.lower()
+    sql_unit = context.sql_unit or {}
+    dynamic_features = set(str(x).upper() for x in sql_unit.get("dynamicFeatures", []))
+
+    if "INCLUDE" not in dynamic_features:
+        return None
+
+    if any(x in strategy_lower for x in ["index", "filter", "time_", "paged", "page", "offset"]):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+            category="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+            reason="candidate adds speculative filter/index to static include without safe template-preserving baseline",
+        )
+
+    return None
+
+
+def _check_other_patterns(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
+    """检测其他模式：distinct, union, foreach, parameter 等"""
+    strategy = str(candidate.get("rewriteStrategy") or "").strip()
+    strategy_lower = strategy.lower()
+    original_sql = context.original_sql
+    rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
 
     # Check distinct to group by transform
     if "distinct" in strategy.lower() and _DISTINCT_RE.search(original_sql):
@@ -401,8 +484,6 @@ def _is_low_value_candidate(
             reason="candidate rewrites DISTINCT without proven performance benefit",
         )
 
-    # Union: strategy_lower already defined at function start
-
     # Check union simplification
     if "union" in strategy_lower and _UNION_RE.search(original_sql):
         return LowValueAssessment(
@@ -412,7 +493,7 @@ def _is_low_value_candidate(
             reason="candidate simplifies UNION without safe template-preserving baseline",
         )
 
-    # Check distinct transformation - also check if original had DISTINCT and rewritten uses GROUP BY
+    # Check distinct transformation
     if "distinct" in strategy_lower or (_DISTINCT_RE.search(original_sql) and "group by" in rewritten_sql.lower()):
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -421,7 +502,7 @@ def _is_low_value_candidate(
             reason="candidate rewrites DISTINCT without proven performance benefit",
         )
 
-    # Check array parameter / in-to-single-value conversion
+    # Check array parameter conversion
     if "array" in strategy_lower or "single_value" in strategy_lower or "in_to" in strategy_lower or "any(" in strategy_lower:
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -439,7 +520,7 @@ def _is_low_value_candidate(
             reason="candidate applies parameter or template fix without safe baseline",
         )
 
-    # Check specific condition/equality/placeholder strategies
+    # Check condition/equality/placeholder strategies
     if "specify_condition" in strategy_lower or "single_placeholder" in strategy_lower or "placeholder_equality" in strategy_lower or "explicit_column" in strategy_lower or "simplify_in" in strategy_lower:
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -448,7 +529,7 @@ def _is_low_value_candidate(
             reason="candidate applies condition or placeholder fix without safe baseline",
         )
 
-    # Check IN ( to = conversion (semantic change) - more specific pattern
+    # Check IN ( to = conversion (semantic change)
     if re.search(r"\bin\s*\(", original_sql, re.IGNORECASE) and re.search(r"\b=\s*#\{", rewritten_sql, re.IGNORECASE):
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
@@ -456,29 +537,6 @@ def _is_low_value_candidate(
             category="IN_TO_EQUAL_CONVERSION",
             reason="candidate converts IN to = which changes semantics",
         )
-
-    # Check DML with embedded MyBatis tags
-    if _UPDATE_RE.search(original_sql) or _DELETE_RE.search(original_sql):
-        if _MYBATIS_TAG_RE.search(rewritten_sql):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="DML_SPECULATIVE",
-                category="DML_SPECULATIVE",
-                reason="candidate introduces MyBatis tags in DML without safe baseline",
-            )
-
-    # Check static include with LIMIT/pagination (speculative)
-    sql_unit = context.sql_unit or {}
-    dynamic_features = set(str(x).upper() for x in sql_unit.get("dynamicFeatures", []))
-    if "INCLUDE" in dynamic_features:
-        # Any index/filter/time_filter/offset modifications on static include is low-value
-        if any(x in strategy_lower for x in ["index", "filter", "time_", "paged", "page", "offset"]):
-            return LowValueAssessment(
-                candidate_id=str(candidate.get("id") or ""),
-                rule_id="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
-                category="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
-                reason="candidate adds speculative filter/index to static include without safe template-preserving baseline",
-            )
 
     # Check foreach template fixes
     if "foreach" in strategy.lower():
@@ -488,6 +546,62 @@ def _is_low_value_candidate(
             category="FOREACH_TEMPLATE_FIX",
             reason="candidate applies foreach template fix without safe baseline",
         )
+
+    return None
+
+
+def _is_low_value_candidate(
+    context: CandidateGenerationContext,
+    candidate: dict[str, Any],
+) -> LowValueAssessment | None:
+    """Check if a candidate is low-value (not worth applying).
+
+    Returns the assessment if low-value, None otherwise.
+    """
+    # 1. Check text fallback first (quick exit)
+    result = _check_text_fallback(candidate)
+    if result:
+        return result
+
+    # 2. Check empty SQL
+    result = _check_empty_sql(candidate)
+    if result:
+        return result
+
+    # 3. Check identity (no change)
+    result = _check_identity(candidate, context)
+    if result:
+        return result
+
+    # 4. Check comment-only changes
+    result = _check_comment_only(candidate, context)
+    if result:
+        return result
+
+    # 5. Check dynamic filter speculative rewrites
+    result = _check_dynamic_filter(candidate, context)
+    if result:
+        return result
+
+    # 6. Check aggregation transforms
+    result = _check_aggregation_transform(candidate, context)
+    if result:
+        return result
+
+    # 7. Check DML speculative
+    result = _check_dml_speculative(candidate, context)
+    if result:
+        return result
+
+    # 8. Check static include
+    result = _check_static_include(candidate, context)
+    if result:
+        return result
+
+    # 9. Check other patterns
+    result = _check_other_patterns(candidate, context)
+    if result:
+        return result
 
     # Not low-value
     return None
