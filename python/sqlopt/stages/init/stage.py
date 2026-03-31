@@ -27,6 +27,7 @@ from .scanner import find_mapper_files
 from .table_extractor import (
     extract_condition_fields_by_table,
     extract_field_distributions,
+    extract_field_distributions_parallel,
     extract_table_references_from_sql,
     extract_table_schemas,
 )
@@ -262,26 +263,58 @@ class InitStage(Stage[None, InitOutput]):
 
                     return wrapper
 
-                current_field_offset = field_offset
-                for tbl, cols in field_by_table.items():
-                    if tbl not in table_schemas:
-                        logger.debug(f"[INIT] Skipping {tbl} - not in database schema")
-                        continue
-                    schema_cols = {col["name"].lower() for col in table_schemas[tbl].columns}
-                    valid_cols = cols & schema_cols
-                    invalid_cols = cols - schema_cols
-                    if invalid_cols:
-                        logger.debug(f"[INIT] Skipping invalid fields in {tbl}: {invalid_cols}")
-                    if valid_cols:
-                        dists = extract_field_distributions(
-                            table_name=tbl,
-                            column_names=list(valid_cols),
-                            db_connector=db_connector,
+                fd_config = cfg.field_distribution_concurrency
+
+                if fd_config.enabled:
+                    parallel_field_by_table: dict[str, set[str]] = {}
+                    for tbl, cols in field_by_table.items():
+                        if tbl not in table_schemas:
+                            continue
+                        schema_cols = {col["name"].lower() for col in table_schemas[tbl].columns}
+                        valid_cols = cols & schema_cols
+                        if valid_cols:
+                            parallel_field_by_table[tbl] = valid_cols
+
+                    def parallel_progress_callback(msg: str, sub: tuple[int, int] | None) -> None:
+                        if progress_callback and sub is not None:
+                            progress_callback(msg, (field_offset + sub[0], total_work))
+
+                    dists = extract_field_distributions_parallel(
+                        field_by_table=parallel_field_by_table,
+                        connector_factory=lambda: create_connector(
                             platform=cfg.db_platform,
-                            progress_callback=make_field_callback_v2(current_field_offset, total_work),
-                        )
-                        field_distributions.extend(dists)
-                        current_field_offset += len(valid_cols)
+                            host=cfg.db_host or "localhost",
+                            port=cfg.db_port or 5432,
+                            db=cfg.db_name or "postgres",
+                            user=cfg.db_user or "postgres",
+                            password=cfg.db_password or "",
+                        ),
+                        platform=cfg.db_platform,
+                        config=fd_config,
+                        progress_callback=parallel_progress_callback,
+                    )
+                    field_distributions.extend(dists)
+                else:
+                    current_field_offset = field_offset
+                    for tbl, cols in field_by_table.items():
+                        if tbl not in table_schemas:
+                            logger.debug(f"[INIT] Skipping {tbl} - not in database schema")
+                            continue
+                        schema_cols = {col["name"].lower() for col in table_schemas[tbl].columns}
+                        valid_cols = cols & schema_cols
+                        invalid_cols = cols - schema_cols
+                        if invalid_cols:
+                            logger.debug(f"[INIT] Skipping invalid fields in {tbl}: {invalid_cols}")
+                        if valid_cols:
+                            dists = extract_field_distributions(
+                                table_name=tbl,
+                                column_names=list(valid_cols),
+                                db_connector=db_connector,
+                                platform=cfg.db_platform,
+                                progress_callback=make_field_callback_v2(current_field_offset, total_work),
+                            )
+                            field_distributions.extend(dists)
+                            current_field_offset += len(valid_cols)
                 logger.info(f"[INIT] Extracted distributions for {len(field_distributions)} field(s)")
             else:
                 logger.info("[INIT] No database config available, skipping table schema extraction")
