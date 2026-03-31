@@ -6,6 +6,7 @@ import html as html_escape
 import pathlib
 from typing import Any
 
+from sqlopt.common.run_paths import RunPaths
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
@@ -360,7 +361,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
 
         safe_unit_id = html_escape.escape(unit.sql_unit_id)
-        json_path = f"units/{unit.sql_unit_id}.json"
+        json_path = f"units/{html_escape.escape(RunPaths.sanitize_unit_id(unit.sql_unit_id))}.json"
 
         html += f"""
     <div class="card collapsible-unit" data-sortable data-unit-id="{safe_unit_id}" data-json-path="{json_path}">
