@@ -43,6 +43,7 @@ from .report_metrics import summarize_semantic_confidence_upgrades
 from .report_metrics import build_verification_gate
 from .report_metrics import count_llm_timeouts
 from .report_metrics import summarize_failures
+from .proposal_models import LLM_CANDIDATES_KEY
 from .report_stats import (
     build_top_actionable_sql,
     build_prioritized_sql_keys,
@@ -267,7 +268,7 @@ def build_report_artifacts(
 ) -> ReportArtifacts:
     phase_status = dict(inputs.state.phase_status)
     llm_enabled = bool(config.get("llm", {}).get("enabled", False))
-    llm_generated = sum(len(x.get("llmCandidates", []) or []) for x in inputs.proposals)
+    llm_generated = sum(len(x.get(LLM_CANDIDATES_KEY, []) or []) for x in inputs.proposals)
     llm_timeout_count = count_llm_timeouts(run_dir, inputs.proposals)
     perf_improved_count = sum(
         1 for x in inputs.acceptance if x.get("status") == "PASS" and (x.get("perfComparison") or {}).get("improved") is True

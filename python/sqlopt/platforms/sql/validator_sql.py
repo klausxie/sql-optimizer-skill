@@ -28,6 +28,7 @@ from .candidate_selection import (
     evaluate_candidate_selection,
     filter_valid_candidates,
 )
+from ...stages.proposal_models import LLM_CANDIDATES_KEY
 from .semantic_equivalence import build_semantic_equivalence
 from .validation_strategy import build_compare_policy, run_plan_compare, run_semantics_compare
 from .llm_semantic_check import integrate_llm_semantic_check
@@ -66,7 +67,7 @@ def validate_proposal(
 
     risk = "high" if "${" in sql else "low"
     risk_flags = ["DOLLAR_SUBSTITUTION"] if risk == "high" else []
-    llm_candidates = proposal.get("llmCandidates") or []
+    llm_candidates = proposal.get(LLM_CANDIDATES_KEY) or []
     candidates = build_candidate_pool(sql_unit["sqlKey"], proposal)
     valid_candidates, rejected_placeholder_semantics = filter_valid_candidates(sql, candidates)
 

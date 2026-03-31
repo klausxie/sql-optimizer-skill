@@ -5,6 +5,7 @@ from typing import Any
 from ..failure_classification import classify_reason_code
 from ..platforms.sql.materialization_constants import materialization_reason_group
 from ..verification.explain import action_reason, assess_sql_outcome
+from .proposal_models import LLM_CANDIDATES_KEY
 
 
 def _append_action_once(actions: list[dict[str, Any]], action: dict[str, Any]) -> None:
@@ -647,7 +648,7 @@ def build_proposal_rows(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "sql_key": str(proposal.get("sqlKey") or ""),
                 "verdict": str(proposal.get("verdict") or "UNKNOWN"),
                 "issue_codes": issue_codes,
-                "llm_candidate_count": len(proposal.get("llmCandidates") or []),
+                "llm_candidate_count": len(proposal.get(LLM_CANDIDATES_KEY) or []),
                 "candidate_degradation_kind": str(diagnostics.get("degradationKind") or "").strip() or None,
                 "candidate_recovery_strategy": str(diagnostics.get("recoveryStrategy") or "").strip() or None,
                 "candidate_recovery_succeeded": bool(diagnostics.get("recoverySucceeded")),

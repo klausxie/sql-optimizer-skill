@@ -18,6 +18,7 @@ from .candidate_selection_models import (
     CandidateSelectionTraceEntry,
 )
 from .models import MissingDSNError
+from ...stages.proposal_models import LLM_CANDIDATES_KEY
 
 _SQL_CANDIDATE_PREFIX_RE = re.compile(r"^\s*(select|with|update|delete|insert)\b", flags=re.IGNORECASE)
 
@@ -53,7 +54,7 @@ def _preserves_mybatis_placeholders(original_sql: str, rewritten_sql: str) -> bo
 def build_candidate_pool(sql_key: str, proposal: dict[str, Any]) -> list[Candidate]:
     out: list[Candidate] = []
     seen_sql: set[str] = set()
-    for i, row in enumerate(proposal.get("llmCandidates") or [], start=1):
+    for i, row in enumerate(proposal.get(LLM_CANDIDATES_KEY) or [], start=1):
         if not isinstance(row, dict):
             continue
         rewritten = str(row.get("rewrittenSql") or "").strip()

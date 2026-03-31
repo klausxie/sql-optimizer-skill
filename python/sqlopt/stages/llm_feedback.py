@@ -17,6 +17,7 @@ from typing import Any
 
 from ..io_utils import append_jsonl
 from ..run_paths import canonical_paths
+from .proposal_models import LLM_CANDIDATES_KEY
 
 
 @dataclass
@@ -64,7 +65,7 @@ def extract_llm_detected_issues(proposal: dict[str, Any]) -> list[dict[str, Any]
     issues: list[dict[str, Any]] = []
 
     # 从 LLM 响应中提取问题
-    llm_candidates = proposal.get("llmCandidates", [])
+    llm_candidates = proposal.get(LLM_CANDIDATES_KEY, [])
     if not llm_candidates:
         return issues
 
@@ -125,7 +126,7 @@ def collect_llm_feedback(
 
     acceptance_status = (acceptance or {}).get("status", "UNKNOWN")
 
-    llm_candidates = proposal.get("llmCandidates", []) or []
+    llm_candidates = proposal.get(LLM_CANDIDATES_KEY, []) or []
     valid_candidates = [c for c in llm_candidates if c.get("passed", True)]
 
     return LlmFeedbackRecord(

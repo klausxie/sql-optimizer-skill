@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..platforms.sql.candidate_generation_policy import recover_candidates_from_text
+from ..platforms.sql.candidate_generation_support import recover_candidates_from_text
 from ..subprocess_utils import run_capture_text
 from .retry_context import RetryContext, build_retry_prompt
 

@@ -18,6 +18,15 @@ from ..utils import statement_key, is_sql_syntax_error
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
 from .llm_feedback import collect_llm_feedback, save_feedback_record
+from .proposal_models import (
+    CANDIDATE_GENERATION_DIAGNOSTICS_KEY,
+    LlmCandidate,
+    LLM_CANDIDATES_KEY,
+    LLM_RETRY_STATS_KEY,
+    LLM_RETRY_TRACES_KEY,
+    LLM_TRACE_REFS_KEY,
+    LLM_VALIDATION_RESULTS_KEY,
+)
 
 
 @dataclass
@@ -198,19 +207,13 @@ def _validation_results_payload(val_results: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
-def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
-    paths = canonical_paths(run_dir)
-    llm_cfg = dict(config.get("llm", {}) or {})
-    project_root = (config.get("project", {}) or {}).get("root_path")
-    if isinstance(project_root, str) and project_root.strip():
-        llm_cfg["opencode_workdir"] = project_root
+def _init_diagnostics() -> tuple[dict[str, Any], dict[str, Any]]:
+    """初始化候选生成诊断数据结构。
 
-    proposal = generate_proposal(sql_unit, config=config)
-
-    llm_trace_ref = str(paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)).replace("\\", "/")
-    raw_candidates: list[dict[str, Any]] = []
-    candidates: list[dict[str, Any]] = []
-    candidate_generation_diagnostics: dict[str, Any] = {
+    Returns:
+        (diagnostics, artifact): 诊断字典和诊断产物
+    """
+    diagnostics: dict[str, Any] = {
         "degradationKind": None,
         "recoveryAttempted": False,
         "recoveryStrategy": None,
@@ -225,99 +228,126 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
         "rawRewriteStrategies": [],
         "finalCandidateCount": 0,
     }
-    candidate_generation_artifact: dict[str, Any] = dict(candidate_generation_diagnostics)
+    return diagnostics, dict(diagnostics)
+
+
+def _execute_or_skip(
+    sql_unit: dict[str, Any],
+    proposal: dict[str, Any],
+    llm_cfg: dict[str, Any],
+    config: dict[str, Any],
+    diagnostics: dict[str, Any],
+    artifact: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    """执行 LLM 候选生成或安全跳过。
+
+    Args:
+        sql_unit: SQL 单元
+        proposal: 优化建议
+        llm_cfg: LLM 配置
+        config: 全局配置
+        diagnostics: 诊断字典（会被修改）
+        artifact: 诊断产物（会被修改）
+
+    Returns:
+        (trace, candidates, validation_results, val_results, retry_traces)
+    """
+    candidates: list[dict[str, Any]] = []
 
     # 判断是否需要跳过 LLM 生成
     if "${" in str(sql_unit.get("sql", "")):
         trace = _build_dollar_skip_trace(sql_unit["sqlKey"])
-        validation_results = []
-        val_results = []
-        retry_traces = []
-        candidate_generation_diagnostics["recoveryReason"] = "SKIPPED_BY_SECURITY_BLOCK"
-        candidate_generation_artifact = dict(candidate_generation_diagnostics)
-    else:
-        result = _execute_llm_with_retry(sql_unit, proposal, llm_cfg, config)
-        raw_candidates = list(result.raw_candidates)
-        candidates = list(result.valid_candidates)
-        trace = result.trace
-        validation_results = list(result.validation_results)
-        val_results = result.val_results
-        retry_traces = result.retry_traces
-        generation_outcome = evaluate_candidate_generation(
-            sql_key=sql_unit["sqlKey"],
+        validation_results: list[dict[str, Any]] = []
+        val_results: list[Any] = []
+        retry_traces: list[dict[str, Any]] = []
+        diagnostics["recoveryReason"] = "SKIPPED_BY_SECURITY_BLOCK"
+        artifact.update(diagnostics)
+        return trace, candidates, validation_results, val_results, retry_traces
+
+    result = _execute_llm_with_retry(sql_unit, proposal, llm_cfg, config)
+    raw_candidates = list(result.raw_candidates)
+    candidates = list(result.valid_candidates)
+    trace = result.trace
+    validation_results = list(result.validation_results)
+    val_results = result.val_results
+    retry_traces = result.retry_traces
+
+    generation_outcome = evaluate_candidate_generation(
+        sql_key=sql_unit["sqlKey"],
+        original_sql=sql_unit["sql"],
+        sql_unit=sql_unit,
+        raw_candidates=raw_candidates,
+        valid_candidates=candidates,
+        trace=trace,
+    )
+    candidates = list(generation_outcome.accepted_candidates)
+    diagnostics.update(generation_outcome.diagnostics.to_summary_dict())
+    artifact.update(generation_outcome.diagnostics.to_artifact_dict())
+
+    recovery_candidates = list(generation_outcome.recovery_candidates)
+    if recovery_candidates:
+        recovered_candidates, recovered_val_results = validate_candidates(
+            candidates=recovery_candidates,
             original_sql=sql_unit["sql"],
+            sql_key=sql_unit["sqlKey"],
+            config=config,
             sql_unit=sql_unit,
-            raw_candidates=raw_candidates,
-            valid_candidates=candidates,
-            trace=trace,
         )
-        candidates = list(generation_outcome.accepted_candidates)
-        candidate_generation_diagnostics = generation_outcome.diagnostics.to_summary_dict()
-        candidate_generation_artifact = generation_outcome.diagnostics.to_artifact_dict()
-        recovery_candidates = list(generation_outcome.recovery_candidates)
-        if recovery_candidates:
-            recovered_candidates, recovered_val_results = validate_candidates(
-                candidates=recovery_candidates,
-                original_sql=sql_unit["sql"],
-                sql_key=sql_unit["sqlKey"],
-                config=config,
-                sql_unit=sql_unit,
-            )
-            if recovered_candidates:
-                candidates = recovered_candidates
-                val_results = recovered_val_results
-                validation_results = _validation_results_payload(recovered_val_results)
-                candidate_generation_diagnostics["recoverySucceeded"] = True
-                candidate_generation_diagnostics["recoveredCandidateCount"] = len(recovered_candidates)
-                candidate_generation_diagnostics["finalCandidateCount"] = len(recovered_candidates)
-                candidate_generation_artifact["recoverySucceeded"] = True
-                candidate_generation_artifact["recoveredCandidateCount"] = len(recovered_candidates)
-                candidate_generation_artifact["finalCandidateCount"] = len(recovered_candidates)
-            else:
-                candidate_generation_diagnostics["recoverySucceeded"] = False
-                candidate_generation_diagnostics["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
-                candidate_generation_artifact["recoverySucceeded"] = False
-                candidate_generation_artifact["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
+        if recovered_candidates:
+            candidates = recovered_candidates
+            val_results = recovered_val_results
+            validation_results = _validation_results_payload(recovered_val_results)
+            diagnostics["recoverySucceeded"] = True
+            diagnostics["recoveredCandidateCount"] = len(recovered_candidates)
+            diagnostics["finalCandidateCount"] = len(recovered_candidates)
+            artifact["recoverySucceeded"] = True
+            artifact["recoveredCandidateCount"] = len(recovered_candidates)
+            artifact["finalCandidateCount"] = len(recovered_candidates)
+        else:
+            diagnostics["recoverySucceeded"] = False
+            diagnostics["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
+            artifact["recoverySucceeded"] = False
+            artifact["recoveryReason"] = "RECOVERY_VALIDATION_REJECTED"
 
-        proposal["llmCandidates"] = candidates
-        proposal["candidateGenerationDiagnostics"] = candidate_generation_diagnostics
-        if retry_traces:
-            proposal["llmRetryTraces"] = retry_traces
-            proposal["llmRetryStats"] = {
-                "total_attempts": len(retry_traces) + 1,
-                "successful_attempt": len(retry_traces) + 1,
-            }
+    return trace, candidates, validation_results, val_results, retry_traces
 
-    proposal["llmCandidates"] = candidates
-    proposal["candidateGenerationDiagnostics"] = candidate_generation_diagnostics
 
-    # LLM trace should be persisted whenever an LLM/skip execution trace exists,
-    # even if candidate validation filtered all candidates.
-    if trace and any(trace.get(key) for key in ("executor", "provider", "task_id")):
-        proposal["llmTraceRefs"] = [llm_trace_ref]
+def _save_artifacts(
+    sql_unit: dict[str, Any],
+    run_dir: Path,
+    paths: Any,
+    validator: ContractValidator,
+    proposal: dict[str, Any],
+    trace: dict[str, Any],
+    candidate_generation_artifact: dict[str, Any],
+    llm_feedback_enabled: bool,
+    validation_errors_for_feedback: list[dict[str, str]] | None,
+) -> None:
+    """保存所有优化产物（proposal、trace、verification）。
 
-    # 添加验证结果到 proposal
-    if validation_results:
-        proposal["llmValidationResults"] = validation_results
-
-    # Phase 4: LLM 反馈收集（可选）
-    diagnostics_cfg = config.get("diagnostics", {}) or {}
-    llm_feedback_cfg = diagnostics_cfg.get("llm_feedback", {})
-    llm_feedback_enabled = bool(llm_feedback_cfg.get("enabled", False))
-    validation_errors_for_feedback = _collect_validation_errors_for_feedback(val_results) if llm_feedback_enabled else None
-
+    Args:
+        sql_unit: SQL 单元
+        run_dir: 运行目录
+        paths: 路径对象
+        validator: 合约验证器
+        proposal: 优化建议
+        trace: LLM 执行跟踪
+        candidate_generation_artifact: 诊断产物
+        llm_feedback_enabled: 是否启用 LLM 反馈
+        validation_errors_for_feedback: 验证错误列表
+    """
     # 保存 proposal
     validator.validate("optimization_proposal", proposal)
     append_jsonl(paths.proposals_path, proposal)
 
-    # 保存 trace
-    if proposal.get("llmTraceRefs"):
-        trace_path = run_dir / proposal["llmTraceRefs"][0]
+    # 保存 trace 和 diagnostics
+    if proposal.get(LLM_TRACE_REFS_KEY):
+        trace_path = run_dir / proposal[LLM_TRACE_REFS_KEY][0]
         write_json(
             trace_path,
             {
                 **trace,
-                "response": {**(trace.get("response") or {}), "candidates": proposal.get("llmCandidates", [])},
+                "response": {**(trace.get("response") or {}), "candidates": proposal.get(LLM_CANDIDATES_KEY, [])},
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -329,7 +359,64 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     # 构建验证记录
     _append_verification(run_dir, validator, sql_unit["sqlKey"], proposal, trace, llm_feedback_enabled, validation_errors_for_feedback)
 
+    # 记录完成事件
     log_event(paths.manifest_path, "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
+
+
+def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractValidator, config: dict[str, Any]) -> dict[str, Any]:
+    paths = canonical_paths(run_dir)
+    llm_cfg = dict(config.get("llm", {}) or {})
+    project_root = (config.get("project", {}) or {}).get("root_path")
+    if isinstance(project_root, str) and project_root.strip():
+        llm_cfg["opencode_workdir"] = project_root
+
+    proposal = generate_proposal(sql_unit, config=config)
+
+    llm_trace_ref = str(paths.sql_trace_path(str(sql_unit.get("sqlKey") or "")).relative_to(run_dir)).replace("\\", "/")
+    candidate_generation_diagnostics, candidate_generation_artifact = _init_diagnostics()
+
+    # 执行 LLM 候选生成或安全跳过
+    trace, candidates, validation_results, val_results, retry_traces = _execute_or_skip(
+        sql_unit, proposal, llm_cfg, config, candidate_generation_diagnostics, candidate_generation_artifact
+    )
+
+    proposal[LLM_CANDIDATES_KEY] = candidates
+    proposal[CANDIDATE_GENERATION_DIAGNOSTICS_KEY] = candidate_generation_diagnostics
+    if retry_traces:
+        proposal[LLM_RETRY_TRACES_KEY] = retry_traces
+        proposal[LLM_RETRY_STATS_KEY] = {
+            "total_attempts": len(retry_traces) + 1,
+            "successful_attempt": len(retry_traces) + 1,
+        }
+
+    # LLM trace should be persisted whenever an LLM/skip execution trace exists,
+    # even if candidate validation filtered all candidates.
+    if trace and any(trace.get(key) for key in ("executor", "provider", "task_id")):
+        proposal[LLM_TRACE_REFS_KEY] = [llm_trace_ref]
+
+    # 添加验证结果到 proposal
+    if validation_results:
+        proposal[LLM_VALIDATION_RESULTS_KEY] = validation_results
+
+    # LLM 反馈收集配置
+    diagnostics_cfg = config.get("diagnostics", {}) or {}
+    llm_feedback_cfg = diagnostics_cfg.get("llm_feedback", {})
+    llm_feedback_enabled = bool(llm_feedback_cfg.get("enabled", False))
+    validation_errors_for_feedback = _collect_validation_errors_for_feedback(val_results) if llm_feedback_enabled else None
+
+    # 保存产物
+    _save_artifacts(
+        sql_unit=sql_unit,
+        run_dir=run_dir,
+        paths=paths,
+        validator=validator,
+        proposal=proposal,
+        trace=trace,
+        candidate_generation_artifact=candidate_generation_artifact,
+        llm_feedback_enabled=llm_feedback_enabled,
+        validation_errors_for_feedback=validation_errors_for_feedback,
+    )
+
     return proposal
 
 
@@ -343,8 +430,8 @@ def _append_verification(
     validation_errors_for_feedback: list[dict[str, str]] | None,
 ) -> None:
     """追加验证记录。"""
-    llm_trace_refs = [str(ref) for ref in (proposal.get("llmTraceRefs") or []) if str(ref).strip()]
-    llm_candidate_count = len(proposal.get("llmCandidates") or [])
+    llm_trace_refs = [str(ref) for ref in (proposal.get(LLM_TRACE_REFS_KEY) or []) if str(ref).strip()]
+    llm_candidate_count = len(proposal.get(LLM_CANDIDATES_KEY) or [])
     degrade_reason = str(trace.get("degrade_reason") or "").strip()
     actionability = dict(proposal.get("actionability") or {})
     triggered_rules = [str(row.get("ruleId") or "") for row in (proposal.get("triggeredRules") or []) if isinstance(row, dict) and str(row.get("ruleId") or "").strip()]
