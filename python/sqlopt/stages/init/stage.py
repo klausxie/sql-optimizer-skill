@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from sqlopt.common.config import SQLOptConfig
-from sqlopt.common.relationship_report_generator import generate_relationship_report
-from sqlopt.common.summary_generator import generate_init_summary_markdown
+from sqlopt.common.init_report_generator import generate_init_report
 from sqlopt.contracts.init import (
     FieldDistribution,
     FileMapping,
@@ -84,7 +83,13 @@ class InitStage(Stage[None, InitOutput]):
             )
             output = InitOutput(sql_units=[unit], run_id="stub-run")
             self._write_output(output)
-            self._generate_summary(output, duration_seconds=time.time() - start_time, files_count=0)
+            self._write_summary_report(
+                output,
+                duration_seconds=0.0,
+                files_count=0,
+                schema_extraction_success=False,
+                field_distributions_count=0,
+            )
             return output
 
         project_root = cfg.project_root_path
@@ -294,17 +299,17 @@ class InitStage(Stage[None, InitOutput]):
         )
         self._write_output(output)
         self._write_field_distributions(field_distributions, rid)
-        logger.info(
-            "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings,field_distributions}}.json".format(
-                rid
-            )
-        )
-        self._generate_summary(
+        self._write_summary_report(
             output,
             duration_seconds=time.time() - start_time,
             files_count=len(mapper_files),
             schema_extraction_success=schema_extraction_success,
             field_distributions_count=len(field_distributions),
+        )
+        logger.info(
+            "[INIT] Output written to: runs/{}/init/{{sql_units,sql_fragments,table_schemas,xml_mappings,field_distributions}}.json".format(
+                rid
+            )
         )
         if failed_files:
             logger.warning("[INIT] Skipped %d mapper file(s) due to parse errors", len(failed_files))
@@ -344,13 +349,41 @@ class InitStage(Stage[None, InitOutput]):
         hots_file = output_dir / "table_hotspots.json"
         hots_file.write_text(json.dumps({k: asdict(v) for k, v in output.table_hotspots.items()}), encoding="utf-8")
 
-        # 7. relationship_report.html
-        report_file = output_dir / "relationship_report.html"
-        generate_relationship_report(
-            relationships=output.table_relationships,
-            hotspots=output.table_hotspots,
-            output_path=str(report_file),
-        )
+    def _write_summary_report(
+        self,
+        output: InitOutput,
+        duration_seconds: float,
+        files_count: int,
+        schema_extraction_success: bool,
+        field_distributions_count: int,
+    ) -> None:
+        try:
+            output_dir = self.resolve_run_paths(output.run_id).init_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+            file_size_bytes = sum(
+                (output_dir / fname).stat().st_size
+                for fname in [
+                    "sql_units.json",
+                    "sql_fragments.json",
+                    "table_schemas.json",
+                    "xml_mappings.json",
+                    "field_distributions.json",
+                ]
+                if (output_dir / fname).exists()
+            )
+            summary_file = output_dir / "SUMMARY.html"
+            generate_init_report(
+                output=output,
+                duration_seconds=duration_seconds,
+                files_count=files_count,
+                file_size_bytes=file_size_bytes,
+                schema_extraction_success=schema_extraction_success,
+                field_distributions_count=field_distributions_count,
+                output_path=str(summary_file),
+            )
+            logger.info(f"[INIT] Summary written to: {summary_file}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[INIT] Failed to generate SUMMARY.html: {e}")
 
     def _write_field_distributions(
         self,
@@ -361,54 +394,6 @@ class InitStage(Stage[None, InitOutput]):
         output_dir.mkdir(parents=True, exist_ok=True)
         field_distributions_file = output_dir / "field_distributions.json"
         field_distributions_file.write_text(json.dumps([asdict(fd) for fd in field_distributions]), encoding="utf-8")
-
-    def _generate_summary(
-        self,
-        output: InitOutput,
-        duration_seconds: float,
-        files_count: int,
-        schema_extraction_success: bool = True,
-        field_distributions_count: int = 0,
-    ) -> None:
-        """Generate SUMMARY.md for the init stage.
-
-        Best-effort operation - failures are logged but do not block stage completion.
-
-        Args:
-            output: The InitOutput data to summarize.
-            duration_seconds: Total execution time in seconds.
-            files_count: Number of mapper files processed.
-            schema_extraction_success: Whether schema extraction succeeded.
-            field_distributions_count: Number of field distributions collected.
-        """
-        try:
-            output_dir = self.resolve_run_paths(output.run_id).init_dir
-
-            file_size_bytes = 0
-            for filename in [
-                "sql_units.json",
-                "sql_fragments.json",
-                "table_schemas.json",
-                "xml_mappings.json",
-                "field_distributions.json",
-            ]:
-                filepath = output_dir / filename
-                if filepath.exists():
-                    file_size_bytes += filepath.stat().st_size
-
-            summary_content = generate_init_summary_markdown(
-                output=output,
-                duration_seconds=duration_seconds,
-                files_count=files_count,
-                file_size_bytes=file_size_bytes,
-                schema_extraction_success=schema_extraction_success,
-                field_distributions_count=field_distributions_count,
-            )
-            summary_file = output_dir / "SUMMARY.md"
-            summary_file.write_text(summary_content, encoding="utf-8")
-            logger.info(f"[INIT] Summary written to: {summary_file}")
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"[INIT] Failed to generate SUMMARY.md: {e}")
 
 
 def _build_statement_xpath(stmt: ParsedStatement) -> str:

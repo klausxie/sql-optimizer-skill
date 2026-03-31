@@ -95,7 +95,7 @@ Each stage writes to `runs/{run_id}/{stage}/`:
 
 | Stage | Output Files |
 |-------|--------------|
-| init | `sql_units.json`, `sql_fragments.json`, `table_schemas.json`, `xml_mappings.json`, `field_distributions.json`, `SUMMARY.md` |
+| init | `sql_units.json`, `sql_fragments.json`, `table_schemas.json`, `xml_mappings.json`, `field_distributions.json`, `SUMMARY.html` |
 | parse | `units/*.json` + `units/_index.json` |
 | recognition | `baselines.json` + `units/*.json` |
 | optimize | `proposals.json` + `units/*.json` |
