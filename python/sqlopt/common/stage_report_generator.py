@@ -112,9 +112,10 @@ DARK_THEME = """
     .collapse-icon { display: inline-block; transition: transform 0.2s; font-size: 0.75rem; color: #64748b; margin-right: 0.25rem; }
     .collapsible-unit.expanded .collapse-icon { transform: rotate(90deg); }
     .section { margin-bottom: 1rem; }
-    .section-header { cursor: pointer; padding: 0.5rem; background: #33415540; border-radius: 6px; margin-bottom: 0.25rem; }
-    .section-header:hover { background: #47556940; }
-    .section-body { padding: 0.5rem; }
+.section-header { cursor: pointer; padding: 0.5rem; background: #33415540; border-radius: 6px; margin-bottom: 0.25rem; }
+.section-header:hover { background: #47556940; }
+.section-body { padding: 0.5rem; }
+.hidden { display: none; }
     .tooltip-icon {
         display: inline-flex;
         align-items: center;
