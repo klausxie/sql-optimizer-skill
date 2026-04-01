@@ -184,9 +184,13 @@ def build_parse_stage_stats(
         unit_medium = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "MEDIUM")
         unit_low = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "LOW")
 
-        # Risk flags
+        # Risk flags (from risk_flags field + risk_factors codes)
         for b in u.branches:
             all_flags.extend(b.risk_flags)
+            for factor in b.risk_factors:
+                code = factor.get("code") if isinstance(factor, dict) else getattr(factor, "code", None)
+                if code:
+                    all_flags.append(code)
 
         # Coverage
         theoretical = u.theoretical_branches if u.theoretical_branches > 0 else 1
