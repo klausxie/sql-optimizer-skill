@@ -634,10 +634,10 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
 
     <div class="section">
         <div class="section-header" onclick="toggleSection(this)">
-          <h2><span class="collapse-icon">▼</span> 解析策略</h2>
+          <h2><span class="collapse-icon">▶</span> 解析策略</h2>
         </div>
-        <div class="section-body">
-          <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;">
+        <div class="section-body hidden">
+          <div style="display:flex;gap:1rem;align-items:center;margin-bottom:0.75rem;">
             <div class="stat-card" style="flex:1;text-align:center;">
               <div class="stat-value" style="font-size:1.25rem;">{strategy}</div>
               <div class="stat-label">{strategy_display}</div>
@@ -648,11 +648,10 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
             </div>
           </div>
           <div style="margin-bottom:0.75rem;">
-            <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.5rem;">策略说明</div>
             <div style="font-size:0.8rem;color:#cbd5e1;line-height:1.6;">{strategy_explanation}</div>
           </div>
-          <details style="margin-top:0.75rem;font-size:0.75rem;color:#64748b;">
-            <summary style="cursor:pointer;font-weight:600;color:#94a3b8;margin-bottom:0.25rem;">4种策略对比</summary>
+          <details style="margin-top:0.5rem;font-size:0.75rem;color:#64748b;">
+            <summary style="cursor:pointer;font-weight:600;color:#94a3b8;">4种策略对比（展开查看）</summary>
             <div style="margin-top:0.5rem;display:grid;gap:0.5rem;">
               <div class="strategy-card">
                 <div class="strategy-name">
