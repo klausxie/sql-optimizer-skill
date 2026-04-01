@@ -281,6 +281,8 @@ class ParseStage(Stage[None, ParseOutput]):
                         "risk_score": b.risk_score,
                         "score_reasons": b.score_reasons,
                         "branch_type": b.branch_type,
+                        "risk_level": b.risk_level,
+                        "risk_factors": list(b.risk_factors) if b.risk_factors else [],
                     }
                     for b in unit.branches
                 ],

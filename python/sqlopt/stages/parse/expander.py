@@ -36,6 +36,8 @@ def expand_branches(sql_text: str) -> list[ExpandedBranch]:
             active_conditions=b.active_conditions,
             risk_score=b.risk_score,
             score_reasons=b.score_reasons,
+            risk_level=b.risk_level,
+            risk_factors=b.risk_factors,
         )
         for b in raw_branches
     ]
