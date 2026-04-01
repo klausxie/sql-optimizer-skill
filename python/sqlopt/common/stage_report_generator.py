@@ -6,7 +6,12 @@ import html as html_escape
 import pathlib
 from typing import Any
 
-from sqlopt.common.parse_stats import STRATEGY_EXPLANATIONS, STRATEGY_NAMES
+from sqlopt.common.parse_stats import (
+    OUTLIER_THEORETICAL_BRANCHES_THRESHOLD,
+    STRATEGY_EXPLANATIONS,
+    STRATEGY_NAMES,
+    ParseStageStats,
+)
 from sqlopt.common.run_paths import RunPaths
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
@@ -339,42 +344,109 @@ def _get_risk_level(score: float | None) -> tuple[str, str]:
     return "low", "badge-low"
 
 
-def generate_parse_report(output: ParseOutput, output_path: str) -> None:
-    total_units = len(output.sql_units_with_branches)
-    total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
+def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output_path: str) -> None:
+    if isinstance(output_or_stats, ParseStageStats):
+        stats = output_or_stats
+        units = stats.per_unit
+        total_units = stats.total_units
+        total_branches = stats.total_branches
+        sum_theoretical = stats.sum_theoretical
+        global_coverage = stats.coverage_pct
+        high_risk = stats.high_risk_branches
+        medium_risk = stats.medium_risk_branches
+        low_risk = stats.low_risk_branches
+        no_score = total_branches - high_risk - medium_risk - low_risk
+        branch_types = stats.branch_type_distribution
+        all_flags: dict[str, int] = dict(stats.risk_flag_distribution)
+        strategy = stats.strategy
+        max_branches = stats.max_branches
+        strategy_display = STRATEGY_NAMES.get(strategy, strategy)
+        strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
+        cond_distribution = stats.cond_distribution
+        outlier_sum_theoretical = sum(u.theoretical_branches for u in stats.outlier_units)
+        outlier_actual_branches = sum(u.actual_branches for u in stats.outlier_units)
+        outlier_coverage_pct = (
+            outlier_actual_branches / outlier_sum_theoretical * 100 if outlier_sum_theoretical > 0 else 0.0
+        )
+        normal_count = stats.normal_count
+        outlier_count = stats.outlier_count
+        if outlier_count > 0:
+            outlier_rows = "".join(
+                f'<tr><td style="font-size:0.8rem;"><code>{html_escape.escape(u.sql_unit_id)}</code></td>'
+                f'<td style="text-align:center;font-size:0.8rem;">{u.cond_count}</td>'
+                f'<td style="text-align:center;font-size:0.8rem;color:#dc2626;">{f"{u.theoretical_branches:,.0f}"}</td>'
+                f'<td style="text-align:center;font-size:0.8rem;">{u.actual_branches}</td>'
+                f'<td style="text-align:center;font-size:0.8rem;">{u.coverage_pct:.1f}%</td>'
+                f'<td style="font-size:0.75rem;color:#94a3b8;">{html_escape.escape(u.reason)}</td></tr>'
+                for u in stats.outlier_units
+            )
+            outlier_html = f"""
+    <h2>极值单元列表</h2>
+    <div class="card">
+        <p style="color:#dc2626;font-size:0.8rem;margin-bottom:0.75rem;">
+            ⚠️ 以下单元理论分支数超过 {OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:,}, 已从正常统计中分离
+        </p>
+        <table>
+            <thead><tr><th>SQL单元</th><th style="width:80px;text-align:center;">条件数</th><th style="width:120px;text-align:center;">理论分支</th><th style="width:100px;text-align:center;">实际分支</th><th style="width:80px;text-align:center;">覆盖率</th><th>原因</th></tr></thead>
+            <tbody>{outlier_rows}</tbody>
+        </table>
+    </div>
+    """
+        else:
+            outlier_html = ""
+    else:
+        output = output_or_stats
+        units = output.sql_units_with_branches
+        total_units = len(output.sql_units_with_branches)
+        total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
 
-    # Aggregate stats
-    high_risk = sum(
-        1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score >= 0.7
-    )
-    medium_risk = sum(
-        1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and 0.4 <= b.risk_score < 0.7
-    )
-    low_risk = sum(1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4)
-    no_score = total_branches - high_risk - medium_risk - low_risk
+        high_risk = sum(
+            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score >= 0.7
+        )
+        medium_risk = sum(
+            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and 0.4 <= b.risk_score < 0.7
+        )
+        low_risk = sum(
+            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4
+        )
+        no_score = total_branches - high_risk - medium_risk - low_risk
 
-    theoretical_branches = sum(u.theoretical_branches for u in output.sql_units_with_branches)
+        branch_types: dict[str, int] = {}
+        for u in output.sql_units_with_branches:
+            for b in u.branches:
+                bt = b.branch_type or "unknown"
+                branch_types[bt] = branch_types.get(bt, 0) + 1
 
-    # Branch type distribution
-    branch_types: dict[str, int] = {}
-    for u in output.sql_units_with_branches:
-        for b in u.branches:
-            bt = b.branch_type or "unknown"
-            branch_types[bt] = branch_types.get(bt, 0) + 1
+        all_flags = {}
+        for u in output.sql_units_with_branches:
+            for b in u.branches:
+                for f in b.risk_flags:
+                    all_flags[f] = all_flags.get(f, 0) + 1
 
-    # Risk flags distribution
-    all_flags: dict[str, int] = {}
-    for u in output.sql_units_with_branches:
-        for b in u.branches:
-            for f in b.risk_flags:
-                all_flags[f] = all_flags.get(f, 0) + 1
+        strategy = getattr(output, "strategy", None) or "unknown"
+        max_branches = getattr(output, "max_branches", 0) or 0
+        strategy_display = STRATEGY_NAMES.get(strategy, strategy)
+        strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
+        sum_theoretical = sum(u.theoretical_branches for u in output.sql_units_with_branches)
+        global_coverage = total_branches / max(sum_theoretical, 1) * 100
 
-    strategy = getattr(output, "strategy", None) or "unknown"
-    max_branches = getattr(output, "max_branches", 0) or 0
-    strategy_display = STRATEGY_NAMES.get(strategy, strategy)
-    strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
-    sum_theoretical = sum(u.theoretical_branches for u in output.sql_units_with_branches)
-    global_coverage = total_branches / max(sum_theoretical, 1) * 100
+        all_conditions: list[str] = []
+        for u in output.sql_units_with_branches:
+            for b in u.branches:
+                all_conditions.extend(b.active_conditions)
+        from collections import Counter
+
+        cond_counter = Counter(all_conditions)
+        cond_distribution = cond_counter.most_common(10)
+
+        normal_count = total_units
+        outlier_count = 0
+        outlier_sum_theoretical = 0
+        outlier_actual_branches = 0
+        outlier_coverage_pct = 0.0
+        outlier_html = ""
+
+    # Branch type color map
 
     # Branch type color map
     bt_color = {"error": "#dc2626", "baseline_only": "#f59e0b", "normal": "#22c55e"}
@@ -384,18 +456,9 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         for bt, cnt in bt_items
     )
 
-    # Condition distribution
-    all_conditions: list[str] = []
-    for u in output.sql_units_with_branches:
-        for b in u.branches:
-            all_conditions.extend(b.active_conditions)
-    cond_counter: dict[str, int] = {}
-    for c in all_conditions:
-        cond_counter[c] = cond_counter.get(c, 0) + 1
-    top_conds = sorted(cond_counter.items(), key=lambda x: x[1], reverse=True)[:10]
     cond_rows = "".join(
         f'<tr><td style="font-size:0.8rem;"><code>{html_escape.escape(c[:60])}</code></td><td style="text-align:center;font-size:0.8rem;color:#60a5fa;">{cnt}</td></tr>'
-        for c, cnt in top_conds
+        for c, cnt in cond_distribution
     )
 
     html = f"""<!DOCTYPE html>
@@ -414,7 +477,9 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         <div class="card">
             <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL单元</div></div>
             <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
-            <div class="stat"><div class="stat-value">{theoretical_branches}</div><div class="stat-label">理论分支</div></div>
+            <div class="stat"><div class="stat-value">{
+        sum_theoretical
+    }</div><div class="stat-label">理论分支</div></div>
             <div class="stat"><div class="stat-value">{high_risk}</div><div class="stat-label">高风险</div></div>
         </div>
     </div>
@@ -478,14 +543,14 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     <div class="card">
         <div class="funnel">
             <div class="funnel-step">
-                <div class="funnel-value">{theoretical_branches}</div>
+                <div class="funnel-value">{sum_theoretical}</div>
                 <div class="funnel-label">理论分支</div>
                 <div class="funnel-reduction">100%</div>
             </div>
             <div class="funnel-step">
                 <div class="funnel-value">{total_branches}</div>
                 <div class="funnel-label">风险评估后</div>
-                <div class="funnel-reduction">-{int((1 - total_branches / max(theoretical_branches, 1)) * 100)}%%</div>
+                <div class="funnel-reduction">-{int((1 - total_branches / max(sum_theoretical, 1)) * 100)}%%</div>
             </div>
             <div class="funnel-step">
                 <div class="funnel-value">{high_risk}</div>
@@ -494,7 +559,9 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             </div>
         </div>
         <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 1rem;">
-            通过 <strong>风险评分策略</strong> 从理论 {theoretical_branches} 个分支中筛选出 <strong>{total_branches}</strong> 个进行优化分析,
+            通过 <strong>风险评分策略</strong> 从理论 {sum_theoretical} 个分支中筛选出 <strong>{
+        total_branches
+    }</strong> 个进行优化分析,
             其中 <strong>{high_risk}</strong> 个为高风险分支需要重点关注。
         </p>
     </div>
@@ -503,16 +570,56 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     <div class="card">
         <div class="summary-grid">
             <div class="card">
-                <div class="stat"><div class="stat-value">{sum_theoretical}</div><div class="stat-label">理论分支合计</div></div>
-                <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
-                <div class="stat"><div class="stat-value" style="color:#22c55e;">{global_coverage:.1f}%</div><div class="stat-label">全局覆盖率</div></div>
+                <div class="stat"><div class="stat-value">{
+        stats.normal_sum_theoretical if isinstance(output_or_stats, ParseStageStats) else sum_theoretical
+    }</div><div class="stat-label">正常理论分支</div></div>
+                <div class="stat"><div class="stat-value">{
+        stats.normal_total_branches if isinstance(output_or_stats, ParseStageStats) else total_branches
+    }</div><div class="stat-label">正常实际分支</div></div>
+                <div class="stat"><div class="stat-value" style="color:#22c55e;">{
+        stats.normal_coverage_pct
+        if isinstance(output_or_stats, ParseStageStats)
+        else global_coverage:.1f}%</div><div class="stat-label">正常覆盖率</div></div>
+                <div class="stat"><div class="stat-value">{
+        normal_count
+    }</div><div class="stat-label">正常单元</div></div>
+            </div>
+        </div>
+        {
+        f'''
+        <div class="summary-grid" style="margin-top:0.75rem;">
+            <div class="card" style="border:1px solid #dc262640;background:#dc262610;">
+                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_sum_theoretical}</div><div class="stat-label">极值理论分支</div></div>
+                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_actual_branches}</div><div class="stat-label">极值实际分支</div></div>
+                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_coverage_pct:.1f}%</div><div class="stat-label">极值覆盖率</div></div>
+                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_count}</div><div class="stat-label">极值单元</div></div>
+            </div>
+        </div>
+        '''
+        if outlier_count > 0
+        else ""
+    }
+        <div class="summary-grid" style="margin-top:0.75rem;border-top:1px solid #334155;padding-top:0.75rem;">
+            <div class="card">
+                <div class="stat"><div class="stat-value">{
+        sum_theoretical
+    }</div><div class="stat-label">全量理论分支</div></div>
+                <div class="stat"><div class="stat-value">{
+        total_branches
+    }</div><div class="stat-label">全量实际分支</div></div>
+                <div class="stat"><div class="stat-value" style="color:#94a3b8;">{
+        global_coverage:.1f}%</div><div class="stat-label">全量覆盖率</div></div>
+                <div class="stat"><div class="stat-value">{
+        total_units
+    }</div><div class="stat-label">全量单元</div></div>
+            </div>
         </div>
         <p style="color:#94a3b8;font-size:0.8rem;margin-top:0.75rem;">
-            全局覆盖率 = sum(实际分支) / sum(理论分支)。覆盖率越高表示测试越完整。
+            {"正常覆盖率不受极值单元影响。" if outlier_count > 0 else ""}覆盖率越高表示测试越完整。
             {"覆盖率较低是因为 ladder 策略有意采样而非全展开。" if strategy == "ladder" else ""}
         </p>
     </div>
-
+    {outlier_html}
     <div class="charts-grid">
         <div class="card">
             <h3>风险等级分布</h3>
@@ -548,14 +655,24 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
     <h2>各单元分支详情</h2>
 """
 
-    for unit in output.sql_units_with_branches:
+    for unit in units:
         theoretical = unit.theoretical_branches if unit.theoretical_branches > 0 else 1
-        unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
-        unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
+        if hasattr(unit, "branches"):
+            unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
+            unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
+            actual_branches = len(unit.branches)
+        else:
+            unit_high = 0
+            unit_medium = 0
+            actual_branches = unit.actual_branches
 
-        actual_strategy = getattr(output, "strategy", None) or "unknown"
-        coverage_pct = len(unit.branches) / theoretical * 100 if theoretical > 0 else 0
-        saved_pct = (theoretical - len(unit.branches)) / theoretical * 100 if theoretical > 0 else 0
+        actual_strategy = strategy
+        coverage_pct = (
+            unit.coverage_pct
+            if hasattr(unit, "coverage_pct")
+            else (actual_branches / theoretical * 100 if theoretical > 0 else 0)
+        )
+        saved_pct = (theoretical - actual_branches) / theoretical * 100 if theoretical > 0 else 0
 
         formula_steps_html = ""
         if theoretical > 1:
@@ -578,7 +695,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                 <span class="tooltip-icon" title="{STRATEGY_EXPLANATIONS.get(actual_strategy, "")}">?</span>
               </div>
               <div class="strategy-desc">
-                {actual_strategy} 采样 <strong>{len(unit.branches)}/{theoretical}</strong> 分支
+                {actual_strategy} 采样 <strong>{actual_branches}/{theoretical}</strong> 分支
                 {("," + f"节省 <strong>{saved_pct:.1f}%</strong>") if saved_pct > 0 else ""}
               </div>
               <div class="strategy-meaning">
@@ -593,7 +710,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             strategy_explain_html = f"""
             <div class="strategy-block">
               <div class="strategy-header">实际分支 (all_combinations 策略)</div>
-              <div class="strategy-desc">全组合策略,覆盖率 100%,共 {len(unit.branches)} 个分支</div>
+              <div class="strategy-desc">全组合策略,覆盖率 100%,共 {actual_branches} 个分支</div>
             </div>
             """
 
@@ -607,7 +724,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
           <div class="progress-bar" style="height:6px;background:#334155;border-radius:3px;overflow:hidden;">
             <div style="height:100%;width:{min(coverage_pct, 100):.1f}%;background:{bar_color};border-radius:3px;"></div>
           </div>
-          <div class="coverage-value" style="color:{bar_color};">{coverage_pct:.1f}% ({len(unit.branches)}/{theoretical})</div>
+            <div class="coverage-value" style="color:{bar_color};">{coverage_pct:.1f}% ({actual_branches}/{theoretical})</div>
         </div>
         """
 
@@ -631,7 +748,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                     <div class="metric-label">理论分支</div>
                 </div>
                 <div class="metric">
-                    <div class="metric-value">{len(unit.branches)}</div>
+                    <div class="metric-value">{actual_branches}</div>
                     <div class="metric-label">实际分支</div>
                 </div>
                 <div class="metric">

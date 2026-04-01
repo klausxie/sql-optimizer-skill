@@ -10,6 +10,7 @@ from sqlopt.common.config import SQLOptConfig
 from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.common.mock_data_loader import MockDataLoader
+from sqlopt.common.parse_stats import build_parse_stage_stats
 from sqlopt.common.stage_report_generator import generate_parse_report
 from sqlopt.contracts.init import FieldDistribution, InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
@@ -119,8 +120,9 @@ class ParseStage(Stage[None, ParseOutput]):
         output = ParseOutput(
             sql_units_with_branches=units_with_branches, run_id=rid, strategy=strategy, max_branches=max_branches
         )
-        self._write_output(rid, output)
-        self._generate_html_summary(rid, output, total_branches, time.time() - start_time, failed_units)
+        duration = time.time() - start_time
+        self._write_output(rid, units_with_branches, strategy, max_branches, total_branches, failed_units, duration)
+        self._generate_html_summary(rid, output, total_branches, duration, failed_units)
 
         return output
 
@@ -239,7 +241,16 @@ class ParseStage(Stage[None, ParseOutput]):
         )
         return SQLUnitWithBranches(sql_unit_id=sql_unit_id, branches=[error_branch]), True
 
-    def _write_output(self, run_id: str | None, output: ParseOutput) -> None:
+    def _write_output(
+        self,
+        run_id: str | None,
+        units_with_branches: list[SQLUnitWithBranches],
+        strategy: str,
+        max_branches: int,
+        total_branches: int,
+        failed_units: int,
+        duration_seconds: float,
+    ) -> None:
         """Write parse output to per-unit files.
 
         Creates:
@@ -256,7 +267,7 @@ class ParseStage(Stage[None, ParseOutput]):
         unit_ids: list[str] = []
         total_bytes = 0
 
-        for unit in output.sql_units_with_branches:
+        for unit in units_with_branches:
             unit_data = {
                 "sql_unit_id": unit.sql_unit_id,
                 "branches": [
@@ -284,8 +295,22 @@ class ParseStage(Stage[None, ParseOutput]):
 
         logger.info(f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) + index")
 
+        output = ParseOutput(
+            sql_units_with_branches=units_with_branches,
+            run_id=run_id,
+            strategy=strategy,
+            max_branches=max_branches,
+        )
+        stats = build_parse_stage_stats(
+            output=output,
+            total_branches=total_branches,
+            failed_units=failed_units,
+            duration_seconds=duration_seconds,
+            run_id=run_id,
+        )
+
         report_path = parse_dir / "SUMMARY.html"
-        generate_parse_report(output, str(report_path))
+        generate_parse_report(stats, str(report_path))
 
     def _generate_html_summary(
         self,

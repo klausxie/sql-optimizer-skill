@@ -31,6 +31,10 @@ STRATEGY_EXPLANATIONS = {
 }
 
 
+# 极值理论分支阈值 — 超过此值视为"分支爆炸"风险单元
+OUTLIER_THEORETICAL_BRANCHES_THRESHOLD: int = 1_000_000
+
+
 @dataclass
 class PerUnitBranchStats:
     """Per-unit branch statistics with enhanced explainability fields."""
@@ -91,6 +95,26 @@ class ParseStageStats:
     low_risk_branches: int
     per_unit: list[PerUnitBranchStats]
 
+    # --- 极值分离统计 ---
+    outlier_units: list[OutlierUnitStats]
+    normal_sum_theoretical: int
+    normal_total_branches: int
+    normal_coverage_pct: float
+    outlier_count: int
+    normal_count: int
+
+
+@dataclass
+class OutlierUnitStats:
+    """极值单元统计 — theoretical_branches 超过阈值的单元."""
+
+    sql_unit_id: str
+    cond_count: int
+    theoretical_branches: int
+    actual_branches: int
+    coverage_pct: float
+    reason: str
+
 
 def build_parse_stage_stats(
     output: ParseOutput,
@@ -129,6 +153,13 @@ def build_parse_stage_stats(
     medium_risk = 0
     low_risk = 0
     branch_type_dist: dict[str, int] = {"error": 0, "baseline_only": 0, "normal": 0}
+    # --- 极值分离统计 ---
+    outlier_units: list[OutlierUnitStats] = []
+    normal_sum_theoretical = 0
+    normal_total_branches = 0
+    medium_risk = 0
+    low_risk = 0
+    branch_type_dist: dict[str, int] = {"error": 0, "baseline_only": 0, "normal": 0}
 
     for u in units:
         # Count conditions from active_conditions across all branches
@@ -160,6 +191,29 @@ def build_parse_stage_stats(
         # Coverage
         theoretical = u.theoretical_branches if u.theoretical_branches > 0 else 1
         coverage_pct = len(u.branches) / theoretical * 100
+
+        # --- 极值分离统计 ---
+        if theoretical > OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:
+            if cond_count > 0:
+                power = min(cond_count, 30)
+                approx = 2**power
+                reason = f"{cond_count}个IF条件 → 2^{cond_count} ≈ {approx:,} 理论分支"
+            else:
+                reason = f"理论分支 {theoretical:,} > {OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:,} 阈值"
+
+            outlier_units.append(
+                OutlierUnitStats(
+                    sql_unit_id=u.sql_unit_id,
+                    cond_count=cond_count,
+                    theoretical_branches=theoretical,
+                    actual_branches=len(u.branches),
+                    coverage_pct=len(u.branches) / theoretical * 100 if theoretical > 0 else 0,
+                    reason=reason,
+                )
+            )
+        else:
+            normal_sum_theoretical += theoretical
+            normal_total_branches += len(u.branches)
 
         # Top risk flag
         unit_flags = [f for b in u.branches for f in b.risk_flags]
@@ -212,6 +266,11 @@ def build_parse_stage_stats(
     # Global coverage
     global_coverage = (total_branches / sum_theoretical * 100) if sum_theoretical > 0 else 0.0
 
+    # --- 极值分离统计 ---
+    normal_coverage_pct = normal_total_branches / normal_sum_theoretical * 100 if normal_sum_theoretical > 0 else 0.0
+    outlier_count = len(outlier_units)
+    normal_count = total_units - outlier_count
+
     # Condition distribution
     cond_counter = Counter(all_conditions)
     cond_distribution = cond_counter.most_common(10)
@@ -240,6 +299,12 @@ def build_parse_stage_stats(
         medium_risk_branches=medium_risk,
         low_risk_branches=low_risk,
         per_unit=per_unit,
+        outlier_units=outlier_units,
+        normal_sum_theoretical=normal_sum_theoretical,
+        normal_total_branches=normal_total_branches,
+        normal_coverage_pct=normal_coverage_pct,
+        outlier_count=outlier_count,
+        normal_count=normal_count,
     )
 
 
