@@ -409,7 +409,9 @@ class RiskRuleRegistry:
             score += fd_score
             reasons.extend(fd_reasons)
 
-        return score, self._dedupe_reasons(reasons)
+        # Normalize score to [0, 1] using sigmoid-style mapping
+        normalized_score = 1.0 - 1.0 / (1.0 + score)
+        return normalized_score, self._dedupe_reasons(reasons)
 
     def _evaluate_metadata(self, sql_lower: str, table_metadata: dict) -> tuple[float, list[str]]:
         score = 0.0
