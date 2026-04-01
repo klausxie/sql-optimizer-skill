@@ -6,6 +6,7 @@ import html as html_escape
 import pathlib
 from typing import Any
 
+from sqlopt.common.parse_stats import STRATEGY_EXPLANATIONS, STRATEGY_NAMES
 from sqlopt.common.run_paths import RunPaths
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
@@ -105,11 +106,87 @@ DARK_THEME = """
     .unit-header:hover { background: #33415540; border-radius: 0.375rem; }
     .collapse-icon { display: inline-block; transition: transform 0.2s; font-size: 0.75rem; color: #64748b; margin-right: 0.25rem; }
     .collapsible-unit.expanded .collapse-icon { transform: rotate(90deg); }
+    .section { margin-bottom: 1rem; }
+    .section-header { cursor: pointer; padding: 0.5rem; background: #33415540; border-radius: 6px; margin-bottom: 0.25rem; }
+    .section-header:hover { background: #47556940; }
+    .section-body { padding: 0.5rem; }
+    .tooltip-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #334155;
+        color: #94a3b8;
+        font-size: 0.65rem;
+        font-weight: 700;
+        cursor: help;
+        margin-left: 0.25rem;
+        position: relative;
+    }
+    .tooltip-icon:hover::after {
+        content: attr(title);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 6px);
+        transform: translateX(-50%);
+        background: #0f172a;
+        border: 1px solid #475569;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        max-width: 280px;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .tooltip-icon:hover::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 2px);
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #475569;
+    }
+    .formula-block { background: #0f172a; border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; }
+    .formula-header { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem; font-weight: 600; }
+    .formula-step { font-size: 0.75rem; color: #a5b4fc; font-family: monospace; padding: 0.15rem 0; }
+    .formula-result { font-size: 0.8rem; color: #34d399; font-weight: 600; margin-top: 0.35rem; }
+    .strategy-block { background: #0f172a; border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; }
+    .strategy-header { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem; font-weight: 600; }
+    .strategy-desc { font-size: 0.8rem; color: #e2e8f0; }
+    .strategy-meaning { font-size: 0.75rem; color: #94a3b8; margin-top: 0.35rem; }
+    .strategy-whatif { font-size: 0.75rem; color: #fbbf24; margin-top: 0.35rem; }
+    .coverage-bar { margin: 0.5rem 0; }
+    .coverage-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.35rem; }
+    .coverage-value { font-size: 0.8rem; color: #34d399; font-weight: 600; margin-top: 0.25rem; }
+    .coverage-bar .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-top: 0.25rem; }
+    .coverage-bar .progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #22c55e, #86efac); }
+    .strategy-card { background: #0f172a; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid #334155; }
+    .strategy-card .strategy-name { font-size: 1rem; font-weight: 600; color: #e2e8f0; margin-bottom: 0.5rem; }
+    .strategy-card .strategy-cn { color: #94a3b8; font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
+    .strategy-card .strategy-desc { font-size: 0.8rem; color: #94a3b8; line-height: 1.6; }
 </style>
 """
 
 BASE_JS = """
 <script>
+function toggleSection(header) {
+    const body = header.nextElementSibling;
+    const icon = header.querySelector('.collapse-icon');
+    if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        icon.textContent = '▼';
+    } else {
+        body.classList.add('hidden');
+        icon.textContent = '▶';
+    }
+}
+
 function initSortableBranches(card) {
     card.querySelectorAll('.sort-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -292,6 +369,35 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             for f in b.risk_flags:
                 all_flags[f] = all_flags.get(f, 0) + 1
 
+    strategy = getattr(output, "strategy", None) or "unknown"
+    max_branches = getattr(output, "max_branches", 0) or 0
+    strategy_display = STRATEGY_NAMES.get(strategy, strategy)
+    strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
+    sum_theoretical = sum(u.theoretical_branches for u in output.sql_units_with_branches)
+    global_coverage = total_branches / max(sum_theoretical, 1) * 100
+
+    # Branch type color map
+    bt_color = {"error": "#dc2626", "baseline_only": "#f59e0b", "normal": "#22c55e"}
+    bt_items = sorted(branch_types.items(), key=lambda x: x[1], reverse=True)
+    bt_html = "".join(
+        f'<div style="flex:1;min-width:120px;background:#0f172a;border-radius:6px;padding:0.75rem;border:1px solid #334155;text-align:center;"><div style="font-size:1.25rem;font-weight:700;color:{bt_color.get(bt, "#94a3b8")};">{cnt}</div><div style="font-size:0.7rem;color:#94a3b8;text-transform:uppercase;">{bt}</div></div>'
+        for bt, cnt in bt_items
+    )
+
+    # Condition distribution
+    all_conditions: list[str] = []
+    for u in output.sql_units_with_branches:
+        for b in u.branches:
+            all_conditions.extend(b.active_conditions)
+    cond_counter: dict[str, int] = {}
+    for c in all_conditions:
+        cond_counter[c] = cond_counter.get(c, 0) + 1
+    top_conds = sorted(cond_counter.items(), key=lambda x: x[1], reverse=True)[:10]
+    cond_rows = "".join(
+        f'<tr><td style="font-size:0.8rem;"><code>{html_escape.escape(c[:60])}</code></td><td style="text-align:center;font-size:0.8rem;color:#60a5fa;">{cnt}</td></tr>'
+        for c, cnt in top_conds
+    )
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -310,6 +416,61 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
             <div class="stat"><div class="stat-value">{theoretical_branches}</div><div class="stat-label">理论分支</div></div>
             <div class="stat"><div class="stat-value">{high_risk}</div><div class="stat-label">高风险</div></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <h2><span class="collapse-icon">▼</span> 解析策略</h2>
+        </div>
+        <div class="section-body">
+          <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;">
+            <div class="stat-card" style="flex:1;text-align:center;">
+              <div class="stat-value" style="font-size:1.25rem;">{strategy}</div>
+              <div class="stat-label">{strategy_display}</div>
+            </div>
+            <div class="stat-card" style="flex:1;text-align:center;">
+              <div class="stat-value" style="font-size:1.25rem;">{"无限制" if max_branches == 0 else max_branches}</div>
+              <div class="stat-label">最大分支上限</div>
+            </div>
+          </div>
+          <div style="margin-bottom:0.75rem;">
+            <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.5rem;">策略说明</div>
+            <div style="font-size:0.8rem;color:#cbd5e1;line-height:1.6;">{strategy_explanation}</div>
+          </div>
+          <details style="margin-top:0.75rem;font-size:0.75rem;color:#64748b;">
+            <summary style="cursor:pointer;font-weight:600;color:#94a3b8;margin-bottom:0.25rem;">4种策略对比</summary>
+            <div style="margin-top:0.5rem;display:grid;gap:0.5rem;">
+              <div class="strategy-card">
+                <div class="strategy-name">
+                  all_combinations <span class="strategy-cn">全组合策略</span>
+                  <span class="tooltip-icon" title="所有条件的所有可能组合都测试。覆盖率 100%,但分支数指数增长(2^n)。5个条件=32分支,8个条件=256分支。">?</span>
+                </div>
+                <div class="strategy-desc">全组合策略会生成所有条件的所有可能组合。当条件数较多时,分支数呈指数增长(2^n)。</div>
+              </div>
+              <div class="strategy-card">
+                <div class="strategy-name">
+                  each <span class="strategy-cn">单测策略</span>
+                  <span class="tooltip-icon" title="每个条件单独为 true/false。分支数随条件数线性增长(n)。适合大规模条件数的快速验证。">?</span>
+                </div>
+                <div class="strategy-desc">单测策略每个条件单独为 true/false,分支数随条件数线性增长(n)。</div>
+              </div>
+              <div class="strategy-card">
+                <div class="strategy-name">
+                  boundary <span class="strategy-cn">边界值策略</span>
+                  <span class="tooltip-icon" title="只生成极值情况(全 true / 全 false / 各一个 false)。分支数最少(约 n+1)。">?</span>
+                </div>
+                <div class="strategy-desc">边界值策略只生成极值情况(全 true / 全 false / 各一个 false 等),分支数最少(约 n+1)。</div>
+              </div>
+              <div class="strategy-card">
+                <div class="strategy-name">
+                  ladder <span class="strategy-cn">阶梯采样策略</span>
+                  <span class="tooltip-icon" title="加权采样,优先覆盖高风险条件组合,在分支数和覆盖率之间取得平衡。">?</span>
+                </div>
+                <div class="strategy-desc">阶梯采样策略结合了高权重两两组合和边界覆盖,在覆盖率和分支数之间取得平衡。</div>
+              </div>
+            </div>
+          </details>
         </div>
     </div>
 
@@ -338,6 +499,20 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         </p>
     </div>
 
+    <h2>全局预估 vs 实际</h2>
+    <div class="card">
+        <div class="summary-grid">
+            <div class="card">
+                <div class="stat"><div class="stat-value">{sum_theoretical}</div><div class="stat-label">理论分支合计</div></div>
+                <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
+                <div class="stat"><div class="stat-value" style="color:#22c55e;">{global_coverage:.1f}%</div><div class="stat-label">全局覆盖率</div></div>
+        </div>
+        <p style="color:#94a3b8;font-size:0.8rem;margin-top:0.75rem;">
+            全局覆盖率 = sum(实际分支) / sum(理论分支)。覆盖率越高表示测试越完整。
+            {"覆盖率较低是因为 ladder 策略有意采样而非全展开。" if strategy == "ladder" else ""}
+        </p>
+    </div>
+
     <div class="charts-grid">
         <div class="card">
             <h3>风险等级分布</h3>
@@ -349,6 +524,27 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         </div>
     </div>
 
+    <h2>分支类型分布</h2>
+    <div class="card">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+            {bt_html}
+        </div>
+        <p style="color:#64748b;font-size:0.75rem;">
+            error = 展开异常 | baseline_only = 仅基线 | normal = 正常分支
+        </p>
+    </div>
+
+    <h2>条件分布</h2>
+    <div class="card">
+        <p style="color:#94a3b8;font-size:0.8rem;margin-bottom:0.75rem;">Top 10 条件出现频次(一个条件在多个分支中重复出现)</p>
+        <table>
+            <thead><tr><th>条件</th><th style="width:80px;text-align:center;">出现次数</th></tr></thead>
+            <tbody>
+            {cond_rows}
+            </tbody>
+        </table>
+    </div>
+
     <h2>各单元分支详情</h2>
 """
 
@@ -357,8 +553,63 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
         unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
 
-        # Determine strategy based on branch count
-        strategy = "全展开" if len(unit.branches) >= theoretical * 0.8 else "风险优先"
+        actual_strategy = getattr(output, "strategy", None) or "unknown"
+        coverage_pct = len(unit.branches) / theoretical * 100 if theoretical > 0 else 0
+        saved_pct = (theoretical - len(unit.branches)) / theoretical * 100 if theoretical > 0 else 0
+
+        formula_steps_html = ""
+        if theoretical > 1:
+            formula_steps_html = f"""
+            <div class="formula-block">
+              <div class="formula-header">
+                理论分支数
+                <span class="tooltip-icon" title="理论分支数 = 该SQL在所有条件组合下的最大可能分支数。IF → (1+1)=2, Choose → sum(when_i)+1">?</span>
+              </div>
+              <div class="formula-result">根据条件结构,共 {theoretical} 个理论分支</div>
+            </div>
+            """
+
+        strategy_explain_html = ""
+        if actual_strategy in ("ladder", "each", "boundary"):
+            strategy_explain_html = f"""
+            <div class="strategy-block">
+              <div class="strategy-header">
+                实际分支 ({actual_strategy} 策略)
+                <span class="tooltip-icon" title="{STRATEGY_EXPLANATIONS.get(actual_strategy, "")}">?</span>
+              </div>
+              <div class="strategy-desc">
+                {actual_strategy} 采样 <strong>{len(unit.branches)}/{theoretical}</strong> 分支
+                {("," + f"节省 <strong>{saved_pct:.1f}%</strong>") if saved_pct > 0 else ""}
+              </div>
+              <div class="strategy-meaning">
+                覆盖率 {coverage_pct:.1f}% = 每 10 个分支有 {int(coverage_pct / 10)} 个被测试
+              </div>
+              <div class="strategy-whatif">
+                💡 若需更完整覆盖,可切 all_combinations(需 {theoretical} 分支)
+              </div>
+            </div>
+            """
+        elif actual_strategy == "all_combinations":
+            strategy_explain_html = f"""
+            <div class="strategy-block">
+              <div class="strategy-header">实际分支 (all_combinations 策略)</div>
+              <div class="strategy-desc">全组合策略,覆盖率 100%,共 {len(unit.branches)} 个分支</div>
+            </div>
+            """
+
+        bar_color = "#22c55e" if coverage_pct >= 80 else "#f59e0b" if coverage_pct >= 50 else "#dc2626"
+        coverage_bar_html = f"""
+        <div class="coverage-bar">
+          <div class="coverage-label">
+            覆盖率
+            <span class="tooltip-icon" title="覆盖率 = 实际分支数 / 理论分支数。覆盖率越高测试越完整。">?</span>
+          </div>
+          <div class="progress-bar" style="height:6px;background:#334155;border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:{min(coverage_pct, 100):.1f}%;background:{bar_color};border-radius:3px;"></div>
+          </div>
+          <div class="coverage-value" style="color:{bar_color};">{coverage_pct:.1f}% ({len(unit.branches)}/{theoretical})</div>
+        </div>
+        """
 
         safe_unit_id = html_escape.escape(unit.sql_unit_id)
         json_path = f"units/{html_escape.escape(RunPaths.sanitize_unit_id(unit.sql_unit_id))}.json"
@@ -366,10 +617,10 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
         html += f"""
     <div class="card collapsible-unit" data-sortable data-unit-id="{safe_unit_id}" data-json-path="{json_path}">
         <div class="unit-header" onclick="toggleUnit(this)">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;"><span class="collapse-icon">▶</span> <code>{safe_unit_id}</code></h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;"><span class="collapse-icon">▶</span> <code>{safe_unit_id}</code></h3>
                 <div onclick="event.stopPropagation()">
-                    <span class="strategy-tag">{strategy}</span>
+                    <span class="strategy-tag">{actual_strategy}</span>
                     <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
                     <span class="sort-btn" data-sort="path" title="按路径排序">路径↓</span>
                 </div>
@@ -384,7 +635,7 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
                     <div class="metric-label">实际分支</div>
                 </div>
                 <div class="metric">
-                    <div class="metric-value">{int(len(unit.branches) / max(theoretical, 1) * 100)}%</div>
+                    <div class="metric-value" style="color:{bar_color};">{coverage_pct:.1f}%</div>
                     <div class="metric-label">覆盖率</div>
                 </div>
                 <div class="metric">
@@ -398,8 +649,11 @@ def generate_parse_report(output: ParseOutput, output_path: str) -> None:
             </div>
         </div>
         <div class="unit-body">
+            {formula_steps_html}
+            {strategy_explain_html}
+            {coverage_bar_html}
             <div class="branch-list" data-loaded="false">
-                <div style="color: #64748b; padding: 0.5rem; font-style: italic;">点击展开加载分支详情...</div>
+                <div style="color:#64748b;padding:0.5rem;font-style:italic;">点击展开加载分支详情...</div>
             </div>
         </div>
     </div>
@@ -501,7 +755,7 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
         </div>
     </div>
 
-    <h2>执行计划详情（按SQL单元分组）</h2>
+    <h2>执行计划详情(按SQL单元分组)</h2>
     <table>
         <thead>
             <tr>
@@ -667,7 +921,7 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
         </div>
     </div>
 
-    <h2>优化建议（按SQL单元分组）</h2>
+    <h2>优化建议(按SQL单元分组)</h2>
     <table>
         <thead>
             <tr>
