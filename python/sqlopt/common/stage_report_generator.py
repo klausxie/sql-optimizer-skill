@@ -18,8 +18,6 @@ from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
 from sqlopt.contracts.result import ResultOutput
 
-CHART_JS = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
-
 DARK_THEME = """
 <style>
     * { box-sizing: border-box; }
@@ -116,6 +114,8 @@ DARK_THEME = """
 .section-header:hover { background: #47556940; }
 .section-body { padding: 0.5rem; }
 .hidden { display: none; }
+.collapse-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; }
+.collapse-header:hover { color: #f8fafc; }
     .tooltip-icon {
         display: inline-flex;
         align-items: center;
@@ -328,6 +328,63 @@ function toggleUnit(header) {
     }
 }
 
+// ---- Native Canvas Chart Functions (replaces Chart.js) ----
+
+function drawDoughnut(canvasId, data, labels, colors) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const outerRadius = Math.min(cx, cy) - 10;
+    const innerRadius = outerRadius * 0.6;
+    const total = data.reduce((a, b) => a + b, 0);
+    if (total === 0) return;
+    let startAngle = -Math.PI / 2;
+    data.forEach((val, i) => {
+        const sliceAngle = (val / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(cx + innerRadius * Math.cos(startAngle), cy + innerRadius * Math.sin(startAngle));
+        ctx.arc(cx, cy, outerRadius, startAngle, startAngle + sliceAngle);
+        ctx.arc(cx, cy, innerRadius, startAngle + sliceAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+        startAngle += sliceAngle;
+    });
+    // legend
+    const legendX = 10;
+    let legendY = canvas.height - 20;
+    labels.forEach((label, i) => {
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(legendX, legendY - i * 18 - 12, 12, 12);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(label + ': ' + data[i], legendX + 16, legendY - i * 18);
+    });
+}
+
+function drawHorizontalBar(canvasId, data, labels, barColor) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const barHeight = 24, gap = 6;
+    const maxVal = Math.max(...data, 1);
+    const labelWidth = 120;
+    const chartWidth = canvas.width - labelWidth - 60;
+    data.forEach((val, i) => {
+        const barWidth = (val / maxVal) * chartWidth;
+        const y = i * (barHeight + gap);
+        ctx.fillStyle = barColor;
+        ctx.fillRect(labelWidth, y, barWidth, barHeight);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '11px sans-serif';
+        const labelText = labels[i] ? String(labels[i]).substring(0, 15) : '';
+        ctx.fillText(labelText, 4, y + barHeight - 6);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(val, labelWidth + barWidth + 4, y + barHeight - 6);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.card[data-sortable]').forEach(initSortableBranches);
 });
@@ -344,6 +401,91 @@ def _get_risk_level(risk_level: str | None) -> tuple[str, str]:
     if risk_level == "MEDIUM":
         return "medium", "badge-medium"
     return "low", "badge-low"
+
+
+def _make_strategy_explain_html(
+    actual_strategy: str,
+    actual_branches: int,
+    theoretical: int,
+    unit: Any,
+) -> str:
+    """
+    为单个 SQL 单元生成具体的策略解释。
+    """
+    # Extract condition info: collect active_conditions from all branches
+    all_conds: list[str] = []
+    if hasattr(unit, "branches"):
+        for b in unit.branches:
+            conds = getattr(b, "active_conditions", [])
+            if conds:
+                all_conds.extend(conds)
+
+    # Deduplicate and count unique conditions
+    unique_conditions = list(dict.fromkeys(all_conds))
+    n_conditions = len(unique_conditions)
+
+    coverage_pct = actual_branches / theoretical * 100 if theoretical > 0 and actual_branches > 0 else 0.0
+
+    if actual_strategy == "all_combinations":
+        return f"""
+        <div class="strategy-block">
+          <div class="strategy-header">全组合策略 · 覆盖率 100%</div>
+          <div class="strategy-desc">
+            该 SQL 的 <strong>{theoretical}</strong> 个理论分支已全部展开，覆盖率 100%。
+          </div>
+        </div>
+        """
+
+    if actual_strategy in ("ladder", "boundary"):
+        # Explain why ladder sampled so few branches
+        if n_conditions >= 5:
+            effort_note = (
+                f"该 SQL 含 <strong>{n_conditions}</strong> 个动态条件，"
+                f"全展开为 2^{n_conditions} = <strong>{theoretical}</strong> 个分支。"
+                f"ladder 策略采样 <strong>{actual_branches}</strong> 个（覆盖边界值 + 关键组合）。"
+                f"覆盖率 <strong>{coverage_pct:.1f}%</strong>。"
+            )
+        elif n_conditions >= 2:
+            effort_note = (
+                f"含 <strong>{n_conditions}</strong> 个条件，"
+                f"全展开 <strong>{theoretical}</strong> 个分支，"
+                f"ladder 采样 <strong>{actual_branches}</strong> 个（{coverage_pct:.1f}%）。"
+            )
+        else:
+            effort_note = (
+                f"该 SQL 仅 <strong>{n_conditions}</strong> 个条件，"
+                f"全展开 {theoretical} 个分支，ladder 采样 {actual_branches} 个。"
+            )
+
+        switch_note = ""
+        if theoretical > actual_branches * 3:
+            switch_note = f"<br/><span style='color:#fbbf24;'>💡 若需更完整覆盖，可切换 all_combinations（全展开 {theoretical} 分支）。</span>"
+
+        return f"""
+        <div class="strategy-block">
+          <div class="strategy-header">采样策略 · {actual_branches}/{theoretical} 分支</div>
+          <div class="strategy-desc">{effort_note}{switch_note}</div>
+        </div>
+        """
+
+    if actual_strategy == "each":
+        return f"""
+        <div class="strategy-block">
+          <div class="strategy-header">单测策略 · {actual_branches} 分支</div>
+          <div class="strategy-desc">
+            含 <strong>{n_conditions}</strong> 个条件，each 策略每个条件单独 true/false，
+            共 <strong>{actual_branches}</strong> 个分支（覆盖率 {coverage_pct:.1f}%）。
+            {"每个条件的独立影响可被独立验证。" if coverage_pct >= 50 else "覆盖率偏低，建议评估是否需要 all_combinations。"}
+          </div>
+        </div>
+        """
+
+    # Fallback for unknown strategies
+    return f"""
+    <div class="strategy-block">
+      <div class="strategy-desc">{actual_strategy} 策略，{actual_branches}/{theoretical} 分支（{coverage_pct:.1f}%）</div>
+    </div>
+    """
 
 
 def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output_path: str) -> None:
@@ -383,15 +525,22 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
                 for u in stats.outlier_units
             )
             outlier_html = f"""
-    <h2>极值单元列表</h2>
-    <div class="card">
-        <p style="color:#dc2626;font-size:0.8rem;margin-bottom:0.75rem;">
-            ⚠️ 以下单元理论分支数超过 {OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:,}, 已从正常统计中分离
-        </p>
-        <table>
-            <thead><tr><th>SQL单元</th><th style="width:80px;text-align:center;">条件数</th><th style="width:120px;text-align:center;">理论分支</th><th style="width:100px;text-align:center;">实际分支</th><th style="width:80px;text-align:center;">覆盖率</th><th>原因</th></tr></thead>
-            <tbody>{outlier_rows}</tbody>
-        </table>
+    <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+            <h2><span class="collapse-icon">▶</span> 极值单元列表</h2>
+            <span class="badge badge-high" style="margin-left:0.5rem;">{outlier_count} 个单元</span>
+        </div>
+        <div class="section-body hidden">
+            <div class="card">
+                <p style="color:#dc2626;font-size:0.8rem;margin-bottom:0.75rem;">
+                    ⚠️ 以下单元理论分支数超过 {OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:,}, 已从正常统计中分离
+                </p>
+                <table>
+                    <thead><tr><th>SQL单元</th><th style="width:80px;text-align:center;">条件数</th><th style="width:120px;text-align:center;">理论分支</th><th style="width:100px;text-align:center;">实际分支</th><th style="width:80px;text-align:center;">覆盖率</th><th>原因</th></tr></thead>
+                    <tbody>{outlier_rows}</tbody>
+                </table>
+            </div>
+        </div>
     </div>
     """
         else:
@@ -466,8 +615,7 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
 <head>
     <meta charset="UTF-8">
     <title>解析阶段报告</title>
-    {CHART_JS}
-    <style>{DARK_THEME}</style>
+        <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
@@ -645,7 +793,6 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
             if hasattr(unit, "coverage_pct")
             else (actual_branches / theoretical * 100 if theoretical > 0 else 0)
         )
-        saved_pct = (theoretical - actual_branches) / theoretical * 100 if theoretical > 0 else 0
 
         formula_steps_html = ""
         if theoretical > 1:
@@ -659,33 +806,7 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
             </div>
             """
 
-        strategy_explain_html = ""
-        if actual_strategy in ("ladder", "each", "boundary"):
-            strategy_explain_html = f"""
-            <div class="strategy-block">
-              <div class="strategy-header">
-                实际分支 ({actual_strategy} 策略)
-                <span class="tooltip-icon" title="{STRATEGY_EXPLANATIONS.get(actual_strategy, "")}">?</span>
-              </div>
-              <div class="strategy-desc">
-                {actual_strategy} 采样 <strong>{actual_branches}/{theoretical}</strong> 分支
-                {("," + f"节省 <strong>{saved_pct:.1f}%</strong>") if saved_pct > 0 else ""}
-              </div>
-              <div class="strategy-meaning">
-                覆盖率 {coverage_pct:.1f}% = 每 10 个分支有 {int(coverage_pct / 10)} 个被测试
-              </div>
-              <div class="strategy-whatif">
-                💡 若需更完整覆盖,可切 all_combinations(需 {theoretical} 分支)
-              </div>
-            </div>
-            """
-        elif actual_strategy == "all_combinations":
-            strategy_explain_html = f"""
-            <div class="strategy-block">
-              <div class="strategy-header">实际分支 (all_combinations 策略)</div>
-              <div class="strategy-desc">全组合策略,覆盖率 100%,共 {actual_branches} 个分支</div>
-            </div>
-            """
+        strategy_explain_html = _make_strategy_explain_html(actual_strategy, actual_branches, theoretical, unit)
 
         bar_color = "#22c55e" if coverage_pct >= 80 else "#f59e0b" if coverage_pct >= 50 else "#dc2626"
         coverage_bar_html = f"""
@@ -753,30 +874,12 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         f"""
 </div>
 <script>
-const riskCtx = document.getElementById('riskChart').getContext('2d');
-new Chart(riskCtx, {{
-    type: 'doughnut',
-    data: {{
-        labels: ['高风险', '中风险', '低风险', '未评分'],
-        datasets: [{{
-            data: [{high_risk}, {medium_risk}, {low_risk}, {no_score}],
-            backgroundColor: ['#dc2626', '#f59e0b', '#22c55e', '#64748b']
-        }}]
-    }},
-    options: {{ responsive: true, maintainAspectRatio: false, plugins: {{ legend: {{ position: 'bottom' }} }} }}
-}});
-
+drawDoughnut('riskChart', [{high_risk}, {medium_risk}, {low_risk}, {no_score}],
+    ['高风险', '中风险', '低风险', '未评分'],
+    ['#dc2626', '#f59e0b', '#22c55e', '#64748b']);
 const flagsLabels = {list(all_flags.keys())};
 const flagsData = {list(all_flags.values())};
-const flagsCtx = document.getElementById('flagsChart').getContext('2d');
-new Chart(flagsCtx, {{
-    type: 'bar',
-    data: {{
-        labels: flagsLabels,
-        datasets: [{{ label: '出现次数', data: flagsData, backgroundColor: '#6366f1' }}]
-    }},
-    options: {{ responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: {{ legend: {{ display: false }} }} }}
-}});
+drawHorizontalBar('flagsChart', flagsData, flagsLabels, '#6366f1');
 </script>
 """
         + BASE_JS
@@ -819,8 +922,7 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
 <head>
     <meta charset="UTF-8">
     <title>识别阶段报告</title>
-    {CHART_JS}
-    <style>{DARK_THEME}</style>
+        <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
@@ -915,32 +1017,17 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
     </table>
 </div>
 <script>
-const costCtx = document.getElementById('costChart').getContext('2d');
-new Chart(costCtx, {
-    type: 'bar',
-    data: {
-        labels: """
+const costLabels = """
         f"{list(cost_buckets.keys())}"
-        """,
-        datasets: [{ label: 'Plans', data: """
+        """;
+const costValues = """
         f"{list(cost_buckets.values())}"
-        """, backgroundColor: '#6366f1' }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
-
+        """;
+drawHorizontalBar('costChart', costValues, costLabels, '#6366f1');
 const timeData = """
         f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
         """;
-const timeCtx = document.getElementById('timeChart').getContext('2d');
-new Chart(timeCtx, {
-    type: 'bar',
-    data: {
-        labels: timeData.map(d => d[0]),
-        datasets: [{ label: 'Time (ms)', data: timeData.map(d => d[1]), backgroundColor: '#f59e0b' }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }
-});
+drawHorizontalBar('timeChart', timeData.map(d => d[1]), timeData.map(d => d[0]), '#f59e0b');
 </script>
 """
         + BASE_JS
@@ -984,8 +1071,7 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
 <head>
     <meta charset="UTF-8">
     <title>优化阶段报告</title>
-    {CHART_JS}
-    <style>{DARK_THEME}</style>
+        <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">
@@ -1068,32 +1154,17 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
     </table>
 </div>
 <script>
-const confCtx = document.getElementById('confChart').getContext('2d');
-new Chart(confCtx, {
-    type: 'bar',
-    data: {
-        labels: """
+const confLabels = """
         f"{list(conf_buckets.keys())}"
-        """,
-        datasets: [{ label: 'Proposals', data: """
+        """;
+const confValues = """
         f"{list(conf_buckets.values())}"
-        """, backgroundColor: '#22c55e' }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
-
+        """;
+drawHorizontalBar('confChart', confValues, confLabels, '#22c55e');
 const gainData = """
         f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
         """;
-const gainCtx = document.getElementById('gainChart').getContext('2d');
-new Chart(gainCtx, {
-    type: 'bar',
-    data: {
-        labels: gainData.map(d => d[0]),
-        datasets: [{ label: 'Gain %', data: gainData.map(d => d[1]), backgroundColor: '#3b82f6' }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
+drawHorizontalBar('gainChart', gainData.map(d => d[1]), gainData.map(d => d[0]), '#3b82f6');
 </script>
 """
         + BASE_JS
@@ -1118,8 +1189,7 @@ def generate_result_report(output: ResultOutput, output_path: str) -> None:
 <head>
     <meta charset="UTF-8">
     <title>结果阶段报告</title>
-    {CHART_JS}
-    <style>{DARK_THEME}</style>
+        <style>{DARK_THEME}</style>
 </head>
 <body>
 <div class="container">

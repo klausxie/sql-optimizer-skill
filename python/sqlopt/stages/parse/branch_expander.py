@@ -205,6 +205,8 @@ class BranchExpander:
             risk_score = branch_dict.get("risk_score")
             score_reasons = branch_dict.get("score_reasons", [])
             branch_type = branch_dict.get("branch_type")
+            risk_level = branch_dict.get("risk_level")
+            risk_factors = branch_dict.get("risk_factors", [])
 
             path_id = f"branch_{branch_id}"
             condition = " AND ".join(active_conditions) if active_conditions else None
@@ -220,6 +222,8 @@ class BranchExpander:
                     risk_score=risk_score,
                     score_reasons=score_reasons,
                     branch_type=branch_type,
+                    risk_level=risk_level,
+                    risk_factors=risk_factors,
                 )
             )
 
