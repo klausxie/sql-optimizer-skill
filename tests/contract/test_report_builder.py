@@ -148,31 +148,21 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertGreaterEqual(len(artifacts.diagnostics_sql_outcomes), 1)
         self.assertGreaterEqual(len(artifacts.diagnostics_sql_artifacts), 1)
         sql_artifact = artifacts.diagnostics_sql_artifacts[0]
-        self.assertEqual(sql_artifact["artifact_refs"]["report"], "overview/report.json")
-        self.assertEqual(sql_artifact["artifact_refs"]["proposals"], "pipeline/optimize/optimization.proposals.jsonl")
-        self.assertEqual(sql_artifact["artifact_refs"]["acceptance"], "pipeline/validate/acceptance.results.jsonl")
-        self.assertEqual(sql_artifact["artifact_refs"]["patches"], "pipeline/patch_generate/patch.results.jsonl")
-        self.assertEqual(sql_artifact["artifact_refs"]["verification"], "pipeline/verification/ledger.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["report"], "report.json")
+        self.assertEqual(sql_artifact["artifact_refs"]["proposals"], "artifacts/proposals.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["acceptance"], "artifacts/acceptance.jsonl")
+        self.assertEqual(sql_artifact["artifact_refs"]["patches"], "artifacts/patches.jsonl")
+        self.assertIsNone(sql_artifact["artifact_refs"]["verification"])
         self.assertIn("candidate_generation_diagnostics", sql_artifact["artifact_refs"])
         self.assertEqual(sql_artifact["blocker_family"], "READY")
         self.assertEqual(sql_artifact["aggregation_shape_family"], "NONE")
         self.assertEqual(sql_artifact["aggregation_constraint_family"], "NONE")
         self.assertIsNone(sql_artifact["dynamic_baseline_family"])
         self.assertIsNone(sql_artifact["dynamic_delivery_class"])
-        self.assertIn("top_blockers", artifacts.diagnostics_blockers_summary)
-        self.assertIn("authoritative", artifacts.run_index)
-        self.assertIn("integrity", artifacts.run_index)
-        self.assertIn("status", artifacts.run_index["integrity"])
-        self.assertIn("warning_codes", artifacts.run_index["integrity"])
-        self.assertTrue(artifacts.run_index["integrity"]["sql_key_alignment_ok"])
-        self.assertEqual(artifacts.run_index["groups"]["sql"]["catalog"], "sql/catalog.jsonl")
-        self.assertIn("pipeline/scan/sqlunits.jsonl", artifacts.run_index["groups"]["pipeline"])
-        self.assertIn("pipeline/optimize/optimization.proposals.jsonl", artifacts.run_index["groups"]["pipeline"])
-        self.assertEqual(artifacts.report.evidence_confidence, "MEDIUM")
-        self.assertIsNone(artifacts.report.validation_warnings)
+        self.assertEqual(artifacts.report.to_contract()["blockers"]["top_reason_codes"][0]["code"], "PREFLIGHT_SCANNER_MISSING")
+        self.assertEqual(artifacts.evidence_confidence, "MEDIUM")
+        self.assertIsNone(artifacts.validation_warnings)
         self.assertEqual(artifacts.verification_summary["coverage_by_phase"]["validate"]["ratio"], 1.0)
-        self.assertEqual(artifacts.topology.runtime_policy["stage_timeout_ms"]["report"], 300)
-        self.assertEqual(artifacts.health.report_json, str(Path(td) / "overview" / "report.json"))
         self.assertEqual(artifacts.sql_rows[0]["semantic_gate_status"], "UNCERTAIN")
         self.assertIn("semantic_confidence_upgraded", artifacts.sql_rows[0])
         self.assertIn("semantic_unupgraded_reason", artifacts.sql_rows[0])
@@ -605,7 +595,7 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(distinct_row["aggregation_shape_family"], "DISTINCT")
         self.assertEqual(distinct_row["aggregation_constraint_family"], "DISTINCT_RELAXATION")
         self.assertIn("聚合语义", distinct_row["summary"])
-        action_ids = [row["action_id"] for row in artifacts.report.summary.next_actions]
+        action_ids = [row["action_id"] for row in artifacts.next_actions]
         self.assertIn("review-distinct-safety", action_ids)
 
     def test_build_report_artifacts_tracks_group_by_having_alias_ready_family(self) -> None:
@@ -754,8 +744,8 @@ class ReportBuilderTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="report_builder_opt_warn_") as td:
             artifacts = build_report_artifacts("run_demo", "analyze", config, Path(td), inputs)
 
-        self.assertIsNotNone(artifacts.report.validation_warnings)
-        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", artifacts.report.validation_warnings[0])
+        self.assertIsNotNone(artifacts.validation_warnings)
+        self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", artifacts.validation_warnings[0])
         top_reason_codes = {row["reason_code"] for row in artifacts.report.stats["verification"]["top_reason_codes"]}
         self.assertIn("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR", top_reason_codes)
 
@@ -826,7 +816,7 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(artifacts.next_actions[0]["action_id"], "refactor-mapper")
         self.assertIn("模板", artifacts.next_actions[0]["reason"])
 
-    def test_run_index_integrity_warns_when_validate_done_without_acceptance_ref(self) -> None:
+    def test_sql_artifact_rows_use_new_layout_refs_when_validate_done_without_acceptance(self) -> None:
         inputs = ReportInputs(
             units=[{"sqlKey": "demo.user.findUsers#v1"}],
             proposals=[
@@ -861,12 +851,12 @@ class ReportBuilderTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="report_builder_index_warn_") as td:
             artifacts = build_report_artifacts("run_demo_warn", "analyze", config, Path(td), inputs)
 
-        integrity = artifacts.run_index["integrity"]
-        self.assertEqual(integrity["status"], "WARN")
-        self.assertIn("MISSING_ACCEPTANCE_REF", integrity["warning_codes"])
-        self.assertIn("MISSING_PATCH_REF", integrity["warning_codes"])
-        self.assertIn("MISSING_VERIFICATION_REF", integrity["warning_codes"])
-        self.assertGreaterEqual(len(integrity["sql_ref_issues"]), 1)
+        sql_artifact = artifacts.diagnostics_sql_artifacts[0]
+        self.assertEqual(sql_artifact["artifact_refs"]["report"], "report.json")
+        self.assertEqual(sql_artifact["artifact_refs"]["proposals"], "artifacts/proposals.jsonl")
+        self.assertIsNone(sql_artifact["artifact_refs"]["acceptance"])
+        self.assertIsNone(sql_artifact["artifact_refs"]["patches"])
+        self.assertIsNone(sql_artifact["artifact_refs"]["verification"])
 
     def test_action_plan_prefers_decision_layers_degraded_db_recheck(self) -> None:
         inputs = ReportInputs(

@@ -166,7 +166,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
                     expected_dynamic_safe_baseline_blocked_count += 1
                 elif normalized_dynamic_delivery_class == "REVIEW_ONLY":
                     expected_dynamic_review_only_count += 1
-        actual_family_counts = Counter(patch_blocker_family(row) for row in report_artifacts.report.items.patches)
+        actual_family_counts = Counter(patch_blocker_family(row) for row in patches)
 
         self.assertEqual(stats["sql_units"], len(scenarios))
         self.assertEqual(stats["acceptance_pass"], expected_status_counts["PASS"])

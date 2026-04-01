@@ -81,7 +81,8 @@ class RunServiceTest(unittest.TestCase):
         self.assertEqual(run_id_1, "run_fixed")
         self.assertEqual(run_id_2, "run_fixed")
         self.assertEqual(_RepoStub.init_calls, 1)
-        self.assertEqual(_RepoStub.write_cfg_calls, 1)
+        # write_resolved_config is no longer called - config is now stored in plan.json
+        self.assertEqual(_RepoStub.write_cfg_calls, 0)
         self.assertEqual(_RepoStub.meta_statuses, ["RUNNING", "RUNNING"])
         self.assertEqual(_RepoStub.plans_set[-1]["to_stage"], "patch_generate")
 

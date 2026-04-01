@@ -105,9 +105,6 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
             log_event(manifest_path, "scan", "failed", payload)
             raise StageError("scan coverage below threshold", reason_code="SCAN_PARTIAL_COVERAGE_BELOW_THRESHOLD")
 
-    for unit in units:
-        validator.validate("sqlunit", unit)
-    write_jsonl(scan_units_path, units)
     fragment_rows = read_jsonl(fragments_path)
     for fragment in fragment_rows:
         validator.validate("fragment_record", fragment)
@@ -170,7 +167,7 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
             status = "VERIFIED"
             reason_code = "SCAN_EVIDENCE_VERIFIED"
             reason_message = "scan output includes the expected structural evidence"
-        append_verification_record(
+        unit["verification"] = append_verification_record(
             run_dir,
             validator,
             VerificationRecord(
@@ -200,6 +197,8 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
                 created_at=datetime.now(timezone.utc).isoformat(),
             ),
         )
+        validator.validate("sqlunit", unit)
+    write_jsonl(scan_units_path, units)
     for w in warnings:
         log_event(manifest_path, "scan", "warning", w)
     log_event(manifest_path, "scan", "done", {"sql_keys": [u["sqlKey"] for u in units]})

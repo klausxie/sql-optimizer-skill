@@ -66,7 +66,7 @@
 3. `includeBindings` 描述片段内部直接 include 的绑定信息
 
 ## 2. `OptimizationProposal`
-文件：`pipeline/optimize/optimization.proposals.jsonl`
+文件：`artifacts/proposals.jsonl`
 
 主干：
 1. `sqlKey`
@@ -112,7 +112,7 @@
 9. `finalCandidateCount`
 
 ## 3. `AcceptanceResult`
-文件：`pipeline/validate/acceptance.results.jsonl`
+文件：`artifacts/acceptance.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -157,7 +157,7 @@
    - 最终 `status` 与 validate 策略口径（profile / strategy flags）
 
 ### 3.0.1 诊断摘要相关输出
-当前内部诊断聚合会基于 `AcceptanceResult`、`PatchResult` 与 verification ledger 生成：
+当前内部诊断聚合会基于 `AcceptanceResult`、`PatchResult` 与嵌入 verification 记录生成：
 1. `delivery_assessment`
 2. `evidence_state`
 3. `decision_summary`
@@ -243,7 +243,7 @@
 ### 3.4.2 `PatchResult` proof fields
 当前行为：
 1. 当 patch 进入自动交付路径时，会额外写出 proof evidence
-2. 这些 evidence 会被 verification ledger 和 report 聚合
+2. 这些 evidence 会被阶段产物内的 verification 字段和 report 聚合
 
 关键字段：
 1. `patchTarget`
@@ -285,7 +285,7 @@
 7. `deliveryClass`
 
 ## 4. `PatchResult`
-文件：`pipeline/patch_generate/patch.results.jsonl`
+文件：`artifacts/patches.jsonl`
 
 必填主干：
 1. `sqlKey`
@@ -313,31 +313,26 @@
 3. `git apply --check` 仍是 applicability 的最终验证
 
 ## 5. `RunReport`
-文件：`overview/report.json`
+文件：`report.json`
 
 必填主干：
 1. `run_id`
-2. `mode`
-3. `policy`
+2. `generated_at`
+3. `target_stage`
 4. `stats`
-5. `items`
+5. `blockers`
 
-当前新增的重点统计：
-1. `stats.materialization_mode_counts`
-2. `stats.materialization_reason_counts`
-3. `stats.materialization_reason_group_counts`
-4. `stats.patch_strategy_counts`
-5. `stats.wrapper_collapse_recovered_count`
-6. `stats.canonical_rule_match_counts`
-7. `stats.canonical_preference_applied_count`
-8. `stats.dynamic_baseline_family_counts`
-9. `stats.dynamic_delivery_class_counts`
-10. `stats.candidate_degradation_counts`
-11. `stats.candidate_recovery_counts`
+当前摘要统计：
+1. `stats.sql_total`
+2. `stats.proposal_total`
+3. `stats.accepted_total`
+4. `stats.patchable_total`
+5. `stats.patched_total`
+6. `stats.blocked_total`
 
 说明：
-1. `materialization_reason_group_counts` 是将 `reasonCode` 汇总成更可执行的操作分组。
-2. `dynamic_baseline_family_counts` 用于表达当前哪些动态模板 safe baseline 已打通。
+1. `report.json` 只保留极简 run-level 摘要，不再承载大列表或详细 verification/ops 统计。
+2. 细粒度证据与导航统一放在 `sql/catalog.jsonl` 和 `sql/<sql-key>/index.json`。
 3. `dynamic_delivery_class_counts` 用于表达当前动态模板的 ready/review/no-diff 分布。
 
 ## 6. 兼容策略

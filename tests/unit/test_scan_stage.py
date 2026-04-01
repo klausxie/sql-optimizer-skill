@@ -102,7 +102,7 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("INCLUDE", units[0]["dynamicFeatures"])
             self.assertEqual(units[0]["includeTrace"], ["demo.user.BaseWhere"])
             self.assertEqual(units[0]["dynamicTrace"]["includeFragments"][0]["ref"], "demo.user.BaseWhere")
-            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            fragment_rows = [json.loads(line) for line in (run_dir / "artifacts" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertEqual(warnings, [])
 
@@ -192,7 +192,7 @@ class ScannerAdapterTest(unittest.TestCase):
                 "sqlopt.adapters.scanner_java.run_capture_text",
                 return_value=_Proc(10, "", "{\"reason_code\":\"SCAN_TYPE_ATTR_SANITIZED\",\"severity\":\"degradable\"}\n"),
             ) as run_mock:
-                out_path = run_dir / "pipeline" / "scan" / "sqlunits.jsonl"
+                out_path = run_dir / "artifacts" / "scan.jsonl"
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 out_path.write_text(
                     json.dumps(
@@ -376,7 +376,7 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("range", units[0]["locators"])
             self.assertEqual(units[0]["templateTarget"], "SQL_FRAGMENT_DEPENDENT")
             self.assertEqual(units[0]["includeBindings"][0]["properties"][0]["name"], "alias")
-            fragment_rows = [json.loads(line) for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+            fragment_rows = [json.loads(line) for line in (run_dir / "artifacts" / "fragments.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(fragment_rows), 1)
             self.assertEqual(fragment_rows[0]["displayRef"], "demo.user.BaseWhere")
             self.assertIn("IF", fragment_rows[0]["dynamicFeatures"])
@@ -521,7 +521,7 @@ class ScannerAdapterTest(unittest.TestCase):
 
             fragment_rows = [
                 json.loads(line)
-                for line in (run_dir / "pipeline" / "scan" / "fragments.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (run_dir / "artifacts" / "fragments.jsonl").read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ]
             self.assertEqual(len(fragment_rows), 2)
@@ -533,8 +533,8 @@ class ScanStageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_fragments_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_fragments"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
+            (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+            (run_dir / "artifacts" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": "x.xml::demo.user.BaseWhere",
@@ -580,8 +580,8 @@ class ScanStageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_displayref_") as td:
             run_dir = Path(td) / "runs" / "run_scan_stage_displayref"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
+            (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+            (run_dir / "artifacts" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": "x.xml::demo.user.BaseWhere",
@@ -626,15 +626,9 @@ class ScanStageTest(unittest.TestCase):
             with patch("sqlopt.stages.scan.run_scan", return_value=(rows, [])):
                 units = scan.execute(config, run_dir, validator)
 
-            ledger_rows = [
-                json.loads(line)
-                for line in (run_dir / "pipeline" / "verification" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            ]
             self.assertEqual(len(units), 1)
-            self.assertEqual(len(ledger_rows), 1)
-            self.assertEqual(ledger_rows[0]["status"], "VERIFIED")
-            self.assertEqual(ledger_rows[0]["reason_code"], "SCAN_EVIDENCE_VERIFIED")
+            self.assertEqual(units[0]["verification"]["status"], "VERIFIED")
+            self.assertEqual(units[0]["verification"]["reason_code"], "SCAN_EVIDENCE_VERIFIED")
 
     def test_scan_stage_propagates_reason_code_from_warning(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_stage_") as td:

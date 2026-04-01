@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Callable
 
 from ..io_utils import read_json, write_json
-from ..run_paths import RUN_META_GLOB_SUFFIX
+
+# New path constant for run state - replaces pipeline/supervisor/meta.json
+RUN_STATE_GLOB_SUFFIX = "control/state.json"
 
 _INDEX_CACHE: dict[Path, tuple[int, dict[str, dict]]] = {}
 
@@ -66,8 +68,9 @@ def resolve_run_dir(run_id: str, *, repo_root_fn: Callable[[], Path] | None = No
         run_dir = Path(str(row.get("run_dir", ""))) if row else Path("")
         if row and run_dir.exists():
             return run_dir
-    for meta in root.glob(f"**/runs/{run_id}/{RUN_META_GLOB_SUFFIX}"):
-        run_dir = meta.parent.parent.parent
+    # Look for new control/state.json instead of old pipeline/supervisor/meta.json
+    for state in root.glob(f"**/runs/{run_id}/{RUN_STATE_GLOB_SUFFIX}"):
+        run_dir = state.parent.parent
         if run_dir.exists():
             return run_dir
     raise FileNotFoundError(run_id)

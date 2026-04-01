@@ -79,49 +79,26 @@ class ContractModelInterfacesTest(unittest.TestCase):
             classification="degradable",
             phase="validate",
         )
-        summary = report_interfaces.RunReportSummary(
-            generated_at="2026-03-03T00:00:00+00:00",
-            verdict="BLOCKED",
-            release_readiness="NO_GO",
-            top_blockers=[],
-            next_actions=[],
-            prioritized_sql_keys=[],
-        )
-        items = report_interfaces.RunReportItems(units=[], proposals=[], acceptance=[], patches=[])
         report = report_interfaces.RunReportDocument(
             run_id="run_demo",
-            mode="analyze",
-            llm_gate=None,
-            selection_scope=None,
-            policy={},
-            stats={},
-            items=items,
-            summary=summary,
-            contract_version="v1",
-        )
-        topology = report_interfaces.OpsTopologyDocument(
-            run_id="run_demo",
-            executor="python",
-            subagents={"optimize": False, "validate": False},
-            llm_mode="disabled",
-            llm_gate=None,
-            runtime_policy={},
-        )
-        health = report_interfaces.OpsHealthDocument(
-            run_id="run_demo",
-            mode="analyze",
             generated_at="2026-03-03T00:00:00+00:00",
-            status="ok",
-            failure_count=0,
-            fatal_failure_count=0,
-            retryable_failure_count=0,
-            degradable_count=0,
-            report_json="runs/run_demo/report.json",
+            target_stage="report",
+            status="DONE",
+            verdict="BLOCKED",
+            next_action="inspect",
+            phase_status={"scan": "DONE", "report": "DONE"},
+            stats={
+                "sql_units": 1,
+                "proposals": 1,
+                "acceptance_pass": 0,
+                "patch_applicable_count": 0,
+                "patch_files": 0,
+                "blocked_sql_count": 1,
+            },
+            top_blockers=[{"code": "VALIDATE_PERF_NOT_IMPROVED", "count": 1}],
         )
         artifacts = report_interfaces.ReportArtifacts(
             report=report,
-            topology=topology,
-            health=health,
             failures=[failure],
             state=report_interfaces.ReportStateSnapshot(phase_status={}, attempts_by_phase={}),
             next_actions=[],
@@ -132,13 +109,12 @@ class ContractModelInterfacesTest(unittest.TestCase):
 
         self.assertTrue(hasattr(failure, "to_contract"))
         self.assertTrue(hasattr(report, "to_contract"))
-        self.assertTrue(hasattr(topology, "to_contract"))
-        self.assertTrue(hasattr(health, "to_contract"))
         self.assertFalse(hasattr(failure, "as_dict"))
         self.assertFalse(hasattr(report, "as_dict"))
         self.assertFalse(hasattr(artifacts, "failures_payload"))
         self.assertEqual(artifacts.failures_to_contract()[0]["phase"], "validate")
-        self.assertEqual(report.to_contract()["summary"]["verdict"], "BLOCKED")
+        self.assertEqual(report.to_contract()["verdict"], "BLOCKED")
+        self.assertEqual(report.to_contract()["stats"]["sql_total"], 1)
 
 
 if __name__ == "__main__":

@@ -192,8 +192,8 @@ def scan_fixture_project() -> tuple[list[dict], dict[str, dict], dict[str, dict]
             },
             "db": {"platform": "postgresql"},
         }
-        units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
-        fragments = read_jsonl(run_dir / "pipeline" / "scan" / "fragments.jsonl")
+        units, warnings = run_scan(config, run_dir, run_dir / "control" / "manifest.jsonl")
+        fragments = read_jsonl(run_dir / "artifacts" / "fragments.jsonl")
 
     if warnings:
         raise AssertionError(f"unexpected scan warnings: {warnings}")
@@ -253,6 +253,16 @@ def validate_blocker_family(result: dict) -> str:
 
 def patch_blocker_family(patch: dict) -> str:
     return blocker_family_for_patch_row(patch)
+
+
+def embedded_verification_rows(*collections: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for collection in collections:
+        for row in collection:
+            verification = row.get("verification") if isinstance(row, dict) else None
+            if isinstance(verification, dict):
+                rows.append(dict(verification))
+    return rows
 
 
 def proposal_for_candidate(candidate_sql: str) -> dict:
@@ -421,7 +431,12 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
             patch_row["_patchTexts"] = patch_texts
             patches.append(patch_row)
 
-        verification_rows = read_jsonl(paths.verification_ledger_path)
+        verification_rows = embedded_verification_rows(
+            [units_by_key[str(scenario["sqlKey"])] for scenario in scenarios],
+            proposals,
+            acceptance_rows,
+            patches,
+        )
         report_config = {
             "policy": {},
             "runtime": {

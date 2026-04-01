@@ -67,6 +67,7 @@
       }
     },
     "canonicalization": {"type": ["object", "null"]},
-    "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}}
+    "candidateSelectionTrace": {"type": ["array", "null"], "items": {"type": "object"}},
+    "verification": {"type": ["object", "null"]}
   }
 }

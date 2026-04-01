@@ -96,7 +96,7 @@ ERROR_MESSAGES = {
         ],
         "suggestions": [
             "检查错误详情，了解哪个字段验证失败",
-            "验证 runs/<run-id>/pipeline/supervisor/meta.json 中的 contract_version",
+            "验证 runs/<run-id>/control/state.json 中的 contract_version",
             "查看错误中提到的阶段输出文件",
             "如果问题持续，请报告：https://github.com/your-org/sql-optimizer/issues"
         ],
@@ -111,7 +111,7 @@ ERROR_MESSAGES = {
             "阶段逻辑中存在不可恢复的错误"
         ],
         "suggestions": [
-            "检查 runs/<run-id>/pipeline/manifest.jsonl 中的详细错误",
+            "检查 runs/<run-id>/control/manifest.jsonl 中的详细错误",
             "验证外部服务（LLM 提供商、数据库）可访问",
             "在配置中增加超时：runtime.stage_timeout_ms",
             "在配置中增加重试次数：runtime.stage_retry_max",
@@ -179,8 +179,8 @@ ERROR_MESSAGES = {
             "关键输出的验证证据不完整"
         ],
         "suggestions": [
-            "检查 runs/<run-id>/pipeline/verification/ledger.jsonl 中失败阶段的证据",
-            "查看 runs/<run-id>/overview/report.json 中的 validation_warnings 和 evidence_confidence",
+            "检查 `artifacts/acceptance.jsonl` 和 `artifacts/patches.jsonl` 中嵌入的 verification 记录",
+            "查看 runs/<run-id>/report.json 中的 blockers 和 next_action",
             "仅当您接受风险时才设置 verification.critical_output_policy=warn（或 verification.enforce_verified_outputs=false）",
             "在重新运行发布验收之前修复缺失的证据路径"
         ],

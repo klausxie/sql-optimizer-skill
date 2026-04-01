@@ -27,7 +27,12 @@ def _resolved_config(run_dir: Path) -> dict:
         cfg = read_json(config_path)
     except Exception:
         return {}
-    return cfg if isinstance(cfg, dict) else {}
+    if not isinstance(cfg, dict):
+        return {}
+    resolved = cfg.get("resolved_config")
+    if isinstance(resolved, dict):
+        return resolved
+    return cfg
 
 
 def _collect_patch_files(run_dir: Path) -> list[Path]:

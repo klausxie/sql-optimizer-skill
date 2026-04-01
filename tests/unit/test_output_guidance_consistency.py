@@ -45,7 +45,7 @@ def _render_outputs(
     acceptance_rows: list[dict],
     patch_rows: list[dict],
     verification_rows: list[dict],
-) -> tuple[dict, dict]:
+) -> tuple[object, dict, dict]:
     inputs = ReportInputs(
         units=[{"sqlKey": sql_key}],
         proposals=[_proposal(sql_key)],
@@ -68,13 +68,13 @@ def _render_outputs(
             acceptance_rows,
             patch_rows,
         )
-    return artifacts.report.to_contract(), verify_payload
+    return artifacts, artifacts.report.to_contract(), verify_payload
 
 
 class OutputGuidanceConsistencyTest(unittest.TestCase):
     def test_critical_gap_overrides_ready_to_apply_guidance(self) -> None:
         sql_key = "demo.user.findUsers#v1"
-        report, verify_payload = _render_outputs(
+        artifacts, report, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
                 {
@@ -113,16 +113,17 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(report["summary"]["next_actions"][0]["action_id"], "review-evidence")
+        self.assertEqual(artifacts.next_actions[0]["action_id"], "review-evidence")
+        self.assertEqual(report["next_action"], "inspect")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "review-evidence")
-        self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
-        self.assertEqual(report["stats"]["top_actionable_sql"][0]["evidence_state"], "CRITICAL_GAP")
+        self.assertEqual(artifacts.next_actions[0]["reason"], verify_payload["recommended_next_step"]["reason"])
+        self.assertEqual(artifacts.report.stats["top_actionable_sql"][0]["evidence_state"], "CRITICAL_GAP")
         self.assertEqual(verify_payload["evidence_state"], "CRITICAL_GAP")
         self.assertIn("semantic_gate_status", verify_payload)
         self.assertIn("semantic_unupgraded_reason", verify_payload)
         self.assertIn("semantic_blocked_reason", verify_payload)
         # 检查 why_now 包含证据相关关键词（中文或英文）
-        why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
+        why_now_report = artifacts.report.stats["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
         self.assertTrue(
             "证据" in why_now_report or "evidence" in why_now_report,
@@ -135,7 +136,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
 
     def test_degraded_db_paths_keep_reason_aligned(self) -> None:
         sql_key = "demo.user.listUsers#v1"
-        report, verify_payload = _render_outputs(
+        artifacts, report, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
                 {
@@ -155,14 +156,15 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             verification_rows=[],
         )
 
-        self.assertEqual(report["summary"]["next_actions"][0]["action_id"], "check-db")
+        self.assertEqual(artifacts.next_actions[0]["action_id"], "check-db")
+        self.assertEqual(report["next_action"], "inspect")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "restore-db-validation")
-        self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
-        self.assertEqual(report["stats"]["top_actionable_sql"][0]["evidence_state"], "DEGRADED")
+        self.assertEqual(artifacts.next_actions[0]["reason"], verify_payload["recommended_next_step"]["reason"])
+        self.assertEqual(artifacts.report.stats["top_actionable_sql"][0]["evidence_state"], "DEGRADED")
         self.assertEqual(verify_payload["evidence_state"], "DEGRADED")
         self.assertIn("semantic_gate_confidence", verify_payload)
         # 检查 why_now 包含 DB/数据库相关关键词
-        why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
+        why_now_report = artifacts.report.stats["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
         self.assertTrue(
             "DB" in why_now_report or "db" in why_now_report.lower() or "数据库" in why_now_report,
@@ -175,7 +177,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
 
     def test_ready_to_apply_paths_share_why_now_language(self) -> None:
         sql_key = "demo.user.applyPatch#v1"
-        report, verify_payload = _render_outputs(
+        artifacts, report, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
                 {
@@ -199,12 +201,13 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             verification_rows=[],
         )
 
-        self.assertEqual(report["summary"]["next_actions"][0]["action_id"], "apply")
+        self.assertEqual(artifacts.next_actions[0]["action_id"], "apply")
+        self.assertEqual(report["next_action"], "apply")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "apply")
-        self.assertEqual(report["summary"]["next_actions"][0]["reason"], verify_payload["recommended_next_step"]["reason"])
+        self.assertEqual(artifacts.next_actions[0]["reason"], verify_payload["recommended_next_step"]["reason"])
         self.assertIn("semantic_confidence_upgraded", verify_payload)
         # why_now 可能因语言不同而不同，但应该包含类似的概念（最快/安全/收益）
-        why_now_report = report["stats"]["top_actionable_sql"][0]["why_now"]
+        why_now_report = artifacts.report.stats["top_actionable_sql"][0]["why_now"]
         why_now_verify = verify_payload["why_now"]
         # 检查包含"最快"或"fastest"关键词
         self.assertTrue(
@@ -218,7 +221,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
 
     def test_semantic_low_confidence_prefers_review_evidence_action(self) -> None:
         sql_key = "demo.user.lowConfidence#v1"
-        report, verify_payload = _render_outputs(
+        artifacts, _report, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
                 {
@@ -243,7 +246,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             verification_rows=[],
         )
 
-        self.assertEqual(report["stats"]["top_actionable_sql"][0]["semantic_blocked_reason"], "VALIDATE_SEMANTIC_CONFIDENCE_LOW")
+        self.assertEqual(artifacts.report.stats["top_actionable_sql"][0]["semantic_blocked_reason"], "VALIDATE_SEMANTIC_CONFIDENCE_LOW")
         self.assertEqual(verify_payload["semantic_blocked_reason"], "VALIDATE_SEMANTIC_CONFIDENCE_LOW")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "review-evidence")
         self.assertIn("semantic confidence is low", verify_payload["decision_summary"])
@@ -251,7 +254,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
 
     def test_security_block_sets_primary_blocker_and_remove_dollar_action(self) -> None:
         sql_key = "demo.user.findUsers#v2"
-        report, verify_payload = _render_outputs(
+        artifacts, _report, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
                 {
@@ -270,7 +273,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
             patch_rows=[],
             verification_rows=[],
         )
-        top = report["stats"]["top_actionable_sql"][0]
+        top = artifacts.report.stats["top_actionable_sql"][0]
         self.assertEqual(top["blocker_primary_code"], "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION")
         self.assertEqual(top["evidence_availability"], "MISSING")
         self.assertEqual(top["evidence_missing_reason"], "SKIPPED_BY_SECURITY_BLOCK")

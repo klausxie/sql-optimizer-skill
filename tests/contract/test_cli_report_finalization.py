@@ -15,10 +15,11 @@ ROOT = Path(__file__).resolve().parents[1]
 class CliReportFinalizationTest(unittest.TestCase):
     def _prepare_completed_run(self, run_dir: Path) -> None:
         init_run(run_dir, {"config_version": "v1"}, "run_test")
-        (run_dir / "pipeline" / "scan" / "sqlunits.jsonl").write_text("", encoding="utf-8")
-        (run_dir / "pipeline" / "optimize" / "optimization.proposals.jsonl").write_text("", encoding="utf-8")
-        (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text("", encoding="utf-8")
-        (run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl").write_text("", encoding="utf-8")
+        (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+        (run_dir / "artifacts" / "scan.jsonl").write_text("", encoding="utf-8")
+        (run_dir / "artifacts" / "proposals.jsonl").write_text("", encoding="utf-8")
+        (run_dir / "artifacts" / "acceptance.jsonl").write_text("", encoding="utf-8")
+        (run_dir / "artifacts" / "patches.jsonl").write_text("", encoding="utf-8")
         state = load_state(run_dir)
         state["current_phase"] = "report"
         state["phase_status"] = {

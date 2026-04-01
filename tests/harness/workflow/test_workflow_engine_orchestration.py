@@ -261,7 +261,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             self.assertEqual(repo.plan["selection"]["selected_sql_keys"], ["demo.user.b#v1"])
             self.assertEqual(repo.plan["selection"]["scanned_count"], 2)
             self.assertEqual(repo.plan["selection"]["selected_count"], 1)
-            self.assertTrue((run_dir / "pipeline" / "scan" / "selection.json").exists())
+            self.assertTrue(repo.saved_plans)
 
     def test_advance_preflight_to_stage_without_report_finalizes_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_preflight_done_") as td:

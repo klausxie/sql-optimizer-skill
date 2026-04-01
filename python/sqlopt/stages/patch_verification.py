@@ -61,7 +61,7 @@ def append_patch_verification(
     statement_key: str,
     same_statement: list[dict[str, Any]],
     pass_rows: list[dict[str, Any]],
-) -> None:
+) -> dict[str, Any]:
     paths = canonical_paths(run_dir)
     selection_reason = dict(patch.get("selectionReason") or {})
     patch_target = dict(proof_patch_target or {})
@@ -295,7 +295,7 @@ def append_patch_verification(
         verification_reason_code = "PATCH_DECISION_EVIDENCE_INCOMPLETE"
         verification_reason_message = "patch result exists but its selection evidence is incomplete"
 
-    append_verification_record(
+    return append_verification_record(
         run_dir,
         validator,
         VerificationRecord(

@@ -75,10 +75,11 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         td = tempfile.TemporaryDirectory(prefix="sqlopt_patch_orchestration_")
         self.addCleanup(td.cleanup)
         run_dir = Path(td.name)
-        (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
-        (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
-        (run_dir / "pipeline" / "manifest.jsonl").write_text("", encoding="utf-8")
-        (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text(
+        # Use new layout paths
+        (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+        (run_dir / "control").mkdir(parents=True, exist_ok=True)
+        (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
+        (run_dir / "artifacts" / "acceptance.jsonl").write_text(
             json.dumps(acceptance, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )

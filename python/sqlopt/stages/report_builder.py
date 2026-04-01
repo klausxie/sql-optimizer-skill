@@ -4,37 +4,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..constants import CONTRACT_VERSION
 from ..platforms.sql.materialization_constants import FRAGMENT_TEMPLATE_SAFE_AUTO
 from ..run_paths import (
-    REL_DIAGNOSTICS_BLOCKERS_SUMMARY,
-    REL_DIAGNOSTICS_SQL_ARTIFACTS,
-    REL_DIAGNOSTICS_SQL_OUTCOMES,
-    REL_OVERVIEW_REPORT_JSON,
-    REL_OVERVIEW_REPORT_MD,
-    REL_OVERVIEW_REPORT_SUMMARY_MD,
-    REL_PIPELINE_MANIFEST,
-    REL_PIPELINE_OPTIMIZE_PROPOSALS,
-    REL_PIPELINE_PATCH_RESULTS,
-    REL_PIPELINE_SUPERVISOR_STATE,
-    REL_PIPELINE_VALIDATE_ACCEPTANCE,
-    REL_PIPELINE_VERIFICATION_LEDGER,
-    REL_RUN_INDEX_JSON,
+    REL_ARTIFACTS_ACCEPTANCE,
+    REL_ARTIFACTS_PATCHES,
+    REL_ARTIFACTS_PROPOSALS,
+    REL_CONTROL_MANIFEST,
+    REL_CONTROL_STATE,
+    REL_REPORT_JSON,
     REL_SQL_CATALOG,
-    REPORT_RUN_INDEX_OVERVIEW_GROUP,
-    REPORT_RUN_INDEX_PIPELINE_GROUP,
     canonical_paths,
     to_posix_relative,
 )
 from ..verification.summary import summarize_records
 from .report_models import (
-    OpsHealthDocument,
-    OpsTopologyDocument,
     ReportArtifacts,
     ReportInputs,
     RunReportDocument,
-    RunReportItems,
-    RunReportSummary,
 )
 from .report_metrics import build_failures
 from .report_metrics import summarize_semantic_gates
@@ -62,22 +48,12 @@ from .report_stats import (
     _dynamic_template_profile,
 )
 
-_OPS_TOPOLOGY_STAGE_KEYS = ("scan", "optimize", "validate", "apply", "report")
-
 
 def _patch_apply_ready(row: dict[str, Any]) -> bool:
     delivery_stage = str(row.get("deliveryStage") or "").strip().upper()
     if delivery_stage:
         return delivery_stage == "APPLY_READY"
     return row.get("applicable") is True
-
-
-def _filter_runtime_policy_for_ops_topology(runtime_cfg: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
-    timeout_src = dict(runtime_cfg.get("stage_timeout_ms") or {})
-    retry_src = dict(runtime_cfg.get("stage_retry_max") or {})
-    timeout = {k: int(timeout_src[k]) for k in _OPS_TOPOLOGY_STAGE_KEYS if k in timeout_src}
-    retry = {k: int(retry_src[k]) for k in _OPS_TOPOLOGY_STAGE_KEYS if k in retry_src}
-    return timeout, retry
 
 
 def _build_sql_artifact_rows(
@@ -95,11 +71,6 @@ def _build_sql_artifact_rows(
     proposal_by_sql_key = {str(row.get("sqlKey") or ""): row for row in proposals if str(row.get("sqlKey") or "").strip()}
     acceptance_by_sql_key = {str(row.get("sqlKey") or ""): row for row in acceptance if str(row.get("sqlKey") or "").strip()}
     patch_by_statement = {str(row.get("statementKey") or ""): row for row in patches if str(row.get("statementKey") or "").strip()}
-    verification_keys = {
-        str(row.get("sql_key") or "").strip()
-        for row in verification_rows
-        if str(row.get("sql_key") or "").strip()
-    }
     rows: list[dict[str, Any]] = []
     for unit in units:
         sql_key = str(unit.get("sqlKey") or "").strip()
@@ -135,11 +106,11 @@ def _build_sql_artifact_rows(
                 "dynamic_delivery_class": outcome.get("dynamic_delivery_class"),
                 "evidence_availability": outcome.get("evidence_availability"),
                 "artifact_refs": {
-                    "report": REL_OVERVIEW_REPORT_JSON,
-                    "acceptance": REL_PIPELINE_VALIDATE_ACCEPTANCE if acceptance_row else None,
-                    "patches": REL_PIPELINE_PATCH_RESULTS if patch_row else None,
-                    "proposals": REL_PIPELINE_OPTIMIZE_PROPOSALS if proposal_row else None,
-                    "verification": REL_PIPELINE_VERIFICATION_LEDGER if sql_key in verification_keys else None,
+                    "report": REL_REPORT_JSON,
+                    "acceptance": REL_ARTIFACTS_ACCEPTANCE if acceptance_row else None,
+                    "patches": REL_ARTIFACTS_PATCHES if patch_row else None,
+                    "proposals": REL_ARTIFACTS_PROPOSALS if proposal_row else None,
+                    "verification": None,
                     "trace": f"{sql_path}/trace.optimize.llm.json" if trace_path.exists() else None,
                     "candidate_generation_diagnostics": f"{sql_path}/candidate_generation_diagnostics.json"
                     if candidate_generation_diagnostics_path.exists()
@@ -151,112 +122,57 @@ def _build_sql_artifact_rows(
     return rows
 
 
-def _build_run_index_payload(
+def _warning_codes(validation_warnings: list[str]) -> list[str]:
+    codes: list[str] = []
+    for warning in validation_warnings:
+        code = str(warning).split(":", 1)[0].strip()
+        if code:
+            codes.append(code)
+    return codes
+
+
+def _compact_next_action(
     *,
-    run_id: str,
-    generated_at: str,
     phase_status: dict[str, Any],
-    sql_artifact_rows: list[dict[str, Any]],
-    outcome_sql_keys: list[str],
-) -> dict[str, Any]:
-    def _phase_done(phase: str) -> bool:
-        return str(phase_status.get(phase) or "").strip().upper() == "DONE"
+    stats: dict[str, Any],
+    detailed_actions: list[dict[str, Any]],
+) -> str:
+    normalized_phase_status = {k: str(v or "").strip().upper() for k, v in phase_status.items()}
+    incomplete_phases = [status for status in normalized_phase_status.values() if status in {"PENDING", "RUNNING", "FAILED"}]
+    if incomplete_phases and normalized_phase_status.get("report") != "DONE":
+        return "resume"
+    if incomplete_phases:
+        return "inspect"
+    if stats.get("validation_warnings"):
+        return "inspect"
+    if int(stats.get("patch_applicable_count") or 0) > 0 and str(stats.get("blocked_sql_count") or 0) == "0":
+        return "apply"
+    if detailed_actions and str(detailed_actions[0].get("action_id") or "").strip() == "apply":
+        return "apply"
+    return "inspect"
 
-    def _sql_row_issues(row: dict[str, Any]) -> tuple[list[str], list[str]]:
-        refs = dict(row.get("artifact_refs") or {})
-        missing_refs = [key for key, value in refs.items() if not value]
-        issues: list[str] = []
-        if not refs.get("report"):
-            issues.append("MISSING_REPORT_REF")
-        if _phase_done("optimize") and not refs.get("proposals"):
-            issues.append("MISSING_PROPOSAL_REF")
-        if _phase_done("validate") and not refs.get("acceptance"):
-            issues.append("MISSING_ACCEPTANCE_REF")
-        if _phase_done("patch_generate") and not refs.get("patches"):
-            issues.append("MISSING_PATCH_REF")
-        if _phase_done("patch_generate") and not refs.get("verification"):
-            issues.append("MISSING_VERIFICATION_REF")
-        if str(row.get("evidence_availability") or "").strip().upper() == "READY" and not refs.get("evidence_dir"):
-            issues.append("READY_EVIDENCE_DIR_MISSING")
-        return issues, missing_refs
 
-    sql_keys = [str(row.get("sql_key") or "") for row in sql_artifact_rows if str(row.get("sql_key") or "").strip()]
-    alignment_ok = set(sql_keys) == set(str(x) for x in outcome_sql_keys if str(x).strip())
-    sql_ref_null_counts: dict[str, int] = {}
-    sql_ref_issue_counts: dict[str, int] = {}
-    sql_ref_issues: list[dict[str, Any]] = []
-    for row in sql_artifact_rows:
-        issues, missing_refs = _sql_row_issues(row)
-        for ref in missing_refs:
-            sql_ref_null_counts[ref] = sql_ref_null_counts.get(ref, 0) + 1
-        for issue in issues:
-            sql_ref_issue_counts[issue] = sql_ref_issue_counts.get(issue, 0) + 1
-        if issues:
-            sql_ref_issues.append(
-                {
-                    "sql_key": str(row.get("sql_key") or ""),
-                    "issues": issues,
-                    "missing_refs": missing_refs,
-                }
-            )
-    warning_codes: list[str] = []
-    if not alignment_ok:
-        warning_codes.append("SQL_KEY_ALIGNMENT_MISMATCH")
-    warning_codes.extend(sorted(sql_ref_issue_counts.keys()))
-    integrity_status = "OK" if not warning_codes else "WARN"
-    return {
-        "schema_version": "1.0",
-        "run_id": run_id,
-        "generated_at": generated_at,
-        "layout_version": "logical-layered-v3",
-        "authoritative": {
-            "runtime_state": REL_PIPELINE_SUPERVISOR_STATE,
-            "events": REL_PIPELINE_MANIFEST,
-            "consumer_summary": [
-                REL_OVERVIEW_REPORT_JSON,
-                REL_SQL_CATALOG,
-                REL_DIAGNOSTICS_SQL_OUTCOMES,
-            ],
-        },
-        "read_order": {
-            "human": [
-                REL_OVERVIEW_REPORT_SUMMARY_MD,
-                REL_OVERVIEW_REPORT_MD,
-                REL_DIAGNOSTICS_BLOCKERS_SUMMARY,
-                REL_DIAGNOSTICS_SQL_OUTCOMES,
-            ],
-            "machine": [
-                REL_RUN_INDEX_JSON,
-                REL_OVERVIEW_REPORT_JSON,
-                REL_DIAGNOSTICS_SQL_OUTCOMES,
-                REL_SQL_CATALOG,
-                REL_PIPELINE_VERIFICATION_LEDGER,
-            ],
-        },
-        "groups": {
-            "overview": list(REPORT_RUN_INDEX_OVERVIEW_GROUP),
-            "pipeline": list(REPORT_RUN_INDEX_PIPELINE_GROUP),
-            "sql": {
-                "catalog": REL_SQL_CATALOG,
-                "sql_keys": sql_keys,
-            },
-            "diagnostics": [
-                REL_DIAGNOSTICS_SQL_OUTCOMES,
-                REL_DIAGNOSTICS_SQL_ARTIFACTS,
-                REL_DIAGNOSTICS_BLOCKERS_SUMMARY,
-            ],
-        },
-        "integrity": {
-            "status": integrity_status,
-            "warning_codes": warning_codes,
-            "sql_key_alignment_ok": alignment_ok,
-            "sql_artifact_count": len(sql_artifact_rows),
-            "sql_ref_null_counts": sql_ref_null_counts,
-            "sql_ref_issue_counts": sql_ref_issue_counts,
-            "sql_ref_issues": sql_ref_issues,
-            "phase_status": phase_status,
-        },
-    }
+def _compact_top_blockers(
+    *,
+    top_blockers: list[dict[str, Any]],
+    validation_warnings: list[str],
+) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    ordered_codes: list[str] = []
+    for row in top_blockers:
+        code = str(row.get("code") or "").strip()
+        if not code:
+            continue
+        if code not in counts:
+            ordered_codes.append(code)
+        counts[code] = int(row.get("count") or 0)
+    for code in _warning_codes(validation_warnings):
+        if code not in counts:
+            ordered_codes.append(code)
+            counts[code] = 0
+        counts[code] += 1
+    ordered_codes.sort(key=lambda code: (-counts[code], code))
+    return [{"code": code, "count": counts[code]} for code in ordered_codes[:5]]
 
 
 def build_report_artifacts(
@@ -528,21 +444,6 @@ def build_report_artifacts(
         "degradable_count": 0,
     }
 
-    runtime_timeout, runtime_retry = _filter_runtime_policy_for_ops_topology(config["runtime"])
-    topology = OpsTopologyDocument(
-        run_id=run_id,
-        executor="python",
-        subagents={"optimize": False, "validate": False},
-        llm_mode="enabled" if llm_enabled else "disabled",
-        llm_gate={"enabled": llm_enabled} if llm_enabled else None,
-        runtime_policy={
-            "resolved_from": "app_config.runtime",
-            "stage_timeout_ms": runtime_timeout,
-            "stage_retry_max": runtime_retry,
-            "stage_retry_backoff_ms": config["runtime"]["stage_retry_backoff_ms"],
-        },
-    )
-
     failures = build_failures(inputs.acceptance, inputs.manifest_rows)
     stats["preflight_failure_count"] = sum(
         1 for row in inputs.manifest_rows if row.stage == "preflight" and row.event == "failed"
@@ -598,10 +499,8 @@ def build_report_artifacts(
     )
 
     verdict = compute_verdict(stats)
-    readiness = compute_release_readiness(verdict, stats)
     failure_rows = [row.to_contract() for row in failures]
     top_blockers = build_top_blockers(failure_rows, reason_counts)
-    prioritized_sql_keys = build_prioritized_sql_keys(failure_rows)
 
     sql_rows = build_sql_rows(inputs.units, inputs.acceptance, inputs.patches)
     proposal_rows = build_proposal_rows(inputs.proposals)
@@ -612,49 +511,34 @@ def build_report_artifacts(
         top_actionable_sql=stats["top_actionable_sql"],
         verification=stats["verification"],
     )
+    compact_phase_status = dict(phase_status)
+    compact_phase_status["report"] = "DONE"
+    compact_top_blockers = _compact_top_blockers(
+        top_blockers=top_blockers,
+        validation_warnings=validation_warnings,
+    )
 
     report = RunReportDocument(
         run_id=run_id,
-        mode=mode,
-        llm_gate={"enabled": llm_enabled} if llm_enabled else None,
-        selection_scope=inputs.state.selection_scope,
-        policy=config["policy"],
+        generated_at=generated_at,
+        target_stage="report",
+        status="DONE",
+        verdict=verdict,
+        next_action=_compact_next_action(
+            phase_status=compact_phase_status,
+            stats=stats,
+            detailed_actions=next_actions,
+        ),
+        phase_status=compact_phase_status,
         stats=stats,
-        items=RunReportItems(
-            units=inputs.units,
-            proposals=inputs.proposals,
-            acceptance=inputs.acceptance,
-            patches=inputs.patches,
-        ),
-        summary=RunReportSummary(
-            generated_at=generated_at,
-            verdict=verdict,
-            release_readiness=readiness,
-            top_blockers=top_blockers,
-            next_actions=next_actions,
-            prioritized_sql_keys=prioritized_sql_keys,
-        ),
-        contract_version=CONTRACT_VERSION,
+        top_blockers=compact_top_blockers,
+        selection_scope=inputs.state.selection_scope,
         validation_warnings=validation_warnings or None,
         evidence_confidence=evidence_confidence,
     )
 
-    health = OpsHealthDocument(
-        run_id=run_id,
-        mode=mode,
-        generated_at=generated_at,
-        status="ok",
-        failure_count=stats["acceptance_fail"],
-        fatal_failure_count=stats["fatal_count"],
-        retryable_failure_count=stats["retryable_count"],
-        degradable_count=stats["degradable_count"],
-        report_json=str(run_dir / REL_OVERVIEW_REPORT_JSON),
-    )
-
     return ReportArtifacts(
         report=report,
-        topology=topology,
-        health=health,
         failures=failures,
         state=inputs.state,
         next_actions=next_actions,
@@ -663,20 +547,7 @@ def build_report_artifacts(
         proposal_rows=proposal_rows,
         diagnostics_sql_outcomes=all_sql_outcomes,
         diagnostics_sql_artifacts=sql_artifact_rows,
-        diagnostics_blockers_summary={
-            "run_id": run_id,
-            "generated_at": generated_at,
-            "top_blockers": top_blockers,
-            "reason_counts": reason_counts,
-            "phase_reason_code_counts": phase_reason_counts,
-            "next_actions": next_actions,
-        },
-        run_index=_build_run_index_payload(
-            run_id=run_id,
-            generated_at=generated_at,
-            phase_status=phase_status,
-            sql_artifact_rows=sql_artifact_rows,
-            outcome_sql_keys=[str(row.get("sql_key") or "") for row in all_sql_outcomes],
-        ),
         verification_summary=verification_summary,
+        validation_warnings=validation_warnings or None,
+        evidence_confidence=evidence_confidence,
     )

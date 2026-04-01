@@ -1,20 +1,13 @@
 from __future__ import annotations
 
 from ..run_paths import (
-    REL_DIAGNOSTICS_BLOCKERS_SUMMARY,
-    REL_DIAGNOSTICS_SQL_ARTIFACTS,
-    REL_DIAGNOSTICS_SQL_OUTCOMES,
-    REL_OVERVIEW_REPORT_JSON,
-    REL_OVERVIEW_REPORT_MD,
-    REL_PIPELINE_MANIFEST,
-    REL_PIPELINE_OPTIMIZE_PROPOSALS,
-    REL_PIPELINE_PATCH_RESULTS,
-    REL_PIPELINE_SCAN_FRAGMENTS,
-    REL_PIPELINE_SCAN_UNITS,
-    REL_PIPELINE_VALIDATE_ACCEPTANCE,
-    REL_PIPELINE_VERIFICATION_LEDGER,
-    REL_PIPELINE_OPS_FAILURES,
-    REL_RUN_INDEX_JSON,
+    REL_ARTIFACTS_ACCEPTANCE,
+    REL_ARTIFACTS_FRAGMENTS,
+    REL_ARTIFACTS_PATCHES,
+    REL_ARTIFACTS_PROPOSALS,
+    REL_ARTIFACTS_SCAN,
+    REL_CONTROL_MANIFEST,
+    REL_REPORT_JSON,
     REL_SQL_CATALOG,
 )
 
@@ -243,21 +236,14 @@ def render_report_md(
         ]
     )
     appendix_paths = [
-        ("run index", REL_RUN_INDEX_JSON),
-        ("overview report", REL_OVERVIEW_REPORT_JSON),
-        ("overview markdown", REL_OVERVIEW_REPORT_MD),
-        ("pipeline manifest", REL_PIPELINE_MANIFEST),
+        ("report", REL_REPORT_JSON),
+        ("control manifest", REL_CONTROL_MANIFEST),
         ("sql catalog", REL_SQL_CATALOG),
-        ("pipeline scan units", REL_PIPELINE_SCAN_UNITS),
-        ("pipeline scan fragments", REL_PIPELINE_SCAN_FRAGMENTS),
-        ("pipeline proposals", REL_PIPELINE_OPTIMIZE_PROPOSALS),
-        ("pipeline acceptance", REL_PIPELINE_VALIDATE_ACCEPTANCE),
-        ("pipeline patches", REL_PIPELINE_PATCH_RESULTS),
-        ("verification", REL_PIPELINE_VERIFICATION_LEDGER),
-        ("failures", REL_PIPELINE_OPS_FAILURES),
-        ("sql outcomes", REL_DIAGNOSTICS_SQL_OUTCOMES),
-        ("sql artifacts", REL_DIAGNOSTICS_SQL_ARTIFACTS),
-        ("blockers summary", REL_DIAGNOSTICS_BLOCKERS_SUMMARY),
+        ("scan", REL_ARTIFACTS_SCAN),
+        ("fragments", REL_ARTIFACTS_FRAGMENTS),
+        ("proposals", REL_ARTIFACTS_PROPOSALS),
+        ("acceptance", REL_ARTIFACTS_ACCEPTANCE),
+        ("patches", REL_ARTIFACTS_PATCHES),
     ]
     for label, rel_path in appendix_paths:
         lines.append(f"- {label}: `{run_id}/{rel_path}`")

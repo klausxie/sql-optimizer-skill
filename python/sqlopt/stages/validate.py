@@ -23,9 +23,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
         evidence_dir=evidence_dir,
     )
     payload = result.to_contract()
-    validator.validate("acceptance_result", payload)
     acceptance_path = paths.acceptance_path
-    append_jsonl(acceptance_path, payload)
 
     # Save canonicalization assessment if present (used by patch_generate for traceability)
     sql_artifact_dir = paths.sql_artifact_dir(sql_unit["sqlKey"])
@@ -110,7 +108,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     evidence_refs = [str(acceptance_path)]
     if evidence_dir.exists():
         evidence_refs.append(str(evidence_dir))
-    append_verification_record(
+    payload["verification"] = append_verification_record(
         run_dir,
         validator,
         VerificationRecord(
@@ -145,6 +143,8 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
             created_at=datetime.now(timezone.utc).isoformat(),
         ),
     )
+    validator.validate("acceptance_result", payload)
+    append_jsonl(acceptance_path, payload)
     log_event(
         paths.manifest_path,
         "validate",

@@ -24,25 +24,39 @@ def _read_json_required(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     return default
 
 
+def _embedded_verification_rows(*collections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for collection in collections:
+        for row in collection:
+            verification = row.get("verification") if isinstance(row, dict) else None
+            if isinstance(verification, dict):
+                rows.append(dict(verification))
+    return rows
+
+
 def load_report_inputs(run_dir: Path) -> ReportInputs:
     paths = canonical_paths(run_dir)
     state = _read_json_required(paths.state_path, {"phase_status": {}})
     plan = _read_json_required(paths.plan_path, {})
+    units = _read_jsonl_required(paths.scan_units_path)
+    proposals = _read_jsonl_required(paths.proposals_path)
+    acceptance = _read_jsonl_required(paths.acceptance_path)
+    patches = _read_jsonl_required(paths.patches_path)
     active_sql_keys = {
         str(row)
         for row in ((dict(plan.get("selection") or {}).get("selected_sql_keys")) or (plan.get("sql_keys") or []))
         if str(row).strip()
     }
-    verification_rows = _read_jsonl_required(paths.verification_ledger_path)
+    verification_rows = _embedded_verification_rows(units, proposals, acceptance, patches)
     if active_sql_keys:
         verification_rows = [
             row for row in verification_rows if not str(row.get("sql_key") or "").strip() or str(row.get("sql_key") or "") in active_sql_keys
         ]
     return ReportInputs(
-        units=_read_jsonl_required(paths.scan_units_path),
-        proposals=_read_jsonl_required(paths.proposals_path),
-        acceptance=_read_jsonl_required(paths.acceptance_path),
-        patches=_read_jsonl_required(paths.patches_path),
+        units=units,
+        proposals=proposals,
+        acceptance=acceptance,
+        patches=patches,
         state=ReportStateSnapshot(
             phase_status=dict(state.get("phase_status") or {}),
             attempts_by_phase=dict(state.get("attempts_by_phase") or {}),

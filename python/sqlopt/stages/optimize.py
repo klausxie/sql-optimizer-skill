@@ -336,6 +336,17 @@ def _save_artifacts(
         llm_feedback_enabled: 是否启用 LLM 反馈
         validation_errors_for_feedback: 验证错误列表
     """
+    verification_payload = _append_verification(
+        run_dir,
+        validator,
+        sql_unit["sqlKey"],
+        proposal,
+        trace,
+        llm_feedback_enabled,
+        validation_errors_for_feedback,
+    )
+    proposal["verification"] = verification_payload
+
     # 保存 proposal
     validator.validate("optimization_proposal", proposal)
     append_jsonl(paths.proposals_path, proposal)
@@ -355,9 +366,6 @@ def _save_artifacts(
             paths.sql_candidate_generation_diagnostics_path(sql_unit["sqlKey"]),
             candidate_generation_artifact,
         )
-
-    # 构建验证记录
-    _append_verification(run_dir, validator, sql_unit["sqlKey"], proposal, trace, llm_feedback_enabled, validation_errors_for_feedback)
 
     # 记录完成事件
     log_event(paths.manifest_path, "optimize", "done", {"statement_key": sql_unit["sqlKey"]})
@@ -428,7 +436,7 @@ def _append_verification(
     trace: dict[str, Any],
     llm_feedback_enabled: bool,
     validation_errors_for_feedback: list[dict[str, str]] | None,
-) -> None:
+) -> dict[str, Any]:
     """追加验证记录。"""
     llm_trace_refs = [str(ref) for ref in (proposal.get(LLM_TRACE_REFS_KEY) or []) if str(ref).strip()]
     llm_candidate_count = len(proposal.get(LLM_CANDIDATES_KEY) or [])
@@ -488,7 +496,7 @@ def _append_verification(
         verification_reason_code = "OPTIMIZE_EVIDENCE_VERIFIED"
         verification_reason_message = "proposal includes source and candidate-generation evidence"
 
-    append_verification_record(
+    payload = append_verification_record(
         run_dir,
         validator,
         VerificationRecord(
@@ -535,3 +543,4 @@ def _append_verification(
             validation_errors=validation_errors_for_feedback,
         )
         save_feedback_record(run_dir, feedback_record)
+    return payload

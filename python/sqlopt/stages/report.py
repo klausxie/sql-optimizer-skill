@@ -23,7 +23,7 @@ def generate(run_id: str, mode: str, config: dict, run_dir: Path, validator: Con
     inputs = load_report_inputs(run_dir)
     artifacts = build_report_artifacts(run_id, mode, config, run_dir, inputs)
     payload = write_report_artifacts(run_id, mode, run_dir, validator, artifacts)
-    if _verification_gate_mode(config) == "block" and payload.get("validation_warnings"):
+    if _verification_gate_mode(config) == "block" and artifacts.validation_warnings:
         raise StageError(
             "verification gate failed: unverified critical outputs present",
             reason_code="VERIFICATION_GATE_FAILED",

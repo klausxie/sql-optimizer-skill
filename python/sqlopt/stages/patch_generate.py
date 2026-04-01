@@ -251,9 +251,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                     # 附加到 patch 结果
                     patch = _attach_llm_suggestion(patch, llm_suggestion)
 
-    validator.validate("patch_result", patch)
-    append_jsonl(paths.patches_path, patch)
-    _append_patch_verification(
+    patch["verification"] = _append_patch_verification(
         run_dir=run_dir,
         validator=validator,
         patch=patch,
@@ -267,6 +265,8 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         same_statement=decision_ctx.same_statement,
         pass_rows=decision_ctx.pass_rows,
     )
+    validator.validate("patch_result", patch)
+    append_jsonl(paths.patches_path, patch)
     log_event(
         paths.manifest_path,
         "patch_generate",

@@ -37,6 +37,7 @@
     "scanConfidence": {"type": "string"},
     "scanWarnings": {"type": ["array", "null"], "items": {"type": "object"}},
     "dynamicTrace": {"type": ["object", "null"]},
-    "includeTrace": {"type": ["array", "null"], "items": {"type": "string"}}
+    "includeTrace": {"type": ["array", "null"], "items": {"type": "string"}},
+    "verification": {"type": ["object", "null"]}
   }
 }

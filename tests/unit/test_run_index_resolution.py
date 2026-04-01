@@ -16,8 +16,9 @@ class RunIndexResolutionTest(unittest.TestCase):
             repo = Path(td)
             run_id = "run_fallback_1"
             run_dir = repo / "tests" / "fixtures" / "project" / "runs" / run_id
-            (run_dir / "pipeline" / "supervisor").mkdir(parents=True, exist_ok=True)
-            write_json(run_dir / "pipeline" / "supervisor" / "meta.json", {"run_id": run_id})
+            # Use new control/state.json path instead of old pipeline/supervisor/meta.json
+            (run_dir / "control").mkdir(parents=True, exist_ok=True)
+            write_json(run_dir / "control" / "state.json", {"run_id": run_id, "status": "RUNNING"})
             with patch("sqlopt.cli._repo_root", return_value=repo):
                 resolved = cli._resolve_run_dir(run_id)
                 self.assertEqual(resolved.resolve(), run_dir.resolve())

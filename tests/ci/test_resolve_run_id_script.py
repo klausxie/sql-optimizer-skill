@@ -46,8 +46,8 @@ class ResolveRunIdScriptTest(unittest.TestCase):
             repo = Path(td)
             run_id = "run_scan_1"
             run_dir = repo / "any" / "runs" / run_id
-            (run_dir / "pipeline" / "supervisor").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "supervisor" / "meta.json").write_text('{"run_id": "run_scan_1"}', encoding="utf-8")
+            (run_dir / "control").mkdir(parents=True, exist_ok=True)
+            (run_dir / "control" / "state.json").write_text('{"run_id": "run_scan_1"}', encoding="utf-8")
             with patch.object(mod, "_repo_root", return_value=repo):
                 rid, resolved = mod.resolve_run_id(run_id, str(repo))
             self.assertEqual(rid, run_id)

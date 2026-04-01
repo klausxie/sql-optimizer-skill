@@ -21,22 +21,24 @@ class ApplyModeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_apply_inplace_") as td:
             run_dir = Path(td)
             project_root = run_dir / "project"
-            patch_dir = run_dir / "pipeline" / "patch_generate"
+            patch_dir = run_dir / "artifacts"
             project_root.mkdir(parents=True, exist_ok=True)
             patch_dir.mkdir(parents=True, exist_ok=True)
             patch_file = patch_dir / "a.patch"
             patch_file.write_text("dummy", encoding="utf-8")
-            (run_dir / "overview").mkdir(parents=True, exist_ok=True)
-            (run_dir / "overview" / "config.resolved.json").write_text(
+            (run_dir / "control").mkdir(parents=True, exist_ok=True)
+            (run_dir / "control" / "plan.json").write_text(
                 json.dumps(
                     {
-                        "project": {"root_path": str(project_root)},
-                        "apply": {"mode": "APPLY_IN_PLACE"},
+                        "resolved_config": {
+                            "project": {"root_path": str(project_root)},
+                            "apply": {"mode": "APPLY_IN_PLACE"},
+                        }
                     }
                 ),
                 encoding="utf-8",
             )
-            (patch_dir / "patch.results.jsonl").write_text(
+            (patch_dir / "patches.jsonl").write_text(
                 json.dumps({"patchFiles": [str(patch_file)]}) + "\n",
                 encoding="utf-8",
             )

@@ -6,69 +6,22 @@ from pathlib import Path
 from .io_utils import ensure_dir
 from .utils import sql_key_path_component
 
-RUN_META_GLOB_SUFFIX = "pipeline/supervisor/meta.json"
-REL_RUN_INDEX_JSON = "run.index.json"
+REL_REPORT_JSON = "report.json"
 
-REL_OVERVIEW_REPORT_JSON = "overview/report.json"
-REL_OVERVIEW_REPORT_MD = "overview/report.md"
-REL_OVERVIEW_REPORT_SUMMARY_MD = "overview/report.summary.md"
-REL_OVERVIEW_CONFIG_RESOLVED = "overview/config.resolved.json"
+REL_CONTROL_DIR = "control"
+REL_CONTROL_STATE = "control/state.json"
+REL_CONTROL_PLAN = "control/plan.json"
+REL_CONTROL_MANIFEST = "control/manifest.jsonl"
 
-REL_PIPELINE_MANIFEST = "pipeline/manifest.jsonl"
-REL_PIPELINE_SCAN_UNITS = "pipeline/scan/sqlunits.jsonl"
-REL_PIPELINE_SCAN_FRAGMENTS = "pipeline/scan/fragments.jsonl"
-REL_PIPELINE_OPTIMIZE_PROPOSALS = "pipeline/optimize/optimization.proposals.jsonl"
-REL_PIPELINE_VALIDATE_ACCEPTANCE = "pipeline/validate/acceptance.results.jsonl"
-REL_PIPELINE_PATCH_RESULTS = "pipeline/patch_generate/patch.results.jsonl"
-REL_PIPELINE_SUPERVISOR_STATE = "pipeline/supervisor/state.json"
-REL_PIPELINE_SUPERVISOR_PLAN = "pipeline/supervisor/plan.json"
-REL_PIPELINE_SUPERVISOR_RESULTS_PREFLIGHT = "pipeline/supervisor/results/preflight.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_SCAN = "pipeline/supervisor/results/scan.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE = "pipeline/supervisor/results/optimize.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE = "pipeline/supervisor/results/validate.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_PATCH = "pipeline/supervisor/results/patch_generate.jsonl"
-REL_PIPELINE_SUPERVISOR_RESULTS_REPORT = "pipeline/supervisor/results/report.jsonl"
-REL_PIPELINE_OPS_TOPOLOGY = "pipeline/ops/topology.json"
-REL_PIPELINE_OPS_PREFLIGHT = "pipeline/ops/preflight.json"
-REL_PIPELINE_OPS_HEALTH = "pipeline/ops/health.json"
-REL_PIPELINE_OPS_FAILURES = "pipeline/ops/failures.jsonl"
-REL_PIPELINE_VERIFICATION_LEDGER = "pipeline/verification/ledger.jsonl"
-REL_PIPELINE_VERIFICATION_SUMMARY = "pipeline/verification/summary.json"
+REL_ARTIFACTS_DIR = "artifacts"
+REL_ARTIFACTS_SCAN = "artifacts/scan.jsonl"
+REL_ARTIFACTS_FRAGMENTS = "artifacts/fragments.jsonl"
+REL_ARTIFACTS_PROPOSALS = "artifacts/proposals.jsonl"
+REL_ARTIFACTS_ACCEPTANCE = "artifacts/acceptance.jsonl"
+REL_ARTIFACTS_PATCHES = "artifacts/patches.jsonl"
 
+REL_SQL_DIR = "sql"
 REL_SQL_CATALOG = "sql/catalog.jsonl"
-REL_DIAGNOSTICS_SQL_OUTCOMES = "diagnostics/sql_outcomes.jsonl"
-REL_DIAGNOSTICS_SQL_ARTIFACTS = "diagnostics/sql_artifacts.jsonl"
-REL_DIAGNOSTICS_BLOCKERS_SUMMARY = "diagnostics/blockers.summary.json"
-
-REPORT_RUN_INDEX_OVERVIEW_GROUP = [
-    REL_OVERVIEW_REPORT_JSON,
-    REL_OVERVIEW_REPORT_MD,
-    REL_OVERVIEW_REPORT_SUMMARY_MD,
-    REL_OVERVIEW_CONFIG_RESOLVED,
-]
-
-REPORT_RUN_INDEX_PIPELINE_GROUP = [
-    REL_PIPELINE_MANIFEST,
-    REL_PIPELINE_SCAN_UNITS,
-    REL_PIPELINE_SCAN_FRAGMENTS,
-    REL_PIPELINE_OPTIMIZE_PROPOSALS,
-    REL_PIPELINE_VALIDATE_ACCEPTANCE,
-    REL_PIPELINE_PATCH_RESULTS,
-    REL_PIPELINE_SUPERVISOR_STATE,
-    REL_PIPELINE_SUPERVISOR_PLAN,
-    REL_PIPELINE_SUPERVISOR_RESULTS_PREFLIGHT,
-    REL_PIPELINE_SUPERVISOR_RESULTS_SCAN,
-    REL_PIPELINE_SUPERVISOR_RESULTS_OPTIMIZE,
-    REL_PIPELINE_SUPERVISOR_RESULTS_VALIDATE,
-    REL_PIPELINE_SUPERVISOR_RESULTS_PATCH,
-    REL_PIPELINE_SUPERVISOR_RESULTS_REPORT,
-    REL_PIPELINE_OPS_TOPOLOGY,
-    REL_PIPELINE_OPS_PREFLIGHT,
-    REL_PIPELINE_OPS_HEALTH,
-    REL_PIPELINE_OPS_FAILURES,
-    REL_PIPELINE_VERIFICATION_LEDGER,
-    REL_PIPELINE_VERIFICATION_SUMMARY,
-]
 
 
 def to_posix_relative(run_dir: Path, path: Path) -> str:
@@ -80,138 +33,90 @@ class RunPaths:
     run_dir: Path
 
     @property
-    def pipeline_dir(self) -> Path:
-        return self.run_dir / "pipeline"
+    def report_json_path(self) -> Path:
+        return self.run_dir / REL_REPORT_JSON
 
     @property
-    def overview_dir(self) -> Path:
-        return self.run_dir / "overview"
-
-    @property
-    def supervisor_dir(self) -> Path:
-        return self.pipeline_dir / "supervisor"
-
-    @property
-    def supervisor_results_dir(self) -> Path:
-        return self.supervisor_dir / "results"
+    def control_dir(self) -> Path:
+        return self.run_dir / REL_CONTROL_DIR
 
     @property
     def state_path(self) -> Path:
-        return self.supervisor_dir / "state.json"
+        return self.run_dir / REL_CONTROL_STATE
 
     @property
     def plan_path(self) -> Path:
-        return self.supervisor_dir / "plan.json"
-
-    @property
-    def meta_path(self) -> Path:
-        return self.supervisor_dir / "meta.json"
+        return self.run_dir / REL_CONTROL_PLAN
 
     @property
     def manifest_path(self) -> Path:
-        return self.pipeline_dir / "manifest.jsonl"
+        return self.run_dir / REL_CONTROL_MANIFEST
+
+    @property
+    def artifacts_dir(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_DIR
 
     @property
     def scan_dir(self) -> Path:
-        return self.pipeline_dir / "scan"
-
-    @property
-    def scan_units_path(self) -> Path:
-        return self.scan_dir / "sqlunits.jsonl"
-
-    @property
-    def scan_fragments_path(self) -> Path:
-        return self.scan_dir / "fragments.jsonl"
+        return self.artifacts_dir
 
     @property
     def optimize_dir(self) -> Path:
-        return self.pipeline_dir / "optimize"
-
-    @property
-    def proposals_path(self) -> Path:
-        return self.optimize_dir / "optimization.proposals.jsonl"
+        return self.artifacts_dir
 
     @property
     def validate_dir(self) -> Path:
-        return self.pipeline_dir / "validate"
-
-    @property
-    def acceptance_path(self) -> Path:
-        return self.validate_dir / "acceptance.results.jsonl"
+        return self.artifacts_dir
 
     @property
     def patch_generate_dir(self) -> Path:
-        return self.pipeline_dir / "patch_generate"
-
-    @property
-    def patches_path(self) -> Path:
-        return self.patch_generate_dir / "patch.results.jsonl"
-
-    @property
-    def patch_files_dir(self) -> Path:
-        return self.patch_generate_dir / "files"
+        return self.artifacts_dir
 
     @property
     def ops_dir(self) -> Path:
-        return self.pipeline_dir / "ops"
+        return self.control_dir
 
     @property
     def preflight_path(self) -> Path:
-        return self.ops_dir / "preflight.json"
+        return self.control_dir / "preflight.json"
 
     @property
-    def topology_path(self) -> Path:
-        return self.ops_dir / "topology.json"
+    def scan_units_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_SCAN
 
     @property
-    def health_path(self) -> Path:
-        return self.ops_dir / "health.json"
+    def scan_fragments_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_FRAGMENTS
 
     @property
-    def failures_path(self) -> Path:
-        return self.ops_dir / "failures.jsonl"
+    def proposals_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_PROPOSALS
 
     @property
-    def verification_dir(self) -> Path:
-        return self.pipeline_dir / "verification"
+    def acceptance_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_ACCEPTANCE
 
     @property
-    def verification_ledger_path(self) -> Path:
-        return self.verification_dir / "ledger.jsonl"
-
-    @property
-    def verification_summary_path(self) -> Path:
-        return self.verification_dir / "summary.json"
-
-    @property
-    def config_resolved_path(self) -> Path:
-        return self.overview_dir / "config.resolved.json"
-
-    @property
-    def report_json_path(self) -> Path:
-        return self.overview_dir / "report.json"
-
-    @property
-    def report_md_path(self) -> Path:
-        return self.overview_dir / "report.md"
-
-    @property
-    def report_summary_md_path(self) -> Path:
-        return self.overview_dir / "report.summary.md"
+    def patches_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_PATCHES
 
     @property
     def sql_dir(self) -> Path:
-        return self.run_dir / "sql"
+        return self.run_dir / REL_SQL_DIR
 
     @property
-    def diagnostics_dir(self) -> Path:
-        return self.run_dir / "diagnostics"
+    def sql_catalog_path(self) -> Path:
+        return self.run_dir / REL_SQL_CATALOG
 
-    def supervisor_result_path(self, phase: str) -> Path:
-        return self.supervisor_results_dir / f"{phase}.jsonl"
+    @property
+    def sql_catalog_dir(self) -> Path:
+        return self.sql_dir
 
     def sql_artifact_dir(self, sql_key: str) -> Path:
         return self.sql_dir / sql_key_path_component(sql_key)
+
+    def sql_index_path(self, sql_key: str) -> Path:
+        return self.sql_artifact_dir(sql_key) / "index.json"
 
     def sql_trace_path(self, sql_key: str) -> Path:
         return self.sql_artifact_dir(sql_key) / "trace.optimize.llm.json"
@@ -222,21 +127,16 @@ class RunPaths:
     def sql_evidence_dir(self, sql_key: str) -> Path:
         return self.sql_artifact_dir(sql_key) / "evidence"
 
+    @property
+    def config_resolved_path(self) -> Path:
+        return self.plan_path
+
+    @property
+    def failures_path(self) -> Path:
+        return self.manifest_path
+
     def ensure_layout(self) -> None:
-        for path in (
-            self.run_dir,
-            self.supervisor_dir,
-            self.supervisor_results_dir,
-            self.scan_dir,
-            self.optimize_dir,
-            self.validate_dir,
-            self.patch_generate_dir,
-            self.ops_dir,
-            self.verification_dir,
-            self.overview_dir,
-            self.sql_dir,
-            self.diagnostics_dir,
-        ):
+        for path in (self.run_dir, self.control_dir, self.artifacts_dir, self.sql_dir):
             ensure_dir(path)
 
 

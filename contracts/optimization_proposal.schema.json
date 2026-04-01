@@ -56,6 +56,7 @@
         "rawRewriteStrategies": {"type": ["array", "null"], "items": {"type": "string"}},
         "finalCandidateCount": {"type": ["integer", "null"]}
       }
-    }
+    },
+    "verification": {"type": ["object", "null"]}
   }
 }

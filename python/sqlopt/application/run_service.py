@@ -38,8 +38,8 @@ def start_run(
     run_dir = runs_root / resolved_run_id
     repository = RunRepository(run_dir)
     if not run_dir.exists():
+        # resolved_config is now stored in plan.json by init_run
         repository.initialize(config, resolved_run_id)
-        repository.write_resolved_config(config)
         log_event(canonical_paths(run_dir).manifest_path, "initialize", "done", {"run_id": resolved_run_id})
     run_index.remember_run(resolved_run_id, run_dir, config_path, runs_root)
     repository.set_meta_status("RUNNING")
@@ -69,10 +69,10 @@ def start_run(
 
 def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
-    paths = canonical_paths(run_dir)
-    config = load_config(paths.config_resolved_path)
     repository = RunRepository(run_dir)
+    # Load resolved config from plan.json instead of overview/config.resolved.json
     plan = repository.get_plan()
+    config = plan.get("resolved_config") or {}
     validator = ContractValidator(repo_root)
     return workflow_engine.advance_one_step_request(
         AdvanceStepRequest(
@@ -87,18 +87,17 @@ def resume_run(run_id: str, *, repo_root: Path) -> dict[str, Any]:
 
 def get_status(run_id: str, *, repo_root: Path) -> dict[str, Any]:
     run_dir = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo_root)
-    paths = canonical_paths(run_dir)
     repository = RunRepository(run_dir)
     state = repository.load_state()
     plan = repository.get_plan()
-    meta = repository.load_meta()
-    config = load_config(paths.config_resolved_path)
+    # Load resolved config from plan.json instead of overview/config.resolved.json
+    config = plan.get("resolved_config") or {}
     return workflow_engine.build_status_snapshot(
         RunStatusRequest(
             run_id=run_id,
             state=state,
             plan=plan,
-            meta=meta,
+            meta=state,  # meta info is now in state.json
             config=config,
         )
     )

@@ -117,12 +117,11 @@ They are part of the proof system.
 
 For staged capabilities, harnesses are expected to inspect and compare artifacts such as:
 
-1. `acceptance.results.jsonl`
-2. `patch.results.jsonl`
-3. `verification/ledger.jsonl`
-4. `verification/summary.json`
-5. `report.json`
-6. diagnostics files under `sql/<sql-key>/...` and `diagnostics/...`
+1. `artifacts/acceptance.jsonl`
+2. `artifacts/patches.jsonl`
+3. embedded verification records inside stage artifacts
+4. `report.json`
+5. per-SQL evidence files under `sql/<sql-key>/...`
 
 ### 3.7 Harnesses Must Be Budgeted And Diagnosable
 
@@ -408,11 +407,10 @@ Any remaining duplicated logic should be treated as a temporary exception and do
 
 Patch harnesses should treat the following as primary comparison surfaces:
 
-1. `pipeline/validate/acceptance.results.jsonl`
-2. `pipeline/patch_generate/patch.results.jsonl`
-3. `pipeline/verification/ledger.jsonl`
-4. `pipeline/verification/summary.json`
-5. `overview/report.json`
+1. `artifacts/acceptance.jsonl`
+2. `artifacts/patches.jsonl`
+3. embedded verification records in `artifacts/acceptance.jsonl` / `artifacts/patches.jsonl`
+4. `report.json`
 
 ### 8.4 Scoped Workflow Must Be A Formal Layer
 

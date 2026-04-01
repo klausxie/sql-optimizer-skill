@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,7 +7,7 @@ from pathlib import Path
 from sqlopt.contracts import ContractValidator
 from sqlopt.verification.models import VerificationCheck, VerificationRecord
 from sqlopt.verification.summary import summarize_records
-from sqlopt.verification.writer import append_verification_record, write_verification_summary
+from sqlopt.verification.writer import append_verification_record, read_verification_ledger, write_verification_summary
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -36,16 +35,12 @@ class VerificationWriterTest(unittest.TestCase):
             payload = append_verification_record(run_dir, validator, record)
             summary = summarize_records("run_demo", [payload], total_sql=1)
             summary_payload = write_verification_summary(run_dir, validator, summary)
-            ledger_path = run_dir / "pipeline" / "verification" / "ledger.jsonl"
-            summary_path = run_dir / "pipeline" / "verification" / "summary.json"
-            self.assertTrue(ledger_path.exists())
-            self.assertTrue(summary_path.exists())
-            ledger_rows = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            ledger_rows = read_verification_ledger(run_dir)
             self.assertEqual(len(ledger_rows), 1)
             self.assertEqual(ledger_rows[0]["phase"], "validate")
             self.assertEqual(summary_payload["partial_count"], 1)
             self.assertEqual(summary_payload["coverage_by_phase"]["validate"]["ratio"], 1.0)
-            self.assertEqual(json.loads(summary_path.read_text(encoding="utf-8"))["run_id"], "run_demo")
+            self.assertEqual(summary_payload["run_id"], "run_demo")
 
     def test_summary_counts_check_level_reason_codes(self) -> None:
         summary = summarize_records(

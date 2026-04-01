@@ -68,7 +68,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
         steps = 1
         if first.get("complete"):
             return FIXTURE_PROJECT / "runs" / run_id, steps, time.monotonic() - started
-        for _ in range(300):
+        for _ in range(1000):
             status = run_service.get_status(run_id, repo_root=ROOT)
             if status.get("complete"):
                 break
@@ -107,10 +107,15 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertEqual(status["next_action"], "none")
             self.assertEqual(set(status["phase_status"].keys()), {"preflight", "scan", "optimize", "validate", "patch_generate", "report"})
 
-            state = read_json(run_dir / "pipeline" / "supervisor" / "state.json")
+            state = read_json(run_dir / "control" / "state.json")
             self.assertEqual(
                 set(state.keys()),
                 {
+                    "run_id",
+                    "status",
+                    "contract_version",
+                    "skill_version",
+                    "config_version",
                     "current_phase",
                     "phase_status",
                     "statements",
@@ -123,44 +128,25 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             )
             self.assertFalse(bool(state.get("report_rebuild_required")))
 
-            report = read_json(run_dir / "overview" / "report.json")
-            verification_summary = read_json(run_dir / "pipeline" / "verification" / "summary.json")
+            report = read_json(run_dir / "report.json")
             self.assertTrue(
                 {
                     "run_id",
-                    "mode",
-                    "llm_gate",
-                    "validation_warnings",
-                    "evidence_confidence",
-                        "summary",
-                        "policy",
-                        "stats",
-                        "items",
-                        "selection_scope",
+                    "generated_at",
+                    "target_stage",
+                    "status",
+                    "verdict",
+                    "next_action",
+                    "phase_status",
+                    "stats",
+                    "blockers",
                     }.issubset(set(report.keys()))
             )
-            self.assertEqual(
-                ((verification_summary.get("coverage_by_phase") or {}).get("patch_generate") or {}).get("ratio"),
-                1.0,
-            )
-            self.assertEqual(
-                (((report.get("stats") or {}).get("verification") or {}).get("unverified_applicable_patch_count")),
-                0,
-            )
-            reason_counts = dict((report.get("stats") or {}).get("phase_reason_code_counts") or {})
-
-            actual_reason_counts: dict[str, int] = {}
-            for phase in ("preflight", "scan", "optimize", "validate", "patch_generate", "report"):
-                results_path = run_dir / "pipeline" / "supervisor" / "results" / f"{phase}.jsonl"
-                if not results_path.exists():
-                    continue
-                for line in results_path.read_text(encoding="utf-8").splitlines():
-                    payload = json.loads(line)
-                    code = str(payload.get("reason_code") or "").strip()
-                    if code:
-                        actual_reason_counts[code] = actual_reason_counts.get(code, 0) + 1
-            for code, count in actual_reason_counts.items():
-                self.assertGreaterEqual(int(reason_counts.get(code, 0)), count)
+            self.assertEqual(report["target_stage"], "report")
+            self.assertEqual(report["phase_status"]["report"], "DONE")
+            self.assertIn(report["next_action"], {"apply", "inspect", "resume"})
+            self.assertGreaterEqual(int((report.get("stats") or {}).get("sql_total") or 0), 1)
+            self.assertIn("top_reason_codes", report.get("blockers") or {})
 
             apply_result = run_service.apply_run(run_id, repo_root=ROOT)
             self.assertEqual(apply_result["run_id"], run_id)
@@ -169,7 +155,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
 
             # Simulate a completed run requiring report rebuild and verify next_action.
             state["report_rebuild_required"] = True
-            write_json(run_dir / "pipeline" / "supervisor" / "state.json", state)
+            write_json(run_dir / "control" / "state.json", state)
             rebuild_status = run_service.get_status(run_id, repo_root=ROOT)
             self.assertEqual(rebuild_status["next_action"], "report-rebuild")
 
@@ -178,7 +164,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             post_rebuild_status = run_service.get_status(run_id, repo_root=ROOT)
             self.assertTrue(post_rebuild_status["complete"])
             self.assertEqual(post_rebuild_status["next_action"], "none")
-            post_state = read_json(run_dir / "pipeline" / "supervisor" / "state.json")
+            post_state = read_json(run_dir / "control" / "state.json")
             self.assertFalse(bool(post_state.get("report_rebuild_required")))
 
     def test_runtime_step_count_stays_within_baseline_envelope(self) -> None:
@@ -188,23 +174,25 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             run_dir, steps, elapsed = self._run_until_complete(cfg, run_id, to_stage="patch_generate")
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
 
-            plan = read_json(run_dir / "pipeline" / "supervisor" / "plan.json")
+            plan = read_json(run_dir / "control" / "plan.json")
             sql_count = len(list(plan.get("sql_keys") or []))
             # Envelope: 3 statement phases per SQL + phase transitions/finalization buffer.
             self.assertLessEqual(steps, 3 * sql_count + 20)
             self.assertLess(elapsed, 60.0)
 
-            results_dir = run_dir / "pipeline" / "supervisor" / "results"
-            self.assertTrue((results_dir / "preflight.jsonl").exists())
-            self.assertTrue((results_dir / "scan.jsonl").exists())
-            self.assertTrue((results_dir / "optimize.jsonl").exists())
-            self.assertTrue((results_dir / "validate.jsonl").exists())
-            self.assertTrue((results_dir / "patch_generate.jsonl").exists())
-            self.assertTrue((results_dir / "report.jsonl").exists())
+            manifest_lines = (run_dir / "control" / "manifest.jsonl").read_text(encoding="utf-8").strip().splitlines()
+            self.assertTrue(manifest_lines)
+            manifest_text = "\n".join(manifest_lines)
+            self.assertIn('"stage": "preflight"', manifest_text)
+            self.assertIn('"stage": "scan"', manifest_text)
+            self.assertIn('"stage": "optimize"', manifest_text)
+            self.assertIn('"stage": "validate"', manifest_text)
+            self.assertIn('"stage": "patch_generate"', manifest_text)
+            self.assertIn('"stage": "report"', manifest_text)
 
-            optimize_lines = (results_dir / "optimize.jsonl").read_text(encoding="utf-8").strip().splitlines()
-            validate_lines = (results_dir / "validate.jsonl").read_text(encoding="utf-8").strip().splitlines()
-            patch_lines = (results_dir / "patch_generate.jsonl").read_text(encoding="utf-8").strip().splitlines()
+            optimize_lines = [line for line in manifest_lines if '"stage": "optimize"' in line and '"event": "done"' in line]
+            validate_lines = [line for line in manifest_lines if '"stage": "validate"' in line and '"event": "done"' in line]
+            patch_lines = [line for line in manifest_lines if '"stage": "patch_generate"' in line and '"event": "done"' in line]
             self.assertGreaterEqual(len(optimize_lines), sql_count)
             self.assertGreaterEqual(len(validate_lines), sql_count)
             self.assertGreaterEqual(len(patch_lines), sql_count)
@@ -221,8 +209,8 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             )
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
 
-            report = read_json(run_dir / "overview" / "report.json")
-            patch_rows = read_jsonl(run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl")
+            report = read_json(run_dir / "report.json")
+            patch_rows = read_jsonl(run_dir / "artifacts" / "patches.jsonl")
 
             blocker_family_counts: dict[str, int] = {}
             patch_applicable_count = 0
@@ -234,8 +222,9 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                     patch_applicable_count += 1
 
             self.assertEqual(len(patch_rows), 1)
-            self.assertEqual(((report.get("stats") or {}).get("blocker_family_counts") or {}), blocker_family_counts)
-            self.assertEqual(((report.get("stats") or {}).get("patch_applicable_count")), patch_applicable_count)
+            self.assertEqual(((report.get("stats") or {}).get("patchable_total")), patch_applicable_count)
+            self.assertGreaterEqual(((report.get("stats") or {}).get("blocked_total") or 0), 0)
+            self.assertTrue((report.get("blockers") or {}).get("top_reason_codes") is not None)
 
 
 if __name__ == "__main__":

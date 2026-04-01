@@ -16,23 +16,31 @@ def get_run_paths(run_dir: Path) -> RunPaths:
 
 
 def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
+    """Initialize a new run with the new minimal layout.
+
+    Layout:
+        runs/<run-id>/
+        ├── report.json (created later by report stage)
+        ├── control/
+        │   ├── state.json (replaces both meta.json and state.json)
+        │   ├── plan.json
+        │   └── manifest.jsonl
+        ├── artifacts/
+        └── sql/
+    """
     p = get_run_paths(run_dir)
     p.ensure_layout()
 
+    # Write state.json - combines former meta.json + state.json
+    # This is the single source of truth for run identity and current state
     write_json(
-        p.supervisor_dir / "meta.json",
+        p.state_path,
         {
             "run_id": run_id,
             "status": "RUNNING",
             "contract_version": CONTRACT_VERSION,
             "skill_version": SKILL_VERSION,
             "config_version": config.get("config_version", "v1"),
-        },
-    )
-    write_json(p.supervisor_dir / "plan.json", {"phases": PHASES, "to_stage": "patch_generate", "sql_keys": []})
-    write_json(
-        p.supervisor_dir / "state.json",
-        {
             "current_phase": "preflight",
             "phase_status": {k: "PENDING" for k in PHASES},
             "statements": {},
@@ -44,36 +52,86 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
         },
     )
 
+    # Write plan.json - stores the run plan and resolved config
+    write_json(
+        p.plan_path,
+        {
+            "phases": PHASES,
+            "to_stage": "patch_generate",
+            "sql_keys": [],
+            "resolved_config": config,  # Store resolved config in plan.json
+        },
+    )
+
 
 def load_state(run_dir: Path) -> dict[str, Any]:
+    """Load the run state from control/state.json."""
     return read_json(get_run_paths(run_dir).state_path)
 
 
 def save_state(run_dir: Path, state: dict[str, Any]) -> None:
+    """Save the run state to control/state.json."""
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
     write_json(get_run_paths(run_dir).state_path, state)
 
 
 def set_plan(run_dir: Path, plan: dict[str, Any]) -> None:
+    """Save the run plan to control/plan.json."""
     write_json(get_run_paths(run_dir).plan_path, plan)
 
 
 def get_plan(run_dir: Path) -> dict[str, Any]:
+    """Load the run plan from control/plan.json."""
     return read_json(get_run_paths(run_dir).plan_path)
 
 
 def load_meta(run_dir: Path) -> dict[str, Any]:
-    return read_json(get_run_paths(run_dir).meta_path)
+    """Load meta information from state.json.
+
+    This function is kept for backward compatibility.
+    The meta info is now stored in state.json.
+    """
+    return load_state(run_dir)
 
 
 def save_meta(run_dir: Path, meta: dict[str, Any]) -> None:
-    write_json(get_run_paths(run_dir).meta_path, meta)
+    """Save meta information to state.json.
+
+    This function is kept for backward compatibility.
+    """
+    save_state(run_dir, meta)
 
 
 def set_meta_status(run_dir: Path, status: str) -> None:
-    meta = load_meta(run_dir)
-    meta["status"] = status
-    meta["updated_at"] = datetime.now(timezone.utc).isoformat()
-    save_meta(run_dir, meta)
+    """Update the run status in state.json."""
+    state = load_state(run_dir)
+    state["status"] = status
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+    save_state(run_dir, state)
+
+
+def append_manifest_event(
+    run_dir: Path,
+    stage: str,
+    event: str,
+    *,
+    sql_key: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Append an event to the manifest.jsonl in control/.
+
+    This replaces the per-phase supervisor results files.
+    """
+    append_jsonl(
+        get_run_paths(run_dir).manifest_path,
+        {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "stage": stage,
+            "event": event,
+            "sql_key": sql_key,
+            "payload": payload or {},
+        },
+    )
 
 
 def append_step_result(
@@ -86,15 +144,21 @@ def append_step_result(
     artifact_refs: list[str] | None = None,
     detail: dict[str, Any] | None = None,
 ) -> None:
-    append_jsonl(
-        get_run_paths(run_dir).supervisor_result_path(phase),
-        {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "phase": phase,
+    """Compatibility wrapper for legacy step-result callers.
+
+    Older callers record phase/status style events with optional detail fields.
+    The minimal layout stores these in control/manifest.jsonl as a generic event
+    row whose payload carries the legacy metadata.
+    """
+    append_manifest_event(
+        run_dir,
+        phase,
+        str(status or "").strip().lower() or "unknown",
+        sql_key=sql_key,
+        payload={
             "status": status,
-            "sql_key": sql_key,
             "reason_code": reason_code,
-            "artifact_refs": artifact_refs or [],
-            "detail": detail or {},
+            "artifact_refs": list(artifact_refs or []),
+            "detail": dict(detail or {}),
         },
     )

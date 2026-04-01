@@ -19,17 +19,16 @@
 4. 分步执行是为了保证每个步骤可控可追踪，支持中断恢复。
 5. `report` 是唯一允许重生（regenerate）的阶段；其余已完成阶段默认跳过，不重复执行。
 
-## 3. 监督状态文件（Supervisor）
+## 3. 控制面状态文件（Control）
 运行时必须维护：
-1. `runs/<run-id>/pipeline/supervisor/meta.json`
-2. `runs/<run-id>/pipeline/supervisor/plan.json`
-3. `runs/<run-id>/pipeline/supervisor/state.json`
-4. `runs/<run-id>/pipeline/supervisor/results/*.jsonl`
+1. `runs/<run-id>/control/plan.json`
+2. `runs/<run-id>/control/state.json`
+3. `runs/<run-id>/control/manifest.jsonl`
 
 要求：
 1. `plan` 固化 statement 列表与顺序。
 2. `state` 记录每个 statement 在每个 phase 的状态、重试、错误摘要。
-3. `results` 记录每一步的结构化结果（`scan/optimize/validate/patch_generate/report`），供 `status/diagnose/report` 消费，且与 `pipeline/manifest.jsonl` 事件可交叉追踪。
+3. `manifest` 记录每一步的结构化事件（`preflight/scan/optimize/validate/patch_generate/report`），供 `status/diagnose/report` 消费。
 4. `state.report_rebuild_required=true` 表示主流程已完成，但 `report` 派生产物需要重建。
 
 ## 4. Phase 状态约定

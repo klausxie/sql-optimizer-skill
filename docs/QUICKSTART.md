@@ -76,17 +76,18 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-sta
 
 ```bash
 PYTHONPATH=python python3 scripts/sqlopt_cli.py status --run-id <run-id>
-cat runs/<run-id>/overview/report.summary.md
-cat runs/<run-id>/overview/report.md
+cat runs/<run-id>/report.json
+cat runs/<run-id>/sql/catalog.jsonl
 PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 ```
 
 重点产物：
-- `runs/<run-id>/pipeline/supervisor/state.json`
-- `runs/<run-id>/overview/report.json`
-- `runs/<run-id>/overview/report.summary.md`（摘要）
-- `runs/<run-id>/overview/report.md`（详细版）
-- `runs/<run-id>/pipeline/patch_generate/patch.results.jsonl`
+- `runs/<run-id>/control/state.json`
+- `runs/<run-id>/control/plan.json`
+- `runs/<run-id>/control/manifest.jsonl`
+- `runs/<run-id>/report.json`
+- `runs/<run-id>/artifacts/patches.jsonl`
+- `runs/<run-id>/sql/catalog.jsonl`
 
 ## 6. 常见分支
 

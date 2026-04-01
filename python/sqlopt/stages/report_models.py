@@ -56,122 +56,53 @@ class FailureRecord:
 
 
 @dataclass(frozen=True)
-class RunReportSummary:
-    generated_at: str
-    verdict: str
-    release_readiness: str
-    top_blockers: list[dict[str, Any]]
-    next_actions: list[dict[str, Any]]
-    prioritized_sql_keys: list[dict[str, Any]]
-
-    def to_contract(self) -> dict[str, Any]:
-        return {
-            "generated_at": self.generated_at,
-            "verdict": self.verdict,
-            "release_readiness": self.release_readiness,
-            "top_blockers": self.top_blockers,
-            "next_actions": self.next_actions,
-            "prioritized_sql_keys": self.prioritized_sql_keys,
-        }
-
-
-@dataclass(frozen=True)
-class RunReportItems:
-    units: list[dict[str, Any]]
-    proposals: list[dict[str, Any]]
-    acceptance: list[dict[str, Any]]
-    patches: list[dict[str, Any]]
-
-    def to_contract(self) -> dict[str, Any]:
-        return {
-            "units": self.units,
-            "proposals": self.proposals,
-            "acceptance": self.acceptance,
-            "patches": self.patches,
-        }
-
-
-@dataclass(frozen=True)
 class RunReportDocument:
     run_id: str
-    mode: str
-    llm_gate: dict[str, Any] | None
-    selection_scope: dict[str, Any] | None
-    policy: dict[str, Any]
+    generated_at: str
+    target_stage: str
+    status: str
+    verdict: str
+    next_action: str
+    phase_status: dict[str, Any]
     stats: dict[str, Any]
-    items: RunReportItems
-    summary: RunReportSummary
-    contract_version: str
+    top_blockers: list[dict[str, Any]]
+    selection_scope: dict[str, Any] | None = None
     validation_warnings: list[str] | None = None
     evidence_confidence: str | None = None
 
     def to_contract(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
-            "mode": self.mode,
-            "llm_gate": self.llm_gate,
-            "selection_scope": self.selection_scope,
-            "validation_warnings": self.validation_warnings,
-            "evidence_confidence": self.evidence_confidence,
-            "policy": self.policy,
-            "stats": self.stats,
-            "items": self.items.to_contract(),
-            "summary": self.summary.to_contract(),
-            "contract_version": self.contract_version,
-        }
-
-
-@dataclass(frozen=True)
-class OpsTopologyDocument:
-    run_id: str
-    executor: str
-    subagents: dict[str, Any]
-    llm_mode: str
-    llm_gate: dict[str, Any] | None
-    runtime_policy: dict[str, Any]
-
-    def to_contract(self) -> dict[str, Any]:
-        return {
-            "run_id": self.run_id,
-            "executor": self.executor,
-            "subagents": self.subagents,
-            "llm_mode": self.llm_mode,
-            "llm_gate": self.llm_gate,
-            "runtime_policy": self.runtime_policy,
-        }
-
-
-@dataclass(frozen=True)
-class OpsHealthDocument:
-    run_id: str
-    mode: str
-    generated_at: str
-    status: str
-    failure_count: int
-    fatal_failure_count: int
-    retryable_failure_count: int
-    degradable_count: int
-    report_json: str
-
-    def to_contract(self) -> dict[str, Any]:
-        return {
-            "run_id": self.run_id,
-            "mode": self.mode,
             "generated_at": self.generated_at,
+            "target_stage": self.target_stage,
             "status": self.status,
-            "failure_count": self.failure_count,
-            "fatal_failure_count": self.fatal_failure_count,
-            "retryable_failure_count": self.retryable_failure_count,
-            "degradable_count": self.degradable_count,
-            "report_json": self.report_json,
+            "verdict": self.verdict,
+            "next_action": self.next_action,
+            "phase_status": self.phase_status,
+            "stats": {
+                "sql_total": int(self.stats.get("sql_units") or 0),
+                "proposal_total": int(self.stats.get("proposals") or 0),
+                "accepted_total": int(self.stats.get("acceptance_pass") or 0),
+                "patchable_total": int(self.stats.get("patch_applicable_count") or 0),
+                "patched_total": int(self.stats.get("patch_files") or 0),
+                "blocked_total": int(self.stats.get("blocked_sql_count") or 0),
+            },
+            "blockers": {
+                "top_reason_codes": [
+                    {
+                        "code": str(row.get("code") or ""),
+                        "count": int(row.get("count") or 0),
+                    }
+                    for row in self.top_blockers
+                    if str(row.get("code") or "").strip()
+                ]
+            },
         }
 
 
 @dataclass(frozen=True)
 class ReportArtifacts:
     report: RunReportDocument
-    topology: OpsTopologyDocument
-    health: OpsHealthDocument
     failures: list[FailureRecord]
     state: ReportStateSnapshot
     next_actions: list[dict[str, Any]]
@@ -180,9 +111,9 @@ class ReportArtifacts:
     proposal_rows: list[dict[str, Any]]
     diagnostics_sql_outcomes: list[dict[str, Any]] = field(default_factory=list)
     diagnostics_sql_artifacts: list[dict[str, Any]] = field(default_factory=list)
-    diagnostics_blockers_summary: dict[str, Any] = field(default_factory=dict)
-    run_index: dict[str, Any] = field(default_factory=dict)
     verification_summary: dict[str, Any] = field(default_factory=dict)
+    validation_warnings: list[str] | None = None
+    evidence_confidence: str | None = None
 
     def failures_to_contract(self) -> list[dict[str, Any]]:
         return [row.to_contract() for row in self.failures]

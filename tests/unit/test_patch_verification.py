@@ -10,15 +10,13 @@ from unittest.mock import patch as mock_patch
 from sqlopt.contracts import ContractValidator
 from sqlopt.patch_families.registry import lookup_patch_family_spec
 from sqlopt.stages.patch_verification import append_patch_verification
+from sqlopt.verification.writer import read_verification_ledger
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def _read_ledger(run_dir: Path) -> list[dict]:
-    ledger = run_dir / "pipeline" / "verification" / "ledger.jsonl"
-    if not ledger.exists():
-        return []
-    return [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return read_verification_ledger(run_dir)
 
 
 class PatchVerificationTest(unittest.TestCase):
@@ -555,8 +553,9 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "VERIFIED")
         sql_check = next(check for check in rows[0]["checks"] if check["name"] == "sql_parse_ok")
         self.assertEqual(sql_check["severity"], "info")
-        self.assertIsNone(rows[0]["inputs"]["sql_parse_ok"])
-        self.assertIsNone(rows[0]["verdict"]["sql_parse_ok"])
+        # None values are now removed from compact output
+        self.assertIsNone(rows[0]["inputs"].get("sql_parse_ok"))
+        self.assertIsNone(rows[0]["verdict"].get("sql_parse_ok"))
 
     def test_patch_verification_marks_missing_required_sql_parse_evidence_unverified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_missing_required_sql_parse_") as td:
@@ -595,8 +594,9 @@ class PatchVerificationTest(unittest.TestCase):
         self.assertEqual(rows[0]["reason_code"], "PATCH_DECISION_EVIDENCE_INCOMPLETE")
         sql_check = next(check for check in rows[0]["checks"] if check["name"] == "sql_parse_ok")
         self.assertEqual(sql_check["reason_code"], "PATCH_DECISION_EVIDENCE_INCOMPLETE")
-        self.assertIsNone(rows[0]["inputs"]["sql_parse_ok"])
-        self.assertIsNone(rows[0]["verdict"]["sql_parse_ok"])
+        # None values are now removed from compact output
+        self.assertIsNone(rows[0]["inputs"].get("sql_parse_ok"))
+        self.assertIsNone(rows[0]["verdict"].get("sql_parse_ok"))
 
     def test_patch_verification_marks_missing_registered_family_unverified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_verification_missing_family_") as td:

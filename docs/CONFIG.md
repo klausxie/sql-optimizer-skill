@@ -148,25 +148,17 @@ report:
 
 分层主路径（canonical）：
 
-1. `run.index.json`（目录索引）
-2. `overview/report.json`
-3. `overview/report.md`
-4. `overview/report.summary.md`
-5. `overview/config.resolved.json`
-6. `pipeline/manifest.jsonl`
-7. `pipeline/scan/sqlunits.jsonl`
-8. `pipeline/scan/fragments.jsonl`
-9. `pipeline/optimize/optimization.proposals.jsonl`
-10. `pipeline/validate/acceptance.results.jsonl`
-11. `pipeline/patch_generate/patch.results.jsonl`
-12. `pipeline/supervisor/*`
-13. `pipeline/ops/*`
-14. `pipeline/verification/*`
-15. `sql/catalog.jsonl`
-16. `sql/<sql-key>/index.json`
-17. `diagnostics/sql_outcomes.jsonl`
-18. `diagnostics/sql_artifacts.jsonl`
-19. `diagnostics/blockers.summary.json`
+1. `report.json`
+2. `control/state.json`
+3. `control/plan.json`
+4. `control/manifest.jsonl`
+5. `artifacts/scan.jsonl`
+6. `artifacts/fragments.jsonl`
+7. `artifacts/proposals.jsonl`
+8. `artifacts/acceptance.jsonl`
+9. `artifacts/patches.jsonl`
+10. `sql/catalog.jsonl`
+11. `sql/<sql-key>/index.json`
 
 兼容策略：
 

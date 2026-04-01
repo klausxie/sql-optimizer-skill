@@ -4,7 +4,7 @@
 当前实现按三层组织：
 1. `orchestrator`：命令入口、阶段编排、状态推进、超时与重试。
 2. `stage core`：`scan / optimize / validate / patch_generate / report` 领域逻辑。
-3. `contracts & artifacts`：schema 校验、运行产物落盘、报告与 ops 诊断。
+3. `contracts & artifacts`：schema 校验、运行产物落盘、摘要与 SQL 索引。
 
 稳定约束：
 1. 阶段之间通过运行目录产物衔接，不直接绕过 orchestrator 互调。
@@ -15,8 +15,8 @@
 
 ### 2.1 `scan`
 Current:
-1. 输出 `pipeline/scan/sqlunits.jsonl`。
-2. 默认额外输出 `pipeline/scan/fragments.jsonl`（内部默认开启）。
+1. 输出 `artifacts/scan.jsonl`。
+2. 默认额外输出 `artifacts/fragments.jsonl`（内部默认开启）。
 3. 对动态 MyBatis mapper statement 同时保留两种视图：
    - `templateSql`：模板视图，保留 `<foreach> / <include>` 等标签
    - `sql`：逻辑分析视图，可用于 optimize / validate
@@ -29,7 +29,7 @@ Default:
 ### 2.2 `optimize`
 Current:
 1. 输入 `SqlUnit[]`
-2. 输出 `pipeline/optimize/optimization.proposals.jsonl`
+2. 输出 `artifacts/proposals.jsonl`
 3. prompt 会看到 `sql`、`templateSql`、`dynamicFeatures`
 4. optimize 只生成分析候选，不直接生成 XML patch
 5. optimize 之后会先经过候选治理层：
@@ -43,7 +43,7 @@ Current:
 ### 2.3 `validate`
 Current:
 1. 输入 `SqlUnit[] + OptimizationProposal[]`
-2. 输出 `pipeline/validate/acceptance.results.jsonl`
+2. 输出 `artifacts/acceptance.jsonl`
 3. 除语义 / 性能 / 安全判断外，还会输出补丁规划摘要：
    - `patchability`
    - `selectedPatchStrategy`
@@ -115,17 +115,14 @@ Current template paths:
 
 ### 2.5 `report`
 Current:
-1. 输出 `overview/report.md`、`overview/report.summary.md`、`overview/report.json`
+1. 输出顶层 `report.json`
 2. 报告会聚合：
    - phase 状态
    - acceptance / patch 统计
-   - materialization mode / reason / grouped action 统计
-   - patch strategy 分布
-   - canonical rule 命中与采用统计
-3. 即使上游失败，也会尽量收口 report
-4. 当前还会聚合动态模板摘要：
-   - `dynamic_baseline_family_counts`
-   - `dynamic_delivery_class_counts`
+   - top blockers
+   - 下一步动作摘要
+3. 同时输出 `sql/catalog.jsonl` 与 `sql/<sql-key>/index.json`
+4. 即使上游失败，也会尽量收口 report
 
 ## 3. SQL 视图约束
 1. `templateSql`

@@ -12,18 +12,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReportTopologySchemaCompatTest(unittest.TestCase):
-    def test_topology_runtime_policy_excludes_preflight_key(self) -> None:
+    def test_report_contract_stays_minimal_and_excludes_runtime_policy(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_report_topology_") as td:
             run_dir = Path(td)
-            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "optimize").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "validate").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "patch_generate").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "ops").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan" / "sqlunits.jsonl").write_text("", encoding="utf-8")
-            (run_dir / "pipeline" / "optimize" / "optimization.proposals.jsonl").write_text("", encoding="utf-8")
-            (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").write_text("", encoding="utf-8")
-            (run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+            (run_dir / "control").mkdir(parents=True, exist_ok=True)
+            (run_dir / "artifacts" / "scan.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "artifacts" / "proposals.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "artifacts" / "acceptance.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "artifacts" / "patches.jsonl").write_text("", encoding="utf-8")
+            (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             config = {
                 "policy": {
                     "require_perf_improvement": False,
@@ -39,14 +37,22 @@ class ReportTopologySchemaCompatTest(unittest.TestCase):
                 "llm": {"enabled": False},
             }
             validator = ContractValidator(ROOT)
-            report_stage.generate("rpt_topology", "analyze", config, run_dir, validator)
-            topology = json.loads((run_dir / "pipeline" / "ops" / "topology.json").read_text(encoding="utf-8"))
-            timeout_keys = set((topology.get("runtime_policy") or {}).get("stage_timeout_ms", {}).keys())
-            retry_keys = set((topology.get("runtime_policy") or {}).get("stage_retry_max", {}).keys())
-            self.assertNotIn("preflight", timeout_keys)
-            self.assertNotIn("preflight", retry_keys)
-            self.assertEqual(timeout_keys, {"scan", "optimize", "validate", "apply", "report"})
-            self.assertEqual(retry_keys, {"scan", "optimize", "validate", "apply", "report"})
+            report = report_stage.generate("rpt_topology", "analyze", config, run_dir, validator)
+            self.assertEqual(
+                set(report.keys()),
+                {
+                    "run_id",
+                    "generated_at",
+                    "target_stage",
+                    "status",
+                    "verdict",
+                    "next_action",
+                    "phase_status",
+                    "stats",
+                    "blockers",
+                },
+            )
+            self.assertNotIn("runtime_policy", json.dumps(report, ensure_ascii=False))
 
 
 if __name__ == "__main__":

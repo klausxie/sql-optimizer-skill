@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from ..io_utils import read_json
-from ..run_paths import RUN_META_GLOB_SUFFIX
+
+
+# New run state glob suffix - replaces the old RUN_META_GLOB_SUFFIX
+_RUN_STATE_GLOB_SUFFIX = "control/state.json"
 
 
 def _parse_ts(value: Any) -> float:
@@ -74,21 +77,21 @@ def _scan_runs(repo_root: Path, project: Path | None, run_id: str | None) -> tup
     metas: list[Path] = []
     if run_id:
         for root in roots:
-            metas.extend(root.glob(f"**/runs/{run_id}/{RUN_META_GLOB_SUFFIX}"))
+            metas.extend(root.glob(f"**/runs/{run_id}/{_RUN_STATE_GLOB_SUFFIX}"))
         for meta in metas:
-            run_dir = meta.parent.parent.parent
+            run_dir = meta.parent.parent
             if run_dir.exists():
                 return run_id, run_dir
         return None, None
 
     for root in roots:
-        metas.extend(root.glob(f"**/runs/*/{RUN_META_GLOB_SUFFIX}"))
+        metas.extend(root.glob(f"**/runs/*/{_RUN_STATE_GLOB_SUFFIX}"))
     metas = [m for m in metas if m.exists()]
     if not metas:
         return None, None
     metas.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     best = metas[0]
-    run_dir = best.parent.parent.parent
+    run_dir = best.parent.parent
     rid = run_dir.name
     return rid, run_dir
 

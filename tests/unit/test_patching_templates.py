@@ -66,8 +66,8 @@ class PatchingTemplatesTest(unittest.TestCase):
             start = mapper.read_text(encoding="utf-8").index(fragment_body)
             end = start + len(fragment_body)
             fragment_key = f"{mapper.resolve()}::demo.user.BaseWhere"
-            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
+            (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+            (run_dir / "artifacts" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": fragment_key,
@@ -152,8 +152,8 @@ class PatchingTemplatesTest(unittest.TestCase):
             start = mapper.read_text(encoding="utf-8").index(fragment_body)
             end = start + len(fragment_body)
             fragment_key = f"{mapper.resolve()}::demo.user.BaseWhere"
-            (run_dir / "pipeline" / "scan").mkdir(parents=True, exist_ok=True)
-            (run_dir / "pipeline" / "scan" / "fragments.jsonl").write_text(
+            (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+            (run_dir / "artifacts" / "fragments.jsonl").write_text(
                 json.dumps(
                     {
                         "fragmentKey": fragment_key,

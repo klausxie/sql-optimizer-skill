@@ -2,193 +2,62 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "RunReport",
   "type": "object",
-  "required": ["run_id", "mode", "policy", "stats", "items"],
+  "required": [
+    "run_id",
+    "generated_at",
+    "target_stage",
+    "status",
+    "verdict",
+    "next_action",
+    "phase_status",
+    "stats",
+    "blockers"
+  ],
   "properties": {
     "run_id": {"type": "string"},
-    "mode": {"type": "string"},
-    "llm_gate": {"type": ["object", "null"]},
-    "selection_scope": {
-      "type": ["object", "null"],
-      "properties": {
-        "present": {"type": ["boolean", "null"]},
-        "mapper_paths": {"type": ["array", "null"], "items": {"type": "string"}},
-        "sql_keys": {"type": ["array", "null"], "items": {"type": "string"}},
-        "scanned_count": {"type": ["integer", "null"]},
-        "selected_count": {"type": ["integer", "null"]}
-      }
-    },
-    "validation_warnings": {"type": ["array", "null"], "items": {"type": "string"}},
-    "evidence_confidence": {"type": ["string", "null"]},
-    "summary": {
-      "type": ["object", "null"],
-      "properties": {
-        "verdict": {"type": ["string", "null"]},
-        "release_readiness": {"type": ["string", "null"]},
-        "generated_at": {"type": ["string", "null"]},
-        "top_blockers": {
-          "type": ["array", "null"],
-          "items": {
-            "type": "object",
-            "properties": {
-              "code": {"type": ["string", "null"]},
-              "count": {"type": ["integer", "null"]},
-              "ratio": {"type": ["number", "null"]},
-              "severity": {"type": ["string", "null"]},
-              "sql_keys": {"type": ["array", "null"], "items": {"type": "string"}}
-            }
-          }
-        },
-        "next_actions": {
-          "type": ["array", "null"],
-          "items": {
-            "type": "object",
-            "properties": {
-              "action_id": {"type": ["string", "null"]},
-              "title": {"type": ["string", "null"]},
-              "reason": {"type": ["string", "null"]},
-              "applicability": {"type": ["string", "null"]},
-              "expected_outcome": {"type": ["string", "null"]},
-              "blocker_codes": {"type": ["array", "null"], "items": {"type": "string"}},
-              "sql_keys": {"type": ["array", "null"], "items": {"type": "string"}},
-              "commands": {"type": ["array", "null"], "items": {"type": "string"}},
-              "config_hints": {"type": ["array", "null"], "items": {"type": "string"}}
-            }
-          }
-        },
-        "prioritized_sql_keys": {
-          "type": ["array", "null"],
-          "items": {
-            "type": "object",
-            "properties": {
-              "sql_key": {"type": ["string", "null"]},
-              "priority": {"type": ["string", "null"]},
-              "score": {"type": ["integer", "null"]},
-              "blocker_codes": {"type": ["array", "null"], "items": {"type": "string"}}
-            }
-          }
-        }
-      }
-    },
-    "policy": {
+    "generated_at": {"type": "string"},
+    "target_stage": {"type": "string"},
+    "status": {"type": "string"},
+    "verdict": {"type": "string"},
+    "next_action": {"type": "string"},
+    "phase_status": {
       "type": "object",
-      "required": [
-        "require_perf_improvement",
-        "cost_threshold_pct",
-        "allow_seq_scan_if_rows_below",
-        "semantic_strict_mode"
-      ],
-      "properties": {
-        "require_perf_improvement": {"type": "boolean"},
-        "cost_threshold_pct": {"type": "number"},
-        "allow_seq_scan_if_rows_below": {"type": "integer"},
-        "semantic_strict_mode": {"type": "boolean"}
-      }
+      "additionalProperties": {"type": ["string", "null"]}
     },
     "stats": {
       "type": "object",
+      "required": [
+        "sql_total",
+        "proposal_total",
+        "accepted_total",
+        "patchable_total",
+        "patched_total",
+        "blocked_total"
+      ],
       "properties": {
-        "sql_units": {"type": ["integer", "null"]},
-        "proposals": {"type": ["integer", "null"]},
-        "acceptance_pass": {"type": ["integer", "null"]},
-        "acceptance_fail": {"type": ["integer", "null"]},
-        "acceptance_need_more_params": {"type": ["integer", "null"]},
-        "semantic_pass_count": {"type": ["integer", "null"]},
-        "semantic_mismatch_count": {"type": ["integer", "null"]},
-        "semantic_gate_pass_count": {"type": ["integer", "null"]},
-        "semantic_gate_fail_count": {"type": ["integer", "null"]},
-        "semantic_gate_uncertain_count": {"type": ["integer", "null"]},
-        "semantic_gate_reason_counts": {"type": ["object", "null"]},
-        "semantic_confidence_distribution": {"type": ["object", "null"]},
-        "semantic_evidence_level_distribution": {"type": ["object", "null"]},
-        "semantic_hard_conflict_top_codes": {"type": ["object", "null"]},
-        "confidence_upgraded_count": {"type": ["integer", "null"]},
-        "confidence_upgrade_rate": {"type": ["number", "null"]},
-        "confidence_upgrade_by_evidence_source": {"type": ["object", "null"]},
-        "perf_checked_count": {"type": ["integer", "null"]},
-        "patch_candidates_total": {"type": ["integer", "null"]},
-        "patch_candidates_rejected": {"type": ["integer", "null"]},
-        "perf_improved_count": {"type": ["integer", "null"]},
-        "patch_files": {"type": ["integer", "null"]},
-        "llm_candidates_generated": {"type": ["integer", "null"]},
-        "llm_candidates_accepted": {"type": ["integer", "null"]},
-        "llm_candidates_rejected": {"type": ["integer", "null"]},
-        "llm_shadow_agreement_count": {"type": ["integer", "null"]},
-        "llm_conflict_agreement_count": {"type": ["integer", "null"]},
-        "llm_conflict_same_strategy_different_sql_count": {"type": ["integer", "null"]},
-        "llm_conflict_strategy_divergence_count": {"type": ["integer", "null"]},
-        "llm_fallback_count": {"type": ["integer", "null"]},
-        "llm_timeout_count": {"type": ["integer", "null"]},
-        "preflight_failure_count": {"type": ["integer", "null"]},
-        "phase_reason_code_counts": {"type": ["object", "null"]},
-        "cache_read_count": {"type": ["integer", "null"]},
-        "cache_write_count": {"type": ["integer", "null"]},
-        "cache_invalidation_count": {"type": ["integer", "null"]},
-        "cache_corruption_count": {"type": ["integer", "null"]},
-        "active_gate_downgraded": {"type": ["boolean", "null"]},
-        "active_gate_reason": {"type": ["string", "null"]},
-        "llm_cache_hit_rate": {"type": ["number", "null"]},
-        "llm_noop_rate": {"type": ["number", "null"]},
-        "llm_net_gain_count": {"type": ["integer", "null"]},
-        "llm_rejected_by_guardrail_count": {"type": ["integer", "null"]},
-        "active_adoption_rate": {"type": ["number", "null"]},
-        "semantic_regression_rate": {"type": ["number", "null"]},
-        "perf_not_checked_reason_counts": {"type": ["object", "null"]},
-        "perf_compared_but_not_improved_count": {"type": ["integer", "null"]},
-        "repairable_blocked_count": {"type": ["integer", "null"]},
-        "uncertain_upgrade_count": {"type": ["integer", "null"]},
-        "semantic_false_block_recovered_count": {"type": ["integer", "null"]},
-        "include_safe_materialized_count": {"type": ["integer", "null"]},
-        "wrapper_collapse_recovered_count": {"type": ["integer", "null"]},
-        "patch_strategy_counts": {"type": ["object", "null"]},
-        "canonical_rule_match_counts": {"type": ["object", "null"]},
-        "canonical_preference_applied_count": {"type": ["integer", "null"]},
-        "candidate_degradation_counts": {"type": ["object", "null"]},
-        "candidate_recovery_counts": {"type": ["object", "null"]},
-        "low_value_pruned_count": {"type": ["integer", "null"]},
-        "low_value_replaced_count": {"type": ["integer", "null"]},
-        "empty_candidate_recovered_count": {"type": ["integer", "null"]},
-        "empty_candidate_blocked_reason_counts": {"type": ["object", "null"]},
-        "text_fallback_recovered_count": {"type": ["integer", "null"]},
-        "aggregation_shape_counts": {"type": ["object", "null"]},
-        "aggregation_constraint_counts": {"type": ["object", "null"]},
-        "aggregation_safe_baseline_counts": {"type": ["object", "null"]},
-        "aggregation_review_only_family_counts": {"type": ["object", "null"]},
-        "aggregation_ready_family_counts": {"type": ["object", "null"]},
-        "aggregation_ready_patch_count": {"type": ["integer", "null"]},
-        "dynamic_baseline_family_counts": {"type": ["object", "null"]},
-        "dynamic_delivery_class_counts": {"type": ["object", "null"]},
-        "dynamic_ready_baseline_family_counts": {"type": ["object", "null"]},
-        "dynamic_ready_patch_count": {"type": ["integer", "null"]},
-        "dynamic_safe_baseline_blocked_count": {"type": ["integer", "null"]},
-        "dynamic_review_only_count": {"type": ["integer", "null"]},
-        "dml_review_only_count": {"type": ["integer", "null"]},
-        "aggregation_wrapper_review_only_count": {"type": ["integer", "null"]},
-        "no_safe_baseline_shape_match_count": {"type": ["integer", "null"]},
-        "blocker_family_counts": {"type": ["object", "null"]},
-        "patchability_lift_rate": {"type": ["number", "null"]},
-        "db_unreachable_count": {"type": ["integer", "null"]},
-        "db_unreachable_rate": {"type": ["number", "null"]},
-        "db_unreachable_high_rate_threshold": {"type": ["number", "null"]},
-        "ineffective_reason_counts": {"type": ["object", "null"]},
-        "active_gate_current_consecutive_passes": {"type": ["integer", "null"]},
-        "active_gate_required_consecutive_runs": {"type": ["integer", "null"]},
-        "verification": {"type": ["object", "null"]},
-        "actionability": {"type": ["object", "null"]},
-        "top_actionable_sql": {"type": ["array", "null"], "items": {"type": "object"}}
+        "sql_total": {"type": "integer"},
+        "proposal_total": {"type": "integer"},
+        "accepted_total": {"type": "integer"},
+        "patchable_total": {"type": "integer"},
+        "patched_total": {"type": "integer"},
+        "blocked_total": {"type": "integer"}
       }
     },
-    "items": {
+    "blockers": {
       "type": "object",
+      "required": ["top_reason_codes"],
       "properties": {
-        "units": {"type": ["array", "null"]},
-        "proposals": {"type": ["array", "null"]},
-        "acceptance": {"type": ["array", "null"]},
-        "patches": {"type": ["array", "null"]},
-        "evidence_refs_by_sql_key": {"type": ["object", "null"]},
-        "patch_decision_by_statement": {"type": ["object", "null"]},
-        "llm_decisions_by_sql_key": {"type": ["object", "null"]},
-        "llm_candidate_quality_by_strategy": {"type": ["object", "null"]},
-        "llm_trace_refs": {"type": ["array", "null"], "items": {"type": "string"}}
+        "top_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "count"],
+            "properties": {
+              "code": {"type": "string"},
+              "count": {"type": "integer"}
+            }
+          }
+        }
       }
     }
   }
