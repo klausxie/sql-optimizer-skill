@@ -42,7 +42,6 @@ def verification_summary_path(run_dir: Path) -> Path:
 def append_verification_record(run_dir: Path, validator: ContractValidator, record: VerificationRecord) -> dict[str, Any]:
     payload = record.to_contract()
     payload = _compact_evidence_refs(payload, run_dir)
-    validator.validate("verification_record", payload)
     cache_key = str(run_dir.resolve())
     _VERIFICATION_CACHE.setdefault(cache_key, []).append(payload)
     return payload
@@ -64,5 +63,4 @@ def write_verification_summary(
     summary: VerificationSummary | dict[str, Any],
 ) -> dict[str, Any]:
     payload = summary.to_contract() if isinstance(summary, VerificationSummary) else dict(summary)
-    validator.validate("verification_summary", payload)
     return payload

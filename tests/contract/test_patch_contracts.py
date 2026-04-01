@@ -29,7 +29,7 @@ def _patch_result_payload() -> dict[str, object]:
     return {
         "sqlKey": "demo.user.countUser#v2",
         "patchFiles": [],
-        "diffSummary": {},
+        "diffSummary": {"skipped": True, "changed": False},
         "applyMode": "AUTO",
         "rollback": "NONE",
     }
@@ -95,6 +95,38 @@ def test_acceptance_result_patch_target_is_optional() -> None:
     _validator().validate("acceptance_result", _acceptance_result_payload())
 
 
+def test_acceptance_result_requires_complete_embedded_verification_when_present() -> None:
+    payload = _acceptance_result_payload()
+    payload["verification"] = {"phase": "validate", "status": "VERIFIED"}
+
+    with pytest.raises(ContractError, match="acceptance_result schema validation failed"):
+        _validator().validate("acceptance_result", payload)
+
+
+def test_acceptance_result_requires_selection_strategy_when_rationale_present() -> None:
+    payload = _acceptance_result_payload()
+    payload["selectionRationale"] = {"summary": "picked best candidate"}
+
+    with pytest.raises(ContractError, match="acceptance_result schema validation failed"):
+        _validator().validate("acceptance_result", payload)
+
+
+def test_acceptance_result_requires_core_decision_layers_when_present() -> None:
+    payload = _acceptance_result_payload()
+    payload["decisionLayers"] = {"acceptance": {"status": "PASS"}}
+
+    with pytest.raises(ContractError, match="acceptance_result schema validation failed"):
+        _validator().validate("acceptance_result", payload)
+
+
+def test_acceptance_result_requires_semantic_gate_core_fields_when_present() -> None:
+    payload = _acceptance_result_payload()
+    payload["semanticEquivalence"] = {"status": "PASS"}
+
+    with pytest.raises(ContractError, match="acceptance_result schema validation failed"):
+        _validator().validate("acceptance_result", payload)
+
+
 def test_acceptance_result_rejects_patch_owned_fields() -> None:
     payload = _acceptance_result_payload()
     payload["patchTarget"] = {"sqlKey": "demo.user.countUser#v2"}
@@ -131,6 +163,38 @@ def test_patch_result_rejects_public_patch_target() -> None:
         },
         "evidenceRefs": ["runs/demo/pipeline/validate/acceptance.results.jsonl"],
     }
+
+    with pytest.raises(ContractError, match="patch_result schema validation failed"):
+        _validator().validate("patch_result", payload)
+
+
+def test_patch_result_rejects_unstructured_diff_summary() -> None:
+    payload = _patch_result_payload()
+    payload["diffSummary"] = {}
+
+    with pytest.raises(ContractError, match="patch_result schema validation failed"):
+        _validator().validate("patch_result", payload)
+
+
+def test_patch_result_requires_delivery_tier_when_outcome_present() -> None:
+    payload = _patch_result_payload()
+    payload["deliveryOutcome"] = {"summary": "ready"}
+
+    with pytest.raises(ContractError, match="patch_result schema validation failed"):
+        _validator().validate("patch_result", payload)
+
+
+def test_patch_result_requires_acceptance_status_when_selection_evidence_present() -> None:
+    payload = _patch_result_payload()
+    payload["selectionEvidence"] = {"repairabilityStatus": "REPAIRABLE"}
+
+    with pytest.raises(ContractError, match="patch_result schema validation failed"):
+        _validator().validate("patch_result", payload)
+
+
+def test_patch_result_requires_complete_gate_core_fields_when_present() -> None:
+    payload = _patch_result_payload()
+    payload["gates"] = {"semanticEquivalenceStatus": "PASS"}
 
     with pytest.raises(ContractError, match="patch_result schema validation failed"):
         _validator().validate("patch_result", payload)

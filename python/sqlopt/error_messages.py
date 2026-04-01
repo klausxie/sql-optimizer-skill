@@ -82,7 +82,7 @@ ERROR_MESSAGES = {
             "手动测试连接：psql <connection_string>",
             "验证用户名、密码、主机、端口和数据库名称",
             "检查防火墙和网络设置",
-            "如果 DB 是可选的，设置 validate.allow_db_unreachable_fallback=true"
+            "数据库恢复后执行 resume 继续当前 run"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#database-connection"
     },
@@ -113,8 +113,6 @@ ERROR_MESSAGES = {
         "suggestions": [
             "检查 runs/<run-id>/control/manifest.jsonl 中的详细错误",
             "验证外部服务（LLM 提供商、数据库）可访问",
-            "在配置中增加超时：runtime.stage_timeout_ms",
-            "在配置中增加重试次数：runtime.stage_retry_max",
             "使用 'resume' 命令从失败点重试"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#retry-exhausted"
@@ -131,7 +129,7 @@ ERROR_MESSAGES = {
             "在配置中增加 llm.timeout_ms",
             "检查 LLM 服务状态",
             "尝试不同的 LLM 提供商",
-            "使用 runtime.profile=fast 获取更简单的提示",
+            "缩小运行范围，例如只针对单个 sql-key 做局部 run",
             "检查到 LLM 端点的网络连通性"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#llm-timeout"
@@ -181,8 +179,8 @@ ERROR_MESSAGES = {
         "suggestions": [
             "检查 `artifacts/acceptance.jsonl` 和 `artifacts/patches.jsonl` 中嵌入的 verification 记录",
             "查看 runs/<run-id>/report.json 中的 blockers 和 next_action",
-            "仅当您接受风险时才设置 verification.critical_output_policy=warn（或 verification.enforce_verified_outputs=false）",
-            "在重新运行发布验收之前修复缺失的证据路径"
+            "修复缺失的证据路径后重新执行 resume 或 report 重建",
+            "在重新运行发布验收之前先确认 verify 输出已收口"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md#verification"
     },
@@ -220,7 +218,7 @@ def get_error_details(reason_code: str) -> dict[str, any]:
         "causes": ["未知原因"],
         "suggestions": [
             "检查错误消息获取更多信息",
-            "查看 runs/<run-id>/pipeline/manifest.jsonl 获取详细日志",
+            "查看 runs/<run-id>/control/manifest.jsonl 获取详细日志",
             "报告此问题：https://github.com/your-org/sql-optimizer/issues"
         ],
         "doc_link": "docs/TROUBLESHOOTING.md"

@@ -1,6 +1,6 @@
 # SQL Optimizer 配置参考（v1）
 
-本文档是配置边界的单一事实来源。
+本文档只描述用户可配置边界。运行布局、阶段契约和状态语义见 [current-spec.md](current-spec.md)。
 
 ## 1. 用户可配置边界
 
@@ -89,7 +89,7 @@
 
 ## 3. 内部注入配置（用户声明会被忽略）
 
-运行时会在 `config.resolved.json` 注入内部节：
+运行时会在 `runs/<run-id>/control/plan.json` 的 resolved config 中注入内部节：
 
 - `apply`
 - `policy`
@@ -117,7 +117,7 @@
 2. 校验用户配置根键与字段（已移除键先兼容忽略）
 3. 补齐默认值
 4. 注入内部节
-5. 写入 `runs/<run-id>/config.resolved.json`
+5. 写入 `runs/<run-id>/control/plan.json`
 
 ## 6. 示例
 
@@ -142,36 +142,13 @@ report:
   enabled: true
 ```
 
-## 7. 运行目录规范
-
-统一路径：`<project.root_path>/runs/<run-id>/`
-
-分层主路径（canonical）：
-
-1. `report.json`
-2. `control/state.json`
-3. `control/plan.json`
-4. `control/manifest.jsonl`
-5. `artifacts/scan.jsonl`
-6. `artifacts/fragments.jsonl`
-7. `artifacts/proposals.jsonl`
-8. `artifacts/acceptance.jsonl`
-9. `artifacts/patches.jsonl`
-10. `sql/catalog.jsonl`
-11. `sql/<sql-key>/index.json`
-
-兼容策略：
-
-- 不再保留 legacy 路径写入
-- 运行目录读取默认仅认 canonical 路径
-
-## 8. 补丁与回滚约定
+## 7. 补丁与回滚约定
 
 1. 默认 `PATCH_ONLY`，`apply` 不会隐式修改源码
 2. 每个 `PatchResult` 必须提供 `rollback`
 3. 生成 patch 文件应可通过 `git apply --check`
 
-## 9. 架构分层约定
+## 8. 架构分层约定
 
 当前默认分层：
 
@@ -185,9 +162,9 @@ report:
 2. facade 模块只做 re-export，不承载业务逻辑
 3. 新增模型对外导出统一使用 `to_contract()`
 
-## 10. 相关文档
+## 9. 相关文档
 
 - [快速入门](QUICKSTART.md)
 - [安装指南](INSTALL.md)
 - [故障排查](TROUBLESHOOTING.md)
-- [命令与状态机](project/03-workflow-and-state-machine.md)
+- [当前规格](current-spec.md)

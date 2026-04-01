@@ -1,6 +1,6 @@
-# SQL Optimizer 快速入门（15 分钟）
+# SQL Optimizer 快速入门
 
-目标：在项目里完成一轮可恢复的 SQL 优化运行，并拿到报告与补丁。
+目标：在项目里跑通一轮完整流程，并拿到 `report.json` 与 patch 结果。
 
 ## 1. 前置条件
 
@@ -99,9 +99,9 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-sta
 
 - MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。
 
-## 7. 下一步文档
+## 7. 下一步
 
 - 安装细节：[`INSTALL.md`](INSTALL.md)
-- 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
 - 配置约定：[`CONFIG.md`](CONFIG.md)
-- 命令与状态机：[`project/03-workflow-and-state-machine.md`](project/03-workflow-and-state-machine.md)
+- 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
+- 当前规格：[`current-spec.md`](current-spec.md)

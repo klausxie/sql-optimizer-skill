@@ -226,7 +226,12 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 risk_flags=[],
                 rewritten_sql="SELECT id FROM users WHERE id = ?",
                 selected_candidate_id="c1",
-                decision_layers={"acceptance": {"status": "PASS"}},
+                decision_layers={
+                    "feasibility": {"candidateAvailable": True, "dbReachable": True, "ready": True},
+                    "evidence": {"semanticChecked": True, "perfChecked": True, "degraded": False},
+                    "delivery": {"selectedCandidateSource": "heuristic", "selectedCandidateId": "c1"},
+                    "acceptance": {"status": "PASS", "validationProfile": "balanced"},
+                },
             )
             with patch("sqlopt.stages.validate.validate_proposal", return_value=result):
                 validate.execute_one(_sql_unit(), {}, run_dir, self._validator(), db_reachable=False, config={})

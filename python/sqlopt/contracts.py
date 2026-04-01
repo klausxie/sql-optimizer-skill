@@ -12,18 +12,14 @@ except Exception:  # pragma: no cover
     jsonschema = None
 
 SCHEMA_MAP = {
-    "sqlunit": "sqlunit.schema.json",
-    "fragment_record": "fragment_record.schema.json",
-    "optimization_proposal": "optimization_proposal.schema.json",
-    "acceptance_result": "acceptance_result.schema.json",
-    "patch_result": "patch_result.schema.json",
-    "run_report": "run_report.schema.json",
-    "ops_health": "ops_health.schema.json",
-    "ops_topology": "ops_topology.schema.json",
-    "run_index": "run_index.schema.json",
-    "sql_artifact_index_row": "sql_artifact_index_row.schema.json",
-    "verification_record": "verification_record.schema.json",
-    "verification_summary": "verification_summary.schema.json",
+    "sqlunit": "stages/sqlunit.schema.json",
+    "fragment_record": "stages/fragment_record.schema.json",
+    "optimization_proposal": "stages/optimization_proposal.schema.json",
+    "acceptance_result": "stages/acceptance_result.schema.json",
+    "patch_result": "stages/patch_result.schema.json",
+    "run_report": "run/run_report.schema.json",
+    "run_index": "run/run_index.schema.json",
+    "sql_artifact_index_row": "sql/sql_artifact_index_row.schema.json",
 }
 
 
@@ -51,7 +47,10 @@ def _validate_required_fields_fallback(
         _validate_required_fields_fallback(_resolve_local_ref(root, str(schema["$ref"])), payload, path, root)
         return
     schema_type = schema.get("type")
-    if schema_type == "object" and isinstance(payload, dict):
+    allowed_types = set(schema_type) if isinstance(schema_type, list) else {schema_type}
+    if payload is None and "null" in allowed_types:
+        return
+    if "object" in allowed_types and isinstance(payload, dict):
         missing = [key for key in schema.get("required", []) if key not in payload]
         if missing:
             raise ContractError(f"{path} missing required fields: {missing}")
@@ -64,7 +63,7 @@ def _validate_required_fields_fallback(
             if key in payload and isinstance(subschema, dict):
                 _validate_required_fields_fallback(subschema, payload[key], f"{path}.{key}", root)
         return
-    if schema_type == "array" and isinstance(payload, list):
+    if "array" in allowed_types and isinstance(payload, list):
         item_schema = schema.get("items")
         if isinstance(item_schema, dict):
             for index, item in enumerate(payload):

@@ -4,7 +4,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sqlopt.contracts import ContractValidator
 from sqlopt.verification.models import VerificationCheck, VerificationRecord
 from sqlopt.verification.summary import summarize_records
 from sqlopt.verification.writer import append_verification_record, read_verification_ledger, write_verification_summary
@@ -12,11 +11,16 @@ from sqlopt.verification.writer import append_verification_record, read_verifica
 ROOT = Path(__file__).resolve().parents[2]
 
 
+class _NoValidateContractValidator:
+    def validate(self, name: str, payload: object) -> None:
+        raise AssertionError(f"verification writer should not validate independent schema {name}")
+
+
 class VerificationWriterTest(unittest.TestCase):
-    def test_writer_appends_records_and_writes_summary(self) -> None:
+    def test_writer_appends_records_and_writes_summary_without_contract_validation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_writer_") as td:
             run_dir = Path(td)
-            validator = ContractValidator(ROOT)
+            validator = _NoValidateContractValidator()
             record = VerificationRecord(
                 run_id="run_demo",
                 sql_key="demo.user.listUsers#v1",

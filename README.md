@@ -69,12 +69,10 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml \
 
 - [快速入门](docs/QUICKSTART.md)
 - [安装指南](docs/INSTALL.md)
+- [配置参考](docs/CONFIG.md)
 - [文档导航](docs/INDEX.md)
 - [故障排查](docs/TROUBLESHOOTING.md)
-- [系统规格](docs/project/02-system-spec.md)
-- [工作流与状态机](docs/project/03-workflow-and-state-machine.md)
-- [数据契约](docs/project/04-data-contracts.md)
-- [SQL 补丁能力架构](docs/project/10-sql-patchability-architecture.md)
+- [当前规格](docs/current-spec.md)
 
 ## 开发与验收
 

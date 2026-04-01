@@ -72,7 +72,14 @@ def build_bundle(root_dir: Path, dist_dir: Path) -> Path:
         "requirements.txt",
     ]:
         shutil.copy2(root_dir / "install" / file_name, out_root / "install" / file_name)
-    for doc_name in ["INSTALL.md", "UPGRADE.md", "TROUBLESHOOTING.md"]:
+    for doc_name in [
+        "INDEX.md",
+        "INSTALL.md",
+        "QUICKSTART.md",
+        "CONFIG.md",
+        "TROUBLESHOOTING.md",
+        "current-spec.md",
+    ]:
         shutil.copy2(root_dir / "docs" / doc_name, out_root / "docs" / doc_name)
 
     version_payload = {

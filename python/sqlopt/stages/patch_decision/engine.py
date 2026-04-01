@@ -100,7 +100,7 @@ class PatchDecisionEngine:
             "sqlKey": ctx.sql_key,
             "statementKey": ctx.statement_key,
             "patchFiles": [],
-            "diffSummary": {"skipped": True},
+            "diffSummary": {"skipped": True, "changed": False},
             "applyMode": "PATCH_ONLY",
             "rollback": "not_applied",
             "selectionReason": {
@@ -109,7 +109,10 @@ class PatchDecisionEngine:
             },
             "rejectedCandidates": [{"reason_code": result.reason_code}],
             "candidatesEvaluated": len(ctx.acceptance_rows) or 1,
-            "selectionEvidence": result.context.get("selection_evidence", {}) or {},
+            "selectionEvidence": {
+                "acceptanceStatus": ctx.acceptance.get("status"),
+                **(result.context.get("selection_evidence", {}) or {}),
+            },
             "fallbackReasonCodes": list(result.context.get("fallback_reason_codes", []) or []),
             "deliveryOutcome": {
                 "tier": tier,
@@ -183,7 +186,7 @@ class PatchDecisionEngine:
             "sqlKey": ctx.sql_key,
             "statementKey": ctx.statement_key,
             "patchFiles": [str(patch_file)] if patch_file.exists() else [],
-            "diffSummary": {"lines": changed_lines, "changed": True if patch_text else False},
+            "diffSummary": {"skipped": False, "lines": changed_lines, "changed": True if patch_text else False},
             "applyMode": "PATCH_ONLY",
             "rollback": "delete_patch_file" if patch_text else "not_applied",
             "selectedCandidateId": ctx.selection.selected_candidate_id,
@@ -211,6 +214,7 @@ class PatchDecisionEngine:
                 "semanticEquivalenceStatus": "PASS",
                 "semanticEquivalenceBlocking": False,
                 "semanticConfidence": ctx.selection.semantic_gate_confidence,
+                "semanticEvidenceLevel": str((ctx.selection.semantic_equivalence or {}).get("evidenceLevel") or "UNKNOWN"),
             },
             "strategyType": strategy,
             "fallbackApplied": False,

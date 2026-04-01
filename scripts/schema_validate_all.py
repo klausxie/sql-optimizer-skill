@@ -10,22 +10,27 @@ from sqlopt.io_utils import read_json, read_jsonl
 
 p = Path(sys.argv[1])
 v = ContractValidator(ROOT)
-for row in read_jsonl(p / "pipeline" / "scan" / "sqlunits.jsonl"):
-    v.validate("sqlunit", row)
-for row in read_jsonl(p / "pipeline" / "scan" / "fragments.jsonl"):
-    v.validate("fragment_record", row)
-for row in read_jsonl(p / "pipeline" / "optimize" / "optimization.proposals.jsonl"):
-    v.validate("optimization_proposal", row)
-for row in read_jsonl(p / "pipeline" / "validate" / "acceptance.results.jsonl"):
-    v.validate("acceptance_result", row)
-for row in read_jsonl(p / "pipeline" / "patch_generate" / "patch.results.jsonl"):
-    v.validate("patch_result", row)
-for row in read_jsonl(p / "pipeline" / "verification" / "ledger.jsonl"):
-    v.validate("verification_record", row)
-v.validate("run_report", read_json(p / "overview" / "report.json"))
-v.validate("ops_health", read_json(p / "pipeline" / "ops" / "health.json"))
-v.validate("ops_topology", read_json(p / "pipeline" / "ops" / "topology.json"))
-summary_path = p / "pipeline" / "verification" / "summary.json"
-if summary_path.exists():
-    v.validate("verification_summary", read_json(summary_path))
+
+
+def validate_jsonl(path: Path, schema_name: str) -> None:
+    if not path.exists():
+        return
+    for row in read_jsonl(path):
+        v.validate(schema_name, row)
+
+
+validate_jsonl(p / "artifacts" / "scan.jsonl", "sqlunit")
+validate_jsonl(p / "artifacts" / "fragments.jsonl", "fragment_record")
+validate_jsonl(p / "artifacts" / "proposals.jsonl", "optimization_proposal")
+validate_jsonl(p / "artifacts" / "acceptance.jsonl", "acceptance_result")
+validate_jsonl(p / "artifacts" / "patches.jsonl", "patch_result")
+
+report_path = p / "report.json"
+if report_path.exists():
+    v.validate("run_report", read_json(report_path))
+
+catalog_path = p / "sql" / "catalog.jsonl"
+if catalog_path.exists():
+    validate_jsonl(catalog_path, "sql_artifact_index_row")
+
 print("ok")

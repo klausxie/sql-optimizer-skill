@@ -71,7 +71,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
    - `run_repository.py`: Run state persistence
    - `config_service.py`: Configuration loading and validation
 2. **Stage Core** (`python/sqlopt/stages/`): Domain logic for each phase (scan, optimize, validate, patch_generate, report)
-3. **Contracts & Artifacts** (`contracts/*.schema.json`): Schema validation, run artifacts, reporting
+3. **Contracts & Artifacts** (`contracts/**/*.schema.json`): Schema validation, run artifacts, reporting
 
 ### Key Architectural Boundaries
 
@@ -343,21 +343,14 @@ The repository root contains `python/sqlopt/` as the main package directory.
 
 For detailed information, refer to:
 - `docs/QUICKSTART.md`: 10-minute getting started guide
-- `docs/INDEX.md`: Complete documentation index organized by role and topic
+- `docs/INDEX.md`: minimal documentation index
 - `docs/INSTALL.md`: Detailed installation instructions
-- `docs/project/01-product-requirements.md`: Product requirements and goals
-- `docs/project/02-system-spec.md`: System specification
-- `docs/project/03-workflow-and-state-machine.md`: Workflow and state management
-- `docs/project/04-data-contracts.md`: Data contracts and schemas
 - `docs/CONFIG.md`: Configuration options detailed reference
-- `docs/project/06-delivery-checklist.md`: Delivery and deployment checklist
-- `docs/project/08-artifact-governance.md`: Run artifacts and source-of-truth rules
+- `docs/current-spec.md`: Current system behavior, contracts, and run layout
 - `docs/TROUBLESHOOTING.md`: Common issues and solutions
-- `docs/UPGRADE.md`: Version upgrade guide
-- `docs/DISTRIBUTION.md`: Packaging and distribution guide
 
 ## Priority Rules (in case of conflicts)
 
-1. `contracts/*.schema.json` (highest priority)
+1. `contracts/**/*.schema.json` (highest priority)
 2. Current code verifiable behavior (`python/sqlopt`, `scripts/sqlopt_cli.py`)
 3. Historical documentation (`docs/*.md`)

@@ -237,7 +237,7 @@ def _handle_default_build(
         "sqlKey": sql_key,
         "statementKey": statement_key,
         "patchFiles": [],
-        "diffSummary": {"lines": changed_lines, "changed": True},
+        "diffSummary": {"skipped": False, "lines": changed_lines, "changed": True},
         "applyMode": "PATCH_ONLY",
         "rollback": "delete_patch_file",
         "selectedCandidateId": selection.selected_candidate_id,
