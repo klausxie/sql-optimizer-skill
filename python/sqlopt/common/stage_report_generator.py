@@ -447,8 +447,6 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         outlier_html = ""
 
     # Branch type color map
-
-    # Branch type color map
     bt_color = {"error": "#dc2626", "baseline_only": "#f59e0b", "normal": "#22c55e"}
     bt_items = sorted(branch_types.items(), key=lambda x: x[1], reverse=True)
     bt_html = "".join(
@@ -537,33 +535,6 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
             </div>
           </details>
         </div>
-    </div>
-
-    <h2>分支筛选漏斗</h2>
-    <div class="card">
-        <div class="funnel">
-            <div class="funnel-step">
-                <div class="funnel-value">{sum_theoretical}</div>
-                <div class="funnel-label">理论分支</div>
-                <div class="funnel-reduction">100%</div>
-            </div>
-            <div class="funnel-step">
-                <div class="funnel-value">{total_branches}</div>
-                <div class="funnel-label">风险评估后</div>
-                <div class="funnel-reduction">-{int((1 - total_branches / max(sum_theoretical, 1)) * 100)}%%</div>
-            </div>
-            <div class="funnel-step">
-                <div class="funnel-value">{high_risk}</div>
-                <div class="funnel-label">高风险保留</div>
-                <div class="funnel-reduction">-{int((1 - high_risk / max(total_branches, 1)) * 100)}%%</div>
-            </div>
-        </div>
-        <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 1rem;">
-            通过 <strong>风险评分策略</strong> 从理论 {sum_theoretical} 个分支中筛选出 <strong>{
-        total_branches
-    }</strong> 个进行优化分析,
-            其中 <strong>{high_risk}</strong> 个为高风险分支需要重点关注。
-        </p>
     </div>
 
     <h2>全局预估 vs 实际</h2>
