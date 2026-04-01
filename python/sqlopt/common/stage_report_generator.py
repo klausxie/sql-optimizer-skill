@@ -478,7 +478,7 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
             <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL单元</div></div>
             <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
             <div class="stat"><div class="stat-value">{
-        sum_theoretical
+        stats.normal_sum_theoretical if isinstance(output_or_stats, ParseStageStats) else sum_theoretical
     }</div><div class="stat-label">理论分支</div></div>
             <div class="stat"><div class="stat-value">{high_risk}</div><div class="stat-label">高风险</div></div>
         </div>
