@@ -641,8 +641,6 @@ def _column_task(
         try:
             connector = connector_factory()
             timeout_seconds = max(float(timeout_per_field), 0.0)
-            if timeout_seconds > 0 and (time.perf_counter() - started_at) * 1000 > timeout_seconds * 1000:
-                raise TimeoutError(f"field extraction exceeded timeout {timeout_seconds}s")
             dist = _extract_single_column_distribution(table_name, column_name, connector, platform, top_n)
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             if timeout_seconds > 0 and elapsed_ms > timeout_seconds * 1000:
