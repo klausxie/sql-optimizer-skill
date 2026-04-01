@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator
+from typing import Any, Generator, Optional
 
 import psycopg2.pool
 
@@ -28,9 +28,29 @@ class DBPoolBase(ABC):
 
 
 class PostgreSQLPool(DBPoolBase):
-    def __init__(self, host, port, database, user, password, minconn=1, maxconn=4):
+    def __init__(
+        self,
+        host,
+        port,
+        database,
+        user,
+        password,
+        minconn=1,
+        maxconn=4,
+        connect_options: Optional[dict[str, Any]] = None,
+    ):
+        if connect_options is None:
+            connect_options = {}
+        self._connect_options = connect_options
         self._pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=minconn, maxconn=maxconn, host=host, port=port, database=database, user=user, password=password
+            minconn=minconn,
+            maxconn=maxconn,
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password,
+            **connect_options,
         )
 
     def get_connection(self):
@@ -74,9 +94,29 @@ class DBPoolManager:
             pool.close_all()
         self._pools.clear()
 
-    def create_postgresql_pool(self, name, host, port, database, user, password, minconn=1, maxconn=4):
+    def create_postgresql_pool(
+        self,
+        name,
+        host,
+        port,
+        database,
+        user,
+        password,
+        minconn=1,
+        maxconn=4,
+        connect_options: Optional[dict[str, Any]] = None,
+    ):
+        if connect_options is None:
+            connect_options = {}
         pool = PostgreSQLPool(
-            host=host, port=port, database=database, user=user, password=password, minconn=minconn, maxconn=maxconn
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password,
+            minconn=minconn,
+            maxconn=maxconn,
+            connect_options=connect_options,
         )
         self.register_pool(name, pool)
         return pool

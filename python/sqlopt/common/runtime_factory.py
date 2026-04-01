@@ -22,6 +22,7 @@ def create_db_connector_from_config(config: SQLOptConfig | None) -> Any | None:
         db=config.db_name,
         user=config.db_user or "",
         password=config.db_password or "",
+        **config.db_connect_options,
     )
 
 

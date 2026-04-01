@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 import yaml
 from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES, MAX_CAP
@@ -47,6 +47,8 @@ class SQLOptConfig:
         db_user: Database user.
         db_password: Database password.
         db_dsn: Database connection string (legacy/backward compatibility).
+        db_connect_options: Additional database connection options (e.g., {"options": "-c search_path=test"}).
+            Passed to the database driver as extra parameters.
         llm_enabled: Whether to enable LLM-based optimization.
         llm_provider: LLM provider to use (opencode_run, openai, anthropic).
         contracts_version: Version of contracts schema to use.
@@ -65,6 +67,7 @@ class SQLOptConfig:
     db_user: str | None = None
     db_password: str | None = None
     db_dsn: str = ""
+    db_connect_options: dict[str, Any] = field(default_factory=dict)
     llm_enabled: bool = True
     llm_provider: str = "opencode_run"
     openai_base_url: str | None = None
@@ -114,6 +117,7 @@ def load_config(config_path: str = "./sqlopt.yml") -> SQLOptConfig:
         db_user=data.get("db_user"),
         db_password=data.get("db_password"),
         db_dsn=data.get("db_dsn", ""),
+        db_connect_options=data.get("db_connect_options", {}),
         llm_enabled=data.get("llm_enabled", True),
         llm_provider=data.get("llm_provider", "opencode_run"),
         openai_base_url=data.get("openai_base_url"),

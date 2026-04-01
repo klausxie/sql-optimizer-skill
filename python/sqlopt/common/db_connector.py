@@ -168,12 +168,14 @@ class PostgreSQLConnector(DBConnector):
         dbname: str = "postgres",
         user: str = "postgres",
         password: str = "",
+        **kwargs: Any,
     ) -> None:
         self.host = host
         self.port = port
         self.dbname = dbname
         self.user = user
         self.password = password
+        self._connect_options: dict[str, Any] = kwargs
         self._conn = None
 
     def connect(self) -> None:
@@ -187,6 +189,7 @@ class PostgreSQLConnector(DBConnector):
                 dbname=self.dbname,
                 user=self.user,
                 password=self.password,
+                **self._connect_options,
             )
             self._conn.autocommit = False
             with self._conn.cursor() as cursor:
@@ -265,6 +268,7 @@ class MySQLConnector(DBConnector):
         user: str = "root",
         password: str = "",
         charset: str = "utf8mb4",
+        **kwargs: Any,
     ) -> None:
         self.host = host
         self.port = port
@@ -272,6 +276,7 @@ class MySQLConnector(DBConnector):
         self.user = user
         self.password = password
         self.charset = charset
+        self._connect_options: dict[str, Any] = kwargs
         self._conn = None
 
     def connect(self) -> None:
@@ -287,6 +292,7 @@ class MySQLConnector(DBConnector):
                 password=self.password,
                 charset=self.charset,
                 cursorclass=pymysql.cursors.DictCursor,
+                **self._connect_options,
             )
             self._conn.autocommit = False
             with self._conn.cursor() as cursor:
@@ -365,6 +371,7 @@ def create_connector(
     db: str,
     user: str,
     password: str,
+    **kwargs: Any,
 ) -> DBConnector:
     if platform == "postgresql":
         psycopg2 = _ensure_psycopg2()[0]
@@ -378,6 +385,7 @@ def create_connector(
             dbname=db,
             user=user,
             password=password,
+            **kwargs,
         )
     if platform == "mysql":
         pymysql = _ensure_pymysql()
@@ -389,5 +397,6 @@ def create_connector(
             db=db,
             user=user,
             password=password,
+            **kwargs,
         )
     raise ValueError(f"Unsupported platform: {platform}")
