@@ -11,12 +11,52 @@ RiskRuleRegistry.register().  No changes to scoring logic are needed.
 
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlopt.stages.branching.dimension_extractor import BranchDimension
+
+
+# ---------------------------------------------------------------------------
+# Phase 2/3 rule name → RiskFactor code mapping
+# ---------------------------------------------------------------------------
+
+# Phase 2 rules → RiskFactor codes
+_PHASE2_TO_FACTOR_CODE: dict[str, str] = {
+    "sql_regex_select_star": "SELECT_STAR",
+    "sql_regex_like_prefix": "LIKE_PREFIX",
+    "sql_regex_not_like": "NOT_LIKE",
+    "sql_regex_not_in": "NOT_IN_LARGE_TABLE",
+    "sql_regex_not_exists": "NOT_EXISTS",
+    "sql_regex_offset": "DEEP_OFFSET",
+    "sql_regex_union": "UNION_WITHOUT_ALL",
+    "sql_regex_distinct": "DISTINCT",
+    "sql_regex_having": "HAVING_WITHOUT_GROUP_BY",
+    "sql_regex_exists_subquery": "SUBQUERY",
+    "sql_regex_subquery": "SUBQUERY",
+    "sql_regex_in_many": "IN_CLAUSE_LARGE",
+    "sql_regex_like_concat": "LIKE_PREFIX",
+    "sql_keyword_order_by": "ORDER_BY",
+    "sql_keyword_group_by": "GROUP_BY",
+    "sql_keyword_join": "JOIN_WITHOUT_INDEX",
+    "sql_keyword_exists": "EXISTS",
+}
+
+# Phase 1 rules → RiskFactor codes
+_PHASE1_TO_FACTOR_CODE: dict[str, str] = {
+    "dim_keyword_join": "JOIN_WITHOUT_INDEX",
+    "dim_keyword_or": "OR_CONDITION",
+    "dim_keyword_order_by": "ORDER_BY",
+    "dim_keyword_group_by": "GROUP_BY",
+    "dim_keyword_wildcard": "WILDCARD",
+    "dim_keyword_in": "IN_CLAUSE_LARGE",
+    "dim_keyword_subquery": "SUBQUERY",
+    "dim_regex_function_wrap": "FUNCTION_ON_INDEXED_COLUMN",
+    "dim_regex_non_sargable": "NON_SARGABLE",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +410,213 @@ class RiskRuleRegistry:
 
     # ── Phase 2: full SQL (post-render) scoring ────────────────────────
 
+    def evaluate_phase2_factors(
+        self,
+        sql: str,
+        conditions: list[str],
+        table_metadata: dict | None = None,
+        field_distributions: dict | None = None,
+    ) -> tuple[list, float]:
+        """New factor-evaluation method. Returns (factors, raw_score)."""
+        return self._collect_factors(sql, conditions, table_metadata, field_distributions)
+
+    def _collect_factors(
+        self,
+        sql: str,
+        _conditions: list[str],
+        table_metadata: dict | None = None,
+        field_distributions: dict | None = None,
+    ) -> tuple[list, float]:
+        """Collect all matched RiskFactors and return (factors, raw_score)."""
+        from sqlopt.common.risk_assessment import (
+            RISK_FACTOR_REGISTRY,
+            resolve_severity,
+        )
+
+        factors: list = []
+        raw_score = 0.0
+        sql_lower = sql.lower().strip()
+
+        # Phase 2/3: full-SQL detection
+        for rule_name, rule in self._rules.items():
+            if rule.phase not in (2, 3):
+                continue
+            if not rule.enabled:
+                continue
+            if self._matches_rule(rule, sql_lower):
+                factor_code = _PHASE2_TO_FACTOR_CODE.get(rule_name)
+                if factor_code and factor_code in RISK_FACTOR_REGISTRY:
+                    base_factor = RISK_FACTOR_REGISTRY[factor_code]
+                    context = self._build_factor_context(sql_lower, table_metadata)
+                    resolved_factor = resolve_severity(base_factor, context)
+                    factors.append(resolved_factor)
+                    raw_score += rule.weight
+
+        # Metadata factor collection
+        if table_metadata:
+            meta_factors, meta_score = self._collect_metadata_factors(sql_lower, table_metadata)
+            factors.extend(meta_factors)
+            raw_score += meta_score
+
+        # Field distribution factor collection
+        if field_distributions:
+            fd_factors, fd_score = self._collect_field_distribution_factors(sql_lower, field_distributions)
+            factors.extend(fd_factors)
+            raw_score += fd_score
+
+        return factors, raw_score
+
+    @staticmethod
+    def _matches_rule(rule: RiskRule, text: str) -> bool:
+        """Check if a rule matches the given text."""
+        if rule.signal == "regex":
+            return bool(re.search(rule.pattern, text, re.IGNORECASE))
+        if rule.signal == "keyword":
+            return rule.pattern.lower() in text.lower()
+        return False
+
+    def _build_factor_context(
+        self,
+        sql_lower: str,
+        table_metadata: dict | None = None,
+    ) -> dict:
+        """Build context dict for resolve_severity()."""
+        context: dict = {}
+
+        context["column"] = next(iter(self._extract_columns(sql_lower)), "")
+
+        if not table_metadata:
+            return context
+
+        # Find table in SQL and gather size/index info
+        for table_name, meta in table_metadata.items():
+            if table_name not in sql_lower:
+                continue
+            size = meta.get("size", "small")
+            context["table_size"] = size
+            context["row_count"] = meta.get("row_count", 0)
+
+            # Check if SQL references any indexed columns
+            columns = self._extract_columns(sql_lower)
+            indexes = meta.get("indexes", [])
+            has_index = any(col in indexes for col in columns)
+            context["has_index"] = has_index
+
+            # Check for fulltext index
+            fulltext_indexes = meta.get("fulltext_indexes", [])
+            context["has_fulltext_index"] = any(col in fulltext_indexes for col in columns)
+            break
+
+        return context
+
+    @staticmethod
+    def _collect_metadata_factors(sql_lower: str, table_metadata: dict) -> tuple[list, float]:
+        """Collect metadata-related RiskFactors (NO_INDEX_ON_FILTER)."""
+        from sqlopt.common.risk_assessment import (
+            RISK_FACTOR_REGISTRY,
+            resolve_severity,
+        )
+
+        factors: list = []
+        score = 0.0
+
+        for table_name, meta in table_metadata.items():
+            if table_name not in sql_lower:
+                continue
+
+            size = meta.get("size", "small")
+            row_count = meta.get("row_count", 0)
+            columns = meta.get("columns", [])
+            indexes = meta.get("indexes", [])
+
+            for col_info in columns:
+                col_name = col_info.get("name", "")
+                if not col_name or col_name not in sql_lower:
+                    continue
+
+                has_index = col_name in indexes
+                if not has_index:
+                    # NO_INDEX_ON_FILTER
+                    base_factor = copy.copy(RISK_FACTOR_REGISTRY["NO_INDEX_ON_FILTER"])
+                    base_factor.context = {
+                        "column": col_name,
+                        "table": table_name,
+                        "row_count": row_count,
+                        "table_size": size,
+                        "has_index": False,
+                    }
+                    resolved = resolve_severity(base_factor, base_factor.context)
+                    factors.append(resolved)
+                    score += 2.0
+
+        return factors, score
+
+    @staticmethod
+    def _collect_field_distribution_factors(sql_lower: str, field_distributions: dict) -> tuple[list, float]:
+        """Collect field-distribution RiskFactors (HIGH_NULL_RATIO, LOW_CARDINALITY, SKEWED_DISTRIBUTION)."""
+        from sqlopt.common.risk_assessment import (
+            RISK_FACTOR_REGISTRY,
+            resolve_severity,
+        )
+
+        factors: list = []
+        score = 0.0
+
+        for table_name, distributions in field_distributions.items():
+            if table_name not in sql_lower:
+                continue
+
+            for dist in distributions:
+                col_name = dist.column_name.lower()
+                if col_name not in sql_lower:
+                    continue
+
+                total = max(
+                    getattr(dist, "total_count", 0) or dist.distinct_count + dist.null_count,
+                    1,
+                )
+                null_ratio = dist.null_count / total
+
+                # HIGH_NULL_RATIO: null_ratio > 10%
+                if null_ratio > 0.1:
+                    base_factor = copy.copy(RISK_FACTOR_REGISTRY["HIGH_NULL_RATIO"])
+                    base_factor.context = {
+                        "column": col_name,
+                        "null_pct": round(null_ratio * 100, 1),
+                    }
+                    resolved = resolve_severity(base_factor, base_factor.context)
+                    factors.append(resolved)
+                    score += 2.0
+
+                # LOW_CARDINALITY: distinct_count < 10
+                if dist.distinct_count < 10:
+                    base_factor = copy.copy(RISK_FACTOR_REGISTRY["LOW_CARDINALITY"])
+                    base_factor.context = {
+                        "column": col_name,
+                        "distinct_count": dist.distinct_count,
+                    }
+                    resolved = resolve_severity(base_factor, base_factor.context)
+                    factors.append(resolved)
+                    score += 1.0
+
+                # SKEWED_DISTRIBUTION: top_value_freq > 80%
+                if dist.top_values and len(dist.top_values) > 0:
+                    top_count = dist.top_values[0].get("count", 0)
+                    non_null = max(total - dist.null_count, 1)
+                    if top_count / non_null > 0.8:
+                        top_value = dist.top_values[0].get("value", "?")
+                        base_factor = copy.copy(RISK_FACTOR_REGISTRY["SKEWED_DISTRIBUTION"])
+                        base_factor.context = {
+                            "column": col_name,
+                            "top_value": str(top_value),
+                            "skew_pct": round((top_count / non_null) * 100, 1),
+                        }
+                        resolved = resolve_severity(base_factor, base_factor.context)
+                        factors.append(resolved)
+                        score += 2.0
+
+        return factors, score
+
     def evaluate_phase2(
         self,
         sql: str,
@@ -381,36 +628,18 @@ class RiskRuleRegistry:
 
         This is the authoritative risk score used for final branch selection.
         """
-        score = 0.0
-        reasons: list[str] = []
-        sql_lower = sql.lower().strip()
+        factors, _ = self._collect_factors(sql, conditions, table_metadata, field_distributions)
 
-        for rule in self._rules.values():
-            if not rule.enabled or rule.phase not in (2, 3):
-                continue
-            if rule.signal == "depth":
-                continue
-            if rule.matches(sql):
-                score += rule.weight
-                reasons.append(rule.reason_tag)
+        # Use RiskAssessment composite_score instead of sigmoid normalization
+        from sqlopt.common.risk_assessment import RiskAssessment
 
-        # Active conditions get tagged
+        assessment = RiskAssessment(factors=factors)
+        normalized_score = assessment.composite_score
+
+        # Build reasons list from factor codes
+        reasons = [f.code for f in factors]
         reasons.extend(f"active:{cond}" for cond in conditions)
 
-        # Table metadata adjustments
-        if table_metadata:
-            meta_score, meta_reasons = self._evaluate_metadata(sql_lower, table_metadata)
-            score += meta_score
-            reasons.extend(meta_reasons)
-
-        # Field distribution adjustments
-        if field_distributions:
-            fd_score, fd_reasons = self._evaluate_field_distributions(sql_lower, field_distributions)
-            score += fd_score
-            reasons.extend(fd_reasons)
-
-        # Normalize score to [0, 1] using sigmoid-style mapping
-        normalized_score = 1.0 - 1.0 / (1.0 + score)
         return normalized_score, self._dedupe_reasons(reasons)
 
     def _evaluate_metadata(self, sql_lower: str, table_metadata: dict) -> tuple[float, list[str]]:

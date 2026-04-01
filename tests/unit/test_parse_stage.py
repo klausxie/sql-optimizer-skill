@@ -129,8 +129,8 @@ class TestParseStage:
         assert any("prefix_wildcard" in branch.risk_flags for branch in branches)
         assert any(branch.risk_score is not None for branch in branches)
         assert any(branch.score_reasons for branch in branches)
-        assert any("field_low_card:status" in branch.score_reasons for branch in branches)
-        assert any("field_skewed:status" in branch.score_reasons for branch in branches)
+        assert any("LOW_CARDINALITY" in branch.score_reasons for branch in branches)
+        assert any("SKEWED_DISTRIBUTION" in branch.score_reasons for branch in branches)
 
     def test_parse_stage_writes_empty_outputs_for_empty_init(
         self,

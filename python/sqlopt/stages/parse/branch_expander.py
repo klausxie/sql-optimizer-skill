@@ -39,6 +39,8 @@ class ExpandedBranch:
     risk_score: float | None = None
     score_reasons: list[str] = field(default_factory=list)
     branch_type: str | None = None
+    risk_level: str | None = None
+    risk_factors: list = field(default_factory=list)
 
 
 def count_conditions_from_sql(sql_text: str) -> int:

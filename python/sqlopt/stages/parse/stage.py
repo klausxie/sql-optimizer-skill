@@ -453,5 +453,7 @@ def _to_sql_branch(branch: Any) -> SQLBranch:
         active_conditions=list(branch.active_conditions),
         risk_score=branch.risk_score,
         score_reasons=list(branch.score_reasons),
+        risk_level=branch.risk_level,
+        risk_factors=list(branch.risk_factors) if branch.risk_factors else [],
         branch_type=getattr(branch, "branch_type", None),
     )

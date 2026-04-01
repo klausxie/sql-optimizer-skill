@@ -13,6 +13,8 @@ class ExpandedBranch:
     active_conditions: list[str] = field(default_factory=list)
     risk_score: float | None = None
     score_reasons: list[str] = field(default_factory=list)
+    risk_level: str | None = None
+    risk_factors: list = field(default_factory=list)
 
 
 def expand_branches(sql_text: str) -> list[ExpandedBranch]:

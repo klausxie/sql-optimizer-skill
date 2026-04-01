@@ -16,6 +16,8 @@ class SQLBranch:
     risk_score: float | None = None
     score_reasons: list[str] = field(default_factory=list)
     branch_type: str | None = None
+    risk_factors: list[dict] = field(default_factory=list)
+    risk_level: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -29,6 +31,8 @@ class SQLBranch:
                 "risk_score": self.risk_score,
                 "score_reasons": self.score_reasons,
                 "branch_type": self.branch_type,
+                "risk_factors": self.risk_factors,
+                "risk_level": self.risk_level,
             }
         )
 
@@ -46,6 +50,8 @@ class SQLBranch:
             risk_score=data.get("risk_score"),
             score_reasons=data.get("score_reasons", []),
             branch_type=branch_type,
+            risk_factors=data.get("risk_factors", []),
+            risk_level=data.get("risk_level"),
         )
 
 

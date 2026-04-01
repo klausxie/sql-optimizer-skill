@@ -223,10 +223,10 @@ function initSortableBranches(card) {
     });
 }
 
-function getRiskLevel(score) {
-    if (score === null || score === undefined) return { level: 'unknown', badgeClass: '' };
-    if (score >= 0.7) return { level: 'high', badgeClass: 'badge-high' };
-    if (score >= 0.4) return { level: 'medium', badgeClass: 'badge-medium' };
+function getRiskLevel(riskLevel) {
+    if (riskLevel === null || riskLevel === undefined) return { level: 'unknown', badgeClass: '' };
+    if (riskLevel === 'HIGH') return { level: 'high', badgeClass: 'badge-high' };
+    if (riskLevel === 'MEDIUM') return { level: 'medium', badgeClass: 'badge-medium' };
     return { level: 'low', badgeClass: 'badge-low' };
 }
 
@@ -265,7 +265,7 @@ function renderBranches(unitCard) {
 
             let html = '';
             branches.forEach(b => {
-                const risk = getRiskLevel(b.risk_score);
+                const risk = getRiskLevel(b.risk_level);
                 const scoreStr = b.risk_score !== null && b.risk_score !== undefined ? b.risk_score.toFixed(2) : '-';
                 const riskScoreVal = b.risk_score !== null && b.risk_score !== undefined ? b.risk_score : '0';
                 const safeSql = escapeHtml(b.expanded_sql || '');
@@ -335,12 +335,13 @@ document.addEventListener('DOMContentLoaded', function() {
 """
 
 
-def _get_risk_level(score: float | None) -> tuple[str, str]:
-    if score is None:
+def _get_risk_level(risk_level: str | None) -> tuple[str, str]:
+    """基于 risk_level (HIGH/MEDIUM/LOW/None) 返回标签。"""
+    if risk_level is None:
         return "unknown", ""
-    if score >= 0.7:
+    if risk_level == "HIGH":
         return "high", "badge-high"
-    if score >= 0.4:
+    if risk_level == "MEDIUM":
         return "medium", "badge-medium"
     return "low", "badge-low"
 
@@ -402,13 +403,13 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
 
         high_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score >= 0.7
+            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "HIGH"
         )
         medium_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and 0.4 <= b.risk_score < 0.7
+            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "MEDIUM"
         )
         low_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if b.risk_score and b.risk_score < 0.4
+            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "LOW"
         )
         no_score = total_branches - high_risk - medium_risk - low_risk
 
@@ -630,8 +631,8 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
     for unit in units:
         theoretical = unit.theoretical_branches if unit.theoretical_branches > 0 else 1
         if hasattr(unit, "branches"):
-            unit_high = sum(1 for b in unit.branches if b.risk_score and b.risk_score >= 0.7)
-            unit_medium = sum(1 for b in unit.branches if b.risk_score and 0.4 <= b.risk_score < 0.7)
+            unit_high = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "HIGH")
+            unit_medium = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "MEDIUM")
             actual_branches = len(unit.branches)
         else:
             unit_high = 0

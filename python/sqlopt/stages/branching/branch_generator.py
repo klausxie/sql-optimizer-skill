@@ -219,13 +219,17 @@ class BranchGenerator:
             field_distributions=self.field_distributions,
         )
         for branch in branches:
-            risk_score, score_reasons = scorer.score_branch(
+            assessment = scorer.score_branch(
                 branch.get("sql", ""),
                 branch.get("active_conditions", []),
                 branch.get("risk_flags", []),
             )
-            branch["risk_score"] = risk_score
-            branch["score_reasons"] = score_reasons
+            # 向后兼容字段
+            branch["risk_score"] = assessment.composite_score
+            branch["score_reasons"] = assessment.score_reasons
+            # 新字段
+            branch["risk_level"] = assessment.risk_level
+            branch["risk_factors"] = [f.to_dict() for f in assessment.factors]
 
         validator = BranchValidator()
         validated = validator.validate_and_deduplicate(branches, self.max_branches)

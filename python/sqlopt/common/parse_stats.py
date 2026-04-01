@@ -179,10 +179,10 @@ def build_parse_stage_stats(
             unit_branch_types[bt] = unit_branch_types.get(bt, 0) + 1
             branch_type_dist[bt] = branch_type_dist.get(bt, 0) + 1
 
-        # Risk scores
-        unit_high = sum(1 for b in u.branches if b.risk_score is not None and b.risk_score >= 0.7)
-        unit_medium = sum(1 for b in u.branches if b.risk_score is not None and 0.4 <= b.risk_score < 0.7)
-        unit_low = sum(1 for b in u.branches if b.risk_score is not None and b.risk_score < 0.4)
+        # Risk levels
+        unit_high = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "HIGH")
+        unit_medium = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "MEDIUM")
+        unit_low = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "LOW")
 
         # Risk flags
         for b in u.branches:
