@@ -7,6 +7,40 @@ db_port: 5432
 db_name: sqlopt
 db_user: postgres
 db_password: postgres
+
+# ----------------------------------------------------------------------
+# 数据库连接扩展选项 (db_connect_options)
+# ----------------------------------------------------------------------
+# 用途: 传递额外的驱动连接参数，适用于非标准数据库或需要特殊连接的场景。
+#
+# PostgreSQL 常用选项:
+#   options          传递 -c key=value 格式的会话参数，
+#                   例如: "-c search_path=myschema"  设置默认 schema（等价于 currentSchema）
+#                   例如: "-c statement_timeout=30s" 设置语句超时
+#   connect_timeout  连接超时秒数（默认 10）
+#   sslmode          SSL 模式: disable, allow, prefer, require, verify-ca, verify-full
+#
+# MySQL 常用选项:
+#   connect_timeout  连接超时秒数
+#   read_timeout     读取超时秒数
+#   write_timeout    写入超时秒数
+#   ssl             SSL 配置字典
+#
+# 示例 (PostgreSQL currentSchema):
+# db_connect_options:
+#   options: "-c search_path=myschema"
+#   connect_timeout: 10
+#
+# 示例 (MySQL 超时配置):
+# db_connect_options:
+#   connect_timeout: 30
+#   read_timeout: 60
+#   write_timeout: 60
+# ----------------------------------------------------------------------
+# db_connect_options:
+#   options: "-c search_path=public"
+#   connect_timeout: 10
+
 llm_provider: opencode_run
 llm_enabled: true
 project_root_path: .

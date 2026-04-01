@@ -8,6 +8,19 @@ db_port: 3306
 db_name: "sqlopt_test"
 db_user: "root"
 db_password: "root"
+
+# ----------------------------------------------------------------------
+# 数据库连接扩展选项 (db_connect_options)
+# PostgreSQL 常用: options, connect_timeout, sslmode
+# MySQL 常用: connect_timeout, read_timeout, write_timeout
+# 示例:
+#   PostgreSQL:  options: "-c search_path=myschema"
+#   MySQL:       connect_timeout: 30
+# ----------------------------------------------------------------------
+# db_connect_options:
+#   connect_timeout: 30
+#   read_timeout: 60
+
 llm_enabled: true
 llm_provider: mock
 contracts_version: current

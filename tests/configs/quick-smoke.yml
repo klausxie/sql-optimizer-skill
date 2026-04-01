@@ -10,6 +10,18 @@ db_name: postgres
 db_user: postgres
 db_password: postgres
 
+# ----------------------------------------------------------------------
+# 数据库连接扩展选项 (db_connect_options)
+# PostgreSQL 常用: options, connect_timeout, sslmode
+# MySQL 常用: connect_timeout, read_timeout, write_timeout
+# 示例:
+#   PostgreSQL:  options: "-c search_path=myschema"
+#   MySQL:       connect_timeout: 30
+# ----------------------------------------------------------------------
+# db_connect_options:
+#   options: "-c search_path=public"
+#   connect_timeout: 10
+
 llm_enabled: false
 parse_strategy: ladder
 parse_max_branches: 50
