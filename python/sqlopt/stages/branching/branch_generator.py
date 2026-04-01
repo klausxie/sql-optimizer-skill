@@ -56,7 +56,7 @@ class BranchGenerator:
 
         Args:
             strategy: Branch generation strategy name.
-                Options: "all_combinations", "pairwise", "boundary"
+                Options: "all_combinations", "each", "boundary"
             max_branches: Maximum number of branches to generate.
             strategy_seed: Seed for reproducibility (not used currently).
         """

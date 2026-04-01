@@ -50,7 +50,7 @@ class SQLOptConfig:
         llm_enabled: Whether to enable LLM-based optimization.
         llm_provider: LLM provider to use (opencode_run, openai, anthropic).
         contracts_version: Version of contracts schema to use.
-        parse_strategy: Strategy for parsing dynamic SQL (all_combinations, ladder, pairwise, boundary).
+        parse_strategy: Strategy for parsing dynamic SQL (all_combinations, ladder, each, boundary).
         parse_max_branches: Maximum number of branches to generate per SQL.
     """
 

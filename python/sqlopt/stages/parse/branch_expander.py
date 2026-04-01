@@ -109,7 +109,7 @@ class BranchExpander:
 
         Args:
             strategy: Branch generation strategy.
-                Options: "ladder", "all_combinations", "pairwise", "boundary"
+                Options: "ladder", "all_combinations", "each", "boundary"
             max_branches: Maximum number of branches to generate.
         """
         self.strategy = strategy

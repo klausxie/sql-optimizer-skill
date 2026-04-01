@@ -189,7 +189,7 @@ def _suggest_strategy(cond_count: int) -> str:
         return "all_combinations"
     if cond_count <= 8:
         return "ladder"
-    return "pairwise"
+    return "each"
 
 
 # ---------------------------------------------------------------------------
@@ -635,7 +635,7 @@ def _build_html(
         <div style="margin-top:0.5rem; padding:0.75rem; background:#0f172a; border-radius:8px; border:1px solid #334155; line-height:1.7;">
           <p style="margin-bottom:0.6rem;"><strong style="color:#60a5fa;">all_combinations</strong> (全组合策略): 分支数指数增长 (2^n)。当条件数较少时提供最完整的覆盖, 5个条件=32分支, 8个条件=256分支, 10个条件=1024分支。当2^n小于等于50时选择此策略。</p>
           <p style="margin-bottom:0.6rem;"><strong style="color:#a78bfa;">ladder</strong> (阶梯策略): 当2^n超过阈值时激活, 采用加权采样分阶段覆盖: (1)全false基线 (2)逐个条件为true (3)高风险条件对。在控制分支数量的同时确保关键风险被覆盖。</p>
-          <p><strong style="color:#34d399;">pairwise</strong> (配对策略): 当条件数超过8时, 每个条件单独测true/false, 分支数随条件数线性增长 (n)。适用于大规模条件数的快速验证。</p>
+          <p><strong style="color:#34d399;">each</strong> (单测策略): 当条件数超过8时, 每个条件单独测true/false, 分支数随条件数线性增长 (n)。适用于大规模条件数的快速验证。</p>
         </div>
       </details>
       <table id="strategyTable">
@@ -651,7 +651,7 @@ def _build_html(
                 <option value="all">全部</option>
                 <option value="all_combinations">all_combinations</option>
                 <option value="ladder">ladder</option>
-                <option value="pairwise">pairwise</option>
+                <option value="each">each</option>
               </select>
             </th>
           </tr>

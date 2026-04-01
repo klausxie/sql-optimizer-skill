@@ -226,7 +226,7 @@ def generate_init_summary_markdown(
             return "all_combinations"
         if cond_count <= 8:
             return "ladder"
-        return "pairwise"
+        return "each"
 
     for unit in output.sql_units[:20]:  # Limit to first 20 for readability
         cond_count = _count_conditions(unit.sql_text)
@@ -646,7 +646,7 @@ def generate_parse_summary_markdown(
 
     strategy_names = {
         "all_combinations": "全组合（所有条件排列）",
-        "pairwise": "两两组合（成对覆盖）",
+        "each": "单测（每个条件单独测）",
         "boundary": "边界值（极值测试）",
         "ladder": "阶梯采样（智能加权）",
     }
@@ -659,8 +659,8 @@ def generate_parse_summary_markdown(
     lines.append("")
     if strategy == "all_combinations":
         lines.append("全组合策略会生成所有条件的所有可能组合。当条件数较多时，分支数呈指数增长（2^n）。")
-    elif strategy == "pairwise":
-        lines.append("两两组合策略确保每对条件至少出现一次，覆盖率高而分支数可控（约 n^2）。")
+    elif strategy == "each":
+        lines.append("单测策略每个条件单独为 true/false，分支数随条件数线性增长（n）。")
     elif strategy == "boundary":
         lines.append("边界值策略只生成极值情况（全 true / 全 false / 各一个 false 等），分支数最少（约 n+1）。")
     elif strategy == "ladder":
@@ -702,7 +702,7 @@ def generate_parse_summary_markdown(
     lines.append(f"| 各单元理论上限之和 | {sum_theoretical} |")
     lines.append(f"| 实际生成分支 | {total_branch_count} |")
     lines.append(f"| 覆盖率 | {coverage_pct:.2f}% |")
-    if strategy == "ladder" or strategy == "pairwise":
+    if strategy == "ladder" or strategy == "each":
         lines.append(f"| 策略说明 | {strategy} 策略有意不生成全组合，控制分支数 |")
     lines.append("")
     lines.append("**覆盖率计算:** 各单元理论上限之和 = sum(2^条件数)，覆盖率 = 实际分支 / 理论上限之和")

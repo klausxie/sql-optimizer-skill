@@ -11,7 +11,7 @@ from sqlopt.stages.branching.branch_strategy import (
     BoundaryStrategy,
     BranchGenerationStrategy,
     LadderSamplingStrategy,
-    PairwiseStrategy,
+    EachConditionStrategy,
     create_strategy,
 )
 from sqlopt.stages.branching.dynamic_context import DynamicContext
@@ -56,7 +56,7 @@ __all__ = [
     "MixedSqlNode",
     "MutexBranchDetector",
     "OtherwiseSqlNode",
-    "PairwiseStrategy",
+    "EachConditionStrategy",
     "SetSqlNode",
     "SqlNode",
     "StaticTextSqlNode",

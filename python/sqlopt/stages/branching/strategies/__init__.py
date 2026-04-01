@@ -5,7 +5,7 @@ from MyBatis conditional SQL nodes (if, choose, etc.).
 
 Strategies:
 - AllCombinationsStrategy: Generate all 2^n combinations (for n conditions)
-- PairwiseStrategy: Generate pairwise combinations (reduces branch count)
+- EachConditionStrategy: Test each condition individually (n branches, linear growth)
 - BoundaryStrategy: Generate boundary test cases (all false, all true, etc.)
 """
 
@@ -104,11 +104,11 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
         return combinations[:max_branches]
 
 
-class PairwiseStrategy(BranchGenerationStrategy):
-    """Generate pairwise combinations of conditions.
+class EachConditionStrategy(BranchGenerationStrategy):
+    """Test each condition individually.
 
-    Generates combinations where each condition is tested individually.
     For n conditions, generates n branches (one per condition).
+    Linear branch growth -- suitable for large condition counts.
 
     Example for 2 conditions [c1, c2]:
     - Each condition individually: [c1], [c2]
@@ -116,15 +116,6 @@ class PairwiseStrategy(BranchGenerationStrategy):
     """
 
     def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
-        """Generate pairwise combinations.
-
-        Args:
-            conditions: List of condition strings.
-            max_branches: Maximum branches to generate.
-
-        Returns:
-            List of pairwise combinations.
-        """
         if not conditions:
             return [[]]
 
@@ -191,7 +182,7 @@ def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenera
 
     Args:
         strategy_name: Name of the strategy.
-            Options: "all_combinations", "pairwise", "boundary"
+            Options: "all_combinations", "each", "boundary"
         seed: Random seed for reproducibility (not used currently).
 
     Returns:
@@ -202,7 +193,7 @@ def create_strategy(strategy_name: str, seed: int | None = None) -> BranchGenera
     """
     strategies = {
         "all_combinations": AllCombinationsStrategy,
-        "pairwise": PairwiseStrategy,
+        "each": EachConditionStrategy,
         "boundary": BoundaryStrategy,
     }
 
