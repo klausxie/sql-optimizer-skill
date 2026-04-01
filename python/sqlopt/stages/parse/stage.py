@@ -11,7 +11,6 @@ from sqlopt.common.contract_file_manager import ContractFileManager
 from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.common.mock_data_loader import MockDataLoader
 from sqlopt.common.stage_report_generator import generate_parse_report
-from sqlopt.common.summary_generator import generate_parse_summary_markdown
 from sqlopt.contracts.init import FieldDistribution, InitOutput
 from sqlopt.contracts.parse import ParseOutput, SQLBranch, SQLUnitWithBranches
 from sqlopt.stages.base import Stage
@@ -121,7 +120,7 @@ class ParseStage(Stage[None, ParseOutput]):
             sql_units_with_branches=units_with_branches, run_id=rid, strategy=strategy, max_branches=max_branches
         )
         self._write_output(rid, output)
-        self._generate_summary(rid, output, total_branches, time.time() - start_time, failed_units)
+        self._generate_html_summary(rid, output, total_branches, time.time() - start_time, failed_units)
 
         return output
 
@@ -285,10 +284,10 @@ class ParseStage(Stage[None, ParseOutput]):
 
         logger.info(f"[PARSE] Wrote {len(unit_ids)} unit file(s) ({total_bytes} bytes) + index")
 
-        report_path = parse_dir / "parse_report.html"
+        report_path = parse_dir / "SUMMARY.html"
         generate_parse_report(output, str(report_path))
 
-    def _generate_summary(
+    def _generate_html_summary(
         self,
         run_id: str | None,
         output: ParseOutput,
@@ -296,7 +295,7 @@ class ParseStage(Stage[None, ParseOutput]):
         duration_seconds: float,
         failed_units: int,
     ) -> None:
-        """Generate SUMMARY.md for the parse stage.
+        """Prepare parse stage stats for HTML summary.
 
         Best-effort operation - errors are logged but don't block stage completion.
         """
@@ -306,36 +305,22 @@ class ParseStage(Stage[None, ParseOutput]):
         try:
             parse_dir = self.resolve_run_paths(run_id).parse_dir
             parse_dir.mkdir(parents=True, exist_ok=True)
-            file_size = 0
-            files_count = 0
 
             units_dir = parse_dir / "units"
+            file_size = 0
+            files_count = 0
             if units_dir.exists():
                 for f in units_dir.glob("*.json"):
                     file_size += f.stat().st_size
                     files_count += 1
 
-            output_with_run_id = ParseOutput(
-                sql_units_with_branches=output.sql_units_with_branches,
-                run_id=run_id,
-                strategy=output.strategy,
-                max_branches=output.max_branches,
+            logger.info(
+                f"[PARSE] Parse summary: {len(output.sql_units_with_branches)} units, "
+                f"{total_branches} branches, {failed_units} failed, {duration_seconds:.2f}s, "
+                f"{files_count} files, {file_size} bytes"
             )
-
-            summary_content = generate_parse_summary_markdown(
-                output=output_with_run_id,
-                total_branches=total_branches,
-                failed_units=failed_units,
-                duration_seconds=duration_seconds,
-                file_size_bytes=file_size,
-                files_count=files_count,
-            )
-            summary_path = parse_dir / "SUMMARY.md"
-            summary_path.write_text(summary_content, encoding="utf-8")
-
-            logger.info(f"[PARSE] Generated SUMMARY.md ({len(summary_content)} bytes)")
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"[PARSE] Failed to generate SUMMARY.md: {e}")
+            logger.warning(f"[PARSE] Failed to prepare summary stats: {e}")
 
 
 def _load_fragment_registry(fragments_file: Path):
