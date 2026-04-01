@@ -7,11 +7,11 @@ import pathlib
 from typing import Any
 
 from sqlopt.common.parse_stats import (
-    OUTLIER_THEORETICAL_BRANCHES_THRESHOLD,
     STRATEGY_EXPLANATIONS,
     STRATEGY_NAMES,
     ParseStageStats,
 )
+from sqlopt.common.risk_assessment import RISK_FACTOR_REGISTRY
 from sqlopt.common.run_paths import RunPaths
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
@@ -179,6 +179,270 @@ DARK_THEME = """
 </style>
 """
 
+DARK_THEME_V2 = """
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; }
+.container { max-width: 1400px; margin: 0 auto; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.header h1 { font-size: 1.5rem; color: #f8fafc; }
+.header .run-id { font-size: 0.875rem; color: #64748b; background: #1e293b; padding: 0.25rem 0.75rem; border-radius: 9999px; }
+.stat-cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-card { background: #1e293b; border-radius: 12px; padding: 1rem 1.25rem; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.stat-card.theoretical::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.stat-card.actual::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.stat-card.high::before { background: linear-gradient(90deg, #dc2626, #f87171); }
+.stat-card.medium::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.stat-card.low::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.stat-card.outlier::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.stat-value { font-size: 2rem; font-weight: 800; color: #f8fafc; line-height: 1; }
+.stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 0.5rem; letter-spacing: 0.05em; }
+.stat-card .sub { font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.chart-card { background: #1e293b; border-radius: 12px; padding: 1.25rem; }
+.chart-title { font-size: 0.875rem; font-weight: 600; color: #e2e8f0; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.chart-title .icon { width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+.chart-area { height: 220px; position: relative; }
+.legend { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #94a3b8; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.info-card { background: #1e293b; border-radius: 12px; padding: 1.25rem; }
+.info-title { font-size: 0.875rem; font-weight: 600; color: #e2e8f0; margin-bottom: 1rem; }
+.branch-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.branch-pill { background: #334155; padding: 0.375rem 0.875rem; border-radius: 9999px; font-size: 0.8125rem; display: flex; align-items: center; gap: 0.5rem; }
+.branch-pill .count { font-weight: 700; color: #f8fafc; }
+.branch-pill .label { color: #94a3b8; }
+.branch-pill.high-risk { background: #dc262640; border: 1px solid #dc2626; }
+.branch-pill.high-risk .count { color: #f87171; }
+.branch-pill.medium-risk { background: #f59e0b40; border: 1px solid #f59e0b; }
+.branch-pill.medium-risk .count { color: #fbbf24; }
+.branch-pill.normal { background: #22c55e20; border: 1px solid #22c55e; }
+.branch-pill.normal .count { color: #4ade80; }
+.condition-table { width: 100%; border-collapse: collapse; }
+.condition-table th { text-align: left; padding: 0.5rem 0.75rem; background: #334155; color: #94a3b8; font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; border-radius: 6px 6px 0 0; }
+.condition-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #334155; font-size: 0.8125rem; }
+.condition-table tr:last-child td { border-bottom: none; }
+.condition-table .cond-text { font-family: 'SF Mono', Monaco, monospace; color: #a5b4fc; }
+.condition-table .cond-count { color: #3b82f6; font-weight: 600; }
+.rules-section { background: #1e293b; border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden; }
+.rules-header { padding: 1rem 1.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; }
+.rules-header:hover { background: #33415540; }
+.rules-header h2 { font-size: 1rem; color: #e2e8f0; }
+.rules-toggle { color: #64748b; font-size: 0.75rem; transition: transform 0.2s; }
+.rules-section.expanded .rules-toggle { transform: rotate(90deg); }
+.rules-body { display: none; padding: 1rem 1.25rem; }
+.rules-section.expanded .rules-body { display: block; }
+.rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.rule-card { background: #0f172a; border-radius: 8px; padding: 0.875rem; border-left: 3px solid; }
+.rule-card.critical { border-color: #dc2626; }
+.rule-card.warning { border-color: #f59e0b; }
+.rule-card.info { border-color: #64748b; }
+.rule-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.rule-code { font-family: 'SF Mono', Monaco, monospace; font-size: 0.75rem; font-weight: 700; color: #a5b4fc; }
+.rule-severity { font-size: 0.625rem; font-weight: 700; padding: 0.125rem 0.375rem; border-radius: 4px; text-transform: uppercase; }
+.rule-card.critical .rule-severity { background: #dc2626; color: white; }
+.rule-card.warning .rule-severity { background: #f59e0b; color: white; }
+.rule-card.info .rule-severity { background: #64748b; color: white; }
+.rule-weight { font-size: 0.6875rem; color: #64748b; margin-left: auto; }
+.rule-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; margin-bottom: 0.375rem; }
+.rule-impact { font-size: 0.6875rem; color: #64748b; font-style: italic; }
+.rules-footer { font-size: 0.75rem; color: #64748b; background: #0f172a; padding: 0.75rem; border-radius: 6px; line-height: 1.6; }
+.rules-controls { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+.rules-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.filter-btn { background: #334155; border: none; color: #94a3b8; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 0.375rem; transition: all 0.15s; }
+.filter-btn:hover { background: #475569; color: #e2e8f0; }
+.filter-btn.active { background: #3b82f6; color: white; }
+.filter-btn.critical.active { background: #dc2626; }
+.filter-btn.warning.active { background: #f59e0b; }
+.filter-btn.info.active { background: #64748b; }
+.filter-count { background: rgba(255,255,255,0.2); padding: 0.0625rem 0.375rem; border-radius: 4px; font-size: 0.6875rem; }
+.rules-search { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 0.375rem 0.75rem; color: #e2e8f0; font-size: 0.75rem; width: 180px; }
+.rules-search::placeholder { color: #64748b; }
+.rules-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.rule-group { background: #0f172a; border-radius: 8px; overflow: hidden; }
+.rule-group-header { padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; background: #1e293b; transition: background 0.15s; }
+.rule-group-header:hover { background: #334155; }
+.rule-group-title { font-size: 0.8125rem; font-weight: 600; color: #e2e8f0; flex: 1; }
+.rule-group-count { font-size: 0.6875rem; color: #64748b; }
+.rule-group-toggle { color: #64748b; font-size: 0.625rem; transition: transform 0.2s; }
+.rule-group.collapsed .rule-group-toggle { transform: rotate(-90deg); }
+.rule-group.collapsed .rule-group-items { display: none; }
+.rule-group-items { padding: 0.5rem; display: grid; gap: 0.5rem; }
+.rule-item { background: #1e293b; border-radius: 6px; padding: 0.75rem; border-left: 3px solid; }
+.rule-item[data-severity="CRITICAL"] { border-color: #dc2626; }
+.rule-item[data-severity="WARNING"] { border-color: #f59e0b; }
+.rule-item[data-severity="INFO"] { border-color: #64748b; }
+.rule-item-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; flex-wrap: wrap; }
+.rule-badge { font-size: 0.5625rem; font-weight: 700; padding: 0.125rem 0.375rem; border-radius: 3px; text-transform: uppercase; }
+.rule-badge.critical { background: #dc2626; color: white; }
+.rule-badge.warning { background: #f59e0b; color: white; }
+.rule-badge.info { background: #64748b; color: white; }
+.rule-item .rule-code { font-family: 'SF Mono', Monaco, monospace; font-size: 0.75rem; font-weight: 700; color: #a5b4fc; }
+.rule-affected { font-size: 0.6875rem; color: #64748b; margin-left: auto; }
+.rule-item-desc { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; }
+.rule-item-impact { font-size: 0.6875rem; color: #f59e0b; margin-bottom: 0.125rem; }
+.rule-item-example { font-size: 0.6875rem; color: #64748b; font-family: 'SF Mono', Monaco, monospace; }
+.hidden { display: none !important; }
+.extreme-section { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; margin-bottom: 1.5rem; overflow: hidden; border: 1px solid #8b5cf640; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+.extreme-header { padding: 1.25rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: linear-gradient(90deg, #dc262610, transparent); }
+.extreme-header:hover { background: linear-gradient(90deg, #dc262620, transparent); }
+.extreme-header h2 { font-size: 1.125rem; color: #f8fafc; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+.extreme-header h2::before { content: '⚠'; font-size: 1.25rem; }
+.extreme-header-right { display: flex; align-items: center; gap: 1rem; }
+.extreme-count-badge { background: linear-gradient(135deg, #dc2626, #f87171); color: white; padding: 0.375rem 1rem; border-radius: 9999px; font-size: 0.8125rem; font-weight: 600; box-shadow: 0 2px 8px #dc262640; }
+.extreme-toggle { color: #64748b; font-size: 0.875rem; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.extreme-section.expanded .extreme-toggle { transform: rotate(90deg); }
+.extreme-body { display: none; padding: 1.5rem; }
+.extreme-section.expanded .extreme-body { display: block; animation: slideDown 0.3s ease-out; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.extreme-alert { background: linear-gradient(135deg, #dc262620, #dc262610); border: 1px solid #dc2626; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; backdrop-filter: blur(8px); }
+.extreme-alert-icon { font-size: 1.5rem; filter: drop-shadow(0 0 8px #dc2626); }
+.extreme-alert-content { font-size: 0.875rem; color: #f8fafc; line-height: 1.5; }
+.extreme-alert-content strong { color: #f87171; font-weight: 600; }
+.extreme-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+.extreme-view-toggle { display: flex; background: #0f172a; border-radius: 10px; padding: 4px; gap: 4px; }
+.view-toggle-btn { background: none; border: none; color: #94a3b8; padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.view-toggle-btn:hover { color: #e2e8f0; }
+.view-toggle-btn.active { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: white; box-shadow: 0 2px 8px #3b82f640; }
+.extreme-sort { display: flex; align-items: center; gap: 0.75rem; }
+.sort-label { font-size: 0.8125rem; color: #94a3b8; }
+.extreme-sort-select { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 0.5rem 1rem; color: #e2e8f0; font-size: 0.8125rem; cursor: pointer; transition: border-color 0.2s; }
+.extreme-sort-select:hover { border-color: #475569; }
+.extreme-sort-select:focus { outline: none; border-color: #3b82f6; }
+.extreme-cards-view { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.25rem; }
+.extreme-card { background: linear-gradient(145deg, #1e293b, #0f172a); border-radius: 16px; padding: 1.5rem; border: 1px solid #334155; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+.extreme-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #dc2626, #f87171); opacity: 0; transition: opacity 0.3s; }
+.extreme-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); border-color: #dc262650; }
+.extreme-card:hover::before { opacity: 1; }
+.extreme-card.expanded { border-color: #dc2626; grid-column: 1 / -1; }
+.extreme-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+.extreme-card-title { font-family: 'SF Mono', Monaco, monospace; font-size: 1rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em; }
+.extreme-badge { font-size: 0.75rem; font-weight: 700; padding: 0.375rem 0.875rem; border-radius: 9999px; background: linear-gradient(135deg, #dc2626, #f87171); color: white; box-shadow: 0 2px 8px #dc262640; }
+.extreme-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+.extreme-metric { text-align: center; background: #0f172a; padding: 1rem 0.75rem; border-radius: 12px; border: 1px solid #334155; transition: all 0.2s; }
+.extreme-metric:hover { border-color: #475569; transform: scale(1.02); }
+.extreme-metric-value { font-size: 1.5rem; font-weight: 800; color: #f8fafc; display: block; line-height: 1.2; }
+.extreme-metric-value.danger { background: linear-gradient(135deg, #dc2626, #f87171); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.extreme-metric-label { font-size: 0.6875rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.375rem; }
+.extreme-mini-bar { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-bottom: 1rem; }
+.extreme-mini-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #dc2626, #f87171); transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.extreme-card-expand-hint { font-size: 0.75rem; color: #64748b; text-align: center; padding: 0.5rem; transition: color 0.2s; }
+.extreme-card:hover .extreme-card-expand-hint { color: #94a3b8; }
+.extreme-card-details { display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #334155; animation: fadeIn 0.3s ease-out; }
+.extreme-card.expanded .extreme-card-details { display: block; }
+.extreme-card.expanded .extreme-card-expand-hint { display: none; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.extreme-reason { margin-bottom: 1.25rem; }
+.extreme-reason h4 { font-size: 0.8125rem; color: #e2e8f0; margin-bottom: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+.reason-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.reason-item { display: flex; align-items: center; gap: 0.75rem; background: #0f172a; padding: 0.625rem 1rem; border-radius: 8px; border: 1px solid #334155; }
+.reason-num { background: linear-gradient(135deg, #dc2626, #f87171); color: white; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; min-width: 48px; text-align: center; }
+.reason-text { font-size: 0.8125rem; color: #94a3b8; }
+.extreme-condition-breakdown h4 { font-size: 0.8125rem; color: #e2e8f0; margin-bottom: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+.condition-matrix { background: #0f172a; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }
+.matrix-header { display: flex; background: linear-gradient(90deg, #334155, #1e293b); padding: 0.625rem 1rem; gap: 1rem; }
+.matrix-header-cell { font-size: 0.6875rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.matrix-row { display: flex; border-top: 1px solid #334155; padding: 0.75rem 1rem; gap: 1rem; transition: background 0.15s; }
+.matrix-row:hover { background: #1e293b; }
+.matrix-cell { font-size: 0.8125rem; }
+.matrix-cell.cond { flex: 1; color: #a5b4fc; font-family: 'SF Mono', Monaco, monospace; }
+.matrix-cell.stat { width: 60px; text-align: center; color: #94a3b8; font-weight: 600; }
+.matrix-cell.pct { width: 60px; text-align: right; color: #64748b; }
+.extreme-warning { background: linear-gradient(135deg, #f59e0b20, #f59e0b10); border: 1px solid #f59e0b; border-radius: 10px; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+.extreme-warning-icon { font-size: 1.125rem; }
+.extreme-warning-text { font-size: 0.8125rem; color: #fbbf24; font-weight: 500; }
+.extreme-table-view { display: none; }
+.extreme-table-wrapper { background: #0f172a; border-radius: 12px; overflow: hidden; border: 1px solid #334155; }
+.extreme-table { width: 100%; border-collapse: collapse; }
+.extreme-table th { background: linear-gradient(90deg, #1e293b, #0f172a); color: #94a3b8; font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 1.25rem; text-align: left; border-bottom: 1px solid #334155; }
+.extreme-table td { padding: 1rem 1.25rem; border-bottom: 1px solid #334155; font-size: 0.875rem; color: #e2e8f0; }
+.extreme-table tr:last-child td { border-bottom: none; }
+.extreme-table tr:hover td { background: #1e293b; }
+.extreme-table .unit-name { font-family: 'SF Mono', Monaco, monospace; color: #a5b4fc; font-weight: 500; }
+.extreme-summary { background: linear-gradient(145deg, #1e293b, #0f172a); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; border: 1px solid #334155; }
+.extreme-summary h3 { font-size: 0.9375rem; color: #e2e8f0; margin-bottom: 1rem; font-weight: 600; }
+.distribution-chart { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.dist-bar { display: flex; align-items: center; gap: 1rem; }
+.dist-label { font-size: 0.8125rem; color: #94a3b8; width: 80px; }
+.dist-track { flex: 1; height: 24px; background: #334155; border-radius: 6px; overflow: hidden; position: relative; }
+.dist-fill { height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.6875rem; font-weight: 600; color: white; }
+.dist-fill.normal { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.dist-fill.extreme { background: linear-gradient(90deg, #dc2626, #f87171); min-width: 40px; justify-content: center; }
+.dist-value { font-size: 0.75rem; color: #64748b; width: 100px; text-align: right; }
+.extreme-insight { background: linear-gradient(90deg, #3b82f610, transparent); border-left: 3px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; font-size: 0.875rem; color: #94a3b8; line-height: 1.6; }
+.extreme-insight strong { color: #60a5fa; }
+.unit-details { margin-bottom: 1.5rem; }
+.unit-details-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
+.unit-details-header h2 { font-size: 1rem; color: #e2e8f0; }
+.search-box { background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0.5rem 1rem; color: #e2e8f0; font-size: 0.875rem; width: 250px; }
+.search-box::placeholder { color: #64748b; }
+.units-list { background: #1e293b; border-radius: 12px; overflow: hidden; }
+.unit-item { border-bottom: 1px solid #334155; }
+.unit-item:last-child { border-bottom: none; }
+.unit-header { padding: 0.875rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.15s; }
+.unit-header:hover { background: #33415540; }
+.unit-toggle { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; color: #64748b; font-size: 0.75rem; }
+.unit-item.expanded .unit-toggle { transform: rotate(90deg); }
+.unit-id { flex: 1; font-size: 0.875rem; color: #e2e8f0; font-family: 'SF Mono', Monaco, monospace; }
+.unit-meta { display: flex; gap: 0.75rem; align-items: center; }
+.unit-badge { padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.6875rem; font-weight: 600; }
+.unit-badge.high { background: #dc2626; color: white; }
+.unit-badge.medium { background: #f59e0b; color: white; }
+.unit-badge.low { background: #22c55e; color: white; }
+.unit-stat { font-size: 0.75rem; color: #94a3b8; }
+.unit-stat strong { color: #e2e8f0; }
+.unit-body { display: none; padding: 0 1rem 1rem; }
+.unit-item.expanded .unit-body { display: block; }
+.branch-table { width: 100%; border-collapse: collapse; background: #0f172a; border-radius: 8px; overflow: hidden; }
+.branch-table th { text-align: left; padding: 0.5rem 0.75rem; background: #1e293b; color: #94a3b8; font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; }
+.branch-table td { padding: 0.5rem 0.75rem; border-top: 1px solid #334155; font-size: 0.8125rem; vertical-align: middle; }
+.branch-table tr:first-child td { border-top: none; }
+.branch-path { font-family: 'SF Mono', Monaco, monospace; color: #a5b4fc; font-size: 0.75rem; }
+.branch-risk { display: flex; align-items: center; gap: 0.25rem; }
+.branch-risk .badge { padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700; }
+.branch-risk .badge.high { background: #dc2626; color: white; }
+.branch-risk .badge.medium { background: #f59e0b; color: white; }
+.branch-risk .badge.low { background: #22c55e; color: white; }
+.branch-score { font-weight: 600; color: #94a3b8; font-size: 0.75rem; }
+.branch-sql { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Monaco, monospace; font-size: 0.6875rem; color: #a5b4fc; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.15s; }
+.branch-sql:hover { background: #334155; color: #e2e8f0; }
+.flag-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.flag-tag { background: #334155; padding: 0.0625rem 0.375rem; border-radius: 3px; font-size: 0.5625rem; color: #94a3b8; }
+.flag-tag.danger { background: #dc262640; color: #f87171; }
+.flag-tag.warning { background: #f59e0b40; color: #fbbf24; }
+.sql-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+.sql-modal.active { display: flex; }
+.sql-modal-content { background: #1e293b; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
+.sql-modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+.sql-modal-header h4 { font-size: 0.875rem; color: #e2e8f0; }
+.sql-modal-close { background: none; border: none; color: #64748b; font-size: 1.25rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+.sql-modal-close:hover { color: #e2e8f0; }
+.sql-modal-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+.sql-modal-body pre { background: #0f172a; padding: 1rem; border-radius: 8px; font-family: 'SF Mono', Monaco, monospace; font-size: 0.8125rem; color: #a5b4fc; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+.sql-modal-footer { padding: 0.75rem 1.25rem; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+.sql-modal-meta { font-size: 0.75rem; color: #64748b; }
+.sql-modal-copy { background: #334155; border: none; color: #e2e8f0; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+.sql-modal-copy:hover { background: #475569; }
+.coverage-val.danger { color: #dc2626; font-weight: 600; }
+.coverage-val.warning { color: #f59e0b; font-weight: 600; }
+.coverage-val.good { color: #22c55e; font-weight: 600; }
+.unit-details-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
+.unit-filters { display: flex; gap: 0.375rem; }
+.unit-filter-btn { background: #334155; border: none; color: #94a3b8; padding: 0.25rem 0.625rem; border-radius: 4px; font-size: 0.6875rem; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; }
+.unit-filter-btn:hover { background: #475569; }
+.unit-filter-btn.active { background: #3b82f6; color: white; }
+.unit-filter-btn.high.active { background: #dc2626; color: white; }
+.unit-filter-btn.medium.active { background: #f59e0b; color: white; }
+.unit-filter-btn.low.active { background: #22c55e; color: white; }
+.units-collapse-bar { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.collapse-hint { font-size: 0.75rem; color: #94a3b8; }
+.expand-more-btn { background: #334155; border: none; color: #e2e8f0; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+.expand-more-btn:hover { background: #475569; }
+</style>
+"""
+
 BASE_JS = """
 <script>
 function toggleSection(header) {
@@ -191,6 +455,79 @@ function toggleSection(header) {
         body.classList.add('hidden');
         icon.textContent = '▶';
     }
+}
+
+function toggleExtreme() {
+  const section = document.querySelector('.extreme-section');
+  section.classList.toggle('expanded');
+}
+
+function expandExtremeCard(card) {
+  card.classList.toggle('expanded');
+}
+
+function toggleExtremeView(view) {
+  document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
+  document.querySelector('.view-toggle-btn[data-view="' + view + '"]').classList.add('active');
+
+  if (view === 'cards') {
+    document.getElementById('extreme-cards-view').style.display = 'grid';
+    document.getElementById('extreme-table-view').style.display = 'none';
+  } else {
+    document.getElementById('extreme-cards-view').style.display = 'none';
+    document.getElementById('extreme-table-view').style.display = 'block';
+  }
+}
+
+function sortExtremeTable(sortType) {
+  const cards = document.querySelectorAll('.extreme-card');
+  const rows = document.querySelectorAll('#extreme-table-view tbody tr');
+
+  const cardsArray = Array.from(cards);
+  cardsArray.sort(function(a, b) {
+    if (sortType === 'theoretical-desc') {
+      const valA = parseInt(a.querySelector('.extreme-badge').textContent);
+      const valB = parseInt(b.querySelector('.extreme-badge').textContent);
+      return valB - valA;
+    } else if (sortType === 'theoretical-asc') {
+      const valA = parseInt(a.querySelector('.extreme-badge').textContent);
+      const valB = parseInt(b.querySelector('.extreme-badge').textContent);
+      return valA - valB;
+    } else if (sortType === 'coverage-asc') {
+      const valA = parseFloat(a.querySelector('.extreme-metric-value.danger').textContent.split('/')[1]);
+      const valB = parseFloat(b.querySelector('.extreme-metric-value.danger').textContent.split('/')[1]);
+      return valA - valB;
+    } else if (sortType === 'coverage-desc') {
+      const valA = parseFloat(a.querySelector('.extreme-metric-value.danger').textContent.split('/')[1]);
+      const valB = parseFloat(b.querySelector('.extreme-metric-value.danger').textContent.split('/')[1]);
+      return valB - valA;
+    }
+    return 0;
+  });
+
+  cardsArray.forEach(function(card) {
+    document.getElementById('extreme-cards-view').appendChild(card);
+  });
+
+  const rowsArray = Array.from(rows);
+  rowsArray.sort(function(a, b) {
+    if (sortType === 'theoretical-desc') {
+      return parseInt(b.cells[1].textContent) - parseInt(a.cells[1].textContent);
+    } else if (sortType === 'theoretical-asc') {
+      return parseInt(a.cells[1].textContent) - parseInt(b.cells[1].textContent);
+    } else if (sortType === 'coverage-asc') {
+      return parseFloat(a.cells[3].textContent) - parseFloat(b.cells[3].textContent);
+    } else if (sortType === 'coverage-desc') {
+      return parseFloat(b.cells[3].textContent) - parseFloat(a.cells[3].textContent);
+    }
+    return 0;
+  });
+
+  rowsArray.forEach(function(row) {
+    document.querySelector('#extreme-table-view tbody').appendChild(row);
+  });
 }
 
 function initSortableBranches(card) {
@@ -392,6 +729,72 @@ document.addEventListener('DOMContentLoaded', function() {
 """
 
 
+def _build_rules_section_html() -> str:
+    """Build the risk rule legend HTML section from RISK_FACTOR_REGISTRY."""
+    # Group rules by severity
+    critical_rules = []
+    warning_rules = []
+    info_rules = []
+
+    for code, factor in RISK_FACTOR_REGISTRY.items():
+        severity = factor.severity.name  # CRITICAL, WARNING, INFO
+        rule_html = f'''<div class="rule-item" data-code="{code}">
+            <div class="rule-item-header">
+              <span class="rule-badge {severity.lower()}">{severity}</span>
+              <span class="rule-code">{code}</span>
+            </div>
+            <div class="rule-item-desc">{factor.explanation_template[:80]}...</div>
+          </div>'''
+        if severity == "CRITICAL":
+            critical_rules.append(rule_html)
+        elif severity == "WARNING":
+            warning_rules.append(rule_html)
+        else:
+            info_rules.append(rule_html)
+
+    def build_group(severity: str, title: str, rules: list[str]) -> str:
+        if not rules:
+            return ""
+        return f'''<div class="rule-group" data-severity="{severity}">
+        <div class="rule-group-header" onclick="toggleRuleGroup(this)">
+          <span class="rule-group-title">{title}</span>
+          <span class="rule-group-count">{len(rules)} 条规则</span>
+          <span class="rule-group-toggle">▼</span>
+        </div>
+        <div class="rule-group-items">
+          {"".join(rules)}
+        </div>
+      </div>'''
+
+    critical_html = build_group("CRITICAL", "⚠️ 严重（影响查询执行）", critical_rules)
+    warning_html = build_group("WARNING", "⚡ 警告（性能下降）", warning_rules)
+    info_html = build_group("INFO", "💡 提示（可优化项）", info_rules)
+
+    return f"""<div class="rules-section">
+    <div class="rules-header">
+      <h2>风险规则图例</h2>
+    </div>
+    <div class="rules-controls">
+      <div class="rules-filters">
+        <button class="filter-btn active" data-filter="all" onclick="filterRules('all')">全部</button>
+        <button class="filter-btn critical" data-filter="CRITICAL" onclick="filterRules('CRITICAL')">严重</button>
+        <button class="filter-btn warning" data-filter="WARNING" onclick="filterRules('WARNING')">警告</button>
+        <button class="filter-btn info" data-filter="INFO" onclick="filterRules('INFO')">提示</button>
+      </div>
+      <input type="text" class="rules-search" id="rules-search" placeholder="搜索规则名称..." oninput="searchRules()">
+    </div>
+    <div class="rules-list">
+      {critical_html}
+      {warning_html}
+      {info_html}
+    </div>
+    <div class="rules-footer">
+      <strong>风险评分公式</strong>：综合风险分 = Σ(风险标志权重 × 风险严重程度系数)<br>
+      CRITICAL系数=1.0, WARNING=0.6, INFO=0.3, ACTIVE_CONDITION=0.1
+    </div>
+  </div>"""
+
+
 def _get_risk_level(risk_level: str | None) -> tuple[str, str]:
     """基于 risk_level (HIGH/MEDIUM/LOW/None) 返回标签。"""
     if risk_level is None:
@@ -515,34 +918,152 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         normal_count = stats.normal_count
         outlier_count = stats.outlier_count
         if outlier_count > 0:
-            outlier_rows = "".join(
-                f'<tr><td style="font-size:0.8rem;"><code>{html_escape.escape(u.sql_unit_id)}</code></td>'
-                f'<td style="text-align:center;font-size:0.8rem;">{u.cond_count}</td>'
-                f'<td style="text-align:center;font-size:0.8rem;color:#dc2626;">{f"{u.theoretical_branches:,.0f}"}</td>'
-                f'<td style="text-align:center;font-size:0.8rem;">{u.actual_branches}</td>'
-                f'<td style="text-align:center;font-size:0.8rem;">{u.coverage_pct:.1f}%</td>'
-                f'<td style="font-size:0.75rem;color:#94a3b8;">{html_escape.escape(u.reason)}</td></tr>'
-                for u in stats.outlier_units
+            # Compute outlier contribution percentage
+            normal_sum_theoretical = sum_theoretical
+            outlier_contribution_pct = (
+                outlier_sum_theoretical / (normal_sum_theoretical + outlier_sum_theoretical) * 100
+                if (normal_sum_theoretical + outlier_sum_theoretical) > 0
+                else 0.0
             )
-            outlier_html = f"""
-    <div class="section">
-        <div class="section-header" onclick="toggleSection(this)">
-            <h2><span class="collapse-icon">▶</span> 极值单元列表</h2>
-            <span class="badge badge-high" style="margin-left:0.5rem;">{outlier_count} 个单元</span>
+
+            # Build extreme cards
+            extreme_cards = ""
+            for u in stats.outlier_units:
+                coverage_val_class = "danger" if u.coverage_pct < 50 else ""
+                extreme_cards += f"""
+      <div class="extreme-card" onclick="expandExtremeCard(this)">
+        <div class="extreme-card-header">
+          <span class="extreme-card-title">{html_escape.escape(u.sql_unit_id)}</span>
+          <span class="extreme-badge">{u.theoretical_branches:,} 理论</span>
         </div>
-        <div class="section-body hidden">
-            <div class="card">
-                <p style="color:#dc2626;font-size:0.8rem;margin-bottom:0.75rem;">
-                    ⚠️ 以下单元理论分支数超过 {OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:,}, 已从正常统计中分离
-                </p>
-                <table>
-                    <thead><tr><th>SQL单元</th><th style="width:80px;text-align:center;">条件数</th><th style="width:120px;text-align:center;">理论分支</th><th style="width:100px;text-align:center;">实际分支</th><th style="width:80px;text-align:center;">覆盖率</th><th>原因</th></tr></thead>
-                    <tbody>{outlier_rows}</tbody>
-                </table>
+        <div class="extreme-metrics">
+          <div class="extreme-metric">
+            <span class="extreme-metric-value">{u.actual_branches}</span>
+            <span class="extreme-metric-label">实际分支</span>
+          </div>
+          <div class="extreme-metric">
+            <span class="extreme-metric-value {coverage_val_class}">{u.actual_branches}/{u.theoretical_branches:,}</span>
+            <span class="extreme-metric-label">覆盖率 {u.coverage_pct:.1f}%</span>
+          </div>
+          <div class="extreme-metric">
+            <span class="extreme-metric-value">{u.cond_count}</span>
+            <span class="extreme-metric-label">IF条件</span>
+          </div>
+        </div>
+        <div class="extreme-mini-bar">
+          <div class="extreme-mini-bar-fill{" warning" if u.coverage_pct < 20 else ""}" style="width:{min(u.coverage_pct, 100):.1f}%;"></div>
+        </div>
+        <div class="extreme-card-expand-hint">点击展开详情 ▼</div>
+        <div class="extreme-card-details">
+          <div class="extreme-reason">
+            <h4>采样跳过原因</h4>
+            <div class="reason-list">
+              <div class="reason-item">
+                <span class="reason-text">{html_escape.escape(u.reason)}</span>
+              </div>
             </div>
+          </div>
         </div>
+      </div>
+"""
+
+            # Build extreme table rows
+            extreme_table_rows = ""
+            for u in stats.outlier_units:
+                coverage_val_class = (
+                    '<span class="coverage-val danger">' if u.coverage_pct < 50 else '<span class="coverage-val">'
+                )
+                extreme_table_rows += f"""
+            <tr>
+              <td class="unit-name">{html_escape.escape(u.sql_unit_id)}</td>
+              <td>{u.theoretical_branches:,}</td>
+              <td>{u.actual_branches}</td>
+              <td>{coverage_val_class}{u.coverage_pct:.1f}%</span></td>
+              <td>{u.cond_count}</td>
+              <td>{html_escape.escape(u.reason)}</td>
+            </tr>
+"""
+
+            outlier_html = f"""
+    <div class="extreme-section">
+      <div class="extreme-header" onclick="toggleExtreme()">
+        <h2>极端单元分析</h2>
+        <div class="extreme-header-right">
+          <span class="extreme-count-badge">{outlier_count} 个极端单元</span>
+          <span class="extreme-toggle" id="extreme-toggle">▶</span>
+        </div>
+      </div>
+      <div class="extreme-body" id="extreme-body">
+        <div class="extreme-alert">
+          <span class="extreme-alert-icon">⚠️</span>
+          <div class="extreme-alert-content">这些单元的理论分支数异常高，需要人工审核采样策略。<strong>{outlier_count} 个极端单元</strong>贡献了 <strong>{outlier_contribution_pct:.0f}%</strong> 的理论分支。</div>
+        </div>
+
+        <div class="extreme-controls">
+          <div class="extreme-view-toggle">
+            <button class="view-toggle-btn active" data-view="cards" onclick="toggleExtremeView('cards')">卡片</button>
+            <button class="view-toggle-btn" data-view="table" onclick="toggleExtremeView('table')">表格</button>
+          </div>
+          <div class="extreme-sort">
+            <span class="sort-label">排序：</span>
+            <select class="extreme-sort-select" onchange="sortExtremeTable(this.value)">
+              <option value="theoretical-desc">理论分支 ↓</option>
+              <option value="theoretical-asc">理论分支 ↑</option>
+              <option value="coverage-asc">覆盖率 ↑</option>
+              <option value="coverage-desc">覆盖率 ↓</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="extreme-cards-view" id="extreme-cards-view">
+          {extreme_cards}
+        </div>
+
+        <div class="extreme-table-view" id="extreme-table-view">
+          <div class="extreme-table-wrapper">
+            <table class="extreme-table">
+              <thead>
+                <tr>
+                  <th>单元</th>
+                  <th>理论分支</th>
+                  <th>实际分支</th>
+                  <th>覆盖率</th>
+                  <th>IF条件</th>
+                  <th>跳过原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extreme_table_rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="extreme-summary">
+          <h3>单元分布</h3>
+          <div class="distribution-chart">
+            <div class="dist-bar">
+              <span class="dist-label">正常单元</span>
+              <div class="dist-track">
+                <div class="dist-fill normal" style="width:{normal_count / (normal_count + outlier_count) * 100:.1f}%;">{normal_count}</div>
+              </div>
+              <span class="dist-value">{normal_count} / {normal_count + outlier_count}</span>
+            </div>
+            <div class="dist-bar">
+              <span class="dist-label">极端单元</span>
+              <div class="dist-track">
+                <div class="dist-fill extreme">{outlier_count}</div>
+              </div>
+              <span class="dist-value">{outlier_count} / {normal_count + outlier_count}</span>
+            </div>
+          </div>
+          <div class="extreme-insight">
+            极端单元虽然只占 <strong>{outlier_count / (normal_count + outlier_count) * 100:.0f}%</strong>，但贡献了 <strong>{outlier_contribution_pct:.0f}%</strong> 的理论分支。需人工审核采样策略。
+          </div>
+        </div>
+      </div>
     </div>
-    """
+"""
         else:
             outlier_html = ""
     else:
@@ -615,20 +1136,40 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
 <head>
     <meta charset="UTF-8">
     <title>解析阶段报告</title>
-        <style>{DARK_THEME}</style>
+        <style>{DARK_THEME_V2}</style>
 </head>
 <body>
 <div class="container">
     <h1>解析阶段报告</h1>
 
-    <div class="summary-grid">
-        <div class="card">
-            <div class="stat"><div class="stat-value">{total_units}</div><div class="stat-label">SQL单元</div></div>
-            <div class="stat"><div class="stat-value">{total_branches}</div><div class="stat-label">实际分支</div></div>
-            <div class="stat"><div class="stat-value">{
+    <div class="stat-cards">
+        <div class="stat-card theoretical">
+            <div class="stat-value">{sum_theoretical}</div>
+            <div class="stat-label">理论总数</div>
+        </div>
+        <div class="stat-card actual">
+            <div class="stat-value">{total_branches}</div>
+            <div class="stat-label">实际总数</div>
+        </div>
+        <div class="stat-card theoretical">
+            <div class="stat-value">{
         stats.normal_sum_theoretical if isinstance(output_or_stats, ParseStageStats) else sum_theoretical
-    }</div><div class="stat-label">理论分支</div></div>
-            <div class="stat"><div class="stat-value">{high_risk}</div><div class="stat-label">高风险</div></div>
+    }</div>
+            <div class="stat-label">正常理论</div>
+        </div>
+        <div class="stat-card actual">
+            <div class="stat-value">{
+        stats.normal_total_branches if isinstance(output_or_stats, ParseStageStats) else total_branches
+    }</div>
+            <div class="stat-label">正常实际</div>
+        </div>
+        <div class="stat-card high">
+            <div class="stat-value">{high_risk}</div>
+            <div class="stat-label">高风险</div>
+        </div>
+        <div class="stat-card medium">
+            <div class="stat-value">{medium_risk}</div>
+            <div class="stat-label">中风险</div>
         </div>
     </div>
 
@@ -741,11 +1282,11 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
     </div>
     {outlier_html}
     <div class="charts-grid">
-        <div class="card">
+        <div class="chart-card">
             <h3>风险等级分布</h3>
             <div class="chart-container"><canvas id="riskChart"></canvas></div>
         </div>
-        <div class="card">
+        <div class="chart-card">
             <h3>风险标志分布</h3>
             <div class="chart-container"><canvas id="flagsChart"></canvas></div>
         </div>
@@ -772,6 +1313,7 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         </table>
     </div>
 
+    {_build_rules_section_html()}
     <h2>各单元分支详情</h2>
 """
 
@@ -879,6 +1421,38 @@ drawDoughnut('riskChart', [{high_risk}, {medium_risk}, {low_risk}, {no_score}],
 const flagsLabels = {list(all_flags.keys())};
 const flagsData = {list(all_flags.values())};
 drawHorizontalBar('flagsChart', flagsData, flagsLabels, '#6366f1');
+
+function filterRules(severity) {{
+  document.querySelectorAll('.filter-btn').forEach(function(btn) {{
+    btn.classList.remove('active');
+  }});
+  document.querySelector('.filter-btn[data-filter="' + severity + '"]').classList.add('active');
+  
+  document.querySelectorAll('.rule-group').forEach(function(group) {{
+    if (severity === 'all') {{
+      group.classList.remove('hidden');
+    }} else {{
+      if (group.getAttribute('data-severity') === severity) {{
+        group.classList.remove('hidden');
+      }} else {{
+        group.classList.add('hidden');
+      }}
+    }}
+  }});
+}}
+
+function searchRules() {{
+  const query = document.getElementById('rules-search').value.toLowerCase();
+  document.querySelectorAll('.rule-item').forEach(function(item) {{
+    const code = item.getAttribute('data-code').toLowerCase();
+    item.style.display = code.includes(query) ? '' : 'none';
+  }});
+}}
+
+function toggleRuleGroup(header) {{
+  const group = header.closest('.rule-group');
+  group.classList.toggle('collapsed');
+}}
 </script>
 """
         + BASE_JS
