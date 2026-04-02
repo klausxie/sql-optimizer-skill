@@ -220,7 +220,12 @@ def build_parse_stage_stats(
             normal_total_branches += len(u.branches)
 
         # Top risk flag
-        unit_flags = [f for b in u.branches for f in b.risk_flags]
+        unit_flags = [
+            f
+            for b in u.branches
+            for f in (getattr(b, "score_reasons", []) or [])
+            if f and f not in ("ACTIVE_CONDITION",)
+        ]
         top_flag: Optional[str] = None
         if unit_flags:
             top_flag = Counter(unit_flags).most_common(1)[0][0]

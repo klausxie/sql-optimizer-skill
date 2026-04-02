@@ -312,7 +312,7 @@ class ParseStage(Stage[None, ParseOutput]):
         )
 
         report_path = parse_dir / "SUMMARY.html"
-        generate_parse_report(stats, str(report_path))
+        generate_parse_report(output, stats, str(report_path))
 
     def _generate_html_summary(
         self,

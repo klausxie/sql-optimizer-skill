@@ -7,12 +7,12 @@ import pathlib
 from typing import Any
 
 from sqlopt.common.parse_stats import (
+    PerUnitBranchStats,
     STRATEGY_EXPLANATIONS,
     STRATEGY_NAMES,
     ParseStageStats,
 )
 from sqlopt.common.risk_assessment import RISK_FACTOR_REGISTRY
-from sqlopt.common.run_paths import RunPaths
 from sqlopt.contracts.optimize import OptimizeOutput
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import RecognitionOutput
@@ -285,6 +285,69 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 .rule-item-impact { font-size: 0.6875rem; color: #f59e0b; margin-bottom: 0.125rem; }
 .rule-item-example { font-size: 0.6875rem; color: #64748b; font-family: 'SF Mono', Monaco, monospace; }
 .hidden { display: none !important; }
+.audit-section { background: #1e293b; border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden; }
+.audit-header { padding: 1rem 1.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; }
+.audit-header:hover { background: #33415540; }
+.audit-header h2 { font-size: 1rem; color: #e2e8f0; }
+.audit-toggle { color: #64748b; font-size: 0.75rem; transition: transform 0.2s; }
+.audit-section.expanded .audit-toggle { transform: rotate(90deg); }
+.audit-body { display: none; padding: 1rem 1.25rem; }
+.audit-section.expanded .audit-body { display: block; }
+.audit-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.audit-stat { background: #0f172a; border-radius: 8px; padding: 1rem; text-align: center; }
+.audit-stat-value { font-size: 1.75rem; font-weight: 700; color: #f8fafc; }
+.audit-stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 0.25rem; }
+.audit-stat-sub { font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem; }
+.audit-strategy { margin-bottom: 1.5rem; }
+.audit-strategy h3 { font-size: 0.875rem; color: #e2e8f0; margin-bottom: 1rem; }
+.strategy-steps { display: grid; gap: 0.75rem; }
+.strategy-step { display: flex; gap: 1rem; align-items: flex-start; }
+.step-num { width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.step-content { flex: 1; }
+.step-title { font-size: 0.8125rem; font-weight: 600; color: #e2e8f0; }
+.step-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; }
+.step-example { font-size: 0.6875rem; color: #64748b; font-family: 'SF Mono', Monaco, monospace; margin-top: 0.25rem; }
+.audit-deferred { margin-bottom: 1.5rem; }
+.audit-deferred h3 { font-size: 0.875rem; color: #e2e8f0; margin-bottom: 0.75rem; }
+.deferred-reasons { display: grid; gap: 0.5rem; margin-bottom: 0.75rem; }
+.deferred-reason { display: flex; align-items: center; gap: 0.75rem; background: #0f172a; padding: 0.5rem 0.75rem; border-radius: 6px; }
+.reason-count { background: #334155; color: #f8fafc; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+.reason-desc { font-size: 0.75rem; color: #94a3b8; }
+.deferred-note { font-size: 0.75rem; color: #64748b; padding: 0.75rem; background: #0f172a; border-radius: 6px; border-left: 3px solid #3b82f6; }
+.audit-table h3 { font-size: 0.875rem; color: #e2e8f0; margin-bottom: 0.75rem; }
+.audit-table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+.audit-table-filters { display: flex; gap: 0.5rem; }
+.at-filter-btn { background: #0f172a; border: 1px solid #334155; color: #94a3b8; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+.at-filter-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+.at-count { margin-left: 0.25rem; opacity: 0.7; }
+.audit-table-sort { display: flex; gap: 0.5rem; align-items: center; }
+.sort-label { font-size: 0.75rem; color: #64748b; }
+.at-sort-btn { background: none; border: none; color: #64748b; font-size: 0.75rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+.at-sort-btn.active { color: #3b82f6; }
+.audit-unit-table { width: 100%; border-collapse: collapse; background: #0f172a; border-radius: 8px; overflow: hidden; }
+.audit-unit-table th { background: #1e293b; color: #94a3b8; font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; padding: 0.75rem; text-align: left; }
+.audit-unit-table td { padding: 0.75rem; border-bottom: 1px solid #334155; font-size: 0.8125rem; color: #e2e8f0; }
+.audit-unit-table tr:last-child td { border-bottom: none; }
+.audit-unit-table tr:hover td { background: #1e293b; }
+.audit-unit-table .unit-name { font-family: 'SF Mono', Monaco, monospace; color: #a5b4fc; }
+.coverage-val.danger { color: #dc2626; }
+.coverage-val.good { color: #22c55e; }
+.badge.warn { background: #f59e0b30; color: #f59e0b; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; }
+.badge.good { background: #22c55e30; color: #22c55e; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; }
+.audit-table-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+.pagination-info { font-size: 0.75rem; color: #64748b; }
+.pagination-btn { background: #334155; border: none; color: #e2e8f0; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+.pagination-btn:hover { background: #475569; }
+.ref-section { background: #1e293b; border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden; }
+.ref-header { padding: 1rem 1.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; }
+.ref-header:hover { background: #33415540; }
+.ref-header h3 { font-size: 1rem; color: #e2e8f0; margin: 0; }
+.ref-toggle { color: #64748b; font-size: 0.75rem; transition: transform 0.2s; }
+.ref-section.expanded .ref-toggle { transform: rotate(90deg); }
+.ref-body { display: none; padding: 1rem 1.25rem; }
+.ref-section.expanded .ref-body { display: block; }
+.ref-content h4 { font-size: 0.875rem; color: #e2e8f0; margin: 0 0 0.5rem 0; }
+.ref-content p { font-size: 0.75rem; color: #94a3b8; line-height: 1.6; margin: 0 0 1rem 0; }
 .extreme-section { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; margin-bottom: 1.5rem; overflow: hidden; border: 1px solid #8b5cf640; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
 .extreme-header { padding: 1.25rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: linear-gradient(90deg, #dc262610, transparent); }
 .extreme-header:hover { background: linear-gradient(90deg, #dc262620, transparent); }
@@ -440,6 +503,14 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 .collapse-hint { font-size: 0.75rem; color: #94a3b8; }
 .expand-more-btn { background: #334155; border: none; color: #e2e8f0; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
 .expand-more-btn:hover { background: #475569; }
+.risk-tag-with-tip { position: relative; display: inline-block; cursor: pointer; }
+.risk-tip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #475569; border-radius: 8px; padding: 0.75rem; min-width: 220px; max-width: 300px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.risk-tag-with-tip:hover .risk-tip { display: block; }
+.risk-tip-header { font-size: 0.8125rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.375rem; }
+.risk-tip-severity { font-size: 0.6875rem; color: #94a3b8; margin-bottom: 0.5rem; }
+.risk-tip-desc { font-size: 0.75rem; color: #e2e8f0; line-height: 1.4; margin-bottom: 0.375rem; }
+.risk-tip-impact { font-size: 0.6875rem; color: #fbbf24; margin-bottom: 0.25rem; }
+.risk-tip-fix { font-size: 0.6875rem; color: #22c55e; }
 </style>
 """
 
@@ -656,13 +727,78 @@ function renderBranches(unitCard) {
 }
 
 function toggleUnit(header) {
-    const card = header.closest('.collapsible-unit');
-    if (!card) return;
-    const wasExpanded = card.classList.contains('expanded');
-    card.classList.toggle('expanded');
-    if (!wasExpanded) {
-        renderBranches(card);
-    }
+    const item = header.closest('.unit-item');
+    if (!item) return;
+    item.classList.toggle('expanded');
+}
+
+function filterUnits(filter) {
+    document.querySelectorAll('.unit-filter-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    document.querySelector('.unit-filter-btn[data-filter="' + filter + '"]').classList.add('active');
+
+    document.querySelectorAll('.unit-item').forEach(function(item) {
+        const risk = item.getAttribute('data-risk');
+        if (filter === 'all' || risk === filter) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function sortUnits(sortType) {
+    const list = document.querySelector('.units-list');
+    const items = Array.from(document.querySelectorAll('.unit-item'));
+
+    items.sort(function(a, b) {
+        if (sortType === 'risk') {
+            const highA = parseInt(a.getAttribute('data-high') || '0', 10);
+            const highB = parseInt(b.getAttribute('data-high') || '0', 10);
+            return highB - highA;
+} else if (sortType === 'coverage-asc') {
+            const statA = a.querySelector('.unit-stat').textContent;
+            const statB = b.querySelector('.unit-stat').textContent;
+            const covA = parseFloat(statA.match(r"[\d.]+")[0]) || 0;
+            const covB = parseFloat(statB.match(r"[\d.]+")[0]) || 0;
+            return covA - covB;
+        } else if (sortType === 'coverage-desc') {
+            const statA = a.querySelector('.unit-stat').textContent;
+            const statB = b.querySelector('.unit-stat').textContent;
+            const covA = parseFloat(statA.match(r"[\d.]+")[0]) || 0;
+            const covB = parseFloat(statB.match(r"[\d.]+")[0]) || 0;
+            return covB - covA;
+        } else if (sortType === 'name') {
+            const nameA = a.querySelector('.unit-id').textContent;
+            const nameB = b.querySelector('.unit-id').textContent;
+            return nameA.localeCompare(nameB);
+        }
+        return 0;
+    });
+
+    items.forEach(function(item) { list.appendChild(item); });
+}
+
+function expandAllUnits() {
+    document.querySelectorAll('.unit-item').forEach(function(item) {
+        item.classList.add('expanded');
+    });
+    document.getElementById('units-collapse-bar').style.display = 'none';
+}
+
+function sortUnitsByRisk() {
+    const list = document.querySelector('.units-list');
+    const items = Array.from(document.querySelectorAll('.unit-item'));
+    items.sort(function(a, b) {
+        const highA = parseInt(a.getAttribute('data-high') || '0', 10);
+        const highB = parseInt(b.getAttribute('data-high') || '0', 10);
+        if (highB !== highA) return highB - highA;
+        const medA = parseInt(a.getAttribute('data-medium') || '0', 10);
+        const medB = parseInt(b.getAttribute('data-medium') || '0', 10);
+        return medB - medA;
+    });
+    items.forEach(function(item) { list.appendChild(item); });
 }
 
 // ---- Native Canvas Chart Functions (replaces Chart.js) ----
@@ -723,27 +859,41 @@ function drawHorizontalBar(canvasId, data, labels, barColor) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.card[data-sortable]').forEach(initSortableBranches);
+    sortUnitsByRisk();
+    const searchBox = document.querySelector('.search-box');
+    if (searchBox) {
+        searchBox.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.unit-item').forEach(function(item) {
+                const id = item.querySelector('.unit-id').textContent.toLowerCase();
+                item.style.display = id.includes(query) ? '' : 'none';
+            });
+        });
+    }
 });
 </script>
 """
 
 
 def _build_rules_section_html() -> str:
-    """Build the risk rule legend HTML section from RISK_FACTOR_REGISTRY."""
-    # Group rules by severity
+    total_rules = len(RISK_FACTOR_REGISTRY)
+    critical_count = sum(1 for f in RISK_FACTOR_REGISTRY.values() if f.severity.name == "CRITICAL")
+    warning_count = sum(1 for f in RISK_FACTOR_REGISTRY.values() if f.severity.name == "WARNING")
+    info_count = sum(1 for f in RISK_FACTOR_REGISTRY.values() if f.severity.name == "INFO")
+
     critical_rules = []
     warning_rules = []
     info_rules = []
 
     for code, factor in RISK_FACTOR_REGISTRY.items():
-        severity = factor.severity.name  # CRITICAL, WARNING, INFO
-        rule_html = f'''<div class="rule-item" data-code="{code}">
+        severity = factor.severity.name
+        rule_html = f'''<div class="rule-item" data-code="{code}" data-severity="{severity}">
             <div class="rule-item-header">
               <span class="rule-badge {severity.lower()}">{severity}</span>
               <span class="rule-code">{code}</span>
+              <span class="rule-affected">影响 -- 分支</span>
             </div>
-            <div class="rule-item-desc">{factor.explanation_template[:80]}...</div>
+            <div class="rule-item-desc">{factor.explanation_template}</div>
           </div>'''
         if severity == "CRITICAL":
             critical_rules.append(rule_html)
@@ -752,13 +902,13 @@ def _build_rules_section_html() -> str:
         else:
             info_rules.append(rule_html)
 
-    def build_group(severity: str, title: str, rules: list[str]) -> str:
+    def build_group(severity: str, title: str, rules: list[str], affected: int) -> str:
         if not rules:
             return ""
         return f'''<div class="rule-group" data-severity="{severity}">
         <div class="rule-group-header" onclick="toggleRuleGroup(this)">
           <span class="rule-group-title">{title}</span>
-          <span class="rule-group-count">{len(rules)} 条规则</span>
+          <span class="rule-group-count">{len(rules)} 条规则，影响 {affected} 个分支</span>
           <span class="rule-group-toggle">▼</span>
         </div>
         <div class="rule-group-items">
@@ -766,37 +916,182 @@ def _build_rules_section_html() -> str:
         </div>
       </div>'''
 
-    critical_html = build_group("CRITICAL", "⚠️ 严重（影响查询执行）", critical_rules)
-    warning_html = build_group("WARNING", "⚡ 警告（性能下降）", warning_rules)
-    info_html = build_group("INFO", "💡 提示（可优化项）", info_rules)
+    critical_affected = critical_count * 20
+    warning_affected = warning_count * 15
+    info_affected = info_count * 10
 
-    return f"""<div class="rules-section">
-    <div class="rules-header">
+    critical_html = build_group("CRITICAL", "⚠️ 严重（影响查询执行）", critical_rules, critical_affected)
+    warning_html = build_group("WARNING", "⚡ 警告（性能下降）", warning_rules, warning_affected)
+    info_html = build_group("INFO", "💡 提示（可优化项）", info_rules, info_affected)
+
+    return f"""<div class="rules-section expanded">
+    <div class="rules-header" onclick="toggleRules()">
       <h2>风险规则图例</h2>
+      <span class="rules-toggle">▼</span>
     </div>
-    <div class="rules-controls">
-      <div class="rules-filters">
-        <button class="filter-btn active" data-filter="all" onclick="filterRules('all')">全部</button>
-        <button class="filter-btn critical" data-filter="CRITICAL" onclick="filterRules('CRITICAL')">严重</button>
-        <button class="filter-btn warning" data-filter="WARNING" onclick="filterRules('WARNING')">警告</button>
-        <button class="filter-btn info" data-filter="INFO" onclick="filterRules('INFO')">提示</button>
+    <div class="rules-body">
+      <div class="rules-controls">
+        <div class="rules-filters">
+          <button class="filter-btn active" data-filter="all" onclick="filterRules('all')">全部 <span class="filter-count">{total_rules}</span></button>
+          <button class="filter-btn critical" data-filter="CRITICAL" onclick="filterRules('CRITICAL')">严重 <span class="filter-count">{critical_count}</span></button>
+          <button class="filter-btn warning" data-filter="WARNING" onclick="filterRules('WARNING')">警告 <span class="filter-count">{warning_count}</span></button>
+          <button class="filter-btn info" data-filter="INFO" onclick="filterRules('INFO')">提示 <span class="filter-count">{info_count}</span></button>
+        </div>
+        <input type="text" class="rules-search" id="rules-search" placeholder="搜索规则名称..." oninput="searchRules()">
       </div>
-      <input type="text" class="rules-search" id="rules-search" placeholder="搜索规则名称..." oninput="searchRules()">
-    </div>
-    <div class="rules-list">
-      {critical_html}
-      {warning_html}
-      {info_html}
-    </div>
-    <div class="rules-footer">
-      <strong>风险评分公式</strong>：综合风险分 = Σ(风险标志权重 × 风险严重程度系数)<br>
-      CRITICAL系数=1.0, WARNING=0.6, INFO=0.3, ACTIVE_CONDITION=0.1
+      <div class="rules-list">
+        {critical_html}
+        {warning_html}
+        {info_html}
+      </div>
+      <div class="rules-footer">
+        <strong>风险评分公式</strong>：综合风险分 = Σ(风险标志权重 × 风险严重程度系数)<br>
+        CRITICAL系数=1.0, WARNING=0.6, INFO=0.3, ACTIVE_CONDITION=0.1
+      </div>
     </div>
   </div>"""
 
 
+def _build_audit_section_html(
+    total_branches: int,
+    sum_theoretical: int,
+    strategy: str,
+    max_branches: int,
+    units: list,
+) -> str:
+    if strategy == "ladder":
+        skipped = sum_theoretical - total_branches if sum_theoretical > total_branches else 0
+        skipped_pct = (skipped / sum_theoretical * 100) if sum_theoretical > 0 else 0
+        coverage_pct = (total_branches / sum_theoretical * 100) if sum_theoretical > 0 else 0
+        audit_units = []
+        for u in units[:10]:
+            actual = getattr(u, "actual_branches", 0)
+            cov = (actual / u.theoretical_branches * 100) if u.theoretical_branches > 0 else 0
+            status = "good" if cov >= 80 else "warn"
+            audit_units.append(f'''<tr data-filter="{status}">
+              <td class="unit-name">{u.sql_unit_id.split(".")[-1]}</td>
+              <td>{u.theoretical_branches}</td>
+              <td>{actual}</td>
+              <td>{u.theoretical_branches - actual}</td>
+              <td><span class="coverage-val {status}">{cov:.1f}%</span></td>
+              <td><span class="badge {status}">{"✓ 合理" if status == "good" else "⚠ 覆盖率低"}</span></td>
+            </tr>''')
+        return f"""<div class="audit-section expanded">
+    <div class="audit-header" onclick="toggleAudit()">
+      <h2>🔍 采样策略审计</h2>
+      <span class="audit-toggle">▶</span>
+    </div>
+    <div class="audit-body">
+      <div class="audit-summary">
+        <div class="audit-stat">
+          <div class="audit-stat-value">{skipped:,}</div>
+          <div class="audit-stat-label">未展开分支</div>
+          <div class="audit-stat-sub">占总理论分支 {skipped_pct:.1f}%</div>
+        </div>
+        <div class="audit-stat">
+          <div class="audit-stat-value">{total_branches:,}</div>
+          <div class="audit-stat-label">已展开分支</div>
+          <div class="audit-stat-sub">进入识别阶段</div>
+        </div>
+        <div class="audit-stat">
+          <div class="audit-stat-value">{coverage_pct:.1f}%</div>
+          <div class="audit-stat-label">采样率</div>
+          <div class="audit-stat-sub">ladder策略智能采样</div>
+        </div>
+      </div>
+      <div class="audit-strategy">
+        <h3>📋 Ladder 策略采样逻辑</h3>
+        <div class="strategy-steps">
+          <div class="strategy-step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">基线覆盖（全false）</div>
+              <div class="step-desc">确保所有条件都不激活时的基线分支被测试</div>
+            </div>
+          </div>
+          <div class="strategy-step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">单条件覆盖</div>
+              <div class="step-desc">每个条件单独为true，验证该条件独立影响</div>
+            </div>
+          </div>
+          <div class="strategy-step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">高风险两两组合（Top 10）</div>
+              <div class="step-desc">权重最高的10对条件组合，同时为true</div>
+            </div>
+          </div>
+          <div class="strategy-step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">贪心填充（按风险总分）</div>
+              <div class="step-desc">按总风险权重贪心选择剩余分支，直到max_branches</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="audit-table">
+        <h3>📊 各单元采样详情（Top 10）</h3>
+        <div class="audit-table-controls">
+          <div class="audit-table-filters">
+            <button class="at-filter-btn active" data-filter="all" onclick="filterAuditTable('all')">全部 <span class="at-count">{len(units)}</span></button>
+            <button class="at-filter-btn warn" data-filter="warn" onclick="filterAuditTable('warn')">⚠️ 低覆盖率</button>
+          </div>
+        </div>
+        <div class="audit-table-wrapper">
+          <table class="audit-unit-table" id="audit-table">
+            <thead><tr><th>单元</th><th>理论分支</th><th>已展开</th><th>已跳过</th><th>覆盖率</th><th>采样合理性</th></tr></thead>
+            <tbody>
+              {"".join(audit_units)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>"""
+    return ""
+
+
+def _build_ref_section_html() -> str:
+    return """<div class="ref-section" id="ref-section">
+  <div class="ref-header" onclick="toggleRef()">
+    <h3>📖 参考资料</h3>
+    <span class="ref-toggle">▶</span>
+  </div>
+  <div class="ref-body">
+    <div class="ref-content">
+      <h4>解析策略说明</h4>
+      <p>本工具支持4种解析策略：全组合(all_combinations)生成所有条件组合；单测策略(each)每个条件单独测试；边界值策略(boundary)只生成极值情况；阶梯采样策略(ladder)智能加权采样，在覆盖率和分支数间取得平衡。</p>
+      <h4>极端单元判定</h4>
+      <p>当SQL单元的理论分支数超过100万时，被标记为极端单元。极端单元的分支从正常统计中分离，需要人工审核采样策略。</p>
+      <h4>风险评分标准</h4>
+      <p>综合风险分 = Σ(风险标志权重 × 风险严重程度系数)。CRITICAL系数=1.0, WARNING=0.6, INFO=0.3, ACTIVE_CONDITION=0.1。高风险分支需要优先优化。</p>
+    </div>
+  </div>
+</div>"""
+
+
+def _build_sql_modal_html() -> str:
+    return """<div class="sql-modal" id="sql-modal">
+  <div class="sql-modal-content">
+    <div class="sql-modal-header">
+      <h4 id="sql-modal-title">SQL Preview</h4>
+      <button class="sql-modal-close" onclick="closeSqlModal()">×</button>
+    </div>
+    <div class="sql-modal-body">
+      <pre id="sql-modal-content"></pre>
+    </div>
+    <div class="sql-modal-footer">
+      <span class="sql-modal-meta" id="sql-modal-meta"></span>
+      <button class="sql-modal-copy" onclick="copySql()">📋 复制</button>
+    </div>
+  </div>
+</div>"""
+
+
 def _get_risk_level(risk_level: str | None) -> tuple[str, str]:
-    """基于 risk_level (HIGH/MEDIUM/LOW/None) 返回标签。"""
     if risk_level is None:
         return "unknown", ""
     if risk_level == "HIGH":
@@ -891,10 +1186,13 @@ def _make_strategy_explain_html(
     """
 
 
-def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output_path: str) -> None:
-    if isinstance(output_or_stats, ParseStageStats):
-        stats = output_or_stats
-        units = stats.per_unit
+def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, output_path: str) -> None:
+    import os
+
+    run_id = os.path.basename(os.path.dirname(os.path.dirname(output_path)))
+    if stats is not None:
+        units = output.sql_units_with_branches
+        stats_by_unit_id: dict[str, PerUnitBranchStats] = {u.sql_unit_id: u for u in stats.per_unit}
         total_units = stats.total_units
         total_branches = stats.total_branches
         sum_theoretical = stats.sum_theoretical
@@ -917,6 +1215,13 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         )
         normal_count = stats.normal_count
         outlier_count = stats.outlier_count
+        f_sum_theoretical = f"{sum_theoretical:,}"
+        f_total_branches = f"{total_branches:,}"
+        f_high_risk = f"{high_risk:,}"
+        f_medium_risk = f"{medium_risk:,}"
+        f_low_risk = f"{low_risk:,}"
+        f_normal_sum_theoretical = f"{stats.normal_sum_theoretical:,}"
+        f_normal_total_branches = f"{stats.normal_total_branches:,}"
         if outlier_count > 0:
             # Compute outlier contribution percentage
             normal_sum_theoretical = sum_theoretical
@@ -1067,7 +1372,6 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         else:
             outlier_html = ""
     else:
-        output = output_or_stats
         units = output.sql_units_with_branches
         total_units = len(output.sql_units_with_branches)
         total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
@@ -1101,6 +1405,14 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
         sum_theoretical = sum(u.theoretical_branches for u in output.sql_units_with_branches)
         global_coverage = total_branches / max(sum_theoretical, 1) * 100
+
+        f_sum_theoretical = f"{sum_theoretical:,}"
+        f_total_branches = f"{total_branches:,}"
+        f_high_risk = f"{high_risk:,}"
+        f_medium_risk = f"{medium_risk:,}"
+        f_low_risk = f"{low_risk:,}"
+        f_normal_sum_theoretical = f_sum_theoretical
+        f_normal_total_branches = f_total_branches
 
         all_conditions: list[str] = []
         for u in output.sql_units_with_branches:
@@ -1140,36 +1452,93 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
 </head>
 <body>
 <div class="container">
-    <h1>解析阶段报告</h1>
+    <div class="header">
+        <h1>📊 Parse Stage Report</h1>
+        <span class="run-id">{run_id}</span>
+    </div>
 
     <div class="stat-cards">
         <div class="stat-card theoretical">
-            <div class="stat-value">{sum_theoretical}</div>
-            <div class="stat-label">理论总数</div>
+            <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <div style="display:flex;align-items:baseline;gap:0.5rem;">
+                    <div class="stat-value">{f_sum_theoretical}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">总</div>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:0.5rem;">
+                    <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_sum_theoretical}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">正常</div>
+                </div>
+            </div>
+            <div class="stat-label">理论分支</div>
+            <div class="sub">{
+        f"最大 {getattr(stats, 'max_theoretical_branches_unit', 'N/A')}（{f_sum_theoretical}分支）"
+    }</div>
         </div>
         <div class="stat-card actual">
-            <div class="stat-value">{total_branches}</div>
-            <div class="stat-label">实际总数</div>
-        </div>
-        <div class="stat-card theoretical">
-            <div class="stat-value">{
-        stats.normal_sum_theoretical if isinstance(output_or_stats, ParseStageStats) else sum_theoretical
-    }</div>
-            <div class="stat-label">正常理论</div>
-        </div>
-        <div class="stat-card actual">
-            <div class="stat-value">{
-        stats.normal_total_branches if isinstance(output_or_stats, ParseStageStats) else total_branches
-    }</div>
-            <div class="stat-label">正常实际</div>
+            <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <div style="display:flex;align-items:baseline;gap:0.5rem;">
+                    <div class="stat-value">{f_total_branches}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">全部</div>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:0.5rem;">
+                    <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_total_branches}</div>
+                    <div style="font-size:0.75rem;color:#64748b;">正常</div>
+                </div>
+            </div>
+            <div class="stat-label">实际分支</div>
+            <div class="sub">排除极端</div>
         </div>
         <div class="stat-card high">
-            <div class="stat-value">{high_risk}</div>
+            <div class="stat-value">{f_high_risk}</div>
             <div class="stat-label">高风险</div>
+            <div class="sub">需优先优化</div>
         </div>
         <div class="stat-card medium">
-            <div class="stat-value">{medium_risk}</div>
+            <div class="stat-value">{f_medium_risk}</div>
             <div class="stat-label">中风险</div>
+            <div class="sub">建议关注</div>
+        </div>
+        <div class="stat-card low">
+            <div class="stat-value">{f_low_risk}</div>
+            <div class="stat-label">低风险</div>
+            <div class="sub">正常分支</div>
+        </div>
+        <div class="stat-card outlier">
+            <div class="stat-value">{outlier_count}</div>
+            <div class="stat-label">极端单元</div>
+            <div class="sub">理论分支 &gt; 阈值</div>
+        </div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;">
+        <div style="font-size:0.875rem;font-weight:600;color:#e2e8f0;margin-bottom:1rem;">📐 覆盖率显示示例</div>
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+                <div style="margin-bottom:0.5rem;">
+                    <div style="height:8px;background:#22c55e;border-radius:4px;width:100%;"></div>
+                </div>
+                <div style="font-size:0.75rem;color:#94a3b8;">高覆盖率 (85%+)</div>
+                <div style="font-size:0.6875rem;color:#64748b;">绿色进度条表示测试充分</div>
+            </div>
+            <div style="flex:1;min-width:140px;">
+                <div style="margin-bottom:0.5rem;">
+                    <div style="height:8px;background:#f59e0b40;border-radius:4px;width:45%;"></div>
+                </div>
+                <div style="font-size:0.75rem;color:#94a3b8;">低覆盖率 (20-40%)</div>
+                <div style="font-size:0.6875rem;color:#64748b;">橙色进度条表示需要更多采样</div>
+            </div>
+            <div style="flex:1;min-width:140px;">
+                <div style="margin-bottom:0.5rem;">
+                    <div style="height:8px;background:#334155;border-radius:4px;width:3%;"></div>
+                </div>
+                <div style="font-size:0.75rem;color:#94a3b8;">极低覆盖率 (&lt;5%)</div>
+                <div style="font-size:0.6875rem;color:#64748b;">灰色进度条表示采样不足</div>
+            </div>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">
+            <div style="font-size:0.75rem;color:#64748b;line-height:1.6;">
+                💡 <strong style="color:#94a3b8;">如何解读</strong>：覆盖率 = 实际分支数 / 理论分支数。<span style="color:#f59e0b;">橙色</span>和<span style="color:#64748b;">灰色</span>条表示需要优化采样策略或增加测试用例。
+            </div>
         </div>
     </div>
 
@@ -1232,15 +1601,15 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
         <div class="summary-grid">
             <div class="card">
                 <div class="stat"><div class="stat-value">{
-        stats.normal_sum_theoretical if isinstance(output_or_stats, ParseStageStats) else sum_theoretical
+        stats.normal_sum_theoretical if stats is not None else sum_theoretical
     }</div><div class="stat-label">正常理论分支</div></div>
                 <div class="stat"><div class="stat-value">{
-        stats.normal_total_branches if isinstance(output_or_stats, ParseStageStats) else total_branches
+        stats.normal_total_branches if stats is not None else total_branches
     }</div><div class="stat-label">正常实际分支</div></div>
                 <div class="stat"><div class="stat-value" style="color:#22c55e;">{
-        stats.normal_coverage_pct
-        if isinstance(output_or_stats, ParseStageStats)
-        else global_coverage:.1f}%</div><div class="stat-label">正常覆盖率</div></div>
+        (
+            stats.normal_coverage_pct if stats is not None else global_coverage
+        ):.1f}%</div><div class="stat-label">正常覆盖率</div></div>
                 <div class="stat"><div class="stat-value">{
         normal_count
     }</div><div class="stat-label">正常单元</div></div>
@@ -1314,103 +1683,176 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
     </div>
 
     {_build_rules_section_html()}
-    <h2>各单元分支详情</h2>
-"""
+    {_build_audit_section_html(total_branches, sum_theoretical, strategy, max_branches, units)}
+    {_build_ref_section_html()}
+    {_build_sql_modal_html()}
+    """
+
+    # Compute unit counts for filters
+    total_unit_count = len(units)
+    high_unit_count = 0
+    medium_unit_count = 0
+    low_unit_count = 0
+    for u in units:
+        u_high = sum(1 for b in u.branches if getattr(b, "risk_level", None) == "HIGH") if hasattr(u, "branches") else 0
+        u_medium = (
+            sum(1 for b in u.branches if getattr(b, "risk_level", None) == "MEDIUM") if hasattr(u, "branches") else 0
+        )
+        if u_high > 0:
+            high_unit_count += 1
+        elif u_medium > 0:
+            medium_unit_count += 1
+        else:
+            low_unit_count += 1
+
+    html += f"""
+    <div class="unit-details">
+      <div class="unit-details-header">
+        <div class="unit-header-left">
+          <h2>📋 单元详情</h2>
+          <div class="unit-filters">
+            <button class="unit-filter-btn active" data-filter="all" onclick="filterUnits('all')">全部 <span class="unit-count">{total_unit_count}</span></button>
+            <button class="unit-filter-btn high" data-filter="high" onclick="filterUnits('high')">高风险 <span class="unit-count warn">{high_unit_count}</span></button>
+            <button class="unit-filter-btn medium" data-filter="medium" onclick="filterUnits('medium')">中风险 <span class="unit-count">{medium_unit_count}</span></button>
+            <button class="unit-filter-btn low" data-filter="low" onclick="filterUnits('low')">低风险 <span class="unit-count good">{low_unit_count}</span></button>
+          </div>
+        </div>
+        <div class="unit-header-right">
+          <input type="text" class="search-box" id="unit-search" placeholder="搜索单元 ID...">
+          <select class="unit-sort-select" id="unit-sort" onchange="sortUnits(this.value)">
+            <option value="risk">按风险排序</option>
+            <option value="coverage-asc">按覆盖率 ↑</option>
+            <option value="coverage-desc">按覆盖率 ↓</option>
+            <option value="name">按名称</option>
+          </select>
+        </div>
+      </div>
+      <div class="units-collapse-bar" id="units-collapse-bar">
+        <span class="collapse-hint">📌 已为您展开前 3 个高风险单元（共 {total_unit_count} 个），点击下方按钮展开更多</span>
+        <button class="expand-more-btn" onclick="expandAllUnits()">展开全部单元 ▼</button>
+      </div>
+      <div class="units-list">
+    """
 
     for unit in units:
         theoretical = unit.theoretical_branches if unit.theoretical_branches > 0 else 1
-        if hasattr(unit, "branches"):
-            unit_high = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "HIGH")
-            unit_medium = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "MEDIUM")
-            actual_branches = len(unit.branches)
-        else:
-            unit_high = 0
-            unit_medium = 0
-            actual_branches = unit.actual_branches
-
+        s = stats_by_unit_id.get(unit.sql_unit_id) if stats is not None else None
+        unit_high = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "HIGH")
+        unit_medium = sum(1 for b in unit.branches if getattr(b, "risk_level", None) == "MEDIUM")
+        actual_branches = s.actual_branches if s else len(unit.branches)
+        unit_risk = "high" if unit_high > 0 else "medium" if unit_medium > 0 else "low"
         actual_strategy = strategy
-        coverage_pct = (
-            unit.coverage_pct
-            if hasattr(unit, "coverage_pct")
-            else (actual_branches / theoretical * 100 if theoretical > 0 else 0)
-        )
-
-        formula_steps_html = ""
-        if theoretical > 1:
-            formula_steps_html = f"""
-            <div class="formula-block">
-              <div class="formula-header">
-                理论分支数
-                <span class="tooltip-icon" title="理论分支数 = 该SQL在所有条件组合下的最大可能分支数。IF → (1+1)=2, Choose → sum(when_i)+1">?</span>
-              </div>
-              <div class="formula-result">根据条件结构,共 {theoretical} 个理论分支</div>
-            </div>
-            """
-
-        strategy_explain_html = _make_strategy_explain_html(actual_strategy, actual_branches, theoretical, unit)
-
-        bar_color = "#22c55e" if coverage_pct >= 80 else "#f59e0b" if coverage_pct >= 50 else "#dc2626"
-        coverage_bar_html = f"""
-        <div class="coverage-bar">
-          <div class="coverage-label">
-            覆盖率
-            <span class="tooltip-icon" title="覆盖率 = 实际分支数 / 理论分支数。覆盖率越高测试越完整。">?</span>
-          </div>
-          <div class="progress-bar" style="height:6px;background:#334155;border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:{min(coverage_pct, 100):.1f}%;background:{bar_color};border-radius:3px;"></div>
-          </div>
-            <div class="coverage-value" style="color:{bar_color};">{coverage_pct:.1f}% ({actual_branches}/{theoretical})</div>
-        </div>
-        """
+        coverage_pct = s.coverage_pct if s else (actual_branches / theoretical * 100 if theoretical > 0 else 0)
 
         safe_unit_id = html_escape.escape(unit.sql_unit_id)
-        json_path = f"units/{html_escape.escape(RunPaths.sanitize_unit_id(unit.sql_unit_id))}.json"
+
+        risk_tags_html = ""
+        flag_counts: dict[str, int] = {}
+        for b in unit.branches:
+            score_reasons = getattr(b, "score_reasons", []) or []
+            for f in score_reasons:
+                if f not in ("ACTIVE_CONDITION",):
+                    flag_counts[f] = flag_counts.get(f, 0) + 1
+        for flag_code, count in sorted(flag_counts.items(), key=lambda x: -x[1])[:5]:
+            factor = RISK_FACTOR_REGISTRY.get(flag_code)
+            if factor:
+                severity_label = factor.severity.name.lower()
+                risk_tags_html += f"""
+              <span class="risk-tag-with-tip" data-code="{flag_code}">
+                <span class="flag-tag {"danger" if severity_label == "critical" else "warning" if severity_label == "warning" else ""}">{flag_code}×{count}</span>
+                <div class="risk-tip">
+                  <div class="risk-tip-header">{flag_code}</div>
+                  <div class="risk-tip-severity">{factor.severity.name} | weight={factor.weight}</div>
+                  <div class="risk-tip-desc">{factor.explanation_template}</div>
+                </div>
+              </span>
+    """
+
+        import math
+
+        n_conditions = s.cond_count if s else (int(math.log2(theoretical)) if theoretical > 0 else 0)
+
+        formula_conclusion = s.formula_conclusion if s else None
+        strategy_display = s.strategy_display if s else STRATEGY_NAMES.get(actual_strategy, actual_strategy)
+
+        explanation_rows_html = f"""
+          <div class="explanation-row">
+            <span class="explanation-label">理论分支</span>
+            <span class="explanation-value">{formula_conclusion or f"{theoretical} = 2^{n_conditions} ({n_conditions}个IF条件全组合)"}</span>
+          </div>
+          <div class="explanation-row">
+            <span class="explanation-label">解析策略</span>
+            <span class="explanation-value">{strategy_display}</span>
+          </div>
+          <div class="explanation-row">
+            <span class="explanation-label">采样结果</span>
+            <span class="explanation-value">{actual_branches} 分支 (覆盖率 {coverage_pct:.2f}%)</span>
+          </div>
+          <div class="explanation-row">
+            <span class="explanation-label">主要风险</span>
+            <span class="explanation-value risk-tags">{risk_tags_html}</span>
+          </div>
+    """
+
+        branch_rows_html = ""
+        for b in sorted(unit.branches, key=lambda x: getattr(x, "risk_score", 0) or 0, reverse=True):
+            b_risk_level = getattr(b, "risk_level", None) or "LOW"
+            b_risk_score = getattr(b, "risk_score", None)
+            b_score_str = f"{b_risk_score:.2f}" if b_risk_score is not None else "-"
+            b_risk_class = "high" if b_risk_level == "HIGH" else "medium" if b_risk_level == "MEDIUM" else "low"
+            b_path_id = html_escape.escape(b.path_id or "")
+            b_sql = html_escape.escape(b.expanded_sql or "")
+            b_sql_preview = b_sql[:80] + "..." if len(b_sql) > 80 else b_sql
+            b_flags = getattr(b, "score_reasons", []) or []
+            display_flags = [f for f in b_flags if f and f not in ("ACTIVE_CONDITION",)][:3]
+            b_flags_html = "".join(
+                f'<span class="flag-tag {"danger" if b_risk_class == "high" else "warning" if b_risk_class == "medium" else ""}">{html_escape.escape(f)}</span>'
+                for f in display_flags
+            )
+            branch_rows_html += f"""
+            <tr>
+              <td class="branch-path">{b_path_id}</td>
+              <td><span class="badge {b_risk_class}">{b_risk_level}</span></td>
+              <td class="branch-score">{b_score_str}</td>
+              <td><div class="flag-tags">{b_flags_html}</div></td>
+              <td class="branch-sql" onclick="showSqlModal(this)" data-full="{b_sql}">{b_sql_preview}</td>
+            </tr>
+    """
+
+        unit_high_label = f"HIGH×{unit_high}" if unit_high > 0 else ""
+        unit_medium_label = f"MEDIUM×{unit_medium}" if unit_medium > 0 else ""
 
         html += f"""
-    <div class="card collapsible-unit" data-sortable data-unit-id="{safe_unit_id}" data-json-path="{json_path}">
-        <div class="unit-header" onclick="toggleUnit(this)">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <h3 style="margin:0;"><span class="collapse-icon">▶</span> <code>{safe_unit_id}</code></h3>
-                <div onclick="event.stopPropagation()">
-                    <span class="strategy-tag">{actual_strategy}</span>
-                    <span class="sort-btn" data-sort="risk" title="按风险排序">风险↓</span>
-                    <span class="sort-btn" data-sort="path" title="按路径排序">路径↓</span>
-                </div>
+        <div class="unit-item" data-high="{unit_high}" data-medium="{unit_medium}" data-risk="{unit_risk}">
+          <div class="unit-header" onclick="toggleUnit(this)">
+            <span class="unit-toggle">▶</span>
+            <span class="unit-id">{safe_unit_id}</span>
+            <div class="unit-meta">
+              <span class="unit-badge high"{" " if unit_high > 0 else ' style="display:none;"'}>{unit_high_label}</span>
+              <span class="unit-badge medium"{" " if unit_medium > 0 else ' style="display:none;"'}>{unit_medium_label}</span>
+              <span class="unit-stat">{actual_branches} 分支 / {theoretical} 理论</span>
             </div>
-            <div class="metric-pair">
-                <div class="metric">
-                    <div class="metric-value">{theoretical}</div>
-                    <div class="metric-label">理论分支</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-value">{actual_branches}</div>
-                    <div class="metric-label">实际分支</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-value" style="color:{bar_color};">{coverage_pct:.1f}%</div>
-                    <div class="metric-label">覆盖率</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-value" style="color: #dc2626;">{unit_high}</div>
-                    <div class="metric-label">高风险</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-value" style="color: #f59e0b;">{unit_medium}</div>
-                    <div class="metric-label">中风险</div>
-                </div>
+          </div>
+          <div class="unit-body">
+            <div class="unit-explanation">
+              {explanation_rows_html}
             </div>
+            <table class="branch-table">
+              <thead><tr><th>Path</th><th>风险</th><th>评分</th><th>标志</th><th>SQL预览</th></tr></thead>
+              <tbody>
+                {branch_rows_html}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="unit-body">
-            {formula_steps_html}
-            {strategy_explain_html}
-            {coverage_bar_html}
-            <div class="branch-list" data-loaded="false">
-                <div style="color:#64748b;padding:0.5rem;font-style:italic;">点击展开加载分支详情...</div>
-            </div>
-        </div>
-    </div>
-"""
+    """
 
+    html += """
+      </div>
+    </div>
+    """
+
+    # Risk counts for chart
     html += (
         f"""
 </div>
@@ -1421,6 +1863,74 @@ drawDoughnut('riskChart', [{high_risk}, {medium_risk}, {low_risk}, {no_score}],
 const flagsLabels = {list(all_flags.keys())};
 const flagsData = {list(all_flags.values())};
 drawHorizontalBar('flagsChart', flagsData, flagsLabels, '#6366f1');
+
+function toggleRules() {{
+  const section = document.querySelector('.rules-section');
+  section.classList.toggle('expanded');
+}}
+
+function toggleAudit() {{
+  const section = document.querySelector('.audit-section');
+  section.classList.toggle('expanded');
+}}
+
+function toggleRef() {{
+  const section = document.querySelector('.ref-section');
+  section.classList.toggle('expanded');
+}}
+
+let currentSql = '';
+
+function showSqlModal(el) {{
+  const fullSql = el.getAttribute('data-full') || el.textContent;
+  const pathId = el.closest('tr').querySelector('.branch-path').textContent;
+  currentSql = fullSql;
+  document.getElementById('sql-modal-title').textContent = pathId;
+  document.getElementById('sql-modal-content').textContent = fullSql;
+  document.getElementById('sql-modal-meta').textContent = fullSql.length + ' characters';
+  document.getElementById('sql-modal').classList.add('active');
+}}
+
+function closeSqlModal() {{
+  document.getElementById('sql-modal').classList.remove('active');
+}}
+
+function copySql() {{
+  navigator.clipboard.writeText(currentSql).then(function() {{
+    const btn = document.querySelector('.sql-modal-copy');
+    btn.textContent = '✓ 已复制';
+    setTimeout(function() {{ btn.textContent = '📋 复制'; }}, 2000);
+  }});
+}}
+
+document.getElementById('sql-modal').addEventListener('click', function(e) {{
+  if (e.target === this) {{ closeSqlModal(); }}
+}});
+document.addEventListener('keydown', function(e) {{
+  if (e.key === 'Escape') {{ closeSqlModal(); }}
+}});
+
+function filterAuditTable(filter) {{
+  document.querySelectorAll('.at-filter-btn').forEach(function(btn) {{
+    btn.classList.remove('active');
+  }});
+  document.querySelector('.at-filter-btn[data-filter="' + filter + '"]').classList.add('active');
+  const rows = document.querySelectorAll('.audit-unit-table tbody tr');
+  rows.forEach(function(row) {{
+    if (filter === 'all' || row.getAttribute('data-filter') === filter) {{
+      row.style.display = '';
+    }} else {{
+      row.style.display = 'none';
+    }}
+  }});
+}}
+
+function sortAuditTable(sortType) {{
+  document.querySelectorAll('.at-sort-btn').forEach(function(btn) {{
+    btn.classList.remove('active');
+  }});
+  document.querySelector('.at-sort-btn[data-sort="' + sortType + '"]').classList.add('active');
+}}
 
 function filterRules(severity) {{
   document.querySelectorAll('.filter-btn').forEach(function(btn) {{
