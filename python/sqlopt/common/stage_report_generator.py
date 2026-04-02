@@ -1443,18 +1443,19 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
         max_branches = getattr(output, "max_branches", 0) or 0
         strategy_display = STRATEGY_NAMES.get(strategy, strategy)
         strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
-        sum_theoretical = sum(
+        all_theo = sum(u.theoretical_branches for u in output.sql_units_with_branches)
+        normal_theo = sum(
             u.theoretical_branches for u in output.sql_units_with_branches if u.theoretical_branches <= 1_000_000
         )
-        global_coverage = total_branches / max(sum_theoretical, 1) * 100
+        global_coverage = total_branches / max(normal_theo, 1) * 100
 
-        f_sum_theoretical = f"{sum_theoretical:,}"
+        f_sum_theoretical = f"{all_theo:,}"
         f_total_branches = f"{total_branches:,}"
         f_high_risk = f"{high_risk:,}"
         f_medium_risk = f"{medium_risk:,}"
         f_low_risk = f"{low_risk:,}"
-        f_normal_sum_theoretical = f_sum_theoretical
         f_normal_total_branches = f_total_branches
+        f_normal_sum_theoretical = f"{all_theo - outlier_sum_theoretical:,}"
 
         all_conditions: list[str] = []
         for u in output.sql_units_with_branches:
@@ -1477,6 +1478,7 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
         import math
 
         outlier_units_data = []
+        all_theo = sum(u.theoretical_branches for u in output.sql_units_with_branches)
         for u in output.sql_units_with_branches:
             if u.theoretical_branches > OUTLIER_THRESHOLD:
                 actual = len(u.branches)
@@ -1501,7 +1503,7 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
                 outlier_actual_branches += actual
 
         if outlier_count > 0:
-            outlier_contribution_pct = outlier_sum_theoretical / sum_theoretical * 100 if sum_theoretical > 0 else 0
+            outlier_contribution_pct = outlier_sum_theoretical / all_theo * 100 if all_theo > 0 else 0
             outlier_coverage_pct = (
                 outlier_actual_branches / outlier_sum_theoretical * 100 if outlier_sum_theoretical > 0 else 0
             )
