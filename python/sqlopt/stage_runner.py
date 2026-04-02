@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import pathlib
+import shutil
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -109,6 +111,10 @@ class StageRunner:
                 self.run_stage(stage, use_mock=use_mock)
                 stage_results[stage] = StageResult(stage_name=stage, output={"status": "completed"})
             logger.info("[RUNNER] Full pipeline completed successfully")
+            src = pathlib.Path(self.config.project_root_path) / "docs" / "current" / "data-contracts.md"
+            dst = self.paths.run_dir / "DATA_CONTRACTS.md"
+            if src.exists():
+                shutil.copy(src, dst)
             self.display.finish_pipeline(success=True, elapsed=time.time() - pipeline_start)
             return PipelineResult(success=True, stage_results=stage_results)
         except RuntimeError as e:
