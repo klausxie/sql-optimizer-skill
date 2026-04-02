@@ -3,18 +3,29 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
-import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 from uuid import uuid4
 
-from sqlopt.application import run_service
+from sqlopt.devtools.harness.assertions import (
+    assert_manifest_contains_stages,
+    assert_phase_status,
+    assert_report_generated,
+    assert_report_rebuild_cleared,
+    assert_run_completed,
+)
+from sqlopt.devtools.harness.runtime import (
+    FIXTURE_PROJECT_ROOT,
+    HarnessHooks,
+    apply_once,
+    load_run_artifacts,
+    prepare_fixture_project,
+    run_once,
+    run_until_complete,
+    status_once,
+)
 from sqlopt.io_utils import read_json, read_jsonl, write_json
 from sqlopt.stages.report_stats import blocker_family_for_patch_row
-from tests.support.fixture_project_harness_support import FIXTURE_PROJECT_ROOT, prepare_mutable_fixture_project
-
-ROOT = Path(__file__).resolve().parents[3]
 
 
 def _write_cfg(td: str, project_root: Path, *, report_enabled: bool = True) -> Path:
@@ -37,25 +48,9 @@ def _write_cfg(td: str, project_root: Path, *, report_enabled: bool = True) -> P
     )
     return cfg
 
-
-def _run_with_preflight_patch(
-    config: Path,
-    to_stage: str,
-    run_id: str,
-    *,
-    repo_root: Path,
-    selection: dict[str, object] | None = None,
-) -> tuple[str, dict]:
-    with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-        return run_service.start_run(config, to_stage, run_id, repo_root=repo_root, selection=selection)
-
-
-def _resume_with_preflight_patch(run_id: str, *, repo_root: Path) -> dict:
-    with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-        return run_service.resume_run(run_id, repo_root=repo_root)
-
-
 class WorkflowGoldenE2ETest(unittest.TestCase):
+    HOOKS = HarnessHooks(preflight_db_check={"name": "db", "enabled": True, "ok": True})
+
     def _run_until_complete(
         self,
         config: Path,
@@ -65,24 +60,19 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
         to_stage: str,
         selection: dict[str, object] | None = None,
     ) -> tuple[Path, int, float]:
-        started = time.monotonic()
-        _, first = _run_with_preflight_patch(config, to_stage, run_id, repo_root=project_root, selection=selection)
-        steps = 1
-        if first.get("complete"):
-            return project_root / "runs" / run_id, steps, time.monotonic() - started
-        for _ in range(1000):
-            status = run_service.get_status(run_id, repo_root=project_root)
-            if status.get("complete"):
-                break
-            _resume_with_preflight_patch(run_id, repo_root=project_root)
-            steps += 1
-        else:
-            self.fail("run did not complete within expected loop budget")
-        return project_root / "runs" / run_id, steps, time.monotonic() - started
+        result = run_until_complete(
+            config_path=config,
+            to_stage=to_stage,
+            run_id=run_id,
+            repo_root=project_root,
+            selection=selection,
+            hooks=self.HOOKS,
+        )
+        return result.run_dir, result.steps, result.elapsed_seconds
 
     def test_run_resume_status_report_rebuild_apply_golden(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_golden_e2e_") as td:
-            project_root = prepare_mutable_fixture_project(Path(td))
+            project_root = prepare_fixture_project(Path(td), mutable=True, init_git=True).root_path
             cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_golden_e2e_{uuid4().hex[:8]}"
             run_dir, _steps, _elapsed = self._run_until_complete(
@@ -94,8 +84,9 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
             self.assertNotIn(FIXTURE_PROJECT_ROOT, run_dir.parents)
             self.assertIn(project_root, run_dir.parents)
+            artifacts = load_run_artifacts(run_dir)
 
-            status = run_service.get_status(run_id, repo_root=project_root)
+            status = status_once(run_id=run_id, repo_root=project_root)
             self.assertEqual(
                 set(status.keys()),
                 {
@@ -117,7 +108,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertEqual(status["next_action"], "none")
             self.assertEqual(set(status["phase_status"].keys()), {"preflight", "scan", "optimize", "validate", "patch_generate", "report"})
 
-            state = read_json(run_dir / "control" / "state.json")
+            state = artifacts.state
             self.assertEqual(
                 set(state.keys()),
                 {
@@ -136,29 +127,18 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                     "updated_at",
                 },
             )
-            self.assertFalse(bool(state.get("report_rebuild_required")))
+            assert_run_completed(artifacts)
+            assert_report_rebuild_cleared(artifacts)
 
-            report = read_json(run_dir / "report.json")
-            self.assertTrue(
-                {
-                    "run_id",
-                    "generated_at",
-                    "target_stage",
-                    "status",
-                    "verdict",
-                    "next_action",
-                    "phase_status",
-                    "stats",
-                    "blockers",
-                    }.issubset(set(report.keys()))
-            )
+            report = artifacts.report
+            assert_report_generated(artifacts)
             self.assertEqual(report["target_stage"], "report")
-            self.assertEqual(report["phase_status"]["report"], "DONE")
+            assert_phase_status(artifacts, "report", "DONE")
             self.assertIn(report["next_action"], {"apply", "inspect", "resume"})
             self.assertGreaterEqual(int((report.get("stats") or {}).get("sql_total") or 0), 1)
             self.assertIn("top_reason_codes", report.get("blockers") or {})
 
-            apply_result = run_service.apply_run(run_id, repo_root=project_root)
+            apply_result = apply_once(run_id=run_id, repo_root=project_root)
             self.assertEqual(apply_result["run_id"], run_id)
             self.assertEqual((apply_result.get("apply") or {}).get("mode"), "PATCH_ONLY")
             self.assertTrue((run_dir / "apply" / "state.json").exists())
@@ -166,20 +146,26 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             # Simulate a completed run requiring report rebuild and verify next_action.
             state["report_rebuild_required"] = True
             write_json(run_dir / "control" / "state.json", state)
-            rebuild_status = run_service.get_status(run_id, repo_root=project_root)
+            rebuild_status = status_once(run_id=run_id, repo_root=project_root)
             self.assertEqual(rebuild_status["next_action"], "report-rebuild")
 
             # Rebuild report on the same run_id; ensure rebuild flag is cleared.
-            _run_with_preflight_patch(cfg, "report", run_id, repo_root=project_root)
-            post_rebuild_status = run_service.get_status(run_id, repo_root=project_root)
+            run_once(
+                config_path=cfg,
+                to_stage="report",
+                run_id=run_id,
+                repo_root=project_root,
+                hooks=self.HOOKS,
+            )
+            post_rebuild_status = status_once(run_id=run_id, repo_root=project_root)
             self.assertTrue(post_rebuild_status["complete"])
             self.assertEqual(post_rebuild_status["next_action"], "none")
-            post_state = read_json(run_dir / "control" / "state.json")
-            self.assertFalse(bool(post_state.get("report_rebuild_required")))
+            post_artifacts = load_run_artifacts(run_dir)
+            assert_report_rebuild_cleared(post_artifacts)
 
     def test_runtime_step_count_stays_within_baseline_envelope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_perf_baseline_") as td:
-            project_root = prepare_mutable_fixture_project(Path(td))
+            project_root = prepare_fixture_project(Path(td), mutable=True, init_git=True).root_path
             cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_perf_baseline_{uuid4().hex[:8]}"
             run_dir, steps, elapsed = self._run_until_complete(
@@ -196,15 +182,13 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertLessEqual(steps, 3 * sql_count + 20)
             self.assertLess(elapsed, 60.0)
 
+            artifacts = load_run_artifacts(run_dir)
             manifest_lines = (run_dir / "control" / "manifest.jsonl").read_text(encoding="utf-8").strip().splitlines()
             self.assertTrue(manifest_lines)
-            manifest_text = "\n".join(manifest_lines)
-            self.assertIn('"stage": "preflight"', manifest_text)
-            self.assertIn('"stage": "scan"', manifest_text)
-            self.assertIn('"stage": "optimize"', manifest_text)
-            self.assertIn('"stage": "validate"', manifest_text)
-            self.assertIn('"stage": "patch_generate"', manifest_text)
-            self.assertIn('"stage": "report"', manifest_text)
+            assert_manifest_contains_stages(
+                artifacts,
+                ["preflight", "scan", "optimize", "validate", "patch_generate", "report"],
+            )
 
             optimize_lines = [line for line in manifest_lines if '"stage": "optimize"' in line and '"event": "done"' in line]
             validate_lines = [line for line in manifest_lines if '"stage": "validate"' in line and '"event": "done"' in line]
@@ -215,7 +199,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
 
     def test_selected_single_sql_workflow_report_blocker_counts_match_patch_results(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_golden_single_sql_") as td:
-            project_root = prepare_mutable_fixture_project(Path(td))
+            project_root = prepare_fixture_project(Path(td), mutable=True, init_git=True).root_path
             cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_golden_single_sql_{uuid4().hex[:8]}"
             run_dir, _steps, _elapsed = self._run_until_complete(

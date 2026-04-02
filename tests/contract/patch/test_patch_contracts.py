@@ -8,7 +8,7 @@ from sqlopt.contracts import ContractValidator
 from sqlopt.errors import ContractError
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES, build_patch_target_contract
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _validator() -> ContractValidator:

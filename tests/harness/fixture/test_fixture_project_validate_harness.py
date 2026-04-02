@@ -2,23 +2,23 @@ from __future__ import annotations
 
 import unittest
 
-from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
-
-from tests.support.fixture_project_harness_support import (
+from sqlopt.devtools.harness.assertions import (
+    fixture_registered_blocked_neighbor_families,
+    fixture_registered_families,
+    registered_patch_family_spec,
+    semantic_gate_bucket,
+)
+from sqlopt.devtools.harness.runtime import FIXTURE_PROJECT_ROOT, run_fixture_validate_harness
+from sqlopt.devtools.harness.scenarios import (
     BLOCKER_FAMILIES,
-    FIXTURE_PROJECT_ROOT,
     PATCHABILITY_TARGETS,
     SCENARIO_CLASSES,
     SEMANTIC_TARGETS,
     VALIDATE_EVIDENCE_MODES,
     VALIDATE_STATUSES,
-    fixture_registered_blocked_neighbor_families,
-    fixture_registered_families,
     load_fixture_scenarios,
-    registered_patch_family_spec,
-    run_fixture_validate_harness,
-    semantic_gate_bucket,
 )
+from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 
 class FixtureScenarioValidateHarnessTest(unittest.TestCase):

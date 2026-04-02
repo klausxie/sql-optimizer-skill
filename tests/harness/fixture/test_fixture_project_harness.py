@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
-from tests.support.fixture_project_harness_support import (
+from sqlopt.devtools.harness.runtime import FIXTURE_PROJECT_ROOT, scan_fixture_project
+from sqlopt.devtools.harness.scenarios import (
     BLOCKER_FAMILIES,
-    FIXTURE_PROJECT_ROOT,
     PATCHABILITY_TARGETS,
     ROADMAP_STAGES,
     ROADMAP_THEMES,
@@ -14,7 +14,6 @@ from tests.support.fixture_project_harness_support import (
     VALIDATE_EVIDENCE_MODES,
     VALIDATE_STATUSES,
     load_fixture_scenarios,
-    scan_fixture_project,
     summarize_fixture_scenarios,
 )
 
@@ -112,13 +111,7 @@ class FixtureLayoutRegressionTest(unittest.TestCase):
             removed_fixture_root + "`",
             removed_fixture_root + "\n",
         }
-        checked_paths = [
-            repo_root / "AGENTS.md",
-            repo_root / "CLAUDE.md",
-            repo_root / "tests",
-            repo_root / "scripts",
-            repo_root / "python",
-        ]
+        checked_paths = [repo_root / "AGENTS.md", repo_root / "CLAUDE.md", repo_root / "tests", repo_root / "scripts", repo_root / "python"]
         skipped_dirs = {repo_root / "tests" / "__pycache__", repo_root / "docs"}
         stale_refs: list[str] = []
 

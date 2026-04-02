@@ -1,31 +1,29 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+Guidance for Codex when working in this repository.
 
-## Project Overview
+## Project
 
-SQL Optimizer is a Python-based tool that analyzes MyBatis SQL statements, generates optimization proposals using LLM, validates them against a database, and produces XML patches for dynamic mapper templates.
+SQL Optimizer analyzes MyBatis SQL, proposes rewrites with LLM or heuristics, validates candidates against a database, and generates XML patches.
 
-Supported databases: PostgreSQL, MySQL 5.6+ (including 5.7, 8.0+; MariaDB not supported)
+Supported databases:
+- PostgreSQL
+- MySQL 5.6+ / 5.7 / 8.0+
+- MariaDB is not supported
 
 ## Core Commands
 
-### Development & Testing
-
 ```bash
-# Run all tests (from repository root)
+# Full test suite
 python3 -m pytest -q
 
-# Run specific test
-python3 -m pytest tests/test_<name>.py -v
-
-# Run unified release acceptance
-python3 scripts/ci/release_acceptance.py
-
-# Validate all JSON schemas
+# Schema validation
 python3 scripts/schema_validate_all.py
 
-# Scan-only smoke test (validates scanner coverage)
+# Unified acceptance
+python3 scripts/ci/release_acceptance.py
+
+# Scan smoke on sample project
 python3 scripts/run_until_budget.py \
   --config tests/fixtures/configs/sample_project/scan.local.yml \
   --to-stage scan \
@@ -33,157 +31,37 @@ python3 scripts/run_until_budget.py \
   --max-seconds 30
 ```
 
-### CLI Usage
-
-The main CLI entry point is `scripts/sqlopt_cli.py`:
+Main CLI:
 
 ```bash
-# Start a new optimization run (set PYTHONPATH first)
 PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
-
-# Check run status
 python3 scripts/sqlopt_cli.py status --run-id <run_id>
-
-# Resume an existing run
 python3 scripts/sqlopt_cli.py resume --run-id <run_id>
-
-# Rebuild report only (when status.next_action=report-rebuild)
 python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage report --run-id <run_id>
-
-# View verification evidence chain for a SQL statement
 python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey>
-
-# View compressed diagnostics (warnings/why_now/recommended_next_step)
-python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
-
-# Apply generated patches
 PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run_id>
 ```
 
 ## Architecture
 
-### Three-Layer Design
+Three layers:
+- `python/sqlopt/application/`
+  Orchestration, lifecycle, command routing
+- `python/sqlopt/stages/`
+  Stage logic: `scan -> optimize -> validate -> patch_generate -> report`
+- `contracts/**/*.schema.json`
+  Stable artifact contracts
 
-1. **Orchestrator** (`python/sqlopt/application/`): Command routing, stage orchestration, state management, timeout/retry handling
-   - `cli.py`: CLI adapter and compatibility wrapper (delegates to application layer)
-   - `workflow_engine.py`: Core workflow orchestration and phase transitions
-   - `run_service.py`: Run lifecycle management
-   - `run_repository.py`: Run state persistence
-   - `config_service.py`: Configuration loading and validation
-2. **Stage Core** (`python/sqlopt/stages/`): Domain logic for each phase (scan, optimize, validate, patch_generate, report)
-3. **Contracts & Artifacts** (`contracts/**/*.schema.json`): Schema validation, run artifacts, reporting
+Key boundaries:
+- CLI adapter logic stays thin; orchestration belongs in `application/`
+- Stages communicate through run artifacts, never direct stage-to-stage calls
+- Template patches must come from validate/patch facts, never from flattened executable SQL
 
-### Key Architectural Boundaries
+## Run Layout
 
-- CLI layer (`cli.py`) only contains adapter logic; core orchestration is in `application/workflow_engine.py`
-- Orchestration boundary: `run_service → workflow_engine → run_repository/stages`
-- Platform differences handled via strategy pattern in `preflight` and `validate` stages
-- Document models: `sqlopt.platforms.sql.models` (SQL-side), `sqlopt.stages.report_interfaces` (report-side)
-- External contracts exported via `to_contract()` methods
+Canonical run structure:
 
-### Stage Pipeline
-
-Fixed execution order: `preflight → scan → optimize → validate → patch_generate → report`
-
-Each stage:
-- Reads from previous stage artifacts in `runs/<run_id>/`
-- Produces structured JSONL/JSON outputs
-- Must write diagnostic events even on failure
-- Never directly calls other stages (orchestrator mediates)
-
-### Key Stages
-
-**scan**: Extracts SQL from MyBatis XML mappers using Java scanner. Outputs `artifacts/scan.jsonl` with both `templateSql` (template view with `<foreach>`, `<include>` tags) and `sql` (logical analysis view). Optionally outputs `artifacts/fragments.jsonl` when `scan.enable_fragment_catalog=true`.
-
-**optimize**: Consumes SqlUnits, generates optimization proposals via LLM. Outputs `artifacts/proposals.jsonl`. Does not generate XML patches directly.
-
-**validate**: Validates proposals against database using EXPLAIN plans. Outputs `artifacts/acceptance.jsonl` with semantic/performance/security judgments plus template materialization decisions (`rewriteMaterialization`, `templateRewriteOps`).
-
-**patch_generate**: Generates XML patches. Prioritizes template-level plans from validate stage when `rewriteMaterialization.replayVerified=true`. Falls back to static SQL patches. Never overwrites dynamic templates with flat SQL.
-
-**report**: Aggregates results into a minimal `report.json` summary and `sql/` indexes.
-
-### State Management
-
-All runs maintain control state in `runs/<run_id>/control/`:
-- `plan.json`: fixed statement list, target stage, and resolved config snapshot
-- `state.json`: per-statement phase status, retry counts, errors
-- `manifest.jsonl`: structured step events for diagnostics and replay
-
-The orchestrator advances one statement step per invocation (bounded by `max_step_ms` budget).
-
-### SQL View Constraints
-
-- `templateSql`: Source template view for dynamic template judgment and template-level patches. Not for DB execution.
-- `sql`: Logical analysis view for optimize/validate. Not guaranteed to be source-writable.
-- `executableSql`: Temporary view derived in validate for EXPLAIN plans. Never persisted or used as patch source.
-
-### Template Rewrite Modes
-
-- `STATEMENT_TEMPLATE_SAFE`: Statement-level include-safe rewrite (implemented, requires replay verification)
-- `FRAGMENT_TEMPLATE_SAFE`: Fragment-level rewrite (implemented, requires `patch.template_rewrite.enable_fragment_materialization=true`)
-
-Default: Fragment materialization is OFF (`enable_fragment_materialization=false`) but validation still outputs materialization decisions.
-
-## Configuration
-
-Primary config file: `sqlopt.yml` at project root. See `templates/sqlopt.example.yml` for reference.
-
-### Minimal Configuration (v1)
-
-```yaml
-config_version: v1
-
-project:
-  root_path: .
-
-scan:
-  mapper_globs:
-    - src/main/resources/**/*.xml
-
-db:
-  platform: postgresql  # or mysql
-  dsn: postgresql://user:pass@127.0.0.1:5432/db?sslmode=disable
-
-llm:
-  enabled: true
-  provider: opencode_run  # recommended
-```
-
-### Key Configuration Sections
-
-- `project.root_path`: Project base directory
-- `scan.mapper_globs`: MyBatis XML file patterns
-- `scan.java_scanner.jar_path`: Path to Java scanner JAR
-- `scan.class_resolution.mode`: Class resolution strategy (tolerant/strict)
-- `db.platform`: Database type (postgresql, mysql)
-- `db.dsn`: Database connection string
-- `llm.provider`: LLM provider (`opencode_run`, `direct_openai_compatible`, `opencode_builtin`, `heuristic`)
-- `llm.timeout_ms`: LLM request timeout (default: 80000ms)
-
-### Removed Configuration Keys
-
-The following root keys are no longer accepted: `validate`, `policy`, `apply`, `patch`, `diagnostics`, `runtime`, `verification`. These have been consolidated or removed in the current version.
-
-### MySQL-Specific Notes
-
-- MySQL 5.6 does not support `MAX_EXECUTION_TIME`; the system automatically degrades without blocking evidence/compare execution
-- PostgreSQL dialect SQL (e.g., `ILIKE`) is not automatically rewritten for MySQL; syntax errors are reported as `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`
-
-## Data Contracts
-
-All stage outputs must conform to JSON schemas in `contracts/`:
-- `sqlunit.schema.json`: Scanned SQL statements
-- `fragment_record.schema.json`: SQL fragments catalog
-- `optimization_proposal.schema.json`: Optimization candidates
-- `acceptance_result.schema.json`: Validation results
-- `patch_result.schema.json`: Generated patches
-
-Schema validation failures terminate the run by default.
-
-## Run Directory Structure
-
-```
+```text
 runs/<run_id>/
 ├── report.json
 ├── control/
@@ -198,152 +76,135 @@ runs/<run_id>/
 │   └── patches.jsonl
 └── sql/
     ├── catalog.jsonl
-    └── <sql-key>/
-        └── index.json
+    └── <sql-key>/index.json
 ```
 
-## Failure Handling
+Rules:
+- `control/state.json` is the run state source of truth
+- `control/manifest.jsonl` is the execution history
+- `report.json` is a minimal summary, not a replay source
+- verification payloads are embedded in stage artifacts; there is no standalone verification ledger directory
 
-Failures are classified as:
-- `fatal`: Unrecoverable, terminates run
-- `retryable`: Can be retried with backoff
-- `degradable`: Can continue with reduced functionality
+## Stage Notes
 
-Retry behavior controlled by `runtime.stage_retry_*` config. Completed statements are never re-executed; failed statements can be retried on resume.
+- `scan`
+  Writes `artifacts/scan.jsonl`; optional fragment catalog goes to `artifacts/fragments.jsonl`
+- `optimize`
+  Writes `artifacts/proposals.jsonl`
+- `validate`
+  Writes `artifacts/acceptance.jsonl` with semantic/performance/security decisions plus rewrite facts
+- `patch_generate`
+  Writes `artifacts/patches.jsonl`; never overwrites dynamic templates with flat SQL
+- `report`
+  Writes minimal `report.json` plus `sql/` indexes
 
-## Important Constraints
+Template rewrite modes:
+- `STATEMENT_TEMPLATE_SAFE`
+- `FRAGMENT_TEMPLATE_SAFE`
 
-1. Stages communicate only through run directory artifacts, never direct function calls
-2. All stage outputs must be structured objects, not natural language
-3. Dynamic template statements cannot be overwritten with flat SQL patches
-4. Template-level patches require `rewriteMaterialization.replayVerified=true`
-5. Each run advances one statement step per invocation to respect 120s timeout
-6. Schema validation is strict by default and will fail the run on violations
-7. Report phase has `allow_regenerate=True`; other phases do not allow regeneration
-8. Completed statements are never re-executed; only failed statements can be retried on resume
-9. When `status.next_action=report-rebuild`, main pipeline is complete and only report needs regeneration
+Fragment materialization is off by default.
 
-## Verification System
+## Configuration
 
-The verification system provides evidence chains and diagnostics for each SQL statement:
+Primary config: `sqlopt.yml`
 
-### Verification Commands
+Minimal shape:
+
+```yaml
+config_version: v1
+project:
+  root_path: .
+scan:
+  mapper_globs:
+    - src/main/resources/**/*.xml
+db:
+  platform: postgresql
+  dsn: postgresql://user:pass@127.0.0.1:5432/db?sslmode=disable
+llm:
+  enabled: true
+  provider: opencode_run
+```
+
+Important keys:
+- `project.root_path`
+- `scan.mapper_globs`
+- `scan.java_scanner.jar_path`
+- `scan.class_resolution.mode`
+- `db.platform`
+- `db.dsn`
+- `llm.provider`
+- `llm.timeout_ms`
+
+Removed root keys:
+- `validate`
+- `policy`
+- `apply`
+- `patch`
+- `diagnostics`
+- `runtime`
+- `verification`
+
+MySQL notes:
+- MySQL 5.6 lacks `MAX_EXECUTION_TIME`; system degrades without blocking evidence collection
+- PostgreSQL-only syntax is not rewritten automatically for MySQL
+
+## Constraints
+
+1. Stage outputs must be structured data, not prose.
+2. Schema validation is strict by default.
+3. Completed statements are not re-executed on resume.
+4. Report regeneration is the only allowed rebuild path after pipeline completion.
+5. `status.next_action=report-rebuild` means pipeline work is done and only report needs regeneration.
+
+## Tests And Harness
+
+Test layout:
+- `tests/unit/`
+- `tests/contract/classification|patch|report|schema`
+- `tests/harness/engine|workflow|fixture`
+- `tests/ci/`
+
+Static fixture assets:
+- `tests/fixtures/projects/sample_project/`
+- `tests/fixtures/scenarios/sample_project.json`
+- `tests/fixtures/configs/sample_project/`
+
+Harness implementation lives in `python/sqlopt/devtools/harness/`:
+- `runtime/`
+- `assertions/`
+- `scenarios/`
+- `benchmark/`
+
+Relationship:
+- `tests/harness/engine/` verifies the harness implementation itself
+- `tests/harness/workflow/` verifies workflow control scenarios
+- `tests/harness/fixture/` verifies sample-project scenarios
+
+## Verification
+
+Useful command:
 
 ```bash
-# View full evidence chain
-sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey>
-
-# View compressed diagnostics only
-sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only
-
-# JSON format output
-sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
+python3 scripts/sqlopt_cli.py verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format json
 ```
 
-### Verification Artifacts
+Verification records are embedded in:
+- `artifacts/scan.jsonl`
+- `artifacts/proposals.jsonl`
+- `artifacts/acceptance.jsonl`
+- `artifacts/patches.jsonl`
 
-- Verification records are embedded in `artifacts/scan.jsonl`, `artifacts/proposals.jsonl`, `artifacts/acceptance.jsonl`, and `artifacts/patches.jsonl`
-- `report.json` exposes only minimal blocker/summary output
-- Each verification record includes: phase, status, reason_code, evidence_refs, checks, verdict
+## Docs
 
-### Verification Status Codes
+Current docs:
+- `docs/INDEX.md`
+- `docs/QUICKSTART.md`
+- `docs/INSTALL.md`
+- `docs/CONFIG.md`
+- `docs/TROUBLESHOOTING.md`
+- `docs/current-spec.md`
 
-- `COMPLETE`: Phase completed successfully with full verification
-- `PARTIAL`: Phase completed but with degraded verification (e.g., DB unreachable)
-- `FAILED`: Phase failed with error
-- `SKIPPED`: Phase skipped due to upstream failure
-
-Common reason codes:
-- `VALIDATE_DB_UNREACHABLE`: Database connection failed during validation
-- `OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR`: SQL syntax error during EXPLAIN
-- `RUNTIME_STAGE_TIMEOUT`: Stage exceeded timeout limit
-
-## LLM Provider Options
-
-- `opencode_run`: External `opencode run` command (recommended for production)
-- `direct_openai_compatible`: Direct OpenAI-compatible API endpoint
-- `opencode_builtin`: Local built-in strategy (recommended for offline smoke testing)
-- `heuristic`: Local simplified heuristic strategy
-
-### LLM Enhancement Features (Phase 1-6)
-
-All LLM enhancement phases are fully implemented and tested:
-
-1. **Phase 1: Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
-2. **Phase 2: Retry Mechanism** - Automatic retry with feedback on validation failures
-3. **Phase 3: Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
-4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `control/llm_feedback.jsonl`)
-5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
-6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
-
-Note: LLM enhancement features are now integrated into the main pipeline and controlled internally. User configuration for these features has been removed.
-
-Test coverage: 84 new tests covering all LLM enhancement features
-
-## Testing Notes
-
-- Static test fixtures live under `tests/fixtures/projects/sample_project/`
-- Scenario matrix lives in `tests/fixtures/scenarios/sample_project.json`
-- Config variants live in `tests/fixtures/configs/sample_project/`
-- 64 test files covering all stages and LLM enhancements
-- Run from repository root: `python3 -m pytest -q`
-- Unified acceptance: `python3 scripts/ci/release_acceptance.py`
-- Individual acceptance tests:
-  - `python3 scripts/ci/opencode_smoke_acceptance.py`
-  - `python3 scripts/ci/degraded_runtime_acceptance.py`
-  - `python3 scripts/ci/report_rebuild_acceptance.py`
-- Schema validation before committing: `python3 scripts/schema_validate_all.py`
-- Some tests may fail on import if dependencies are missing (e.g., test_apply_mode.py)
-
-### Scanner Coverage Validation
-
-The scanner supports these MyBatis dynamic tags (validated in fixtures):
-- `bind`
-- `choose/when/otherwise`
-- `where`
-- `if`
-- `foreach`
-- `include`
-- `trim`
-- `set`
-
-Verify scanner output:
-- `<project.root_path>/runs/<run_id>/artifacts/scan.jsonl`
-- `<project.root_path>/runs/<run_id>/artifacts/fragments.jsonl`
-- embedded `verification` rows inside `artifacts/scan.jsonl`
-
-### MySQL Local Testing
-
-Quick MySQL test database setup:
-
-```bash
-mysql -h 127.0.0.1 -u root -p sqlopt_test < tests/fixtures/sql_local/schema.mysql.sql
-```
-
-This creates and populates tables: `users`, `orders`, `shipments`
-
-## PYTHONPATH Setup
-
-When running scripts directly, set PYTHONPATH:
-
-```bash
-PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml
-```
-
-The repository root contains `python/sqlopt/` as the main package directory.
-
-## Documentation References
-
-For detailed information, refer to:
-- `docs/QUICKSTART.md`: 10-minute getting started guide
-- `docs/INDEX.md`: minimal documentation index
-- `docs/INSTALL.md`: Detailed installation instructions
-- `docs/CONFIG.md`: Configuration options detailed reference
-- `docs/current-spec.md`: Current system behavior, contracts, and run layout
-- `docs/TROUBLESHOOTING.md`: Common issues and solutions
-
-## Priority Rules (in case of conflicts)
-
-1. `contracts/**/*.schema.json` (highest priority)
-2. Current code verifiable behavior (`python/sqlopt`, `scripts/sqlopt_cli.py`)
-3. Historical documentation (`docs/*.md`)
+Priority when docs and code disagree:
+1. `contracts/**/*.schema.json`
+2. Current code under `python/sqlopt` and `scripts/sqlopt_cli.py`
+3. Documentation

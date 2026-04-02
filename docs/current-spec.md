@@ -171,3 +171,26 @@ verification 不再有独立 ledger 目录。
 2. 所有输出都必须是结构化对象，不能只产出自然语言结论。
 3. 模板级 patch 必须以 template-aware 路径落地，不能用扁平 SQL 直接覆盖动态 XML。
 4. `report.json` 只做摘要，不再承担索引和排障账本职责。
+
+## 11. 测试与 Harness
+
+测试目录当前按职责分层：
+- `tests/unit/`：模块级与实现级单元测试
+- `tests/contract/`：稳定契约测试
+  现按 `classification / patch / report / schema` 分组
+- `tests/harness/`：多组件与样本项目场景测试
+  现按 `engine / workflow / fixture` 分组
+- `tests/ci/`：脚本与验收入口测试
+
+`python/sqlopt/devtools/harness/` 是正式开发工具层，不是测试目录附件。
+
+当前四层：
+- `runtime/`：准备样本项目、驱动 run、读取 artifacts
+- `assertions/`：共享运行/报告/patch/scenario 断言
+- `scenarios/`：scenario matrix 读写、生成、校准
+- `benchmark/`：run-level metrics snapshot 与 delta 比较
+
+关系约束：
+- `tests/harness/engine/` 用来回归 `devtools/harness` 本身
+- `tests/harness/workflow/` 和 `tests/harness/fixture/` 只保留场景意图
+- 公共 harness 实现应向 `python/sqlopt/devtools/harness/` 集中，不应继续回流到 `tests/`

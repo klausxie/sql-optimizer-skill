@@ -9,7 +9,7 @@ from sqlopt.cli import _advance_one_step, _finalize_report_if_enabled
 from sqlopt.contracts import ContractValidator
 from sqlopt.supervisor import init_run, load_state, save_state
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class CliReportFinalizationTest(unittest.TestCase):

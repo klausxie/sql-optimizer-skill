@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlopt.contracts import ContractValidator
 from sqlopt.stages import report as report_stage
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class ReportTopologySchemaCompatTest(unittest.TestCase):

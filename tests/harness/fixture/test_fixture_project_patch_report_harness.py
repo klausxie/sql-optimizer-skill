@@ -5,17 +5,19 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
-
-from tests.support.fixture_project_harness_support import (
-    FIXTURE_PROJECT_ROOT,
-    fixture_registered_families,
+from sqlopt.devtools.harness.assertions import (
+    assert_auto_patches_frozen_and_verified,
+    assert_fixture_scenario_summary,
     patch_apply_ready,
     patch_blocker_family,
-    patch_meets_registered_fixture_obligations,
-    run_fixture_patch_and_report_harness,
-    summarize_fixture_scenarios,
+    assert_patch_matrix_matches_scenarios,
+    assert_registered_fixture_patch_obligations,
 )
+from sqlopt.devtools.harness.runtime import (
+    FIXTURE_PROJECT_ROOT,
+    run_fixture_patch_and_report_harness,
+)
+from sqlopt.devtools.harness.scenarios import summarize_fixture_scenarios
 
 
 class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
@@ -47,63 +49,15 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
 
     def test_current_registered_fixture_patch_families_meet_registry_obligations(self) -> None:
         scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
-        patch_by_key = {str(row["sqlKey"]): row for row in patches}
-        registered_families = fixture_registered_families(scenarios)
-
-        self.assertTrue(registered_families)
-        for scenario in scenarios:
-            sql_key = str(scenario["sqlKey"])
-            patch = patch_by_key[sql_key]
-            target_registered_family = str(scenario.get("targetRegisteredFamily") or "").strip()
-            target_dynamic_family = str(scenario.get("targetDynamicBaselineFamily") or "").strip()
-            tracked_family = target_registered_family or target_dynamic_family
-            if not tracked_family:
-                continue
-            self.assertIn(tracked_family, registered_families, sql_key)
-            self.assertTrue(patch_meets_registered_fixture_obligations(patch, scenario), sql_key)
-            if target_registered_family and patch_apply_ready(patch):
-                self.assertEqual(patch.get("patchFamily"), target_registered_family, sql_key)
-            if str(scenario.get("targetDynamicDeliveryClass") or "").upper() == "READY_DYNAMIC_PATCH":
-                self.assertEqual(patch.get("patchFamily"), target_dynamic_family, sql_key)
+        assert_registered_fixture_patch_obligations(scenarios, patches)
 
     def test_auto_patches_require_frozen_family_and_replay_evidence(self) -> None:
         _scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
-
-        auto_patches = [row for row in patches if patch_apply_ready(row)]
-        self.assertTrue(auto_patches)
-        for patch in auto_patches:
-            sql_key = str(patch["sqlKey"])
-            family = str(patch.get("patchFamily") or "").strip()
-            self.assertIn(family, FROZEN_AUTO_PATCH_FAMILIES, sql_key)
-            self.assertTrue(((patch.get("replayEvidence") or {}).get("matchesTarget")) is True, sql_key)
-            self.assertTrue(((patch.get("syntaxEvidence") or {}).get("ok")) is True, sql_key)
+        assert_auto_patches_frozen_and_verified(patches)
 
     def test_fixture_project_patch_matches_scenario_matrix(self) -> None:
         scenarios, _proposals, _acceptance_rows, patches, _report_artifacts = run_fixture_patch_and_report_harness()
-        patch_by_key = {str(row["sqlKey"]): row for row in patches}
-
-        for scenario in scenarios:
-            sql_key = str(scenario["sqlKey"])
-            patch = patch_by_key[sql_key]
-            self.assertEqual(((patch.get("selectionReason") or {}).get("code")), scenario["targetPatchReasonCode"], sql_key)
-            self.assertEqual(patch.get("strategyType"), scenario["targetPatchStrategy"], sql_key)
-            self.assertEqual(patch_blocker_family(patch), str(scenario["targetBlockerFamily"]), sql_key)
-            if scenario["targetPatchStrategy"]:
-                self.assertTrue(patch.get("patchFiles"), sql_key)
-                self.assertTrue(patch_apply_ready(patch), sql_key)
-                patch_text = "\n".join(str(x) for x in (patch.get("_patchTexts") or []))
-                added_text = "\n".join(
-                    line[1:]
-                    for line in patch_text.splitlines()
-                    if line.startswith("+") and not line.startswith("+++")
-                )
-                for snippet in scenario["targetPatchMustContain"]:
-                    self.assertIn(str(snippet), added_text, sql_key)
-                for snippet in scenario["targetPatchMustNotContain"]:
-                    self.assertNotIn(str(snippet), added_text, sql_key)
-            else:
-                self.assertEqual(patch.get("patchFiles"), [], sql_key)
-                self.assertFalse(patch_apply_ready(patch), sql_key)
+        assert_patch_matrix_matches_scenarios(scenarios, patches)
 
     def test_fixture_project_report_matches_matrix_aggregates(self) -> None:
         scenarios, _proposals, acceptance_rows, patches, report_artifacts = run_fixture_patch_and_report_harness()
@@ -192,8 +146,11 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(stats["dynamic_review_only_count"], expected_dynamic_review_only_count)
         self.assertEqual(len(acceptance_rows), len(scenarios))
         self.assertEqual(actual_family_counts, expected_family_counts)
-        self.assertEqual(summary["roadmapStageCounts"]["NEXT"], 1)
-        self.assertIn("demo.user.advanced.listDistinctUserStatuses#v11", summary["nextTargetSqlKeys"])
+        assert_fixture_scenario_summary(
+            summary,
+            next_count=1,
+            next_target_sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+        )
         sql_rows = {str(row["sql_key"]): row for row in report_artifacts.diagnostics_sql_artifacts}
         self.assertEqual(sql_rows["demo.user.advanced.listUsersRecentPaged#v5"]["dynamic_shape_family"], "STATIC_INCLUDE_ONLY")
         self.assertEqual(sql_rows["demo.user.advanced.countUsersFilteredWrapped#v4"]["dynamic_shape_family"], "IF_GUARDED_COUNT_WRAPPER")

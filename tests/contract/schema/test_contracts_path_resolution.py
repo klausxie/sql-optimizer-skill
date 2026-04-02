@@ -29,7 +29,7 @@ class ContractsPathResolutionTest(unittest.TestCase):
             self.assertEqual(validator._schema("sqlunit"), {"type": "object"})
 
     def test_schema_inventory_uses_grouped_paths(self) -> None:
-        validator = ContractValidator(Path(__file__).resolve().parents[2])
+        validator = ContractValidator(Path(__file__).resolve().parents[3])
         self.assertEqual(
             {
                 "sqlunit",
@@ -48,7 +48,7 @@ class ContractsPathResolutionTest(unittest.TestCase):
         self.assertEqual(SCHEMA_MAP["sql_artifact_index_row"], "sql/sql_artifact_index_row.schema.json")
 
     def test_removed_contract_names_are_unknown(self) -> None:
-        validator = ContractValidator(Path(__file__).resolve().parents[2])
+        validator = ContractValidator(Path(__file__).resolve().parents[3])
         for name in ("verification_record", "verification_summary", "ops_health", "ops_topology"):
             with self.assertRaisesRegex(ContractError, "unknown schema"):
                 validator.validate(name, {})

@@ -73,6 +73,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml \
 - [文档导航](docs/INDEX.md)
 - [故障排查](docs/TROUBLESHOOTING.md)
 - [当前规格](docs/current-spec.md)
+- [测试目录说明](tests/README.md)
 
 ## 开发与验收
 
@@ -80,3 +81,13 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml \
 python3 -m pytest -q
 python3 scripts/ci/release_acceptance.py
 ```
+
+测试与 harness 目录当前分层：
+- `tests/unit/`：单元测试
+- `tests/contract/`：契约测试
+- `tests/harness/engine/`：`python/sqlopt/devtools/harness/` 自测
+- `tests/harness/workflow/`：运行控制与 golden workflow 场景
+- `tests/harness/fixture/`：sample project / fixture 场景
+- `tests/ci/`：脚本与验收入口测试
+
+`python/sqlopt/devtools/harness/` 是正式开发工具层，当前包含 `runtime / assertions / scenarios / benchmark` 四层；`tests/harness/` 只负责验证这层工具和具体场景。

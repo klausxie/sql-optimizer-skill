@@ -9,7 +9,7 @@ from sqlopt.contracts import ContractValidator
 from sqlopt.errors import StageError
 from sqlopt.stages import report as report_stage
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class ReportClassificationTest(unittest.TestCase):
