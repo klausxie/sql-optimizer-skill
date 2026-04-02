@@ -93,11 +93,18 @@ class StageRunner:
             elapsed = time.time() - start_time
             self.progress.complete_stage(stage_name)
             self.display.finish(stage_name, elapsed)
+            self._copy_data_contracts()
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
             elapsed = time.time() - start_time
             self.display.finish(stage_name, elapsed, success=False, details=str(e))
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
+
+    def _copy_data_contracts(self) -> None:
+        src = pathlib.Path(self.config.project_root_path) / "docs" / "current" / "data-contracts.md"
+        dst = self.paths.run_dir / "DATA_CONTRACTS.md"
+        if src.exists():
+            shutil.copy(src, dst)
 
     def run_all(self, use_mock: bool = False) -> PipelineResult:
         logger.info("=" * 60)
@@ -111,10 +118,6 @@ class StageRunner:
                 self.run_stage(stage, use_mock=use_mock)
                 stage_results[stage] = StageResult(stage_name=stage, output={"status": "completed"})
             logger.info("[RUNNER] Full pipeline completed successfully")
-            src = pathlib.Path(self.config.project_root_path) / "docs" / "current" / "data-contracts.md"
-            dst = self.paths.run_dir / "DATA_CONTRACTS.md"
-            if src.exists():
-                shutil.copy(src, dst)
             self.display.finish_pipeline(success=True, elapsed=time.time() - pipeline_start)
             return PipelineResult(success=True, stage_results=stage_results)
         except RuntimeError as e:
