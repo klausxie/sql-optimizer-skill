@@ -104,7 +104,7 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         self.assertIn(".status_resolver", imports)
         self.assertIn(".phase_runtime", imports)
         self.assertIn(".stage_index", imports)
-        self.assertIn(".workflow_handlers_adapter", imports)
+        self.assertIn(".phase_handlers", imports)
         self.assertIn(".workflow_step_runner", imports)
         self.assertNotIn(".workflow_facade", imports)
         self.assertNotIn(".workflow_components", imports)

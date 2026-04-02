@@ -95,29 +95,17 @@ class ReportClassificationTest(unittest.TestCase):
                 {
                     "run_id",
                     "generated_at",
-                    "target_stage",
                     "status",
                     "verdict",
                     "next_action",
                     "phase_status",
-                    "stats",
-                    "blockers",
                 },
             )
             self.assertEqual(report["run_id"], "rpt_1")
-            self.assertEqual(report["target_stage"], "report")
             self.assertEqual(report["status"], "DONE")
             self.assertEqual(report["verdict"], "BLOCKED")
             self.assertEqual(report["next_action"], "inspect")
-            self.assertEqual(report["stats"]["sql_total"], 1)
-            self.assertEqual(report["stats"]["proposal_total"], 1)
-            self.assertEqual(report["stats"]["accepted_total"], 0)
-            self.assertEqual(report["stats"]["patchable_total"], 0)
-            self.assertEqual(report["stats"]["patched_total"], 0)
-            self.assertEqual(report["stats"]["blocked_total"], 2)
-            top_codes = {row["code"]: row["count"] for row in report["blockers"]["top_reason_codes"]}
-            self.assertEqual(top_codes["VALIDATE_DB_UNREACHABLE"], 1)
-            self.assertEqual(top_codes["VALIDATE_EQUIVALENCE_MISMATCH"], 1)
+            self.assertEqual(report["phase_status"]["report"], "DONE")
             self.assertTrue((run_dir / "report.json").exists())
             self.assertTrue((run_dir / "control" / "manifest.jsonl").exists())
             self.assertTrue((run_dir / "artifacts" / "scan.jsonl").exists())
@@ -154,9 +142,8 @@ class ReportClassificationTest(unittest.TestCase):
             }
             validator = ContractValidator(ROOT)
             report = report_stage.generate("rpt_missing", "analyze", config, run_dir, validator)
-            self.assertEqual(report["stats"]["sql_total"], 0)
             self.assertEqual(report["next_action"], "inspect")
-            self.assertGreaterEqual(report["blockers"]["top_reason_codes"][0]["count"], 1)
+            self.assertEqual(report["phase_status"]["report"], "DONE")
             self.assertTrue((run_dir / "report.json").exists())
 
     def test_report_warns_and_optionally_blocks_on_unverified_critical_outputs(self) -> None:
@@ -216,8 +203,7 @@ class ReportClassificationTest(unittest.TestCase):
             report = report_stage.generate("rpt_gate", "analyze", config, run_dir, validator)
 
             self.assertEqual(report["next_action"], "inspect")
-            top_codes = {row["code"] for row in report["blockers"]["top_reason_codes"]}
-            self.assertIn("UNVERIFIED_PASS_ACCEPTANCE", top_codes)
+            self.assertEqual(report["phase_status"]["report"], "DONE")
             self.assertTrue((run_dir / "report.json").exists())
 
             config["verification"]["enforce_verified_outputs"] = False

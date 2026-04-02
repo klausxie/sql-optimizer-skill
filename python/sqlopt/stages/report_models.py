@@ -74,29 +74,10 @@ class RunReportDocument:
         return {
             "run_id": self.run_id,
             "generated_at": self.generated_at,
-            "target_stage": self.target_stage,
             "status": self.status,
             "verdict": self.verdict,
             "next_action": self.next_action,
             "phase_status": self.phase_status,
-            "stats": {
-                "sql_total": int(self.stats.get("sql_units") or 0),
-                "proposal_total": int(self.stats.get("proposals") or 0),
-                "accepted_total": int(self.stats.get("acceptance_pass") or 0),
-                "patchable_total": int(self.stats.get("patch_applicable_count") or 0),
-                "patched_total": int(self.stats.get("patch_files") or 0),
-                "blocked_total": int(self.stats.get("blocked_sql_count") or 0),
-            },
-            "blockers": {
-                "top_reason_codes": [
-                    {
-                        "code": str(row.get("code") or ""),
-                        "count": int(row.get("count") or 0),
-                    }
-                    for row in self.top_blockers
-                    if str(row.get("code") or "").strip()
-                ]
-            },
         }
 
 

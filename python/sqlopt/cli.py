@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any, Callable
 from uuid import uuid4
 
 from .application import config_service, run_index, run_service, workflow_engine
@@ -31,11 +30,6 @@ def _resolve_requested_run_id(requested_run_id: str | None, project: str | Path 
     return resolved_run_id
 
 
-def _resolve_run_dir(run_id: str) -> Path:
-    """Compatibility wrapper for run directory resolution."""
-    return run_index.resolve_run_dir(run_id, repo_root_fn=_repo_root)
-
-
 def _interrupt_payload(run_id: str | None, *, next_action: str | None = None) -> dict[str, Any]:
     return run_service.build_interrupt_payload(_run_label(run_id), next_action=next_action)
 
@@ -45,65 +39,6 @@ def _validate_budget_args(args: argparse.Namespace) -> None:
         raise ValueError("max_steps must be >= 0")
     if int(getattr(args, "max_seconds", 0)) < 0:
         raise ValueError("max_seconds must be >= 0")
-
-
-def _run_phase_action(config: dict[str, Any], phase: str, fn: Callable[[], object]) -> tuple[object, int]:
-    """Compatibility wrapper used by legacy tests and integrations."""
-    return workflow_engine.run_phase_action(config, phase, fn)
-
-
-def _finalize_report_if_enabled(
-    run_dir: Path,
-    config: dict[str, Any],
-    validator: Any,
-    state: dict[str, Any],
-    *,
-    final_meta_status: str,
-) -> bool:
-    """Compatibility wrapper that delegates report finalization to application layer."""
-    return workflow_engine.finalize_report_if_enabled(
-        run_dir,
-        config,
-        validator,
-        state,
-        final_meta_status=final_meta_status,
-        run_phase_action_fn=_run_phase_action,
-    )
-
-
-def _advance_one_step(run_dir: Path, config: dict[str, Any], to_stage: str, validator: Any) -> dict[str, Any]:
-    """Compatibility wrapper around workflow_engine.advance_one_step."""
-    return workflow_engine.advance_one_step(
-        run_dir,
-        config,
-        to_stage,
-        validator,
-        run_phase_action_fn=_run_phase_action,
-        finalize_report_if_enabled_fn=_finalize_report_if_enabled,
-        finalize_without_report_fn=workflow_engine.finalize_without_report,
-    )
-
-
-def _advance_until_complete(
-    run_id: str,
-    initial_result: dict[str, Any],
-    *,
-    step_fn: Callable[[], dict[str, Any]],
-    max_steps: int,
-    max_seconds: int,
-) -> tuple[dict[str, Any], int, str]:
-    """Advance the run until completion or budget exhaustion.
-
-    max_steps=0 and max_seconds=0 mean unbounded.
-    """
-    outcome = run_service.advance_run_until_complete(
-        run_id,
-        initial_result,
-        step_fn=step_fn,
-        max_steps=max_steps,
-        max_seconds=max_seconds,
-    )
-    return outcome.result, outcome.steps_executed, outcome.reason
 
 
 def cmd_run(args: argparse.Namespace) -> None:

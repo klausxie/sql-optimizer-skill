@@ -5,13 +5,10 @@ from ..runtime.models import HarnessArtifacts
 _REPORT_KEYS = {
     "run_id",
     "generated_at",
-    "target_stage",
     "status",
     "verdict",
     "next_action",
     "phase_status",
-    "stats",
-    "blockers",
 }
 
 

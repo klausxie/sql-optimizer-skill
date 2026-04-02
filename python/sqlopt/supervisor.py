@@ -6,13 +6,9 @@ from typing import Any
 
 from .constants import CONTRACT_VERSION, SKILL_VERSION
 from .io_utils import append_jsonl, read_json, write_json
-from .run_paths import RunPaths, canonical_paths
+from .run_paths import canonical_paths
 
 PHASES = ["preflight", "scan", "optimize", "validate", "patch_generate", "report"]
-
-
-def get_run_paths(run_dir: Path) -> RunPaths:
-    return canonical_paths(run_dir)
 
 
 def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
@@ -28,7 +24,7 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
         ├── artifacts/
         └── sql/
     """
-    p = get_run_paths(run_dir)
+    p = canonical_paths(run_dir)
     p.ensure_layout()
 
     # Write state.json - combines former meta.json + state.json
@@ -66,40 +62,23 @@ def init_run(run_dir: Path, config: dict[str, Any], run_id: str) -> None:
 
 def load_state(run_dir: Path) -> dict[str, Any]:
     """Load the run state from control/state.json."""
-    return read_json(get_run_paths(run_dir).state_path)
+    return read_json(canonical_paths(run_dir).state_path)
 
 
 def save_state(run_dir: Path, state: dict[str, Any]) -> None:
     """Save the run state to control/state.json."""
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
-    write_json(get_run_paths(run_dir).state_path, state)
+    write_json(canonical_paths(run_dir).state_path, state)
 
 
 def set_plan(run_dir: Path, plan: dict[str, Any]) -> None:
     """Save the run plan to control/plan.json."""
-    write_json(get_run_paths(run_dir).plan_path, plan)
+    write_json(canonical_paths(run_dir).plan_path, plan)
 
 
 def get_plan(run_dir: Path) -> dict[str, Any]:
     """Load the run plan from control/plan.json."""
-    return read_json(get_run_paths(run_dir).plan_path)
-
-
-def load_meta(run_dir: Path) -> dict[str, Any]:
-    """Load meta information from state.json.
-
-    This function is kept for backward compatibility.
-    The meta info is now stored in state.json.
-    """
-    return load_state(run_dir)
-
-
-def save_meta(run_dir: Path, meta: dict[str, Any]) -> None:
-    """Save meta information to state.json.
-
-    This function is kept for backward compatibility.
-    """
-    save_state(run_dir, meta)
+    return read_json(canonical_paths(run_dir).plan_path)
 
 
 def set_meta_status(run_dir: Path, status: str) -> None:
@@ -123,7 +102,7 @@ def append_manifest_event(
     This replaces the per-phase supervisor results files.
     """
     append_jsonl(
-        get_run_paths(run_dir).manifest_path,
+        canonical_paths(run_dir).manifest_path,
         {
             "ts": datetime.now(timezone.utc).isoformat(),
             "stage": stage,

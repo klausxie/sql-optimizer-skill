@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..contracts import ContractValidator
+from ..errors import StageError
 from ..progress import get_progress_reporter
 from ..stages import optimize as optimize_stage
 from ..stages import patch_generate as patch_stage
@@ -12,6 +13,12 @@ from ..stages import report as report_stage
 from ..stages import scan as scan_stage
 from ..stages import validate as validate_stage
 from .finalizer import RunFinalizer
+from .phase_handlers import advance_optimize as _phase_advance_optimize
+from .phase_handlers import advance_patch_generate as _phase_advance_patch_generate
+from .phase_handlers import advance_preflight as _phase_advance_preflight
+from .phase_handlers import advance_report as _phase_advance_report
+from .phase_handlers import advance_scan as _phase_advance_scan
+from .phase_handlers import advance_validate as _phase_advance_validate
 from .phase_runtime import record_failure as _record_failure
 from .phase_runtime import run_phase_action as _run_phase_action
 from .phase_runtime import runtime_cfg as _runtime_cfg
@@ -26,7 +33,6 @@ from .workflow_definition import (
 from .run_repository import RunRepository
 from .stage_index import load_index as _load_stage_index
 from .status_resolver import ResumeDecision, StatusResolution, StatusResolver
-from .workflow_handlers_adapter import build_handler_registry as _build_handler_registry
 from .workflow_step_runner import build_advance_context as _build_advance_context
 from .workflow_step_runner import run_advance_pipeline as _run_advance_pipeline
 
@@ -176,34 +182,122 @@ def build_status_snapshot(request: RunStatusRequest) -> dict[str, Any]:
         "selection_scope": selection_scope(request.plan),
     }
 
-_HANDLERS = _build_handler_registry(
-    phase_transitions=PHASE_TRANSITIONS,
-    statement_phase_targets=STATEMENT_PHASE_TARGETS,
-    next_pending_sql=next_pending_sql,
-    report_enabled=report_enabled,
-    is_complete_to_stage=lambda state, to_stage, include_report: is_complete_to_stage(
-        state, to_stage, include_report=include_report
-    ),
-    resolve_report_resume_decision=resolve_report_resume_decision,
-    report_phase_complete_for_result=report_phase_complete_for_result,
-    preflight_execute=lambda config, run_dir: preflight_stage.execute(config, run_dir),
-    scan_execute=lambda config, run_dir, validator: scan_stage.execute(config, run_dir, validator),
-    optimize_execute_one=lambda *args, **kwargs: optimize_stage.execute_one(*args, **kwargs),
-    validate_execute_one=lambda *args, **kwargs: validate_stage.execute_one(*args, **kwargs),
-    patch_execute_one=lambda *args, **kwargs: patch_stage.execute_one(*args, **kwargs),
-)
 
-_complete_phase_result = _HANDLERS.complete_phase_result
-_advance_preflight = _HANDLERS.advance_preflight
-_advance_scan = _HANDLERS.advance_scan
-_advance_optimize = _HANDLERS.advance_optimize
-_advance_validate = _HANDLERS.advance_validate
-_advance_patch_generate = _HANDLERS.advance_patch_generate
-_advance_report = _HANDLERS.advance_report
+def _mark_updated(state: dict[str, Any]) -> None:
+    from datetime import datetime, timezone
 
-PRE_INDEX_HANDLERS = _HANDLERS.pre_index_handlers
-INDEXED_HANDLERS = _HANDLERS.indexed_handlers
-REPORT_HANDLER = _HANDLERS.report_handler
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+
+def _complete_phase_result(ctx: Any, phase: str) -> dict[str, Any]:
+    return {
+        "complete": _STATUS_RESOLVER.is_complete_to_stage(
+            ctx.state,
+            ctx.to_stage,
+            include_report=report_enabled(ctx.config),
+        ),
+        "phase": phase,
+    }
+
+
+def _finalize_completed_run(ctx: Any) -> None:
+    if report_enabled(ctx.config):
+        ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status="COMPLETED")
+    else:
+        ctx.finalize_without(ctx.run_dir, ctx.state, final_meta_status="COMPLETED")
+
+
+def _handle_phase_failure(ctx: Any, phase: str, exc: StageError) -> None:
+    ctx.on_failure(ctx.run_dir, ctx.state, phase, exc.reason_code or "RUNTIME_RETRY_EXHAUSTED", str(exc))
+    if report_enabled(ctx.config):
+        ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status="FAILED")
+    else:
+        ctx.repo.set_meta_status("FAILED")
+
+
+def _advance_preflight(ctx: Any) -> dict[str, Any] | None:
+    return _phase_advance_preflight(
+        ctx,
+        phase_transitions=PHASE_TRANSITIONS,
+        mark_updated=_mark_updated,
+        complete_phase_result=_complete_phase_result,
+        finalize_completed_run=_finalize_completed_run,
+        handle_phase_failure=_handle_phase_failure,
+        preflight_execute=lambda config, run_dir: preflight_stage.execute(config, run_dir),
+    )
+
+
+def _advance_scan(ctx: Any) -> dict[str, Any] | None:
+    return _phase_advance_scan(
+        ctx,
+        phase_transitions=PHASE_TRANSITIONS,
+        mark_updated=_mark_updated,
+        complete_phase_result=_complete_phase_result,
+        finalize_completed_run=_finalize_completed_run,
+        handle_phase_failure=_handle_phase_failure,
+        scan_execute=lambda config, run_dir, validator: scan_stage.execute(config, run_dir, validator),
+    )
+
+
+def _advance_optimize(ctx: Any, index: Any) -> dict[str, Any] | None:
+    return _phase_advance_optimize(
+        ctx,
+        index,
+        phase_transitions=PHASE_TRANSITIONS,
+        statement_phase_targets=STATEMENT_PHASE_TARGETS,
+        next_pending_sql=next_pending_sql,
+        mark_updated=_mark_updated,
+        complete_phase_result=_complete_phase_result,
+        finalize_completed_run=_finalize_completed_run,
+        handle_phase_failure=_handle_phase_failure,
+        optimize_execute_one=lambda sql_unit, run_dir, validator: optimize_stage.execute_one(
+            sql_unit, run_dir, validator, config=ctx.config
+        ),
+    )
+
+
+def _advance_validate(ctx: Any, index: Any) -> dict[str, Any] | None:
+    return _phase_advance_validate(
+        ctx,
+        index,
+        phase_transitions=PHASE_TRANSITIONS,
+        statement_phase_targets=STATEMENT_PHASE_TARGETS,
+        next_pending_sql=next_pending_sql,
+        mark_updated=_mark_updated,
+        complete_phase_result=_complete_phase_result,
+        finalize_completed_run=_finalize_completed_run,
+        handle_phase_failure=_handle_phase_failure,
+        validate_execute_one=validate_stage.execute_one,
+    )
+
+
+def _advance_patch_generate(ctx: Any, index: Any) -> dict[str, Any] | None:
+    return _phase_advance_patch_generate(
+        ctx,
+        index,
+        phase_transitions=PHASE_TRANSITIONS,
+        statement_phase_targets=STATEMENT_PHASE_TARGETS,
+        next_pending_sql=next_pending_sql,
+        mark_updated=_mark_updated,
+        complete_phase_result=_complete_phase_result,
+        finalize_completed_run=_finalize_completed_run,
+        handle_phase_failure=_handle_phase_failure,
+        patch_execute_one=patch_stage.execute_one,
+    )
+
+
+def _advance_report(ctx: Any) -> dict[str, Any] | None:
+    return _phase_advance_report(
+        ctx,
+        resolve_report_resume_decision=resolve_report_resume_decision,
+        report_enabled=report_enabled,
+        report_phase_complete_for_result=report_phase_complete_for_result,
+    )
+
+
+PRE_INDEX_HANDLERS = (_advance_preflight, _advance_scan)
+INDEXED_HANDLERS = (_advance_optimize, _advance_validate, _advance_patch_generate)
+REPORT_HANDLER = _advance_report
 
 
 def advance_one_step(

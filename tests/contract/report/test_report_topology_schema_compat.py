@@ -43,13 +43,10 @@ class ReportTopologySchemaCompatTest(unittest.TestCase):
                 {
                     "run_id",
                     "generated_at",
-                    "target_stage",
                     "status",
                     "verdict",
                     "next_action",
                     "phase_status",
-                    "stats",
-                    "blockers",
                 },
             )
             self.assertNotIn("runtime_policy", json.dumps(report, ensure_ascii=False))

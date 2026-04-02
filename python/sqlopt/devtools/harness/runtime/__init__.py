@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from .artifacts import load_run_artifacts
-from .fixture import run_fixture_patch_and_report_harness, run_fixture_validate_harness, scan_fixture_project, validate_fixture_scenario
 from .loop import run_until_complete, run_until_stage_complete
 from .models import HarnessArtifacts, HarnessHooks, HarnessProjectHandle, HarnessRunResult, HarnessStepResult
+from .patch_report_fixture import run_fixture_patch_and_report_harness
 from .project import (
     FIXTURE_CONFIG_DIR,
     FIXTURE_MOCK_DIR,
@@ -15,6 +15,8 @@ from .project import (
     prepare_fixture_project,
 )
 from .runner import apply_once, resume_once, run_once, status_once
+from .scan_fixture import scan_fixture_project
+from .validate_fixture import run_fixture_validate_harness, validate_fixture_scenario
 
 __all__ = [
     "FIXTURES_ROOT",

@@ -3,9 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
-from sqlopt import cli
 from sqlopt.application import run_index
 from sqlopt.io_utils import write_json
 
@@ -19,9 +17,8 @@ class RunIndexResolutionTest(unittest.TestCase):
             # Use new control/state.json path instead of old pipeline/supervisor/meta.json
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             write_json(run_dir / "control" / "state.json", {"run_id": run_id, "status": "RUNNING"})
-            with patch("sqlopt.cli._repo_root", return_value=repo):
-                resolved = cli._resolve_run_dir(run_id)
-                self.assertEqual(resolved.resolve(), run_dir.resolve())
+            resolved = run_index.resolve_run_dir(run_id, repo_root_fn=lambda: repo)
+            self.assertEqual(resolved.resolve(), run_dir.resolve())
 
     def test_resolve_run_dir_ignores_legacy_index_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_run_index_legacy_") as td:

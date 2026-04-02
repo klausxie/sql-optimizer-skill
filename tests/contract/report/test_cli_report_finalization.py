@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sqlopt.cli import _advance_one_step, _finalize_report_if_enabled
+from sqlopt.application import workflow_engine
 from sqlopt.contracts import ContractValidator
 from sqlopt.supervisor import init_run, load_state, save_state
 
@@ -37,8 +37,8 @@ class CliReportFinalizationTest(unittest.TestCase):
             run_dir = Path(td)
             self._prepare_completed_run(run_dir)
             state = load_state(run_dir)
-            with patch("sqlopt.cli._run_phase_action", return_value=({}, 1)) as mock_run:
-                _finalize_report_if_enabled(
+            with patch("sqlopt.application.workflow_engine.run_phase_action", return_value=({}, 1)) as mock_run:
+                workflow_engine.finalize_report_if_enabled(
                     run_dir,
                     {"report": {"enabled": True}},
                     ContractValidator(ROOT),
@@ -64,8 +64,8 @@ class CliReportFinalizationTest(unittest.TestCase):
                 self.assertEqual(persisted["current_phase"], "report")
                 return {}, 1
 
-            with patch("sqlopt.cli._run_phase_action", side_effect=check_state_before_generate):
-                _finalize_report_if_enabled(
+            with patch("sqlopt.application.workflow_engine.run_phase_action", side_effect=check_state_before_generate):
+                workflow_engine.finalize_report_if_enabled(
                     run_dir,
                     {"report": {"enabled": True}},
                     ContractValidator(ROOT),
@@ -80,8 +80,8 @@ class CliReportFinalizationTest(unittest.TestCase):
             run_dir = Path(td)
             self._prepare_completed_run(run_dir)
             config = {"report": {"enabled": True}, "validate": {}}
-            with patch("sqlopt.cli._finalize_report_if_enabled") as mock_finalize:
-                result = _advance_one_step(run_dir, config, "report", ContractValidator(ROOT))
+            with patch("sqlopt.application.workflow_engine.finalize_report_if_enabled") as mock_finalize:
+                result = workflow_engine.advance_one_step(run_dir, config, "report", ContractValidator(ROOT))
 
             self.assertEqual(result, {"complete": True, "phase": "report"})
             self.assertEqual(mock_finalize.call_count, 1)

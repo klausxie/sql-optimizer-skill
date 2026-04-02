@@ -9,7 +9,6 @@ from ..supervisor import (
     append_step_result,
     get_plan,
     init_run,
-    load_meta,
     load_state,
     save_state,
     set_meta_status,
@@ -38,9 +37,6 @@ class RunRepository:
 
     def set_plan(self, plan: dict[str, Any]) -> None:
         set_plan(self.run_dir, plan)
-
-    def load_meta(self) -> dict[str, Any]:
-        return load_meta(self.run_dir)
 
     def set_meta_status(self, status: str) -> None:
         set_meta_status(self.run_dir, status)

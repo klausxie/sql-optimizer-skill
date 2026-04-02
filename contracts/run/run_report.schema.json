@@ -5,60 +5,20 @@
   "required": [
     "run_id",
     "generated_at",
-    "target_stage",
     "status",
     "verdict",
     "next_action",
-    "phase_status",
-    "stats",
-    "blockers"
+    "phase_status"
   ],
   "properties": {
     "run_id": {"type": "string"},
     "generated_at": {"type": "string"},
-    "target_stage": {"type": "string"},
     "status": {"type": "string"},
     "verdict": {"type": "string"},
     "next_action": {"type": "string"},
     "phase_status": {
       "type": "object",
       "additionalProperties": {"type": ["string", "null"]}
-    },
-    "stats": {
-      "type": "object",
-      "required": [
-        "sql_total",
-        "proposal_total",
-        "accepted_total",
-        "patchable_total",
-        "patched_total",
-        "blocked_total"
-      ],
-      "properties": {
-        "sql_total": {"type": "integer"},
-        "proposal_total": {"type": "integer"},
-        "accepted_total": {"type": "integer"},
-        "patchable_total": {"type": "integer"},
-        "patched_total": {"type": "integer"},
-        "blocked_total": {"type": "integer"}
-      }
-    },
-    "blockers": {
-      "type": "object",
-      "required": ["top_reason_codes"],
-      "properties": {
-        "top_reason_codes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["code", "count"],
-            "properties": {
-              "code": {"type": "string"},
-              "count": {"type": "integer"}
-            }
-          }
-        }
-      }
     }
   }
 }

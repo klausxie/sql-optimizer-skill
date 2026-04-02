@@ -10,10 +10,11 @@ from sqlopt.stages.report_interfaces import ReportInputs, ReportStateSnapshot
 
 
 class ActionGuidanceConsistencyTest(unittest.TestCase):
-    def test_report_and_verify_align_on_template_rewrite_guidance(self) -> None:
+    def test_report_keeps_template_rewrite_cases_in_inspect_mode(self) -> None:
+        sql_key = "demo.user.findIncluded#v1"
         acceptance_rows = [
             {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": sql_key,
                 "status": "PASS",
                 "deliveryReadiness": {"tier": "NEEDS_TEMPLATE_REWRITE"},
                 "perfComparison": {"reasonCodes": []},
@@ -22,64 +23,29 @@ class ActionGuidanceConsistencyTest(unittest.TestCase):
         ]
         patch_rows = [
             {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": sql_key,
                 "statementKey": "demo.user.findIncluded",
                 "applicable": None,
-                "deliveryOutcome": {
-                    "tier": "PATCHABLE_WITH_REWRITE",
-                    "summary": "patch can likely land after template-aware mapper refactoring",
-                },
-                "repairHints": [
-                    {
-                        "hintId": "expand-include",
-                        "title": "Refactor include fragment path",
-                        "command": None,
-                    }
-                ],
+                "deliveryOutcome": {"tier": "PATCHABLE_WITH_REWRITE"},
             }
         ]
         inputs = ReportInputs(
-            units=[{"sqlKey": "demo.user.findIncluded#v1"}],
-            proposals=[
-                {
-                    "sqlKey": "demo.user.findIncluded#v1",
-                    "issues": [{"code": "SELECT_STAR"}],
-                    "dbEvidenceSummary": {},
-                    "planSummary": {},
-                    "suggestions": [{"action": "PROJECT_COLUMNS", "sql": "SELECT id FROM users"}],
-                    "verdict": "CAN_IMPROVE",
-                    "actionability": {
-                        "score": 75,
-                        "tier": "MEDIUM",
-                        "autoPatchLikelihood": "MEDIUM",
-                        "reasons": [],
-                        "blockedBy": [],
-                    },
-                }
-            ],
+            units=[{"sqlKey": sql_key}],
+            proposals=[{"sqlKey": sql_key, "verdict": "CAN_IMPROVE", "issues": []}],
             acceptance=acceptance_rows,
             patches=patch_rows,
             state=ReportStateSnapshot(phase_status={"report": "DONE"}, attempts_by_phase={"report": 1}),
             manifest_rows=[],
             verification_rows=[],
         )
-        config = {
-            "policy": {},
-            "runtime": {
-                "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
-                "stage_retry_max": {"scan": 1, "report": 2},
-                "stage_retry_backoff_ms": 50,
-            },
-            "llm": {"enabled": False},
-        }
 
         with tempfile.TemporaryDirectory(prefix="guidance_consistency_") as td:
             run_dir = Path(td)
-            artifacts = build_report_artifacts("run_demo", "analyze", config, run_dir, inputs)
+            artifacts = build_report_artifacts("run_demo", "analyze", {"policy": {}, "runtime": {}, "llm": {"enabled": False}}, run_dir, inputs)
             verify_payload = build_verify_payload(
                 "run_demo",
                 run_dir,
-                "demo.user.findIncluded#v1",
+                sql_key,
                 None,
                 True,
                 [],
@@ -87,9 +53,9 @@ class ActionGuidanceConsistencyTest(unittest.TestCase):
                 patch_rows,
             )
 
-        self.assertEqual(artifacts.next_actions[0]["action_id"], "refactor-mapper")
+        self.assertEqual(artifacts.report.next_action, "inspect")
+        self.assertEqual(artifacts.next_actions[0]["action_id"], "inspect")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "refactor-mapper")
-        self.assertEqual(artifacts.next_actions[0]["reason"], verify_payload["recommended_next_step"]["reason"])
 
 
 if __name__ == "__main__":

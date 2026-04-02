@@ -114,7 +114,10 @@ class ContractModelInterfacesTest(unittest.TestCase):
         self.assertFalse(hasattr(artifacts, "failures_payload"))
         self.assertEqual(artifacts.failures_to_contract()[0]["phase"], "validate")
         self.assertEqual(report.to_contract()["verdict"], "BLOCKED")
-        self.assertEqual(report.to_contract()["stats"]["sql_total"], 1)
+        self.assertEqual(report.to_contract()["next_action"], "inspect")
+        self.assertNotIn("target_stage", report.to_contract())
+        self.assertNotIn("stats", report.to_contract())
+        self.assertNotIn("blockers", report.to_contract())
 
 
 if __name__ == "__main__":

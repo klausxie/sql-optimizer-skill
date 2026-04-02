@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ....stages.report_stats import blocker_family_for_patch_row
+from ..assertions.helpers import patch_apply_ready
 from ..runtime.models import HarnessArtifacts
 from .models import BenchmarkSnapshot
 
@@ -15,14 +16,22 @@ def _counts_from_rows(rows: list[dict], field: str) -> dict[str, int]:
     return counts
 
 
-def _top_reason_codes(report: dict) -> list[dict[str, int | str]]:
-    blockers = report.get("blockers") or {}
-    rows = blockers.get("top_reason_codes") or []
-    return [
-        {"code": str(row.get("code") or ""), "count": int(row.get("count") or 0)}
-        for row in rows
-        if str(row.get("code") or "").strip()
-    ]
+def _top_reason_codes(artifacts: HarnessArtifacts) -> list[dict[str, int | str]]:
+    counts: dict[str, int] = {}
+    for row in artifacts.acceptance_rows:
+        code = str(((row.get("feedback") or {}).get("reason_code") or "")).strip()
+        if code:
+            counts[code] = counts.get(code, 0) + 1
+    for row in artifacts.patch_rows:
+        code = str(((row.get("selectionReason") or {}).get("code") or "")).strip()
+        if code:
+            counts[code] = counts.get(code, 0) + 1
+    for row in artifacts.manifest_rows:
+        code = str(((row.get("payload") or {}).get("reason_code") or "")).strip()
+        if code:
+            counts[code] = counts.get(code, 0) + 1
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return [{"code": code, "count": count} for code, count in ordered[:10]]
 
 
 def _blocker_family_counts(artifacts: HarnessArtifacts) -> dict[str, int]:
@@ -40,24 +49,48 @@ def _blocker_family_counts(artifacts: HarnessArtifacts) -> dict[str, int]:
     return counts
 
 
+def _sql_total(artifacts: HarnessArtifacts) -> int:
+    if artifacts.scan_rows:
+        return len(artifacts.scan_rows)
+    return len(artifacts.sql_catalog_rows)
+
+
+def _accepted_total(artifacts: HarnessArtifacts) -> int:
+    return sum(1 for row in artifacts.acceptance_rows if str(row.get("status") or "").strip().upper() == "PASS")
+
+
+def _patchable_total(artifacts: HarnessArtifacts) -> int:
+    return sum(1 for row in artifacts.patch_rows if patch_apply_ready(row))
+
+
+def _patched_total(artifacts: HarnessArtifacts) -> int:
+    return sum(1 for row in artifacts.patch_rows if list(row.get("patchFiles") or []))
+
+
+def _blocked_total(artifacts: HarnessArtifacts, blocker_family_counts: dict[str, int]) -> int:
+    if blocker_family_counts:
+        return sum(count for family, count in blocker_family_counts.items() if family != "READY")
+    return max(_sql_total(artifacts) - _patchable_total(artifacts), 0)
+
+
 def snapshot_from_artifacts(artifacts: HarnessArtifacts) -> BenchmarkSnapshot:
     report = artifacts.report
-    stats = report.get("stats") or {}
     state = artifacts.state
+    blocker_family_counts = _blocker_family_counts(artifacts)
     return BenchmarkSnapshot(
         run_id=str(report.get("run_id") or state.get("run_id") or ""),
         status=str(state.get("status") or report.get("status") or ""),
         verdict=str(report.get("verdict") or ""),
         next_action=str(report.get("next_action") or ""),
         phase_status={str(k): str(v) for k, v in (report.get("phase_status") or {}).items()},
-        sql_total=int(stats.get("sql_total") or 0),
-        proposal_total=int(stats.get("proposal_total") or 0),
-        accepted_total=int(stats.get("accepted_total") or 0),
-        patchable_total=int(stats.get("patchable_total") or 0),
-        patched_total=int(stats.get("patched_total") or 0),
-        blocked_total=int(stats.get("blocked_total") or 0),
-        blocker_family_counts=_blocker_family_counts(artifacts),
+        sql_total=_sql_total(artifacts),
+        proposal_total=len(artifacts.proposal_rows),
+        accepted_total=_accepted_total(artifacts),
+        patchable_total=_patchable_total(artifacts),
+        patched_total=_patched_total(artifacts),
+        blocked_total=_blocked_total(artifacts, blocker_family_counts),
+        blocker_family_counts=blocker_family_counts,
         patch_strategy_counts=_counts_from_rows(artifacts.patch_rows, "strategyType"),
         dynamic_delivery_class_counts=_counts_from_rows(artifacts.sql_catalog_rows, "dynamic_delivery_class"),
-        top_reason_codes=_top_reason_codes(report),
+        top_reason_codes=_top_reason_codes(artifacts),
     )
