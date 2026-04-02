@@ -7,10 +7,10 @@ import pathlib
 from typing import Any
 
 from sqlopt.common.parse_stats import (
-    PerUnitBranchStats,
     STRATEGY_EXPLANATIONS,
     STRATEGY_NAMES,
     ParseStageStats,
+    PerUnitBranchStats,
 )
 from sqlopt.common.risk_assessment import RISK_FACTOR_REGISTRY
 from sqlopt.contracts.optimize import OptimizeOutput
@@ -207,6 +207,22 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 .legend { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #94a3b8; }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.donut-container { position: relative; width: 180px; height: 180px; margin: 0 auto; }
+.donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.donut-center .value { font-size: 1.5rem; font-weight: 800; color: #f8fafc; }
+.donut-center .label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; }
+.bar-chart { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
+.bar-item { display: flex; align-items: center; gap: 0.75rem; }
+.bar-label { width: 100px; font-size: 0.6875rem; color: #94a3b8; text-transform: uppercase; flex-shrink: 0; }
+.bar-track { flex: 1; height: 20px; background: #334155; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out; }
+.bar-value { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.6875rem; font-weight: 600; color: white; }
+.bar-item.SELECT_STAR .bar-fill { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.bar-item.LIKE_PREFIX .bar-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.bar-item.JOIN_WITHOUT_INDEX .bar-fill { background: linear-gradient(90deg, #dc2626, #f87171); }
+.bar-item.SUBQUERY .bar-fill { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.bar-item.DISTINCT .bar-fill { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.bar-item.UNION_WITHOUT_ALL .bar-fill { background: linear-gradient(90deg, #f97316, #fb923c); }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
 .info-card { background: #1e293b; border-radius: 12px; padding: 1.25rem; }
 .info-title { font-size: 0.875rem; font-weight: 600; color: #e2e8f0; margin-bottom: 1rem; }
@@ -514,7 +530,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 </style>
 """
 
-BASE_JS = """
+BASE_JS = r"""
 <script>
 function toggleSection(header) {
     const body = header.nextElementSibling;
@@ -926,7 +942,7 @@ def _build_rules_section_html() -> str:
 
     return f"""<div class="rules-section expanded">
     <div class="rules-header" onclick="toggleRules()">
-      <h2>风险规则图例</h2>
+      <h2>📐 风险规则清单</h2>
       <span class="rules-toggle">▼</span>
     </div>
     <div class="rules-body">
@@ -1025,6 +1041,13 @@ def _build_audit_section_html(
           </div>
           <div class="strategy-step">
             <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">高风险三三组合（Top 5）</div>
+              <div class="step-desc">权重最高的5组三条件组合，同时为true</div>
+            </div>
+          </div>
+          <div class="strategy-step">
+            <div class="step-num">5</div>
             <div class="step-content">
               <div class="step-title">贪心填充（按风险总分）</div>
               <div class="step-desc">按总风险权重贪心选择剩余分支，直到max_branches</div>
@@ -1430,6 +1453,181 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
         outlier_coverage_pct = 0.0
         outlier_html = ""
 
+        # Compute outliers from output data when stats is None
+        OUTLIER_THRESHOLD = 1_000_000
+        import math
+
+        outlier_units_data = []
+        for u in output.sql_units_with_branches:
+            if u.theoretical_branches > OUTLIER_THRESHOLD:
+                actual = len(u.branches)
+                cov = min(actual / u.theoretical_branches * 100, 100.0) if u.theoretical_branches > 0 else 0
+                cond_count = int(math.log2(u.theoretical_branches)) if u.theoretical_branches > 0 else 0
+                if cond_count > 0:
+                    reason = f"{cond_count}个IF条件 → 2^{cond_count} ≈ {u.theoretical_branches:,} 理论分支"
+                else:
+                    reason = f"理论分支 {u.theoretical_branches:,} > 1,000,000 阈值"
+                outlier_units_data.append(
+                    {
+                        "sql_unit_id": u.sql_unit_id,
+                        "theoretical_branches": u.theoretical_branches,
+                        "actual_branches": actual,
+                        "coverage_pct": cov,
+                        "cond_count": cond_count,
+                        "reason": reason,
+                    }
+                )
+                outlier_count += 1
+                outlier_sum_theoretical += u.theoretical_branches
+                outlier_actual_branches += actual
+
+        if outlier_count > 0:
+            outlier_contribution_pct = outlier_sum_theoretical / sum_theoretical * 100 if sum_theoretical > 0 else 0
+            outlier_coverage_pct = (
+                outlier_actual_branches / outlier_sum_theoretical * 100 if outlier_sum_theoretical > 0 else 0
+            )
+
+            # Build extreme cards
+            extreme_cards = ""
+            for u_data in outlier_units_data:
+                coverage_val_class = "danger" if u_data["coverage_pct"] < 50 else ""
+                extreme_cards += f"""
+      <div class="extreme-card" onclick="expandExtremeCard(this)">
+        <div class="extreme-card-header">
+          <span class="extreme-card-title">{html_escape.escape(u_data["sql_unit_id"])}</span>
+          <span class="extreme-badge">{u_data["theoretical_branches"]:,} 理论</span>
+        </div>
+        <div class="extreme-metrics">
+          <div class="extreme-metric">
+            <span class="extreme-metric-value">{u_data["actual_branches"]}</span>
+            <span class="extreme-metric-label">实际分支</span>
+          </div>
+          <div class="extreme-metric">
+            <span class="extreme-metric-value {coverage_val_class}">{u_data["actual_branches"]}/{u_data["theoretical_branches"]:,}</span>
+            <span class="extreme-metric-label">覆盖率 {u_data["coverage_pct"]:.1f}%</span>
+          </div>
+          <div class="extreme-metric">
+            <span class="extreme-metric-value">{u_data["cond_count"]}</span>
+            <span class="extreme-metric-label">IF条件</span>
+          </div>
+        </div>
+        <div class="extreme-mini-bar">
+          <div class="extreme-mini-bar-fill{" warning" if u_data["coverage_pct"] < 20 else ""}" style="width:{min(u_data["coverage_pct"], 100):.1f}%;"></div>
+        </div>
+        <div class="extreme-card-expand-hint">点击展开详情 ▼</div>
+        <div class="extreme-card-details">
+          <div class="extreme-reason">
+            <h4>采样跳过原因</h4>
+            <div class="reason-list">
+              <div class="reason-item">
+                <span class="reason-text">{html_escape.escape(u_data["reason"])}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+"""
+
+            # Build extreme table rows
+            extreme_table_rows = ""
+            for u_data in outlier_units_data:
+                coverage_val_class = (
+                    '<span class="coverage-val danger">'
+                    if u_data["coverage_pct"] < 50
+                    else '<span class="coverage-val">'
+                )
+                extreme_table_rows += f"""
+            <tr>
+              <td class="unit-name">{html_escape.escape(u_data["sql_unit_id"])}</td>
+              <td>{u_data["theoretical_branches"]:,}</td>
+              <td>{u_data["actual_branches"]}</td>
+              <td>{coverage_val_class}{u_data["coverage_pct"]:.1f}%</span></td>
+              <td>{u_data["cond_count"]}</td>
+              <td>{html_escape.escape(u_data["reason"])}</td>
+            </tr>
+"""
+
+            outlier_html = f"""
+    <div class="extreme-section">
+      <div class="extreme-header" onclick="toggleExtreme()">
+        <h2>极端单元分析</h2>
+        <div class="extreme-header-right">
+          <span class="extreme-count-badge">{outlier_count} 个极端单元</span>
+          <span class="extreme-toggle" id="extreme-toggle">▶</span>
+        </div>
+      </div>
+      <div class="extreme-body" id="extreme-body">
+        <div class="extreme-alert">
+          <span class="extreme-alert-icon">⚠️</span>
+          <div class="extreme-alert-content">这些单元的理论分支数异常高，需要人工审核采样策略。<strong>{outlier_count} 个极端单元</strong>贡献了 <strong>{outlier_contribution_pct:.0f}%</strong> 的理论分支。</div>
+        </div>
+
+        <div class="extreme-controls">
+          <div class="extreme-view-toggle">
+            <button class="view-toggle-btn active" data-view="cards" onclick="toggleExtremeView('cards')">卡片</button>
+            <button class="view-toggle-btn" data-view="table" onclick="toggleExtremeView('table')">表格</button>
+          </div>
+          <div class="extreme-sort">
+            <span class="sort-label">排序：</span>
+            <select class="extreme-sort-select" onchange="sortExtremeTable(this.value)">
+              <option value="theoretical-desc">理论分支 ↓</option>
+              <option value="theoretical-asc">理论分支 ↑</option>
+              <option value="coverage-asc">覆盖率 ↑</option>
+              <option value="coverage-desc">覆盖率 ↓</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="extreme-cards-view" id="extreme-cards-view">
+          {extreme_cards}
+        </div>
+
+        <div class="extreme-table-view" id="extreme-table-view">
+          <div class="extreme-table-wrapper">
+            <table class="extreme-table">
+              <thead>
+                <tr>
+                  <th>单元</th>
+                  <th>理论分支</th>
+                  <th>实际分支</th>
+                  <th>覆盖率</th>
+                  <th>IF条件</th>
+                  <th>跳过原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extreme_table_rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="extreme-summary">
+          <h3>单元分布</h3>
+          <div class="distribution-chart">
+            <div class="dist-bar">
+              <span class="dist-label">正常单元</span>
+              <div class="dist-track">
+                <div class="dist-fill normal" style="width:{normal_count / (normal_count + outlier_count) * 100:.1f}%;">{normal_count}</div>
+              </div>
+              <span class="dist-value">{normal_count} / {normal_count + outlier_count}</span>
+            </div>
+            <div class="dist-bar">
+              <span class="dist-label">极端单元</span>
+              <div class="dist-track">
+                <div class="dist-fill extreme">{outlier_count}</div>
+              </div>
+              <span class="dist-value">{outlier_count} / {normal_count + outlier_count}</span>
+            </div>
+          </div>
+          <div class="extreme-insight">
+            极端单元虽然只占 <strong>{outlier_count / (normal_count + outlier_count) * 100:.0f}%</strong>，但贡献了 <strong>{outlier_contribution_pct:.0f}%</strong> 的理论分支。需人工审核采样策略。
+          </div>
+        </div>
+      </div>
+    </div>
+"""
+
     # Branch type color map
     bt_color = {"error": "#dc2626", "baseline_only": "#f59e0b", "normal": "#22c55e"}
     bt_items = sorted(branch_types.items(), key=lambda x: x[1], reverse=True)
@@ -1443,250 +1641,230 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
         for c, cnt in cond_distribution
     )
 
+    # === SVG Donut Chart data (risk distribution) ===
+    import math
+
+    CIRCUMFERENCE = 2 * math.pi * 70  # ~439.6
+    total_risk = high_risk + medium_risk + low_risk
+    if total_risk > 0:
+        high_pct = high_risk / total_risk
+        medium_pct = medium_risk / total_risk
+        low_pct = low_risk / total_risk
+    else:
+        high_pct = medium_pct = low_pct = 0
+
+    high_dash = CIRCUMFERENCE * high_pct
+    medium_dash = CIRCUMFERENCE * medium_pct
+    low_dash = CIRCUMFERENCE * low_pct
+    # offsets: high starts at 0, medium starts after high, low starts after medium
+    medium_offset = -high_dash
+    low_offset = -(high_dash + medium_dash)
+
+    high_pct_str = f"{high_pct * 100:.1f}%" if high_risk > 0 else "0%"
+    medium_pct_str = f"{medium_pct * 100:.1f}%" if medium_risk > 0 else "0%"
+    low_pct_str = f"{low_pct * 100:.1f}%" if low_risk > 0 else "0%"
+
+    # === Bar Chart data (flags distribution - top 6, excluding ACTIVE_CONDITION) ===
+    filtered_flags = {k: v for k, v in all_flags.items() if k != "ACTIVE_CONDITION"}
+    top_flags = sorted(filtered_flags.items(), key=lambda x: x[1], reverse=True)[:6]
+    max_flag_count = top_flags[0][1] if top_flags else 1
+    bar_items_html = ""
+    for flag_name, flag_count in top_flags:
+        bar_pct = (flag_count / max_flag_count) * 100 if max_flag_count > 0 else 0
+        bar_items_html += f"""
+        <div class="bar-item {flag_name}">
+            <span class="bar-label">{flag_name}</span>
+            <div class="bar-track" style="width:180px;">
+                <div class="bar-fill" style="width:{bar_pct:.1f}%;"><span class="bar-value">{flag_count}</span></div>
+            </div>
+        </div>"""
+
+    # === Branch Pills HTML for info-grid ===
+    branch_pills_html = ""
+    # Map branch types to risk colors
+    bt_risk_class = {"error": "high-risk", "baseline_only": "medium-risk", "normal": "normal", "unknown": ""}
+    for bt, cnt in bt_items:
+        risk_class = bt_risk_class.get(bt, "")
+        label = {"error": "错误分支", "baseline_only": "仅基线", "normal": "正常分支", "unknown": bt}.get(bt, bt)
+        branch_pills_html += f'<div class="branch-pill {risk_class}"><span class="count">{cnt}</span><span class="label">{label}</span></div>'
+
+    # === Top 5 Conditions Table HTML for info-grid ===
+    cond_top5 = cond_distribution[:5]
+    cond_table_rows = "".join(
+        f'<tr><td class="cond-text">{html_escape.escape(c[:50])}</td><td class="cond-count">{cnt}</td></tr>'
+        for c, cnt in cond_top5
+    )
+
+    # === v2 HTML Template (matches SUMMARY-v2.html exactly) ===
     html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>解析阶段报告</title>
+    <title>Parse Stage Report - {run_id}</title>
     {DARK_THEME_V2}
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <h1>📊 Parse Stage Report</h1>
-        <span class="run-id">{run_id}</span>
-    </div>
 
-    <div class="stat-cards">
-        <div class="stat-card theoretical">
-            <div style="display:flex;flex-direction:column;gap:0.25rem;">
-                <div style="display:flex;align-items:baseline;gap:0.5rem;">
-                    <div class="stat-value">{f_sum_theoretical}</div>
-                    <div style="font-size:0.75rem;color:#64748b;">总</div>
-                </div>
-                <div style="display:flex;align-items:baseline;gap:0.5rem;">
-                    <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_sum_theoretical}</div>
-                    <div style="font-size:0.75rem;color:#64748b;">正常</div>
-                </div>
-            </div>
-            <div class="stat-label">理论分支</div>
-            <div class="sub">{
-        f"最大 {getattr(stats, 'max_theoretical_branches_unit', 'N/A')}（{f_sum_theoretical}分支）"
-    }</div>
-        </div>
-        <div class="stat-card actual">
-            <div style="display:flex;flex-direction:column;gap:0.25rem;">
-                <div style="display:flex;align-items:baseline;gap:0.5rem;">
-                    <div class="stat-value">{f_total_branches}</div>
-                    <div style="font-size:0.75rem;color:#64748b;">全部</div>
-                </div>
-                <div style="display:flex;align-items:baseline;gap:0.5rem;">
-                    <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_total_branches}</div>
-                    <div style="font-size:0.75rem;color:#64748b;">正常</div>
-                </div>
-            </div>
-            <div class="stat-label">实际分支</div>
-            <div class="sub">排除极端</div>
-        </div>
-        <div class="stat-card high">
-            <div class="stat-value">{f_high_risk}</div>
-            <div class="stat-label">高风险</div>
-            <div class="sub">需优先优化</div>
-        </div>
-        <div class="stat-card medium">
-            <div class="stat-value">{f_medium_risk}</div>
-            <div class="stat-label">中风险</div>
-            <div class="sub">建议关注</div>
-        </div>
-        <div class="stat-card low">
-            <div class="stat-value">{f_low_risk}</div>
-            <div class="stat-label">低风险</div>
-            <div class="sub">正常分支</div>
-        </div>
-        <div class="stat-card outlier">
-            <div class="stat-value">{outlier_count}</div>
-            <div class="stat-label">极端单元</div>
-            <div class="sub">理论分支 &gt; 阈值</div>
-        </div>
-    </div>
+<!-- Header -->
+<div class="header">
+  <h1>📊 Parse Stage Report</h1>
+  <span class="run-id">{run_id}</span>
+</div>
 
-    <div style="background:#1e293b;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;">
-        <div style="font-size:0.875rem;font-weight:600;color:#e2e8f0;margin-bottom:1rem;">📐 覆盖率显示示例</div>
-        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
-            <div style="flex:1;min-width:140px;">
-                <div style="margin-bottom:0.5rem;">
-                    <div style="height:8px;background:#22c55e;border-radius:4px;width:100%;"></div>
-                </div>
-                <div style="font-size:0.75rem;color:#94a3b8;">高覆盖率 (85%+)</div>
-                <div style="font-size:0.6875rem;color:#64748b;">绿色进度条表示测试充分</div>
-            </div>
-            <div style="flex:1;min-width:140px;">
-                <div style="margin-bottom:0.5rem;">
-                    <div style="height:8px;background:#f59e0b40;border-radius:4px;width:45%;"></div>
-                </div>
-                <div style="font-size:0.75rem;color:#94a3b8;">低覆盖率 (20-40%)</div>
-                <div style="font-size:0.6875rem;color:#64748b;">橙色进度条表示需要更多采样</div>
-            </div>
-            <div style="flex:1;min-width:140px;">
-                <div style="margin-bottom:0.5rem;">
-                    <div style="height:8px;background:#334155;border-radius:4px;width:3%;"></div>
-                </div>
-                <div style="font-size:0.75rem;color:#94a3b8;">极低覆盖率 (&lt;5%)</div>
-                <div style="font-size:0.6875rem;color:#64748b;">灰色进度条表示采样不足</div>
-            </div>
-        </div>
-        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">
-            <div style="font-size:0.75rem;color:#64748b;line-height:1.6;">
-                💡 <strong style="color:#94a3b8;">如何解读</strong>：覆盖率 = 实际分支数 / 理论分支数。<span style="color:#f59e0b;">橙色</span>和<span style="color:#64748b;">灰色</span>条表示需要优化采样策略或增加测试用例。
-            </div>
-        </div>
+<!-- Stat Cards -->
+<div class="stat-cards">
+  <div class="stat-card theoretical">
+    <div style="display:flex;flex-direction:column;gap:0.25rem;">
+      <div style="display:flex;align-items:baseline;gap:0.5rem;">
+        <div class="stat-value">{f_sum_theoretical}</div>
+        <div style="font-size:0.75rem;color:#64748b;">总</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:0.5rem;">
+        <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_sum_theoretical}</div>
+        <div style="font-size:0.75rem;color:#64748b;">正常</div>
+      </div>
     </div>
+    <div class="stat-label">理论分支</div>
+    <div class="sub">{f"最大 {getattr(stats, 'max_theoretical_branches_unit', 'N/A')}（{f_sum_theoretical}分支）" if stats is not None else f"{f_sum_theoretical} 总分支"}</div>
+  </div>
+  <div class="stat-card actual">
+    <div style="display:flex;flex-direction:column;gap:0.25rem;">
+      <div style="display:flex;align-items:baseline;gap:0.5rem;">
+        <div class="stat-value">{f_total_branches}</div>
+        <div style="font-size:0.75rem;color:#64748b;">全部</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:0.5rem;">
+        <div class="stat-value" style="font-size:1.5rem;color:#22c55e;">{f_normal_total_branches}</div>
+        <div style="font-size:0.75rem;color:#64748b;">正常</div>
+      </div>
+    </div>
+    <div class="stat-label">实际分支</div>
+    <div class="sub">排除极端</div>
+  </div>
+  <div class="stat-card high">
+    <div class="stat-value">{f_high_risk}</div>
+    <div class="stat-label">高风险</div>
+    <div class="sub">需优先优化</div>
+  </div>
+  <div class="stat-card medium">
+    <div class="stat-value">{f_medium_risk}</div>
+    <div class="stat-label">中风险</div>
+    <div class="sub">建议关注</div>
+  </div>
+  <div class="stat-card low">
+    <div class="stat-value">{f_low_risk}</div>
+    <div class="stat-label">低风险</div>
+    <div class="sub">正常分支</div>
+  </div>
+  <div class="stat-card outlier">
+    <div class="stat-value">{outlier_count}</div>
+    <div class="stat-label">极端单元</div>
+    <div class="sub">理论分支 &gt; 100万</div>
+  </div>
+</div>
 
-    <div class="section">
-        <div class="section-header" onclick="toggleSection(this)">
-          <h2><span class="collapse-icon">▶</span> 解析策略</h2>
-        </div>
-        <div class="section-body hidden">
-          <div style="display:flex;gap:1rem;align-items:center;margin-bottom:0.75rem;">
-            <div class="stat-card" style="flex:1;text-align:center;">
-              <div class="stat-value" style="font-size:1.25rem;">{strategy}</div>
-              <div class="stat-label">{strategy_display}</div>
-            </div>
-            <div class="stat-card" style="flex:1;text-align:center;">
-              <div class="stat-value" style="font-size:1.25rem;">{"无限制" if max_branches == 0 else max_branches}</div>
-              <div class="stat-label">最大分支上限</div>
-            </div>
-          </div>
-          <div style="margin-bottom:0.75rem;">
-            <div style="font-size:0.8rem;color:#cbd5e1;line-height:1.6;">{strategy_explanation}</div>
-          </div>
-          <details style="margin-top:0.5rem;font-size:0.75rem;color:#64748b;">
-            <summary style="cursor:pointer;font-weight:600;color:#94a3b8;">4种策略对比（展开查看）</summary>
-            <div style="margin-top:0.5rem;display:grid;gap:0.5rem;">
-              <div class="strategy-card">
-                <div class="strategy-name">
-                  all_combinations <span class="strategy-cn">全组合策略</span>
-                  <span class="tooltip-icon" title="所有条件的所有可能组合都测试。覆盖率 100%,但分支数指数增长(2^n)。5个条件=32分支,8个条件=256分支。">?</span>
-                </div>
-                <div class="strategy-desc">全组合策略会生成所有条件的所有可能组合。当条件数较多时,分支数呈指数增长(2^n)。</div>
-              </div>
-              <div class="strategy-card">
-                <div class="strategy-name">
-                  each <span class="strategy-cn">单测策略</span>
-                  <span class="tooltip-icon" title="每个条件单独为 true/false。分支数随条件数线性增长(n)。适合大规模条件数的快速验证。">?</span>
-                </div>
-                <div class="strategy-desc">单测策略每个条件单独为 true/false,分支数随条件数线性增长(n)。</div>
-              </div>
-              <div class="strategy-card">
-                <div class="strategy-name">
-                  boundary <span class="strategy-cn">边界值策略</span>
-                  <span class="tooltip-icon" title="只生成极值情况(全 true / 全 false / 各一个 false)。分支数最少(约 n+1)。">?</span>
-                </div>
-                <div class="strategy-desc">边界值策略只生成极值情况(全 true / 全 false / 各一个 false 等),分支数最少(约 n+1)。</div>
-              </div>
-              <div class="strategy-card">
-                <div class="strategy-name">
-                  ladder <span class="strategy-cn">阶梯采样策略</span>
-                  <span class="tooltip-icon" title="加权采样,优先覆盖高风险条件组合,在分支数和覆盖率之间取得平衡。">?</span>
-                </div>
-                <div class="strategy-desc">阶梯采样策略结合了高权重两两组合和边界覆盖,在覆盖率和分支数之间取得平衡。</div>
-              </div>
-            </div>
-          </details>
-        </div>
-    </div>
+<!-- Outlier Section (hidden if 0 outliers) -->
+<div class="outlier-section" style="display:{"none" if outlier_count == 0 else "block"};">
+  <div class="outlier-header">
+    <h3>⚠️ 极端单元详情</h3>
+    <span class="badge">理论分支 &gt; 1,000,000</span>
+  </div>
+  <div class="outlier-grid" id="outlier-grid">
+  </div>
+</div>
 
-    <h2>全局预估 vs 实际</h2>
-    <div class="card">
-        <div class="summary-grid">
-            <div class="card">
-                <div class="stat"><div class="stat-value">{
-        stats.normal_sum_theoretical if stats is not None else sum_theoretical
-    }</div><div class="stat-label">正常理论分支</div></div>
-                <div class="stat"><div class="stat-value">{
-        stats.normal_total_branches if stats is not None else total_branches
-    }</div><div class="stat-label">正常实际分支</div></div>
-                <div class="stat"><div class="stat-value" style="color:#22c55e;">{
-        (
-            stats.normal_coverage_pct if stats is not None else global_coverage
-        ):.1f}%</div><div class="stat-label">正常覆盖率</div></div>
-                <div class="stat"><div class="stat-value">{
-        normal_count
-    }</div><div class="stat-label">正常单元</div></div>
-            </div>
-        </div>
-        {
-        f'''
-        <div class="summary-grid" style="margin-top:0.75rem;">
-            <div class="card" style="border:1px solid #dc262640;background:#dc262610;">
-                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_sum_theoretical}</div><div class="stat-label">极值理论分支</div></div>
-                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_actual_branches}</div><div class="stat-label">极值实际分支</div></div>
-                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_coverage_pct:.1f}%</div><div class="stat-label">极值覆盖率</div></div>
-                <div class="stat"><div class="stat-value" style="color:#dc2626;">{outlier_count}</div><div class="stat-label">极值单元</div></div>
-            </div>
-        </div>
-        '''
-        if outlier_count > 0
-        else ""
-    }
-        <div class="summary-grid" style="margin-top:0.75rem;border-top:1px solid #334155;padding-top:0.75rem;">
-            <div class="card">
-                <div class="stat"><div class="stat-value">{
-        sum_theoretical
-    }</div><div class="stat-label">全量理论分支</div></div>
-                <div class="stat"><div class="stat-value">{
-        total_branches
-    }</div><div class="stat-label">全量实际分支</div></div>
-                <div class="stat"><div class="stat-value" style="color:#94a3b8;">{
-        global_coverage:.1f}%</div><div class="stat-label">全量覆盖率</div></div>
-                <div class="stat"><div class="stat-value">{
-        total_units
-    }</div><div class="stat-label">全量单元</div></div>
-            </div>
-        </div>
-        <p style="color:#94a3b8;font-size:0.8rem;margin-top:0.75rem;">
-            {"正常覆盖率不受极值单元影响。" if outlier_count > 0 else ""}覆盖率越高表示测试越完整。
-            {"覆盖率较低是因为 ladder 策略有意采样而非全展开。" if strategy == "ladder" else ""}
-        </p>
+<!-- Coverage Examples Demo -->
+<div style="background:#1e293b;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;">
+  <div style="font-size:0.875rem;font-weight:600;color:#e2e8f0;margin-bottom:1rem;">📐 覆盖率显示示例</div>
+  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:150px;background:#0f172a;border-radius:8px;padding:0.75rem;">
+      <div style="font-size:0.6875rem;color:#64748b;margin-bottom:0.25rem;">正常覆盖率</div>
+      <div style="font-size:1rem;font-weight:700;color:#22c55e;">{global_coverage:.2f}%</div>
+      <div style="font-size:0.6875rem;color:#64748b;">{f_total_branches}/{f_sum_theoretical}</div>
     </div>
-    {outlier_html}
-    <div class="charts-grid">
-        <div class="chart-card">
-            <h3>风险等级分布</h3>
-            <div class="chart-container"><canvas id="riskChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-            <h3>风险标志分布</h3>
-            <div class="chart-container"><canvas id="flagsChart"></canvas></div>
-        </div>
+    <div style="flex:1;min-width:150px;background:#0f172a;border-radius:8px;padding:0.75rem;">
+      <div style="font-size:0.6875rem;color:#64748b;margin-bottom:0.25rem;">低覆盖率（两位小数）</div>
+      <div style="font-size:1rem;font-weight:700;color:#f59e0b;">0.03%</div>
+      <div style="font-size:0.6875rem;color:#64748b;">3/10,000</div>
     </div>
+    <div style="flex:1;min-width:150px;background:#0f172a;border-radius:8px;padding:0.75rem;">
+      <div style="font-size:0.6875rem;color:#64748b;margin-bottom:0.25rem;">极低覆盖率（分数）</div>
+      <div style="font-size:1rem;font-weight:700;color:#dc2626;">0.00%</div>
+      <div style="font-size:0.6875rem;color:#64748b;">1/1,000,000</div>
+    </div>
+  </div>
+  <div style="margin-top:0.75rem;font-size:0.75rem;color:#94a3b8;">
+    当两位小数显示为 <span style="color:#dc2626;">0.00%</span> 时，显示实际分数以便了解真实覆盖情况
+  </div>
+</div>
 
-    <h2>分支类型分布</h2>
-    <div class="card">
-        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-            {bt_html}
+<!-- Charts Grid -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-title">
+      <span class="icon" style="background:#dc262640;color:#f87171;">●</span>
+      风险等级分布
+    </div>
+    <div style="display:flex;gap:2rem;align-items:center;">
+      <div class="donut-container">
+        <svg viewBox="0 0 180 180" width="180" height="180">
+          <circle cx="90" cy="90" r="70" fill="none" stroke="#dc2626" stroke-width="20" stroke-dasharray="{high_dash:.1f} {CIRCUMFERENCE:.1f}" stroke-dashoffset="0" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="70" fill="none" stroke="#f59e0b" stroke-width="20" stroke-dasharray="{medium_dash:.1f} {CIRCUMFERENCE:.1f}" stroke-dashoffset="{medium_offset:.1f}" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="70" fill="none" stroke="#22c55e" stroke-width="20" stroke-dasharray="{low_dash:.1f} {CIRCUMFERENCE:.1f}" stroke-dashoffset="{low_offset:.1f}" transform="rotate(-90 90 90)"/>
+        </svg>
+        <div class="donut-center">
+          <div class="value">{total_risk}</div>
+          <div class="label">总计</div>
         </div>
-        <p style="color:#64748b;font-size:0.75rem;">
-            error = 展开异常 | baseline_only = 仅基线 | normal = 正常分支
-        </p>
+      </div>
+      <div class="legend" style="flex:1;">
+        <div class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> HIGH 高风险: {f_high_risk} ({high_pct_str})</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> MEDIUM 中风险: {f_medium_risk} ({medium_pct_str})</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#22c55e;"></span> LOW 低风险: {f_low_risk} ({low_pct_str})</div>
+      </div>
     </div>
-
-    <h2>条件分布</h2>
-    <div class="card">
-        <p style="color:#94a3b8;font-size:0.8rem;margin-bottom:0.75rem;">Top 10 条件出现频次(一个条件在多个分支中重复出现)</p>
-        <table>
-            <thead><tr><th>条件</th><th style="width:80px;text-align:center;">出现次数</th></tr></thead>
-            <tbody>
-            {cond_rows}
-            </tbody>
-        </table>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">
+      <span class="icon" style="background:#3b82f640;color:#60a5fa;">■</span>
+      风险标志分布 Top 6
     </div>
+    <div class="bar-chart">
+      {bar_items_html}
+    </div>
+  </div>
+</div>
 
-    {_build_rules_section_html()}
-    {_build_audit_section_html(total_branches, sum_theoretical, strategy, max_branches, units)}
-    {_build_ref_section_html()}
-    {_build_sql_modal_html()}
-    """
+<!-- Info Grid -->
+<div class="info-grid">
+  <div class="info-card">
+    <div class="info-title">分支类型分布</div>
+    <div class="branch-pills">
+      {branch_pills_html}
+    </div>
+    <div style="margin-top:1rem;">
+      <div style="font-size:0.75rem;color:#64748b;margin-bottom:0.25rem;">正常覆盖率（排除极端单元）</div>
+      <div class="coverage-bar"><div class="coverage-fill" style="width:{global_coverage:.1f}%;"></div></div>
+      <div class="coverage-text">{f_total_branches} / {f_sum_theoretical} 理论分支 (<span class="coverage-value">{global_coverage:.2f}%</span>)</div>
+    </div>
+  </div>
+  <div class="info-card">
+    <div class="info-title">Top 5 活跃条件</div>
+    <table class="condition-table">
+      <thead><tr><th>条件</th><th>出现次数</th></tr></thead>
+      <tbody>
+        {cond_table_rows}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{_build_rules_section_html()}
+{outlier_html}
+{_build_audit_section_html(total_branches, sum_theoretical, strategy, max_branches, units)}
+</div>
+"""
 
     # Compute unit counts for filters
     total_unit_count = len(units)
@@ -1851,6 +2029,10 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
       </div>
     </div>
     """
+
+    # ref-section and sql-modal go at the end (after unit-details)
+    html += _build_ref_section_html()
+    html += _build_sql_modal_html()
 
     # Risk counts for chart
     html += (
