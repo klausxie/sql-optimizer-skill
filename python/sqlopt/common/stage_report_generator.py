@@ -1397,36 +1397,54 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
     else:
         units = output.sql_units_with_branches
         total_units = len(output.sql_units_with_branches)
-        total_branches = sum(len(u.branches) for u in output.sql_units_with_branches)
+        total_branches = sum(
+            len(u.branches) for u in output.sql_units_with_branches if u.theoretical_branches <= 1_000_000
+        )
 
         high_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "HIGH"
+            1
+            for u in output.sql_units_with_branches
+            if u.theoretical_branches <= 1_000_000
+            for b in u.branches
+            if getattr(b, "risk_level", None) == "HIGH"
         )
         medium_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "MEDIUM"
+            1
+            for u in output.sql_units_with_branches
+            if u.theoretical_branches <= 1_000_000
+            for b in u.branches
+            if getattr(b, "risk_level", None) == "MEDIUM"
         )
         low_risk = sum(
-            1 for u in output.sql_units_with_branches for b in u.branches if getattr(b, "risk_level", None) == "LOW"
+            1
+            for u in output.sql_units_with_branches
+            if u.theoretical_branches <= 1_000_000
+            for b in u.branches
+            if getattr(b, "risk_level", None) == "LOW"
         )
         no_score = total_branches - high_risk - medium_risk - low_risk
 
         branch_types: dict[str, int] = {}
         for u in output.sql_units_with_branches:
-            for b in u.branches:
-                bt = b.branch_type or "unknown"
-                branch_types[bt] = branch_types.get(bt, 0) + 1
+            if u.theoretical_branches <= 1_000_000:
+                for b in u.branches:
+                    bt = b.branch_type or "unknown"
+                    branch_types[bt] = branch_types.get(bt, 0) + 1
 
         all_flags = {}
         for u in output.sql_units_with_branches:
-            for b in u.branches:
-                for f in b.risk_flags:
-                    all_flags[f] = all_flags.get(f, 0) + 1
+            if u.theoretical_branches <= 1_000_000:
+                for b in u.branches:
+                    for f in b.risk_flags:
+                        all_flags[f] = all_flags.get(f, 0) + 1
 
         strategy = getattr(output, "strategy", None) or "unknown"
         max_branches = getattr(output, "max_branches", 0) or 0
         strategy_display = STRATEGY_NAMES.get(strategy, strategy)
         strategy_explanation = STRATEGY_EXPLANATIONS.get(strategy, "")
-        sum_theoretical = sum(u.theoretical_branches for u in output.sql_units_with_branches)
+        sum_theoretical = sum(
+            u.theoretical_branches for u in output.sql_units_with_branches if u.theoretical_branches <= 1_000_000
+        )
         global_coverage = total_branches / max(sum_theoretical, 1) * 100
 
         f_sum_theoretical = f"{sum_theoretical:,}"
