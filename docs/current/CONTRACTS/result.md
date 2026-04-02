@@ -1,55 +1,70 @@
-# Result Contracts
+# 阶段五：Result（结果阶段）
 
-Source: `python/sqlopt/contracts/result.py`
+## 阶段简介
+- 输入：OptimizeOutput
+- 输出：ResultOutput, Report, Patch
+- 职责：生成最终报告和补丁文件
 
-## Main types
+## 数据契约
 
-### `Report`
+### Report
+人类可读的报告。
 
-Human-readable result summary:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| summary | dict | 汇总统计 |
+| details | list | 详细提案 |
+| risks | list | 未处理风险 |
+| recommendations | list | 建议措施 |
 
-- `summary`
-- `details`
-- `risks`
-- `recommendations`
+### Patch
+补丁信息。
 
-### `Patch`
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| sql_unit_id | str | 是 | 被修补的 SQL Unit ID |
+| original_xml | str | 是 | 原始 XML |
+| patched_xml | str | 是 | 替换后 XML |
+| diff | str | 是 | 统一 diff 格式 |
 
-| Field | Meaning |
-| --- | --- |
-| `sql_unit_id` | SQL unit being patched |
-| `original_xml` | Original XML text |
-| `patched_xml` | Replacement XML text |
-| `diff` | Unified diff with header `a/{filename}` / `b/{filename}` (filename only, not full path) |
+### Per-unit Patch Metadata
+每个 .meta.json 文件包含的元数据。
 
-### `ResultOutput`
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| sql_unit_id | str | SQL Unit 标识 |
+| sql_id | str | XML statement ID |
+| mapper_file | str | Mapper 文件相对路径 |
+| operation | str | ADD/REPLACE/REMOVE/WRAP |
+| confidence | float | 置信度 |
+| rationale | str | 优化理由 |
+| original_snippet | str|None | 原始代码片段 |
+| rewritten_snippet | str|None | 替换后代码 |
+| issue_type | str | 问题类型 |
 
-Top-level result payload:
+### ResultOutput
+顶级输出容器。
 
-- `can_patch`
-- `report`
-- `patches`
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| can_patch | bool | 是否有可应用补丁 |
+| report | Report | 汇总报告 |
+| patches | list[Patch] | 补丁列表 |
 
-## Output files
+## 输出文件清单
 
-- `runs/{run_id}/result/report.json`
-- `runs/{run_id}/result/SUMMARY.md`
-- `runs/{run_id}/result/units/_index.json` — list of unit IDs with patches
-- `runs/{run_id}/result/units/{unit_id}.patch` — unified diff patch file
-- `runs/{run_id}/result/units/{unit_id}.meta.json` — patch metadata (operation, confidence, rationale, snippets)
+| 文件路径 | 内容 | 生成时机 | 用途 |
+|----------|------|----------|------|
+| runs/{run_id}/result/report.json | 完整报告 | Result 结束时 | 存档 |
+| runs/{run_id}/result/SUMMARY.md | Markdown 摘要 | Result 结束时 | 快速浏览 |
+| runs/{run_id}/result/units/_index.json | 可用 Unit ID | Result 结束时 | 索引 |
+| runs/{run_id}/result/units/{unit_id}.patch | 统一 diff | Result 结束时 | 应用补丁 |
+| runs/{run_id}/result/units/{unit_id}.meta.json | 补丁元数据 | Result 结束时 | 详情审计 |
 
-### Per-unit patch metadata
+## 常见问题
 
-Each `.meta.json` file contains:
+### Q: 什么时候 can_patch 为 false？
+没有可应用的优化提案时。
 
-| Field | Meaning |
-| --- | --- |
-| `sql_unit_id` | SQL unit identifier |
-| `sql_id` | XML statement ID |
-| `mapper_file` | Relative path to mapper file |
-| `operation` | Patch operation: `ADD`, `REPLACE`, `REMOVE`, `WRAP` |
-| `confidence` | LLM confidence score |
-| `rationale` | Optimization rationale |
-| `original_snippet` | Original code fragment (null for ADD) |
-| `rewritten_snippet` | Replacement code fragment |
-| `issue_type` | Issue category (e.g. `MISSING_LIMIT`, `TYPE_MISMATCH`) |
+### Q: 如何应用补丁？
+使用 sqlopt apply {unit_id} --run-id {run_id}，建议先用 --dry-run 预览。

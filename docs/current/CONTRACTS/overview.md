@@ -1,25 +1,34 @@
-# Contracts Overview
+# 数据契约总览
 
-Contracts are Python dataclasses serialized to JSON files between stages.
+## 概述
+数据契约是连接各阶段的核心数据结构。
 
-## Contract map
+## 阶段依赖关系
+| 阶段 | 输入 | 输出 | 下游消费者 |
+|------|------|------|------------|
+| Init | 无 | InitOutput | Parse, Result |
+| Parse | InitOutput | ParseOutput | Recognition |
+| Recognition | ParseOutput | RecognitionOutput | Optimize, Result |
+| Optimize | ParseOutput + RecognitionOutput | OptimizeOutput | Result |
+| Result | OptimizeOutput | ResultOutput | 人类/下游 |
 
-| Contract file | Main types | Produced by | Consumed by |
-| --- | --- | --- | --- |
-| [common.md](common.md) | shared IDs and status fields | all stages | all stages |
-| [init.md](init.md) | `SQLUnit`, `SQLFragment`, `TableSchema`, `FieldDistribution`, `InitOutput` | init | parse, result |
-| [parse.md](parse.md) | `SQLBranch`, `SQLUnitWithBranches`, `ParseOutput` | parse | recognition |
-| [recognition.md](recognition.md) | `PerformanceBaseline`, `RecognitionOutput` | recognition | optimize, result |
-| [optimize.md](optimize.md) | `OptimizationProposal`, `OptimizeOutput` | optimize | result |
-| [result.md](result.md) | `Report`, `Patch`, `ResultOutput` | result | humans and downstream tooling |
+## 数据流图
+InitStage → ParseStage → RecognitionStage → OptimizeStage → ResultStage
 
-## Serialization pattern
+## 契约类型速查
+| 契约文件 | 主要类型 |
+|----------|----------|
+| init.md | SQLUnit, InitOutput |
+| parse.md | SQLBranch, ParseOutput |
+| recognition.md | PerformanceBaseline, RecognitionOutput |
+| optimize.md | OptimizationProposal, OptimizeOutput |
+| result.md | Report, Patch, ResultOutput |
+| common.md | 共享字段 |
 
-- Each contract has a Python dataclass definition under `python/sqlopt/contracts/`.
-- Each stage writes a backward-compatible aggregate file.
-- Parse, recognition, and optimize also write per-unit JSON files.
+## 跨阶段 ID 引用
+- run_id: 流水线执行唯一标识
+- sql_unit_id: SQL Unit 稳定标识
+- path_id: 分支标识
 
-## Read next
-
-- [Common IDs and status fields](common.md)
-- [Init contracts](init.md)
+## 文件生命周期
+各阶段文件在阶段完成后即可被下游引用。
