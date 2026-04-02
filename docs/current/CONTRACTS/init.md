@@ -91,7 +91,31 @@
 ## 常见问题
 
 ### Q: 为什么有些 SQL 没被提取？
-只有 <select>, <insert>, <update>, <delete> 标签会被提取。
+只有 `<select>`, `<insert>`, `<update>`, `<delete>` 标签会被提取。`<sql id="">` 片段不会被提取，它作为可复用片段存在，供其他 SQL 通过 `<include refid="">` 引用。
 
 ### Q: field_distributions 有什么用？
-用于评估 SQL 风险，如字段倾斜会导致索引失效。
+用于评估 SQL 风险。字段倾斜（skewed）会导致索引失效，high null 比例字段不适合建索引。这些数据用于 Parse 阶段的风险评分。
+
+### Q: table_schemas 是空的怎么办？
+检查 `sqlopt.yml` 中数据库连接配置是否正确。Init 阶段需要连接数据库获取表结构信息。如果 `llm_enabled: false` 且没有配置数据库，表结构会为空。
+
+### Q: xml_mappings 和 file_mappings 有什么区别？
+`xml_mappings` 是 SQL 语句到 XML 文件的映射关系（轻量）。`file_mappings` 是 XML 文件的完整内容（用于 Result 阶段生成补丁）。前者用于定位，后者用于修改。
+
+### Q: table_relationships 是什么？
+从 SQL 的 JOIN、WHERE 条件中推断出的表之间的关系。例如 `a.id = b.user_id` 表示 users 表和 orders 表有关联。用于辅助理解 SQL 的语义上下文。
+
+### Q: table_hotspots 是什么？
+高风险 SQL 涉及的表。基于 SQL 复杂度、涉及表的大小综合判定。热点表应该优先关注和优化。
+
+### Q: Init 阶段需要数据库连接吗？
+不需要。Init 阶段仅解析 XML 文件，不连接数据库。数据库连接在 Recognition 阶段才需要。
+
+### Q: sql_unit_id 的格式是什么？
+格式为 `{namespace}.{sql_id}`，例如 `com.test.mapper.UserMapper.findById`。`namespace` 来自 XML 的 `namespace` 属性。
+
+### Q: statement_type 有哪些值？
+只能是 `SELECT`、`INSERT`、`UPDATE`、`DELETE` 四种之一。如果 XML 中写了其他类型，会被忽略。
+
+### Q: 如何查看提取结果？
+Init 阶段会在 `runs/{run_id}/init/SUMMARY.html` 生成可视化报告，也可以直接查看 `sql_units.json` 等 JSON 文件。
