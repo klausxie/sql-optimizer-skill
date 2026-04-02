@@ -93,16 +93,16 @@ class StageRunner:
             elapsed = time.time() - start_time
             self.progress.complete_stage(stage_name)
             self.display.finish(stage_name, elapsed)
-            self._copy_data_contracts()
+            self._copy_data_contracts(stage_name)
         except Exception as e:
             self.progress.fail_stage(stage_name, str(e))
             elapsed = time.time() - start_time
             self.display.finish(stage_name, elapsed, success=False, details=str(e))
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
-    def _copy_data_contracts(self) -> None:
+    def _copy_data_contracts(self, stage_name: str) -> None:
         src = pathlib.Path(self.config.project_root_path) / "docs" / "current" / "data-contracts.md"
-        dst = self.paths.run_dir / "DATA_CONTRACTS.md"
+        dst = self.paths.run_dir / stage_name / "DATA_CONTRACTS.md"
         if src.exists():
             shutil.copy(src, dst)
 
