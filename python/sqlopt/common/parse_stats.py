@@ -194,7 +194,7 @@ def build_parse_stage_stats(
 
         # Coverage
         theoretical = u.theoretical_branches if u.theoretical_branches > 0 else 1
-        coverage_pct = len(u.branches) / theoretical * 100
+        coverage_pct = min(len(u.branches) / theoretical * 100, 100.0)
 
         # --- 极值分离统计 ---
         if theoretical > OUTLIER_THEORETICAL_BRANCHES_THRESHOLD:
@@ -211,7 +211,7 @@ def build_parse_stage_stats(
                     cond_count=cond_count,
                     theoretical_branches=theoretical,
                     actual_branches=len(u.branches),
-                    coverage_pct=len(u.branches) / theoretical * 100 if theoretical > 0 else 0,
+                    coverage_pct=min(len(u.branches) / theoretical * 100, 100.0) if theoretical > 0 else 0,
                     reason=reason,
                 )
             )
@@ -276,7 +276,9 @@ def build_parse_stage_stats(
     global_coverage = (total_branches / sum_theoretical * 100) if sum_theoretical > 0 else 0.0
 
     # --- 极值分离统计 ---
-    normal_coverage_pct = normal_total_branches / normal_sum_theoretical * 100 if normal_sum_theoretical > 0 else 0.0
+    normal_coverage_pct = (
+        min(normal_total_branches / normal_sum_theoretical * 100, 100.0) if normal_sum_theoretical > 0 else 0.0
+    )
     outlier_count = len(outlier_units)
     normal_count = total_units - outlier_count
 
@@ -366,7 +368,7 @@ def _build_strategy_explanation(
         theoretical = 1
 
     saved_pct = (theoretical - actual) / theoretical * 100 if theoretical > 0 else 0
-    coverage_pct = actual / theoretical * 100 if theoretical > 0 else 0
+    coverage_pct = min(actual / theoretical * 100, 100.0) if theoretical > 0 else 0
 
     strategy_actual = f"采样 {actual}/{theoretical} 分支"
     strategy_saved = f"节省 {saved_pct:.1f}%" if saved_pct > 0 else "无节省"
