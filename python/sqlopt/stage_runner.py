@@ -103,10 +103,12 @@ class StageRunner:
     def _copy_data_contracts(self, stage_name: str) -> None:
         import sqlopt
 
-        src = pathlib.Path(sqlopt.__path__[0]).parent.parent / "docs" / "current" / "data-contracts.md"
-        dst = self.paths.run_dir / stage_name / "DATA_CONTRACTS.md"
+        src_dir = pathlib.Path(sqlopt.__path__[0]).parent.parent / "docs" / "current" / "CONTRACTS"
+        dst_dir = self.paths.run_dir / stage_name
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        src = src_dir / f"{stage_name}.md"
         if src.exists():
-            shutil.copy(src, dst)
+            shutil.copy(src, dst_dir / "DATA_CONTRACTS.md")
 
     def run_all(self, use_mock: bool = False) -> PipelineResult:
         logger.info("=" * 60)
