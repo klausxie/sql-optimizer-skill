@@ -1136,7 +1136,7 @@ def generate_parse_report(output_or_stats: ParseOutput | ParseStageStats, output
 <head>
     <meta charset="UTF-8">
     <title>解析阶段报告</title>
-        <style>{DARK_THEME_V2}</style>
+    {DARK_THEME_V2}
 </head>
 <body>
 <div class="container">
