@@ -101,7 +101,9 @@ class StageRunner:
             raise RuntimeError(f"Stage '{stage_name}' failed: {e}") from e
 
     def _copy_data_contracts(self, stage_name: str) -> None:
-        src = pathlib.Path(self.config.project_root_path) / "docs" / "current" / "data-contracts.md"
+        import sqlopt
+
+        src = pathlib.Path(sqlopt.__path__[0]).parent.parent / "docs" / "current" / "data-contracts.md"
         dst = self.paths.run_dir / stage_name / "DATA_CONTRACTS.md"
         if src.exists():
             shutil.copy(src, dst)
