@@ -213,8 +213,8 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 .donut-center .label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; }
 .bar-chart { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
 .bar-item { display: flex; align-items: center; gap: 0.75rem; }
-.bar-label { width: 100px; font-size: 0.6875rem; color: #94a3b8; text-transform: uppercase; flex-shrink: 0; }
-.bar-track { flex: 1; height: 20px; background: #334155; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-label { width: 140px; font-size: 0.6875rem; color: #94a3b8; text-transform: uppercase; flex-shrink: 0; }
+.bar-track { flex: 1; height: 20px; background: #334155; border-radius: 4px; overflow: hidden; position: relative; min-width: 120px; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out; }
 .bar-value { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.6875rem; font-weight: 600; color: white; }
 .bar-item.SELECT_STAR .bar-fill { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
@@ -457,6 +457,7 @@ body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMac
 .unit-details-header h2 { font-size: 1rem; color: #e2e8f0; }
 .search-box { background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0.5rem 1rem; color: #e2e8f0; font-size: 0.875rem; width: 250px; }
 .search-box::placeholder { color: #64748b; }
+.unit-sort-select { background: #334155; border: 1px solid #475569; border-radius: 6px; padding: 0.375rem 0.75rem; color: #e2e8f0; font-size: 0.75rem; }
 .units-list { background: #1e293b; border-radius: 12px; overflow: hidden; }
 .unit-item { border-bottom: 1px solid #334155; }
 .unit-item:last-child { border-bottom: none; }
@@ -1686,12 +1687,17 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
     filtered_flags = {k: v for k, v in all_flags.items() if k != "ACTIVE_CONDITION"}
     top_flags = sorted(filtered_flags.items(), key=lambda x: x[1], reverse=True)[:6]
     max_flag_count = top_flags[0][1] if top_flags else 1
+    flag_labels = {
+        "JOIN_WITHOUT_INDEX": "JOIN_NO_IDX",
+        "UNION_WITHOUT_ALL": "UNION_NO_ALL",
+    }
     bar_items_html = ""
     for flag_name, flag_count in top_flags:
         bar_pct = (flag_count / max_flag_count) * 100 if max_flag_count > 0 else 0
+        display_label = flag_labels.get(flag_name, flag_name)
         bar_items_html += f"""
         <div class="bar-item {flag_name}">
-            <span class="bar-label">{flag_name}</span>
+            <span class="bar-label">{display_label}</span>
             <div class="bar-track" style="width:180px;">
                 <div class="bar-fill" style="width:{bar_pct:.1f}%;"><span class="bar-value">{flag_count}</span></div>
             </div>
