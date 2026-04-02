@@ -28,7 +28,13 @@ def _template_replay_contract_error(acceptance: dict) -> dict | None:
     return None
 
 
-def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -> tuple[str | None, int, dict | None]:
+def build_template_plan_patch(
+    sql_unit: dict,
+    acceptance: dict,
+    run_dir: Path,
+    *,
+    base_dir: Path | None = None,
+) -> tuple[str | None, int, dict | None]:
     materialization = acceptance.get("rewriteMaterialization") or {}
     mode = str(materialization.get("mode") or "").strip()
     ops = [row for row in (acceptance.get("templateRewriteOps") or []) if isinstance(row, dict)]
@@ -55,7 +61,15 @@ def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -
                 "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
                 "message": "statement template rewrite op missing range locator",
             }
-        return build_range_patch(Path(str(sql_unit.get("xmlPath") or "")), range_info, str(statement_op.get("afterTemplate") or "")) + (None,)
+        return (
+            build_range_patch(
+                Path(str(sql_unit.get("xmlPath") or "")),
+                range_info,
+                str(statement_op.get("afterTemplate") or ""),
+                base_dir=base_dir,
+            )
+            + (None,)
+        )
 
     op = next((row for row in ops if str(row.get("op") or "") == "replace_fragment_body"), None)
     if op is None:
@@ -77,4 +91,12 @@ def build_template_plan_patch(sql_unit: dict, acceptance: dict, run_dir: Path) -
             "code": "PATCH_FRAGMENT_LOCATOR_AMBIGUOUS",
             "message": "fragment range locator missing",
         }
-    return build_range_patch(Path(str(fragment.get("xmlPath") or "")), range_info, str(op.get("afterTemplate") or "")) + (None,)
+    return (
+        build_range_patch(
+            Path(str(fragment.get("xmlPath") or "")),
+            range_info,
+            str(op.get("afterTemplate") or ""),
+            base_dir=base_dir,
+        )
+        + (None,)
+    )

@@ -10,7 +10,19 @@ from unittest.mock import patch
 from sqlopt.contracts import ContractValidator
 from sqlopt.stages.patch_generate import execute_one
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
+FIXTURE_PROJECT_ROOT = ROOT / "tests" / "fixtures" / "projects" / "sample_project"
+SIMPLE_USER_MAPPER = (
+    FIXTURE_PROJECT_ROOT
+    / "src"
+    / "main"
+    / "resources"
+    / "com"
+    / "example"
+    / "mapper"
+    / "user"
+    / "simple_user_mapper.xml"
+)
 
 
 class PatchApplicabilityTest(unittest.TestCase):
@@ -19,20 +31,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             "sqlKey": "demo.user.listUsersSorted#v1",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users ORDER BY created_at DESC",
-            "xmlPath": str(
-                ROOT
-                / "tests"
-                / "fixtures"
-                / "project"
-                / "src"
-                / "main"
-                / "resources"
-                / "com"
-                / "example"
-                / "mapper"
-                / "user"
-                / "simple_user_mapper.xml"
-            ),
+            "xmlPath": str(SIMPLE_USER_MAPPER),
             "locators": {"statementId": "listUsers"},
         }
 

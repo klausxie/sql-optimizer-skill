@@ -27,7 +27,7 @@ python3 scripts/schema_validate_all.py
 
 # Scan-only smoke test (validates scanner coverage)
 python3 scripts/run_until_budget.py \
-  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --config tests/fixtures/configs/sample_project/scan.local.yml \
   --to-stage scan \
   --max-steps 10 \
   --max-seconds 30
@@ -272,7 +272,7 @@ All LLM enhancement phases are fully implemented and tested:
 1. **Phase 1: Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
 2. **Phase 2: Retry Mechanism** - Automatic retry with feedback on validation failures
 3. **Phase 3: Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
-4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `ops/llm_feedback.jsonl`)
+4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `control/llm_feedback.jsonl`)
 5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
 6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
 
@@ -282,7 +282,9 @@ Test coverage: 84 new tests covering all LLM enhancement features
 
 ## Testing Notes
 
-- Tests use fixtures in `tests/fixtures/project/`
+- Static test fixtures live under `tests/fixtures/projects/sample_project/`
+- Scenario matrix lives in `tests/fixtures/scenarios/sample_project.json`
+- Config variants live in `tests/fixtures/configs/sample_project/`
 - 64 test files covering all stages and LLM enhancements
 - Run from repository root: `python3 -m pytest -q`
 - Unified acceptance: `python3 scripts/ci/release_acceptance.py`
@@ -306,8 +308,8 @@ The scanner supports these MyBatis dynamic tags (validated in fixtures):
 - `set`
 
 Verify scanner output:
-- `tests/fixtures/project/runs/<run_id>/artifacts/scan.jsonl`
-- `tests/fixtures/project/runs/<run_id>/artifacts/fragments.jsonl`
+- `<project.root_path>/runs/<run_id>/artifacts/scan.jsonl`
+- `<project.root_path>/runs/<run_id>/artifacts/fragments.jsonl`
 - embedded `verification` rows inside `artifacts/scan.jsonl`
 
 ### MySQL Local Testing

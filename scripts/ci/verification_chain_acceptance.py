@@ -16,7 +16,7 @@ def _repo_root() -> Path:
 
 
 def _fixture_project(repo_root: Path) -> Path:
-    return repo_root / "tests" / "fixtures" / "project"
+    return repo_root / "tests" / "fixtures" / "projects" / "sample_project"
 
 
 def _config_text() -> str:
@@ -110,43 +110,45 @@ def main() -> None:
             raise SystemExit("verification chain acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        ledger_path = run_dir / "pipeline" / "verification" / "ledger.jsonl"
-        summary_path = run_dir / "pipeline" / "verification" / "summary.json"
-        report_path = run_dir / "overview" / "report.json"
-        if not ledger_path.exists():
-            raise SystemExit("verification chain acceptance failed: verification ledger missing")
-        if not summary_path.exists():
-            raise SystemExit("verification chain acceptance failed: verification summary missing")
+        report_path = run_dir / "report.json"
+        acceptance_path = run_dir / "artifacts" / "acceptance.jsonl"
+        patches_path = run_dir / "artifacts" / "patches.jsonl"
+        scan_path = run_dir / "artifacts" / "scan.jsonl"
+        proposals_path = run_dir / "artifacts" / "proposals.jsonl"
         if not report_path.exists():
-            raise SystemExit("verification chain acceptance failed: overview/report.json missing")
+            raise SystemExit("verification chain acceptance failed: report.json missing")
 
-        ledger_rows = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        verification_rows: list[dict[str, Any]] = []
+        for path in (scan_path, proposals_path, acceptance_path, patches_path):
+            for row in [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]:
+                verification = row.get("verification")
+                if isinstance(verification, dict):
+                    verification_rows.append(dict(verification))
         report = json.loads(report_path.read_text(encoding="utf-8"))
         acceptance_rows = [
             json.loads(line)
-            for line in (run_dir / "pipeline" / "validate" / "acceptance.results.jsonl").read_text(encoding="utf-8").splitlines()
+            for line in acceptance_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
         patch_rows = [
             json.loads(line)
-            for line in (run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl").read_text(encoding="utf-8").splitlines()
+            for line in patches_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
 
-        phases = {str(row.get("phase")) for row in ledger_rows}
+        phases = {str(row.get("phase")) for row in verification_rows}
         required_phases = {"scan", "optimize", "validate", "patch_generate"}
         if not required_phases.issubset(phases):
             raise SystemExit(f"verification chain acceptance failed: missing phases {sorted(required_phases - phases)}")
 
         validation_sql = {
             str(row.get("sql_key"))
-            for row in ledger_rows
+            for row in verification_rows
             if str(row.get("phase")) == "validate" and str(row.get("sql_key") or "").strip()
         }
         patch_sql = {
             str(row.get("sql_key"))
-            for row in ledger_rows
+            for row in verification_rows
             if str(row.get("phase")) == "patch_generate" and str(row.get("sql_key") or "").strip()
         }
         accepted_sql = {str(row.get("sqlKey")) for row in acceptance_rows if str(row.get("status")) == "PASS"}
@@ -156,12 +158,8 @@ def main() -> None:
             raise SystemExit("verification chain acceptance failed: PASS acceptance rows missing validate verification records")
         if not patch_result_sql.issubset(patch_sql):
             raise SystemExit("verification chain acceptance failed: patch results missing patch_generate verification records")
-
-        report_verification = ((report.get("stats") or {}).get("verification") or {})
-        stable_summary = {key: value for key, value in summary.items() if key != "generated_at"}
-        projected_report_verification = {key: report_verification.get(key) for key in stable_summary}
-        if projected_report_verification != stable_summary:
-            raise SystemExit("verification chain acceptance failed: overview/report.json verification summary mismatch")
+        if report.get("phase_status", {}).get("report") != "DONE":
+            raise SystemExit("verification chain acceptance failed: report phase is not DONE in report.json")
 
         print(
             json.dumps(
@@ -169,10 +167,9 @@ def main() -> None:
                     "ok": True,
                     "run_id": run_id,
                     "run_dir": str(run_dir),
-                    "verification_rows": len(ledger_rows),
-                    "verified_count": summary.get("verified_count"),
-                    "partial_count": summary.get("partial_count"),
-                    "unverified_count": summary.get("unverified_count"),
+                    "verification_rows": len(verification_rows),
+                    "validate_verified_sql": len(validation_sql),
+                    "patch_verified_sql": len(patch_sql),
                 },
                 ensure_ascii=False,
             )

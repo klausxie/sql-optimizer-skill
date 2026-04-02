@@ -266,7 +266,7 @@ class TestCollectTemplateSuggestions:
         assert suggestions == []
 
     def test_collect_empty_directory(self, tmp_path):
-        suggestions_dir = canonical_paths(tmp_path).ops_dir / "template_suggestions"
+        suggestions_dir = canonical_paths(tmp_path).template_suggestions_dir
         suggestions_dir.mkdir(parents=True)
 
         suggestions = collect_template_suggestions(tmp_path)
@@ -274,7 +274,7 @@ class TestCollectTemplateSuggestions:
 
     def test_collect_with_files(self, tmp_path):
         import json
-        suggestions_dir = canonical_paths(tmp_path).ops_dir / "template_suggestions"
+        suggestions_dir = canonical_paths(tmp_path).template_suggestions_dir
         suggestions_dir.mkdir(parents=True)
 
         suggestion_file = suggestions_dir / "test_mapper.suggestion.json"

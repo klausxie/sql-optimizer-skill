@@ -6,7 +6,7 @@ from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 from tests.support.fixture_project_harness_support import (
     BLOCKER_FAMILIES,
-    FIXTURE_PROJECT,
+    FIXTURE_PROJECT_ROOT,
     PATCHABILITY_TARGETS,
     SCENARIO_CLASSES,
     SEMANTIC_TARGETS,
@@ -84,7 +84,7 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
             self.assertIn(str(scenario["targetPatchability"]), PATCHABILITY_TARGETS)
             self.assertTrue(str(scenario["targetPatchReasonCode"]).strip())
             self.assertIn(str(scenario["targetBlockerFamily"]), BLOCKER_FAMILIES)
-            self.assertTrue((FIXTURE_PROJECT / str(scenario["mapperPath"])).exists())
+            self.assertTrue((FIXTURE_PROJECT_ROOT / str(scenario["mapperPath"])).exists())
 
     def test_fixture_project_validate_matches_scenario_matrix(self) -> None:
         scenarios, _proposals, _acceptance_rows, _units_by_key, acceptance_by_key, _fragment_catalog = run_fixture_validate_harness()

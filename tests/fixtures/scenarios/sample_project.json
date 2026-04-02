@@ -1283,7 +1283,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentLevel1#v1",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1308,7 +1308,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentLevel2#v2",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1333,7 +1333,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentLevel3WithWhere#v3",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1360,7 +1360,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentLevel4#v4",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1386,7 +1386,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentSeparate#v5",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1412,7 +1412,7 @@
   {
     "sqlKey": "demo.test.complex.updateWithFragmentSet#v6",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1438,7 +1438,7 @@
   {
     "sqlKey": "demo.test.complex.selectWithFragmentWhere#v7",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1464,7 +1464,7 @@
   {
     "sqlKey": "demo.test.complex.selectWithFragmentChoose#v8",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1490,7 +1490,7 @@
   {
     "sqlKey": "demo.test.complex.deepFragmentChain#v9",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1515,7 +1515,7 @@
   {
     "sqlKey": "demo.test.complex.fragmentCondensed#v10",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1542,7 +1542,7 @@
   {
     "sqlKey": "demo.test.complex.fragmentMultiplePlaces#v11",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1567,7 +1567,7 @@
   {
     "sqlKey": "demo.test.complex.fragmentDynamicColumns#v12",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1596,7 +1596,7 @@
   {
     "sqlKey": "demo.test.complex.fragmentInJoin#v13",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1621,7 +1621,7 @@
   {
     "sqlKey": "demo.test.complex.fragmentWithChoose#v14",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -1646,7 +1646,7 @@
   {
     "sqlKey": "demo.test.complex.realWorldFragmentSystem#v15",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1675,7 +1675,7 @@
   {
     "sqlKey": "demo.test.complex.subqueryWithFragment#v16",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1703,7 +1703,7 @@
   {
     "sqlKey": "demo.test.complex.batchInsertDynamic#v17",
     "statementType": "INSERT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1729,7 +1729,7 @@
   {
     "sqlKey": "demo.test.complex.havingWithDynamic#v18",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1755,7 +1755,7 @@
   {
     "sqlKey": "demo.test.complex.distinctWithDynamic#v19",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1785,7 +1785,7 @@
   {
     "sqlKey": "demo.test.complex.unionAllWithFragment#v20",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1813,7 +1813,7 @@
   {
     "sqlKey": "demo.test.complex.multiUnionDynamic#v21",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1841,7 +1841,7 @@
   {
     "sqlKey": "demo.test.complex.complexCaseWhen#v22",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1868,7 +1868,7 @@
   {
     "sqlKey": "demo.test.complex.nestedFragmentInSubquery#v23",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1895,7 +1895,7 @@
   {
     "sqlKey": "demo.test.complex.updateNestedFragmentSet#v24",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1924,7 +1924,7 @@
   {
     "sqlKey": "demo.test.complex.paginationComplex#v25",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1952,7 +1952,7 @@
   {
     "sqlKey": "demo.test.complex.complexJoinMultipleFragments#v26",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -1982,7 +1982,7 @@
   {
     "sqlKey": "demo.test.complex.fullTextSearchDynamic#v27",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2009,7 +2009,7 @@
   {
     "sqlKey": "demo.test.complex.windowFunctionWithDynamicPartition#v28",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2039,7 +2039,7 @@
   {
     "sqlKey": "demo.test.complex.multipleCTEWithDynamic#v29",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2066,7 +2066,7 @@
   {
     "sqlKey": "demo.test.complex.nestedSubqueriesWithDynamic#v30",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2095,7 +2095,7 @@
   {
     "sqlKey": "demo.test.complex.complexCaseWhen#v31",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2124,7 +2124,7 @@
   {
     "sqlKey": "demo.test.complex.batchInsertWithSelect#v32",
     "statementType": "INSERT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2151,7 +2151,7 @@
   {
     "sqlKey": "demo.test.complex.jsonFunctionsWithDynamic#v33",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2178,7 +2178,7 @@
   {
     "sqlKey": "demo.test.complex.forUpdateWithDynamic#v34",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2205,7 +2205,7 @@
   {
     "sqlKey": "demo.test.complex.straightJoinWithDynamic#v35",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2235,7 +2235,7 @@
   {
     "sqlKey": "demo.test.complex.complexBusinessReport#v36",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2263,7 +2263,7 @@
   {
     "sqlKey": "demo.test.complex.staticSimpleSelect#v37",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2286,7 +2286,7 @@
   {
     "sqlKey": "demo.test.complex.staticOrderBy#v38",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2309,7 +2309,7 @@
   {
     "sqlKey": "demo.test.complex.staticGroupBy#v39",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2332,7 +2332,7 @@
   {
     "sqlKey": "demo.test.complex.includeSimple#v40",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2357,7 +2357,7 @@
   {
     "sqlKey": "demo.test.complex.includeWithWhere#v41",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2382,7 +2382,7 @@
   {
     "sqlKey": "demo.test.complex.includeNested#v42",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2407,7 +2407,7 @@
   {
     "sqlKey": "demo.test.complex.ifSimple#v43",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2432,7 +2432,7 @@
   {
     "sqlKey": "demo.test.complex.ifMultiple#v44",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2457,7 +2457,7 @@
   {
     "sqlKey": "demo.test.complex.ifWithOrderBy#v45",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: generated scenario - conservative default",
@@ -2484,7 +2484,7 @@
   {
     "sqlKey": "demo.test.complex.ifDynamicPredicate#v46",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2509,7 +2509,7 @@
   {
     "sqlKey": "demo.test.complex.whereBlock#v47",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2535,7 +2535,7 @@
   {
     "sqlKey": "demo.test.complex.foreachInList#v48",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -2560,7 +2560,7 @@
   {
     "sqlKey": "demo.test.complex.foreachInListWithWhere#v49",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -2585,7 +2585,7 @@
   {
     "sqlKey": "demo.test.complex.foreachMultiColumn#v50",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -2610,7 +2610,7 @@
   {
     "sqlKey": "demo.test.complex.foreachBatchInsert#v51",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -2635,7 +2635,7 @@
   {
     "sqlKey": "demo.test.complex.chooseBasic#v52",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2660,7 +2660,7 @@
   {
     "sqlKey": "demo.test.complex.chooseMultipleWhen#v53",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2685,7 +2685,7 @@
   {
     "sqlKey": "demo.test.complex.trimPrefixOverrides#v54",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2711,7 +2711,7 @@
   {
     "sqlKey": "demo.test.complex.trimSuffixOverrides#v55",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2737,7 +2737,7 @@
   {
     "sqlKey": "demo.test.complex.setDynamic#v56",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -2763,7 +2763,7 @@
   {
     "sqlKey": "demo.test.complex.bindVariable#v57",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2788,7 +2788,7 @@
   {
     "sqlKey": "demo.test.complex.bindComplex#v58",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -2813,7 +2813,7 @@
   {
     "sqlKey": "demo.test.complex.joinTwoTables#v59",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2836,7 +2836,7 @@
   {
     "sqlKey": "demo.test.complex.joinThreeTables#v60",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2859,7 +2859,7 @@
   {
     "sqlKey": "demo.test.complex.joinFourTables#v61",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2882,7 +2882,7 @@
   {
     "sqlKey": "demo.test.complex.leftJoinWithNull#v62",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2905,7 +2905,7 @@
   {
     "sqlKey": "demo.test.complex.existsSubquery#v63",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2928,7 +2928,7 @@
   {
     "sqlKey": "demo.test.complex.inSubquery#v64",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2951,7 +2951,7 @@
   {
     "sqlKey": "demo.test.complex.scalarSubquery#v65",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2974,7 +2974,7 @@
   {
     "sqlKey": "demo.test.complex.fromClauseSubquery#v66",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -2997,7 +2997,7 @@
   {
     "sqlKey": "demo.test.complex.unionTwo#v67",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3020,7 +3020,7 @@
   {
     "sqlKey": "demo.test.complex.unionThree#v68",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3043,7 +3043,7 @@
   {
     "sqlKey": "demo.test.complex.rowNumberWindow#v69",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3066,7 +3066,7 @@
   {
     "sqlKey": "demo.test.complex.rankWindow#v70",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3089,7 +3089,7 @@
   {
     "sqlKey": "demo.test.complex.aggregateWindow#v71",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3112,7 +3112,7 @@
   {
     "sqlKey": "demo.test.complex.dynamicOrderBy#v72",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: simple statement can be edited",
@@ -3137,7 +3137,7 @@
   {
     "sqlKey": "demo.test.complex.dynamicGroupBy#v73",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: simple statement can be edited",
@@ -3162,7 +3162,7 @@
   {
     "sqlKey": "demo.test.complex.wrapperCount#v74",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3185,7 +3185,7 @@
   {
     "sqlKey": "demo.test.complex.wrapperWithAgg#v75",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3208,7 +3208,7 @@
   {
     "sqlKey": "demo.test.complex.complexAllFeatures#v76",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3238,7 +3238,7 @@
   {
     "sqlKey": "demo.test.complex.emptyWhere#v77",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3263,7 +3263,7 @@
   {
     "sqlKey": "demo.test.complex.emptyForeach#v78",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -3288,7 +3288,7 @@
   {
     "sqlKey": "demo.test.complex.nestedChoose#v79",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3313,7 +3313,7 @@
   {
     "sqlKey": "demo.test.complex.multiFragmentInclude#v80",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3338,7 +3338,7 @@
   {
     "sqlKey": "demo.test.complex.bindForeach#v81",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3364,7 +3364,7 @@
   {
     "sqlKey": "demo.test.complex.caseWhen#v82",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3387,7 +3387,7 @@
   {
     "sqlKey": "demo.test.complex.dynamicLimit#v83",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3412,7 +3412,7 @@
   {
     "sqlKey": "demo.test.complex.existsWithIf#v84",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3437,7 +3437,7 @@
   {
     "sqlKey": "demo.test.complex.selfJoin#v85",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3460,7 +3460,7 @@
   {
     "sqlKey": "demo.test.complex.havingDynamic#v86",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3485,7 +3485,7 @@
   {
     "sqlKey": "demo.test.complex.distinctWithWhere#v87",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3511,7 +3511,7 @@
   {
     "sqlKey": "demo.test.complex.countWithCondition#v88",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3537,7 +3537,7 @@
   {
     "sqlKey": "demo.test.complex.joinWithForeach#v89",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -3562,7 +3562,7 @@
   {
     "sqlKey": "demo.test.complex.complexOrCondition#v90",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3588,7 +3588,7 @@
   {
     "sqlKey": "demo.test.complex.nestedIfInWhere#v91",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3614,7 +3614,7 @@
   {
     "sqlKey": "demo.test.complex.withRecursive#v92",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple statement can be edited",
@@ -3637,7 +3637,7 @@
   {
     "sqlKey": "demo.test.complex.ifWhereOrderBy#v93",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3665,7 +3665,7 @@
   {
     "sqlKey": "demo.test.complex.ifWhereOrderByLimit#v94",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3691,7 +3691,7 @@
   {
     "sqlKey": "demo.test.complex.ifWhereLimit#v95",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3717,7 +3717,7 @@
   {
     "sqlKey": "demo.test.complex.ifWhereLimitOffset#v96",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3743,7 +3743,7 @@
   {
     "sqlKey": "demo.test.complex.chooseWithOrder#v97",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -3768,7 +3768,7 @@
   {
     "sqlKey": "demo.test.complex.chooseWithLimit#v98",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3794,7 +3794,7 @@
   {
     "sqlKey": "demo.test.complex.foreachWithWhere#v99",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3821,7 +3821,7 @@
   {
     "sqlKey": "demo.test.complex.foreachWithMultipleWhere#v100",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3848,7 +3848,7 @@
   {
     "sqlKey": "demo.test.complex.ifForeachConditional#v101",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3874,7 +3874,7 @@
   {
     "sqlKey": "demo.test.complex.ifForeachWithSort#v102",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3903,7 +3903,7 @@
   {
     "sqlKey": "demo.test.complex.includeIfWhere#v103",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3930,7 +3930,7 @@
   {
     "sqlKey": "demo.test.complex.includeIfWithLimit#v104",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3956,7 +3956,7 @@
   {
     "sqlKey": "demo.test.complex.setIfDynamic#v105",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -3982,7 +3982,7 @@
   {
     "sqlKey": "demo.test.complex.setIfWithWhere#v106",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4010,7 +4010,7 @@
   {
     "sqlKey": "demo.test.complex.ifOrderByDynamic#v107",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4037,7 +4037,7 @@
   {
     "sqlKey": "demo.test.complex.ifOrderByFixed#v108",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -4062,7 +4062,7 @@
   {
     "sqlKey": "demo.test.complex.nestedIfMultiple#v109",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4088,7 +4088,7 @@
   {
     "sqlKey": "demo.test.complex.nestedIfChained#v110",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4114,7 +4114,7 @@
   {
     "sqlKey": "demo.test.complex.whereForeachIn#v111",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4141,7 +4141,7 @@
   {
     "sqlKey": "demo.test.complex.whereForeachMultiColumn#v112",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SEMANTIC",
     "purpose": "generated: simple foreach can be edited",
@@ -4167,7 +4167,7 @@
   {
     "sqlKey": "demo.test.complex.includeWhereDynamic#v113",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4194,7 +4194,7 @@
   {
     "sqlKey": "demo.test.complex.includeWhereWithOrder#v114",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4221,7 +4221,7 @@
   {
     "sqlKey": "demo.test.complex.bindIfUsage#v115",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4248,7 +4248,7 @@
   {
     "sqlKey": "demo.test.complex.bindForeachIf#v116",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4276,7 +4276,7 @@
   {
     "sqlKey": "demo.test.complex.trimIfWhere#v117",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4302,7 +4302,7 @@
   {
     "sqlKey": "demo.test.complex.trimSuffixOrderBy#v118",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4330,7 +4330,7 @@
   {
     "sqlKey": "demo.test.complex.nestedIfDeep#v119",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4358,7 +4358,7 @@
   {
     "sqlKey": "demo.test.complex.nestedChooseInChoose#v120",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -4383,7 +4383,7 @@
   {
     "sqlKey": "demo.test.complex.complexAllDynamic#v121",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4412,7 +4412,7 @@
   {
     "sqlKey": "demo.test.complex.complexIfExpression#v122",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4439,7 +4439,7 @@
   {
     "sqlKey": "demo.test.complex.recursiveInclude#v123",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4466,7 +4466,7 @@
   {
     "sqlKey": "demo.test.complex.nestedForeachInIf#v124",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4492,7 +4492,7 @@
   {
     "sqlKey": "demo.test.complex.complexTrimAllFeatures#v125",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4518,7 +4518,7 @@
   {
     "sqlKey": "demo.test.complex.chooseManyBranches#v126",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -4543,7 +4543,7 @@
   {
     "sqlKey": "demo.test.complex.ifInChooseAndWhere#v127",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4572,7 +4572,7 @@
   {
     "sqlKey": "demo.test.complex.setNestedIf#v128",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4598,7 +4598,7 @@
   {
     "sqlKey": "demo.test.complex.multipleForeach#v129",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4625,7 +4625,7 @@
   {
     "sqlKey": "demo.test.complex.bindComplexExpr#v130",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4653,7 +4653,7 @@
   {
     "sqlKey": "demo.test.complex.ultraNestedIf#v131",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4679,7 +4679,7 @@
   {
     "sqlKey": "demo.test.complex.tripleNestedChoose#v132",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: generated scenario - conservative default",
@@ -4704,7 +4704,7 @@
   {
     "sqlKey": "demo.test.complex.unionWithDynamic#v133",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4732,7 +4732,7 @@
   {
     "sqlKey": "demo.test.complex.cteRecursiveWithDynamic#v134",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4760,7 +4760,7 @@
   {
     "sqlKey": "demo.test.complex.tripleForeach#v135",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4787,7 +4787,7 @@
   {
     "sqlKey": "demo.test.complex.realWorldComplex#v136",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4817,7 +4817,7 @@
   {
     "sqlKey": "demo.test.complex.multipleBindComplex#v137",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4846,7 +4846,7 @@
   {
     "sqlKey": "demo.test.complex.updateDeepComplex#v138",
     "statementType": "UPDATE",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4874,7 +4874,7 @@
   {
     "sqlKey": "demo.test.complex.subqueryWithDynamic#v139",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4903,7 +4903,7 @@
   {
     "sqlKey": "demo.test.complex.chooseNestedWhereIf#v140",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_SECURITY",
     "purpose": "generated: complex dynamic features - expected blocked",
@@ -4932,7 +4932,7 @@
   {
     "sqlKey": "demo.test.complex.trimNestedIf#v141",
     "statementType": "SELECT",
-    "mapperPath": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/project/src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
+    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
     "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
     "purpose": "generated: complex dynamic features - expected blocked",

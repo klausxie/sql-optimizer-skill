@@ -213,7 +213,26 @@ def build_template_with_preserved_includes(
     return rebuilt or None, None
 
 
-def build_unified_patch(xml_path: Path, statement_id: str, statement_type: str, rewritten_sql: str) -> tuple[str | None, int]:
+def _patch_relpath(xml_path: Path, base_dir: Path | None = None) -> str:
+    if base_dir is not None:
+        try:
+            return xml_path.resolve().relative_to(base_dir.resolve()).as_posix()
+        except Exception:
+            pass
+    try:
+        return xml_path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except Exception:
+        return xml_path.as_posix()
+
+
+def build_unified_patch(
+    xml_path: Path,
+    statement_id: str,
+    statement_type: str,
+    rewritten_sql: str,
+    *,
+    base_dir: Path | None = None,
+) -> tuple[str | None, int]:
     original = xml_path.read_text(encoding="utf-8")
     tag = (statement_type or "select").strip().lower()
     pattern = re.compile(
@@ -227,10 +246,7 @@ def build_unified_patch(xml_path: Path, statement_id: str, statement_type: str, 
     if replaced == original:
         return "", 0
 
-    try:
-        rel = xml_path.resolve().relative_to(Path.cwd().resolve()).as_posix()
-    except Exception:
-        rel = xml_path.as_posix()
+    rel = _patch_relpath(xml_path, base_dir)
     old_lines = original.splitlines()
     new_lines = replaced.splitlines()
     diff_lines = list(
@@ -277,7 +293,13 @@ def range_offsets(text: str, range_info: dict) -> tuple[int, int] | None:
     return None
 
 
-def build_range_patch(xml_path: Path, range_info: dict, replacement_body: str) -> tuple[str | None, int]:
+def build_range_patch(
+    xml_path: Path,
+    range_info: dict,
+    replacement_body: str,
+    *,
+    base_dir: Path | None = None,
+) -> tuple[str | None, int]:
     original = xml_path.read_text(encoding="utf-8")
     offsets = range_offsets(original, range_info)
     if offsets is None:
@@ -286,10 +308,7 @@ def build_range_patch(xml_path: Path, range_info: dict, replacement_body: str) -
     replaced = original[:start] + render_template_body(original[start:end], replacement_body) + original[end:]
     if replaced == original:
         return "", 0
-    try:
-        rel = xml_path.resolve().relative_to(Path.cwd().resolve()).as_posix()
-    except Exception:
-        rel = xml_path.as_posix()
+    rel = _patch_relpath(xml_path, base_dir)
     diff_lines = list(
         difflib.unified_diff(
             original.splitlines(),

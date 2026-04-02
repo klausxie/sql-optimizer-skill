@@ -18,10 +18,12 @@ def _repo_root() -> Path:
 sys.path.insert(0, str(_repo_root() / "python"))
 
 from sqlopt.application.diagnostics_summary import build_verify_payload  # noqa: E402
+from sqlopt.stages.report_builder import build_report_artifacts  # noqa: E402
+from sqlopt.stages.report_loader import load_report_inputs  # noqa: E402
 
 
 def _fixture_project(repo_root: Path) -> Path:
-    return repo_root / "tests" / "fixtures" / "project"
+    return repo_root / "tests" / "fixtures" / "projects" / "sample_project"
 
 
 def _config_text() -> str:
@@ -75,6 +77,18 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             continue
         rows.append(json.loads(line))
     return rows
+
+
+def _report_build_config() -> dict[str, Any]:
+    return {
+        "policy": {},
+        "runtime": {
+            "stage_timeout_ms": {"scan": 100, "optimize": 200, "report": 300},
+            "stage_retry_max": {"scan": 1, "report": 2},
+            "stage_retry_backoff_ms": 50,
+        },
+        "llm": {"enabled": False},
+    }
 
 
 def _require_payload(proc: subprocess.CompletedProcess[str], *, step: str) -> dict[str, Any]:
@@ -145,16 +159,17 @@ def main() -> None:
             raise SystemExit("guidance consistency acceptance failed: missing run_id")
 
         run_dir = project_dir / "runs" / run_id
-        report_path = run_dir / "overview" / "report.json"
-        summary_md_path = run_dir / "overview" / "report.summary.md"
+        report_path = run_dir / "report.json"
+        catalog_path = run_dir / "sql" / "catalog.jsonl"
         if not report_path.exists():
-            raise SystemExit("guidance consistency acceptance failed: overview/report.json missing")
-        if not summary_md_path.exists():
-            raise SystemExit("guidance consistency acceptance failed: report.summary.md missing")
+            raise SystemExit("guidance consistency acceptance failed: report.json missing")
+        if not catalog_path.exists():
+            raise SystemExit("guidance consistency acceptance failed: sql/catalog.jsonl missing")
 
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        report_summary_md = summary_md_path.read_text(encoding="utf-8")
-        top_actionable = list(((report.get("stats") or {}).get("top_actionable_sql") or []))
+        inputs = load_report_inputs(run_dir)
+        artifacts = build_report_artifacts(run_id, "analyze", _report_build_config(), run_dir, inputs)
+        top_actionable = list((artifacts.report.stats.get("top_actionable_sql") or []))
         if not top_actionable:
             raise SystemExit("guidance consistency acceptance failed: top_actionable_sql is empty")
         top_row = dict(top_actionable[0])
@@ -162,24 +177,20 @@ def main() -> None:
         if not sql_key:
             raise SystemExit("guidance consistency acceptance failed: top actionable sql is missing sql_key")
 
-        report_next_actions = list(((report.get("summary") or {}).get("next_actions") or []))
+        report_next_actions = list(artifacts.next_actions)
         if not report_next_actions:
             raise SystemExit("guidance consistency acceptance failed: report summary is missing next_actions")
         report_action = dict(report_next_actions[0])
 
-        verification_rows = [
-            row
-            for row in _read_jsonl(run_dir / "pipeline" / "verification" / "ledger.jsonl")
-            if str(row.get("sql_key") or "") == sql_key
-        ]
+        verification_rows = [row for row in inputs.verification_rows if str(row.get("sql_key") or "") == sql_key]
         acceptance_rows = [
             row
-            for row in _read_jsonl(run_dir / "pipeline" / "validate" / "acceptance.results.jsonl")
+            for row in _read_jsonl(run_dir / "artifacts" / "acceptance.jsonl")
             if str(row.get("sqlKey") or "") == sql_key
         ]
         patch_rows = [
             row
-            for row in _read_jsonl(run_dir / "pipeline" / "patch_generate" / "patch.results.jsonl")
+            for row in _read_jsonl(run_dir / "artifacts" / "patches.jsonl")
             if str(row.get("sqlKey") or "") == sql_key
         ]
         verify_payload = build_verify_payload(
@@ -187,7 +198,7 @@ def main() -> None:
             run_dir,
             sql_key,
             None,
-            (run_dir / "pipeline" / "verification" / "ledger.jsonl").exists(),
+            bool(inputs.verification_rows),
             verification_rows,
             acceptance_rows,
             patch_rows,
@@ -221,8 +232,8 @@ def main() -> None:
         report_why_now = str(top_row.get("why_now") or "").strip()
         if not report_why_now:
             raise SystemExit("guidance consistency acceptance failed: report why_now is missing")
-        if report_why_now not in report_summary_md:
-            raise SystemExit("guidance consistency acceptance failed: report.summary.md is missing the top why_now guidance")
+        if report.get("next_action") != artifacts.report.to_contract().get("next_action"):
+            raise SystemExit("guidance consistency acceptance failed: persisted report next_action drifted from rebuilt report contract")
 
         print(
             json.dumps(
@@ -235,6 +246,7 @@ def main() -> None:
                     "action_alignment": True,
                     "reason_alignment": True,
                     "why_now_present": True,
+                    "catalog_present": True,
                 },
                 ensure_ascii=False,
             )

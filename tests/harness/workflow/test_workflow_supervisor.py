@@ -8,32 +8,33 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from sqlopt.application import run_service
+from tests.support.fixture_project_harness_support import prepare_mutable_fixture_project
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def run_cli(*args: str) -> dict:
+def run_cli(*args: str, repo_root: Path) -> dict:
     cmd = args[0]
     if cmd == "run":
         config = Path(args[args.index("--config") + 1]).resolve()
         to_stage = args[args.index("--to-stage") + 1]
         run_id = args[args.index("--run-id") + 1]
         with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-            resolved_run_id, result = run_service.start_run(config, to_stage, run_id, repo_root=ROOT)
+            resolved_run_id, result = run_service.start_run(config, to_stage, run_id, repo_root=repo_root)
         return {"run_id": resolved_run_id, "result": result}
     if cmd == "resume":
         run_id = args[args.index("--run-id") + 1]
         with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-            result = run_service.resume_run(run_id, repo_root=ROOT)
+            result = run_service.resume_run(run_id, repo_root=repo_root)
         return {"run_id": run_id, "result": result}
     if cmd == "status":
         run_id = args[args.index("--run-id") + 1]
-        return run_service.get_status(run_id, repo_root=ROOT)
+        return run_service.get_status(run_id, repo_root=repo_root)
     raise ValueError(f"unsupported test command: {cmd}")
 
 
 class WorkflowSupervisorTest(unittest.TestCase):
-    def _write_cfg(self, td: str, *, report_enabled: bool = True, mapper_glob: str | None = None) -> Path:
+    def _write_cfg(self, td: str, project_root: Path, *, report_enabled: bool = True, mapper_glob: str | None = None) -> Path:
         cfg = Path(td) / "sqlopt.yml"
         mapper = mapper_glob or "src/main/resources/com/example/mapper/user/user_mapper.xml"
         report_flag = "true" if report_enabled else "false"
@@ -41,7 +42,7 @@ class WorkflowSupervisorTest(unittest.TestCase):
             "\n".join(
                 [
                     "project:",
-                    f"  root_path: {str((ROOT / 'tests' / 'fixtures' / 'project').resolve())}",
+                    f"  root_path: {str(project_root.resolve())}",
                     "scan:",
                     "  mapper_globs:",
                     f"    - {mapper}",
@@ -60,74 +61,78 @@ class WorkflowSupervisorTest(unittest.TestCase):
         )
         return cfg
 
-    def _advance_until_complete(self, run_id: str, *, max_steps: int = 700) -> dict:
+    def _advance_until_complete(self, run_id: str, *, repo_root: Path, max_steps: int = 700) -> dict:
         status = {}
         for _ in range(max_steps):
-            status = run_cli("status", "--run-id", run_id)
+            status = run_cli("status", "--run-id", run_id, repo_root=repo_root)
             if status["complete"]:
                 return status
-            run_cli("resume", "--run-id", run_id)
+            run_cli("resume", "--run-id", run_id, repo_root=repo_root)
         self.fail("run did not complete within expected loop budget")
 
     def test_patch_generate_auto_finalizes_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
-            cfg = self._write_cfg(td)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = self._write_cfg(td, project_root)
             run_id = f"run_supervisor_auto_report_{uuid4().hex[:8]}"
-            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id)
-            self._advance_until_complete(run_id)
+            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id, repo_root=project_root)
+            self._advance_until_complete(run_id, repo_root=project_root)
 
-        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertTrue((run_dir / "report.json").exists())
-        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-        self.assertEqual(report["phase_status"]["report"], "DONE")
-        state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
-        self.assertEqual(state.get("status"), "COMPLETED")
-        manifest = (run_dir / "control" / "manifest.jsonl").read_text(encoding="utf-8")
-        self.assertIn('"stage": "scan"', manifest)
-        self.assertIn('"stage": "preflight"', manifest)
-        self.assertIn('"stage": "optimize"', manifest)
-        self.assertIn('"stage": "validate"', manifest)
-        self.assertIn('"stage": "patch_generate"', manifest)
-        self.assertIn('"stage": "report"', manifest)
+            run_dir = project_root / "runs" / run_id
+            self.assertTrue((run_dir / "report.json").exists())
+            report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["phase_status"]["report"], "DONE")
+            state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state.get("status"), "COMPLETED")
+            manifest = (run_dir / "control" / "manifest.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"stage": "scan"', manifest)
+            self.assertIn('"stage": "preflight"', manifest)
+            self.assertIn('"stage": "optimize"', manifest)
+            self.assertIn('"stage": "validate"', manifest)
+            self.assertIn('"stage": "patch_generate"', manifest)
+            self.assertIn('"stage": "report"', manifest)
 
     def test_optimize_stage_still_generates_report_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
-            cfg = self._write_cfg(td)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = self._write_cfg(td, project_root)
             run_id = f"run_supervisor_optimize_report_{uuid4().hex[:8]}"
-            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id)
-            self._advance_until_complete(run_id)
+            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id, repo_root=project_root)
+            self._advance_until_complete(run_id, repo_root=project_root)
 
-        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertTrue((run_dir / "report.json").exists())
-        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-        self.assertEqual(report["phase_status"]["report"], "DONE")
-        state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
-        self.assertEqual(state["phase_status"]["optimize"], "DONE")
-        self.assertEqual(state["phase_status"]["validate"], "SKIPPED")
-        self.assertEqual(state["phase_status"]["patch_generate"], "SKIPPED")
-        self.assertEqual(state["phase_status"]["report"], "DONE")
+            run_dir = project_root / "runs" / run_id
+            self.assertTrue((run_dir / "report.json").exists())
+            report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["phase_status"]["report"], "DONE")
+            state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["phase_status"]["optimize"], "DONE")
+            self.assertEqual(state["phase_status"]["validate"], "SKIPPED")
+            self.assertEqual(state["phase_status"]["patch_generate"], "SKIPPED")
+            self.assertEqual(state["phase_status"]["report"], "DONE")
 
     def test_optimize_stage_skips_report_when_disabled(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
-            cfg = self._write_cfg(td, report_enabled=False)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = self._write_cfg(td, project_root, report_enabled=False)
             run_id = f"run_supervisor_optimize_no_report_{uuid4().hex[:8]}"
-            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id)
-            self._advance_until_complete(run_id)
+            run_cli("run", "--config", str(cfg), "--to-stage", "optimize", "--run-id", run_id, repo_root=project_root)
+            self._advance_until_complete(run_id, repo_root=project_root)
 
-        run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
-        self.assertFalse((run_dir / "report.json").exists())
-        state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
-        self.assertEqual(state["phase_status"]["report"], "SKIPPED")
-        self.assertEqual(state.get("status"), "COMPLETED")
+            run_dir = project_root / "runs" / run_id
+            self.assertFalse((run_dir / "report.json").exists())
+            state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["phase_status"]["report"], "SKIPPED")
+            self.assertEqual(state.get("status"), "COMPLETED")
 
     def test_explicit_report_rebuild_does_not_append_duplicate_done_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_") as td:
-            cfg = self._write_cfg(td)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = self._write_cfg(td, project_root)
             run_id = f"run_supervisor_report_rebuild_{uuid4().hex[:8]}"
-            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id)
-            self._advance_until_complete(run_id)
+            run_cli("run", "--config", str(cfg), "--to-stage", "patch_generate", "--run-id", run_id, repo_root=project_root)
+            self._advance_until_complete(run_id, repo_root=project_root)
 
-            run_dir = ROOT / "tests" / "fixtures" / "project" / "runs" / run_id
+            run_dir = project_root / "runs" / run_id
             manifest_path = run_dir / "control" / "manifest.jsonl"
             before_lines = [
                 line
@@ -135,17 +140,17 @@ class WorkflowSupervisorTest(unittest.TestCase):
                 if '"stage": "report"' in line and '"event": "done"' in line
             ]
 
-            run_cli("run", "--config", str(cfg), "--to-stage", "report", "--run-id", run_id)
+            run_cli("run", "--config", str(cfg), "--to-stage", "report", "--run-id", run_id, repo_root=project_root)
 
-        after_lines = [
-            line
-            for line in manifest_path.read_text(encoding="utf-8").strip().splitlines()
-            if '"stage": "report"' in line and '"event": "done"' in line
-        ]
-        state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(before_lines), 1)
-        self.assertEqual(len(after_lines), 1)
-        self.assertFalse(state.get("report_rebuild_required", False))
+            after_lines = [
+                line
+                for line in manifest_path.read_text(encoding="utf-8").strip().splitlines()
+                if '"stage": "report"' in line and '"event": "done"' in line
+            ]
+            state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(before_lines), 1)
+            self.assertEqual(len(after_lines), 1)
+            self.assertFalse(state.get("report_rebuild_required", False))
 
 
 if __name__ == "__main__":

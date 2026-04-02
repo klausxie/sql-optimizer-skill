@@ -214,7 +214,7 @@ def save_template_suggestion(
         sql_key: SQL 标识符
         suggestion: 模板建议
     """
-    suggestions_dir = canonical_paths(run_dir).ops_dir / "template_suggestions"
+    suggestions_dir = canonical_paths(run_dir).template_suggestions_dir
     suggestions_dir.mkdir(parents=True, exist_ok=True)
 
     suggestion_file = suggestions_dir / f"{sql_key.replace('/', '_')}.suggestion.json"
@@ -280,7 +280,7 @@ def collect_template_suggestions(run_dir: Path) -> list[dict[str, Any]]:
     Returns:
         模板建议列表
     """
-    suggestions_dir = canonical_paths(run_dir).ops_dir / "template_suggestions"
+    suggestions_dir = canonical_paths(run_dir).template_suggestions_dir
     if not suggestions_dir.exists():
         return []
 

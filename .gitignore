@@ -17,7 +17,6 @@ java/**/target/
 .opencode-data/
 .worktrees/
 .sqlopt-run-index.json
-tests/fixtures/project/runs/
 
 # Logs / temp
 *.log

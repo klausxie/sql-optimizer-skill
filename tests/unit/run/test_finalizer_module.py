@@ -8,7 +8,7 @@ from sqlopt.application.finalizer import RunFinalizer
 from sqlopt.contracts import ContractValidator
 from sqlopt.errors import StageError
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class _RepoStub:

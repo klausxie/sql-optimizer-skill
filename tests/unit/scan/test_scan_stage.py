@@ -12,7 +12,7 @@ from sqlopt.contracts import ContractValidator
 from sqlopt.errors import StageError
 from sqlopt.stages import scan
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class _Proc:
@@ -476,7 +476,7 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertEqual(units[0]["sql"], "UPDATE users SET status = #{status} WHERE id = #{id}")
 
     def test_run_scan_fixture_dynamic_tags_mapper_reports_expected_features(self) -> None:
-        project_root = ROOT / "tests" / "fixtures" / "project"
+        project_root = ROOT / "tests" / "fixtures"
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
             self.skipTest("scan-agent jar not built")

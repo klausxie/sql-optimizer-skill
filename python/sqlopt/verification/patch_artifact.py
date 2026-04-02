@@ -25,12 +25,17 @@ def _normalize_patch_path(path: str) -> str:
     return normalized
 
 
-def _expected_patch_paths(xml_path: Path) -> set[str]:
+def _expected_patch_paths(xml_path: Path, base_dir: Path | None = None) -> set[str]:
     expected = {xml_path.as_posix()}
     try:
         expected.add(xml_path.resolve().as_posix())
     except Exception:
         pass
+    if base_dir is not None:
+        try:
+            expected.add(xml_path.resolve().relative_to(base_dir.resolve()).as_posix())
+        except Exception:
+            pass
     try:
         expected.add(xml_path.resolve().relative_to(Path.cwd().resolve()).as_posix())
     except Exception:
@@ -116,7 +121,12 @@ def _apply_unified_diff(original_text: str, patch_text: str) -> str:
     return patched_text
 
 
-def materialize_patch_artifact(*, sql_unit: dict[str, Any], patch_text: str) -> PatchArtifactResult:
+def materialize_patch_artifact(
+    *,
+    sql_unit: dict[str, Any],
+    patch_text: str,
+    base_dir: Path | None = None,
+) -> PatchArtifactResult:
     xml_path = Path(str(sql_unit.get("xmlPath") or ""))
     if not str(patch_text or "").strip():
         return PatchArtifactResult(False, False, None, None, "PATCH_ARTIFACT_MISSING")
@@ -125,7 +135,7 @@ def materialize_patch_artifact(*, sql_unit: dict[str, Any], patch_text: str) -> 
 
     patch_lines = patch_text.splitlines()
     target_path = _extract_target_path(patch_lines)
-    if target_path and target_path not in _expected_patch_paths(xml_path):
+    if target_path and target_path not in _expected_patch_paths(xml_path, base_dir):
         return PatchArtifactResult(False, False, None, None, "PATCH_ARTIFACT_TARGET_MISMATCH")
 
     try:

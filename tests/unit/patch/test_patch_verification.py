@@ -12,7 +12,7 @@ from sqlopt.patch_families.registry import lookup_patch_family_spec
 from sqlopt.stages.patch_verification import append_patch_verification
 from sqlopt.verification.writer import read_verification_ledger
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def _read_ledger(run_dir: Path) -> list[dict]:

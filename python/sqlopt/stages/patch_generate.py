@@ -132,8 +132,19 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
         normalize_sql_text=_normalize_sql_text,
         format_template_ops_for_patch=_format_template_ops_for_patch,
         detect_duplicate_clause_in_template_ops=_detect_duplicate_clause_in_template_ops,
-        build_template_plan_patch=_build_template_plan_patch,
-        build_unified_patch=_build_unified_patch,
+        build_template_plan_patch=lambda sql_unit, acceptance, run_dir: _build_template_plan_patch(
+            sql_unit,
+            acceptance,
+            run_dir,
+            base_dir=project_root,
+        ),
+        build_unified_patch=lambda xml_path, statement_id, statement_type, rewritten_sql: _build_unified_patch(
+            xml_path,
+            statement_id,
+            statement_type,
+            rewritten_sql,
+            base_dir=project_root,
+        ),
     )
     sql_key = decision_ctx.sql_key
 
@@ -188,6 +199,7 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                 build=build,
                 fragment_catalog=fragment_catalog,
                 patch_text=patch_text,
+                base_dir=project_root,
             )
             if proof.replay_evidence:
                 patch["replayEvidence"] = proof.replay_evidence

@@ -8,7 +8,7 @@ from unittest.mock import patch
 from sqlopt.patch_contracts import FROZEN_AUTO_PATCH_FAMILIES
 
 from tests.support.fixture_project_harness_support import (
-    FIXTURE_PROJECT,
+    FIXTURE_PROJECT_ROOT,
     fixture_registered_families,
     patch_apply_ready,
     patch_blocker_family,
@@ -271,7 +271,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
             "FOREACH_INCLUDE_PREDICATE",
         )
 
-    def test_fixture_patch_harness_uses_fixture_project_as_apply_check_root(self) -> None:
+    def test_fixture_patch_harness_uses_temp_project_copy_as_apply_check_root(self) -> None:
         seen_cwds: list[Path] = []
 
         def _completed_process(*_args: object, **kwargs: object):
@@ -287,7 +287,10 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
 
         self.assertTrue(any(patch_apply_ready(row) for row in patches))
         self.assertTrue(seen_cwds)
-        self.assertEqual(set(seen_cwds), {FIXTURE_PROJECT.resolve()})
+        self.assertEqual(len(set(seen_cwds)), 1)
+        apply_root = seen_cwds[0]
+        self.assertNotEqual(apply_root, FIXTURE_PROJECT_ROOT.resolve())
+        self.assertEqual(apply_root.name, "sample_project")
 
 
 if __name__ == "__main__":

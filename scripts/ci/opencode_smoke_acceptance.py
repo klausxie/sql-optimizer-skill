@@ -18,7 +18,7 @@ def _repo_root() -> Path:
 
 
 def _project_fixture(repo_root: Path) -> Path:
-    return repo_root / "tests" / "fixtures" / "project"
+    return repo_root / "tests" / "fixtures" / "projects" / "sample_project"
 
 
 def _scanner_jar(repo_root: Path) -> Path:
@@ -109,22 +109,22 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 
 
 def _verify_outputs(run_dir: Path) -> dict[str, Any]:
-    state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
-    report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
-    summary = (run_dir / "overview" / "report.summary.md").read_text(encoding="utf-8")
+    state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+    report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+    catalog_path = run_dir / "sql" / "catalog.jsonl"
 
     state_report = state["phase_status"]["report"]
-    report_status = report["stats"]["pipeline_coverage"]["report"]
-    summary_ok = "report `DONE`" in summary
-    if state_report != "DONE" or report_status != "DONE" or not summary_ok:
+    report_status = report["phase_status"]["report"]
+    catalog_exists = catalog_path.exists()
+    if state_report != "DONE" or report_status != "DONE" or not catalog_exists:
         raise SystemExit(
-            "smoke verification failed: expected report DONE in pipeline/supervisor/state.json, overview/report.json, and overview/report.summary.md"
+            "smoke verification failed: expected report DONE in control/state.json and report.json, with sql/catalog.jsonl present"
         )
 
     return {
         "state_report": state_report,
-        "report_json_report": report_status,
-        "summary_has_report_done": summary_ok,
+        "report_phase_status": report_status,
+        "sql_catalog_present": catalog_exists,
     }
 
 

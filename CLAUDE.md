@@ -27,7 +27,7 @@ python3 scripts/schema_validate_all.py
 
 # Scan-only smoke test (validates scanner coverage)
 python3 scripts/run_until_budget.py \
-  --config tests/fixtures/project/sqlopt.scan.local.yml \
+  --config tests/fixtures/configs/sample_project/scan.local.yml \
   --to-stage scan \
   --max-steps 10 \
   --max-seconds 30
@@ -93,23 +93,22 @@ Each stage:
 
 ### Key Stages
 
-**scan**: Extracts SQL from MyBatis XML mappers using Java scanner. Outputs `scan.sqlunits.jsonl` with both `templateSql` (template view with `<foreach>`, `<include>` tags) and `sql` (logical analysis view). Optionally outputs `scan.fragments.jsonl` when `scan.enable_fragment_catalog=true`.
+**scan**: Extracts SQL from MyBatis XML mappers using Java scanner. Outputs `artifacts/scan.jsonl` with both `templateSql` (template view with `<foreach>`, `<include>` tags) and `sql` (logical analysis view). Optionally outputs `artifacts/fragments.jsonl` when `scan.enable_fragment_catalog=true`.
 
-**optimize**: Consumes SqlUnits, generates optimization proposals via LLM. Outputs `proposals/optimization.proposals.jsonl`. Does not generate XML patches directly.
+**optimize**: Consumes SqlUnits, generates optimization proposals via LLM. Outputs `artifacts/proposals.jsonl`. Does not generate XML patches directly.
 
-**validate**: Validates proposals against database using EXPLAIN plans. Outputs `acceptance.results.jsonl` with semantic/performance/security judgments plus template materialization decisions (`rewriteMaterialization`, `templateRewriteOps`).
+**validate**: Validates proposals against database using EXPLAIN plans. Outputs `artifacts/acceptance.jsonl` with semantic/performance/security judgments plus template materialization decisions (`rewriteMaterialization`, `templateRewriteOps`).
 
 **patch_generate**: Generates XML patches. Prioritizes template-level plans from validate stage when `rewriteMaterialization.replayVerified=true`. Falls back to static SQL patches. Never overwrites dynamic templates with flat SQL.
 
-**report**: Aggregates results into `report.md`, `report.summary.md`, `report.json` with phase status, acceptance/patch statistics, and materialization mode breakdowns.
+**report**: Aggregates results into a minimal `report.json` summary and `sql/` indexes.
 
 ### State Management
 
-All runs maintain supervisor state in `runs/<run_id>/supervisor/`:
-- `meta.json`: run_id, status, versions
-- `plan.json`: fixed statement list and target stage
+All runs maintain control state in `runs/<run_id>/control/`:
+- `plan.json`: fixed statement list, target stage, and resolved config snapshot
 - `state.json`: per-statement phase status, retry counts, errors
-- `results/*.jsonl`: structured step results for diagnostics
+- `manifest.jsonl`: structured step events for diagnostics and replay
 
 The orchestrator advances one statement step per invocation (bounded by `max_step_ms` budget).
 
@@ -186,29 +185,21 @@ Schema validation failures terminate the run by default.
 
 ```
 runs/<run_id>/
-├── supervisor/
-│   ├── meta.json
-│   ├── plan.json
-│   ├── state.json
-│   └── results/
-│       ├── scan.jsonl
-│       ├── optimize.jsonl
-│       └── ...
-├── manifest.jsonl
-├── scan.sqlunits.jsonl
-├── scan.fragments.jsonl
-├── proposals/
-│   └── optimization.proposals.jsonl
-├── acceptance/
-│   └── acceptance.results.jsonl
-├── patches/
-│   └── patch.results.jsonl
-├── ops/
-│   ├── ops_health.json
-│   └── ops_topology.json
 ├── report.json
-├── report.md
-└── report.summary.md
+├── control/
+│   ├── state.json
+│   ├── plan.json
+│   └── manifest.jsonl
+├── artifacts/
+│   ├── scan.jsonl
+│   ├── fragments.jsonl
+│   ├── proposals.jsonl
+│   ├── acceptance.jsonl
+│   └── patches.jsonl
+└── sql/
+    ├── catalog.jsonl
+    └── <sql-key>/
+        └── index.json
 ```
 
 ## Failure Handling
@@ -251,9 +242,9 @@ sqlopt-cli verify --run-id <run_id> --sql-key <sqlKey> --summary-only --format j
 
 ### Verification Artifacts
 
-- `verification/ledger.jsonl`: Per-statement verification records
-- `verification/summary.json`: Aggregated verification summary
-- Each record includes: phase, status, reason_code, evidence_refs, checks, verdict
+- Verification records are embedded in `artifacts/scan.jsonl`, `artifacts/proposals.jsonl`, `artifacts/acceptance.jsonl`, and `artifacts/patches.jsonl`
+- `report.json` exposes only minimal blocker/summary output
+- Each verification record includes: phase, status, reason_code, evidence_refs, checks, verdict
 
 ### Verification Status Codes
 
@@ -281,7 +272,7 @@ All LLM enhancement phases are fully implemented and tested:
 1. **Phase 1: Output Quality Control** - Syntax and heuristic validation of LLM-generated candidates
 2. **Phase 2: Retry Mechanism** - Automatic retry with feedback on validation failures
 3. **Phase 3: Semantic Check** - LLM-based semantic equivalence verification when DB validation fails
-4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `ops/llm_feedback.jsonl`)
+4. **Phase 4: Feedback Collection** - Bidirectional feedback between rule engine and LLM (logged to `control/llm_feedback.jsonl`)
 5. **Phase 5: Patch Generation Assist** - LLM assistance for dynamic SQL template suggestions
 6. **Phase 6: Trace Enhancement** - Complete LLM interaction history recording
 
@@ -291,7 +282,9 @@ Test coverage: 84 new tests covering all LLM enhancement features
 
 ## Testing Notes
 
-- Tests use fixtures in `tests/fixtures/project/`
+- Static test fixtures live under `tests/fixtures/projects/sample_project/`
+- Scenario matrix lives in `tests/fixtures/scenarios/sample_project.json`
+- Config variants live in `tests/fixtures/configs/sample_project/`
 - 64 test files covering all stages and LLM enhancements
 - Run from repository root: `python3 -m pytest -q`
 - Unified acceptance: `python3 scripts/ci/release_acceptance.py`
@@ -315,9 +308,9 @@ The scanner supports these MyBatis dynamic tags (validated in fixtures):
 - `set`
 
 Verify scanner output:
-- `tests/fixtures/project/runs/<run_id>/scan.sqlunits.jsonl`
-- `tests/fixtures/project/runs/<run_id>/scan.fragments.jsonl`
-- `tests/fixtures/project/runs/<run_id>/verification/ledger.jsonl`
+- `<project.root_path>/runs/<run_id>/artifacts/scan.jsonl`
+- `<project.root_path>/runs/<run_id>/artifacts/fragments.jsonl`
+- embedded `verification` rows inside `artifacts/scan.jsonl`
 
 ### MySQL Local Testing
 

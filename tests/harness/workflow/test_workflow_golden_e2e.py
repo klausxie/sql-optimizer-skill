@@ -12,17 +12,17 @@ from uuid import uuid4
 from sqlopt.application import run_service
 from sqlopt.io_utils import read_json, read_jsonl, write_json
 from sqlopt.stages.report_stats import blocker_family_for_patch_row
+from tests.support.fixture_project_harness_support import FIXTURE_PROJECT_ROOT, prepare_mutable_fixture_project
 
 ROOT = Path(__file__).resolve().parents[3]
-FIXTURE_PROJECT = (ROOT / "tests" / "fixtures" / "project").resolve()
 
 
-def _write_cfg(td: str, *, report_enabled: bool = True) -> Path:
+def _write_cfg(td: str, project_root: Path, *, report_enabled: bool = True) -> Path:
     cfg = Path(td) / "sqlopt.json"
     cfg.write_text(
         json.dumps(
             {
-                "project": {"root_path": str(FIXTURE_PROJECT)},
+                "project": {"root_path": str(project_root)},
                 "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
                 "db": {
                     "platform": "postgresql",
@@ -43,15 +43,16 @@ def _run_with_preflight_patch(
     to_stage: str,
     run_id: str,
     *,
+    repo_root: Path,
     selection: dict[str, object] | None = None,
 ) -> tuple[str, dict]:
     with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-        return run_service.start_run(config, to_stage, run_id, repo_root=ROOT, selection=selection)
+        return run_service.start_run(config, to_stage, run_id, repo_root=repo_root, selection=selection)
 
 
-def _resume_with_preflight_patch(run_id: str) -> dict:
+def _resume_with_preflight_patch(run_id: str, *, repo_root: Path) -> dict:
     with patch("sqlopt.stages.preflight.check_db_connectivity", return_value={"name": "db", "enabled": True, "ok": True}):
-        return run_service.resume_run(run_id, repo_root=ROOT)
+        return run_service.resume_run(run_id, repo_root=repo_root)
 
 
 class WorkflowGoldenE2ETest(unittest.TestCase):
@@ -60,32 +61,41 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
         config: Path,
         run_id: str,
         *,
+        project_root: Path,
         to_stage: str,
         selection: dict[str, object] | None = None,
     ) -> tuple[Path, int, float]:
         started = time.monotonic()
-        _, first = _run_with_preflight_patch(config, to_stage, run_id, selection=selection)
+        _, first = _run_with_preflight_patch(config, to_stage, run_id, repo_root=project_root, selection=selection)
         steps = 1
         if first.get("complete"):
-            return FIXTURE_PROJECT / "runs" / run_id, steps, time.monotonic() - started
+            return project_root / "runs" / run_id, steps, time.monotonic() - started
         for _ in range(1000):
-            status = run_service.get_status(run_id, repo_root=ROOT)
+            status = run_service.get_status(run_id, repo_root=project_root)
             if status.get("complete"):
                 break
-            _resume_with_preflight_patch(run_id)
+            _resume_with_preflight_patch(run_id, repo_root=project_root)
             steps += 1
         else:
             self.fail("run did not complete within expected loop budget")
-        return FIXTURE_PROJECT / "runs" / run_id, steps, time.monotonic() - started
+        return project_root / "runs" / run_id, steps, time.monotonic() - started
 
     def test_run_resume_status_report_rebuild_apply_golden(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_golden_e2e_") as td:
-            cfg = _write_cfg(td, report_enabled=True)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_golden_e2e_{uuid4().hex[:8]}"
-            run_dir, _steps, _elapsed = self._run_until_complete(cfg, run_id, to_stage="patch_generate")
+            run_dir, _steps, _elapsed = self._run_until_complete(
+                cfg,
+                run_id,
+                project_root=project_root,
+                to_stage="patch_generate",
+            )
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
+            self.assertNotIn(FIXTURE_PROJECT_ROOT, run_dir.parents)
+            self.assertIn(project_root, run_dir.parents)
 
-            status = run_service.get_status(run_id, repo_root=ROOT)
+            status = run_service.get_status(run_id, repo_root=project_root)
             self.assertEqual(
                 set(status.keys()),
                 {
@@ -148,7 +158,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             self.assertGreaterEqual(int((report.get("stats") or {}).get("sql_total") or 0), 1)
             self.assertIn("top_reason_codes", report.get("blockers") or {})
 
-            apply_result = run_service.apply_run(run_id, repo_root=ROOT)
+            apply_result = run_service.apply_run(run_id, repo_root=project_root)
             self.assertEqual(apply_result["run_id"], run_id)
             self.assertEqual((apply_result.get("apply") or {}).get("mode"), "PATCH_ONLY")
             self.assertTrue((run_dir / "apply" / "state.json").exists())
@@ -156,12 +166,12 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
             # Simulate a completed run requiring report rebuild and verify next_action.
             state["report_rebuild_required"] = True
             write_json(run_dir / "control" / "state.json", state)
-            rebuild_status = run_service.get_status(run_id, repo_root=ROOT)
+            rebuild_status = run_service.get_status(run_id, repo_root=project_root)
             self.assertEqual(rebuild_status["next_action"], "report-rebuild")
 
             # Rebuild report on the same run_id; ensure rebuild flag is cleared.
-            _run_with_preflight_patch(cfg, "report", run_id)
-            post_rebuild_status = run_service.get_status(run_id, repo_root=ROOT)
+            _run_with_preflight_patch(cfg, "report", run_id, repo_root=project_root)
+            post_rebuild_status = run_service.get_status(run_id, repo_root=project_root)
             self.assertTrue(post_rebuild_status["complete"])
             self.assertEqual(post_rebuild_status["next_action"], "none")
             post_state = read_json(run_dir / "control" / "state.json")
@@ -169,9 +179,15 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
 
     def test_runtime_step_count_stays_within_baseline_envelope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_perf_baseline_") as td:
-            cfg = _write_cfg(td, report_enabled=True)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_perf_baseline_{uuid4().hex[:8]}"
-            run_dir, steps, elapsed = self._run_until_complete(cfg, run_id, to_stage="patch_generate")
+            run_dir, steps, elapsed = self._run_until_complete(
+                cfg,
+                run_id,
+                project_root=project_root,
+                to_stage="patch_generate",
+            )
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
 
             plan = read_json(run_dir / "control" / "plan.json")
@@ -199,11 +215,13 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
 
     def test_selected_single_sql_workflow_report_blocker_counts_match_patch_results(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_golden_single_sql_") as td:
-            cfg = _write_cfg(td, report_enabled=True)
+            project_root = prepare_mutable_fixture_project(Path(td))
+            cfg = _write_cfg(td, project_root, report_enabled=True)
             run_id = f"run_golden_single_sql_{uuid4().hex[:8]}"
             run_dir, _steps, _elapsed = self._run_until_complete(
                 cfg,
                 run_id,
+                project_root=project_root,
                 to_stage="patch_generate",
                 selection={"sql_keys": ["demo.user.advanced.listUsersFilteredAliased#v17"]},
             )

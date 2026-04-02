@@ -3,7 +3,7 @@
 Calibrate fixture scenarios by running actual pipeline and capturing real outputs.
 
 This script runs the full fixture pipeline, captures actual values,
-and updates fixture_scenarios.json with the correct expectations.
+and updates the sample-project scenario matrix with the correct expectations.
 """
 
 import json
@@ -11,9 +11,9 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, 'python')
-sys.path.insert(0, 'tests')
+sys.path.insert(0, '.')
 
-from fixture_project_harness_support import (
+from sqlopt.devtools.fixture_project import (
     patch_apply_ready,
     run_fixture_patch_and_report_harness,
 )
@@ -111,7 +111,7 @@ def main():
     print(f"Updated {updated_count} scenarios (skipped {skipped_count} original)")
 
     # Save
-    output_path = Path('tests/fixtures/project/fixture_scenarios.json')
+    output_path = Path("tests/fixtures/scenarios/sample_project.json")
     output_path.write_text(
         json.dumps(scenarios, indent=2, ensure_ascii=False) + '\n',
         encoding='utf-8'

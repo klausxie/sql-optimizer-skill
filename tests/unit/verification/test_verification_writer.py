@@ -8,7 +8,7 @@ from sqlopt.verification.models import VerificationCheck, VerificationRecord
 from sqlopt.verification.summary import summarize_records
 from sqlopt.verification.writer import append_verification_record, read_verification_ledger, write_verification_summary
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class _NoValidateContractValidator:

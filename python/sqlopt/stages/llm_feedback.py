@@ -151,7 +151,7 @@ def save_feedback_record(
         run_dir: 运行目录
         record: 反馈记录
     """
-    feedback_file = canonical_paths(run_dir).ops_dir / "llm_feedback.jsonl"
+    feedback_file = canonical_paths(run_dir).llm_feedback_path
     feedback_file.parent.mkdir(parents=True, exist_ok=True)
     append_jsonl(feedback_file, record.to_dict())
 
@@ -207,7 +207,7 @@ def save_feedback_analysis(
         run_dir: 运行目录
         patterns: 问题模式列表
     """
-    analysis_file = canonical_paths(run_dir).ops_dir / "llm_feedback_analysis.json"
+    analysis_file = canonical_paths(run_dir).llm_feedback_analysis_path
     analysis_file.parent.mkdir(parents=True, exist_ok=True)
 
     analysis_data = {

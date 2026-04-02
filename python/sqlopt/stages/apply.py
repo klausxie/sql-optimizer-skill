@@ -20,7 +20,7 @@ def apply_patch_only(run_dir: Path) -> dict:
 
 
 def _resolved_config(run_dir: Path) -> dict:
-    config_path = canonical_paths(run_dir).config_resolved_path
+    config_path = canonical_paths(run_dir).plan_path
     if not config_path.exists():
         return {}
     try:

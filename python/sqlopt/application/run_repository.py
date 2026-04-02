@@ -25,7 +25,7 @@ class RunRepository:
         init_run(self.run_dir, config, run_id)
 
     def write_resolved_config(self, config: dict[str, Any]) -> None:
-        write_json(canonical_paths(self.run_dir).config_resolved_path, config)
+        write_json(canonical_paths(self.run_dir).plan_path, config)
 
     def load_state(self) -> dict[str, Any]:
         return load_state(self.run_dir)

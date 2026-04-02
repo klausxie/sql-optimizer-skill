@@ -77,7 +77,7 @@ def advance_scan(
     if selection:
         selection = finalize_selection_summary(selection, scanned_units=scanned_units, selected_units=selected_units)
         ctx.plan["selection"] = selection
-        selection_path = paths.scan_dir / "selection.json"
+        selection_path = paths.scan_selection_path
         write_json(selection_path, selection)
         write_jsonl(paths.scan_units_path, selected_units)
         artifact_refs.append(str(selection_path))

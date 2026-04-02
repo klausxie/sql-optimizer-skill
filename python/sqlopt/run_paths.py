@@ -57,24 +57,12 @@ class RunPaths:
         return self.run_dir / REL_ARTIFACTS_DIR
 
     @property
-    def scan_dir(self) -> Path:
-        return self.artifacts_dir
+    def scan_config_path(self) -> Path:
+        return self.artifacts_dir / "scan.config.json"
 
     @property
-    def optimize_dir(self) -> Path:
-        return self.artifacts_dir
-
-    @property
-    def validate_dir(self) -> Path:
-        return self.artifacts_dir
-
-    @property
-    def patch_generate_dir(self) -> Path:
-        return self.artifacts_dir
-
-    @property
-    def ops_dir(self) -> Path:
-        return self.control_dir
+    def scan_selection_path(self) -> Path:
+        return self.artifacts_dir / "selection.json"
 
     @property
     def preflight_path(self) -> Path:
@@ -109,8 +97,8 @@ class RunPaths:
         return self.run_dir / REL_SQL_CATALOG
 
     @property
-    def sql_catalog_dir(self) -> Path:
-        return self.sql_dir
+    def template_suggestions_dir(self) -> Path:
+        return self.control_dir / "template_suggestions"
 
     def sql_artifact_dir(self, sql_key: str) -> Path:
         return self.sql_dir / sql_key_path_component(sql_key)
@@ -128,12 +116,12 @@ class RunPaths:
         return self.sql_artifact_dir(sql_key) / "evidence"
 
     @property
-    def config_resolved_path(self) -> Path:
-        return self.plan_path
+    def llm_feedback_path(self) -> Path:
+        return self.control_dir / "llm_feedback.jsonl"
 
     @property
-    def failures_path(self) -> Path:
-        return self.manifest_path
+    def llm_feedback_analysis_path(self) -> Path:
+        return self.control_dir / "llm_feedback_analysis.json"
 
     def ensure_layout(self) -> None:
         for path in (self.run_dir, self.control_dir, self.artifacts_dir, self.sql_dir):

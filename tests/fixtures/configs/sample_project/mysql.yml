@@ -1,5 +1,5 @@
 project:
-  root_path: .
+  root_path: ../../projects/sample_project
 
 scan:
   mapper_globs:

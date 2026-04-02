@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlopt.contracts import ContractValidator
 from sqlopt.stages.patch_generate import execute_one
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class PatchConflictTest(unittest.TestCase):

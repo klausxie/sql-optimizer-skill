@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from ..patch_contracts import build_patch_target_contract, semantic_confidence_rank
@@ -79,6 +80,7 @@ def prove_patch_plan(
     build: PatchBuildResult,
     fragment_catalog: dict[str, dict[str, Any]],
     patch_text: str,
+    base_dir: Path | None = None,
 ) -> PatchProofResult:
     patch_target = _build_patch_target(
         sql_unit=sql_unit,
@@ -94,7 +96,7 @@ def prove_patch_plan(
             reason_code="PATCH_TARGET_CONTRACT_MISSING",
         )
 
-    artifact_result = materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text)
+    artifact_result = materialize_patch_artifact(sql_unit=sql_unit, patch_text=patch_text, base_dir=base_dir)
     replay_result = replay_patch_target(
         sql_unit=sql_unit,
         patch_target=patch_target,

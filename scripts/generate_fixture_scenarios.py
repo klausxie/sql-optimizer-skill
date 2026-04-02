@@ -8,12 +8,16 @@ and generates fixture scenarios with reasonable default expectations.
 
 import json
 from pathlib import Path
+import sys
 import xml.etree.ElementTree as ET
 from typing import Any
 
-ROOT = Path("tests/fixtures/project")
-XML_PATH = ROOT / "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml"
-SCENARIOS_PATH = ROOT / "fixture_scenarios.json"
+sys.path.insert(0, "python")
+
+FIXTURES_ROOT = Path("tests/fixtures")
+FIXTURE_PROJECT_ROOT = FIXTURES_ROOT / "projects/sample_project"
+XML_PATH = FIXTURE_PROJECT_ROOT / "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml"
+SCENARIOS_PATH = FIXTURES_ROOT / "scenarios/sample_project.json"
 
 # Feature patterns to scenario class mapping
 # More conservative - most complex SQL won't generate patches
@@ -108,7 +112,7 @@ def parse_xml_statements(xml_path: Path) -> list[dict[str, Any]]:
                 'statementId': stmt_id,
                 'features': features,
                 'riskFlags': risk_flags,
-                'xmlPath': str(xml_path.relative_to(ROOT)),
+                'xmlPath': str(xml_path.relative_to(FIXTURE_PROJECT_ROOT)),
             })
 
     return statements
@@ -200,8 +204,8 @@ def main():
 
     # First, scan to get actual SQL units
     import sys
-    sys.path.insert(0, 'tests')
-    from fixture_project_harness_support import scan_fixture_project
+    sys.path.insert(0, '.')
+    from sqlopt.devtools.fixture_project import scan_fixture_project
 
     units, units_by_key, fragments = scan_fixture_project()
     print(f"Found {len(units_by_key)} SQL units")
@@ -249,7 +253,7 @@ def main():
         encoding='utf-8'
     )
 
-    print(f"Updated fixture_scenarios.json with {len(all_scenarios)} total scenarios")
+    print(f"Updated {SCENARIOS_PATH} with {len(all_scenarios)} total scenarios")
 
     if not new_scenarios:
         print("No new scenarios to add.")
@@ -262,7 +266,7 @@ def main():
         encoding='utf-8'
     )
 
-    print(f"Updated fixture_scenarios.json with {len(all_scenarios)} total scenarios")
+    print(f"Updated {SCENARIOS_PATH} with {len(all_scenarios)} total scenarios")
 
     # Summary
     classes = {}

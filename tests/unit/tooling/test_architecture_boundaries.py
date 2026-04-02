@@ -7,7 +7,7 @@ from pathlib import Path
 from sqlopt.application import workflow_engine
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def _import_targets(path: Path) -> list[str]:
@@ -96,14 +96,19 @@ class ArchitectureBoundariesTest(unittest.TestCase):
         self.assertIn(".configuration.defaults", imports)
         self.assertIn(".configuration.versioning", imports)
 
-    def test_workflow_engine_delegates_to_workflow_component_modules(self) -> None:
+    def test_workflow_engine_depends_on_core_orchestration_modules_directly(self) -> None:
         path = ROOT / "python" / "sqlopt" / "application" / "workflow_engine.py"
         imports = set(_import_targets(path))
         self.assertIn(".workflow_definition", imports)
-        self.assertIn(".workflow_facade", imports)
+        self.assertIn(".finalizer", imports)
+        self.assertIn(".status_resolver", imports)
+        self.assertIn(".phase_runtime", imports)
+        self.assertIn(".stage_index", imports)
         self.assertIn(".workflow_handlers_adapter", imports)
         self.assertIn(".workflow_step_runner", imports)
-        forbidden_core = {"..runtime", "..io_utils", "..manifest", ".phase_runtime", ".stage_index"}
+        self.assertNotIn(".workflow_facade", imports)
+        self.assertNotIn(".workflow_components", imports)
+        forbidden_core = {"..runtime", "..io_utils", "..manifest"}
         self.assertTrue(forbidden_core.isdisjoint(imports), f"workflow_engine should avoid low-level runtime/io modules: {imports & forbidden_core}")
 
     def test_patch_generate_delegates_to_decision_and_verification_modules(self) -> None:

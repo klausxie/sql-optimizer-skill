@@ -12,7 +12,30 @@ from sqlopt.stages.patch_applicability import PatchApplicabilityResult
 from sqlopt.stages import patch_generate
 from sqlopt.stages.patching_render import build_unified_patch
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
+FIXTURE_PROJECT_ROOT = ROOT / "tests" / "fixtures" / "projects" / "sample_project"
+ADVANCED_USER_MAPPER = (
+    FIXTURE_PROJECT_ROOT
+    / "src"
+    / "main"
+    / "resources"
+    / "com"
+    / "example"
+    / "mapper"
+    / "user"
+    / "advanced_user_mapper.xml"
+)
+SIMPLE_USER_MAPPER = (
+    FIXTURE_PROJECT_ROOT
+    / "src"
+    / "main"
+    / "resources"
+    / "com"
+    / "example"
+    / "mapper"
+    / "user"
+    / "simple_user_mapper.xml"
+)
 
 
 class PatchGenerateOrchestrationTest(unittest.TestCase):
@@ -167,7 +190,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_runs_applicability_before_proof(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -217,7 +240,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_reports_applicability_failure_without_proof_failure_code(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -257,7 +280,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_reports_proof_failure_after_applicability_success(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -522,7 +545,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
-            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
+            "xmlPath": str(ADVANCED_USER_MAPPER),
             "namespace": "demo.user.advanced",
             "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
         }
@@ -573,7 +596,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
-            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
+            "xmlPath": str(ADVANCED_USER_MAPPER),
             "namespace": "demo.user.advanced",
             "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
         }
@@ -587,7 +610,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_blocks_when_replay_target_drift_exists(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -624,7 +647,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_blocks_when_patch_artifact_drifts_from_target(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -658,7 +681,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_blocks_when_patch_targets_different_xml_file(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -667,7 +690,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "namespace": "demo.user.advanced",
             "locators": {"statementId": "listUsersProjected", "range": {"startOffset": 0, "endOffset": 1}},
         }
-        other_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "simple_user_mapper.xml"
+        other_path = SIMPLE_USER_MAPPER
         foreign_patch, changed_lines = build_unified_patch(other_path, "findUsers", "select", "SELECT id FROM users")
         self.assertIsNotNone(foreign_patch)
         self.assertGreater(changed_lines, 0)
@@ -692,7 +715,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
     def test_patch_generate_blocks_when_patch_artifact_hunk_is_invalid(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",
@@ -732,7 +755,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         """
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
-        xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+        xml_path = ADVANCED_USER_MAPPER
         unit = {
             "sqlKey": "demo.user.find#v1",
             "statementType": "SELECT",

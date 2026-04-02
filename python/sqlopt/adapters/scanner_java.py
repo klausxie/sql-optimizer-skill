@@ -335,7 +335,7 @@ def _run_java_scanner(
     out_path: Path,
     dialect: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None:
-    scan_cfg_path = canonical_paths(run_dir).scan_dir / "scan.config.json"
+    scan_cfg_path = canonical_paths(run_dir).scan_config_path
     scan_cfg_path.parent.mkdir(parents=True, exist_ok=True)
     scan_cfg_path.write_text(json.dumps(config.get("scan", {}), ensure_ascii=False), encoding="utf-8")
     cmd = [

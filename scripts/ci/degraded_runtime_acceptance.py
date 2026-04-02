@@ -16,7 +16,7 @@ def _repo_root() -> Path:
 
 
 def _fixture_project(repo_root: Path) -> Path:
-    return repo_root / "tests" / "fixtures" / "project"
+    return repo_root / "tests" / "fixtures" / "projects" / "sample_project"
 
 
 def _scanner_jar(repo_root: Path) -> Path:
@@ -117,10 +117,9 @@ def main() -> None:
         run_id = _run_until_complete(repo_root, config_path)
         run_dir = project_dir / "runs" / run_id
 
-        state = json.loads((run_dir / "pipeline" / "supervisor" / "state.json").read_text(encoding="utf-8"))
-        meta = json.loads((run_dir / "pipeline" / "supervisor" / "meta.json").read_text(encoding="utf-8"))
-        report = json.loads((run_dir / "overview" / "report.json").read_text(encoding="utf-8"))
-        preflight = json.loads((run_dir / "pipeline" / "ops" / "preflight.json").read_text(encoding="utf-8"))
+        state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
+        report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+        preflight = json.loads((run_dir / "control" / "preflight.json").read_text(encoding="utf-8"))
 
         db_check = next((row for row in preflight.get("checks", []) if row.get("name") == "db"), {})
         if db_check.get("reason") != "validate.db_reachable=false":
@@ -129,10 +128,10 @@ def main() -> None:
             raise SystemExit("degraded acceptance failed: validate phase did not complete")
         if state["phase_status"]["report"] != "DONE":
             raise SystemExit("degraded acceptance failed: report phase not done in state")
-        if report["stats"]["pipeline_coverage"]["report"] != "DONE":
-            raise SystemExit("degraded acceptance failed: overview/report.json does not show report DONE")
-        if str(meta.get("status")) != "COMPLETED":
-            raise SystemExit("degraded acceptance failed: meta status not completed")
+        if report["phase_status"]["report"] != "DONE":
+            raise SystemExit("degraded acceptance failed: report.json does not show report DONE")
+        if str(state.get("status")) != "COMPLETED":
+            raise SystemExit("degraded acceptance failed: state status not completed")
 
         print(
             json.dumps(
@@ -143,7 +142,7 @@ def main() -> None:
                     "run_dir": str(run_dir),
                     "db_check": db_check,
                     "phase_status": state["phase_status"],
-                    "meta_status": meta.get("status"),
+                    "run_status": state.get("status"),
                 },
                 ensure_ascii=False,
             )

@@ -10,7 +10,22 @@ from sqlopt.contracts import ContractValidator
 from sqlopt.platforms.sql.models import ValidationResult
 from sqlopt.stages import optimize, patch_generate, scan, validate
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
+ADVANCED_USER_MAPPER = (
+    ROOT
+    / "tests"
+    / "fixtures"
+    / "projects"
+    / "sample_project"
+    / "src"
+    / "main"
+    / "resources"
+    / "com"
+    / "example"
+    / "mapper"
+    / "user"
+    / "advanced_user_mapper.xml"
+)
 
 
 def _sql_unit() -> dict:
@@ -265,7 +280,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_patch_replay_") as td:
             run_dir = Path(td)
             (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
-            xml_path = ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"
+            xml_path = ADVANCED_USER_MAPPER
             xml_text = xml_path.read_text(encoding="utf-8")
             statement_open = '<select id="listUsersProjected" resultType="map">'
             statement_start = xml_text.index(statement_open) + len(statement_open)

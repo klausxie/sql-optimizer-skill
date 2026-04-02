@@ -1,9 +1,9 @@
 project:
-  root_path: .
+  root_path: ../../projects/sample_project
 
 scan:
   mapper_globs:
-    - src/main/resources/**/*.xml
+    - ../../scan_samples/dynamic_tags_mapper.xml
 
 db:
   platform: mysql
@@ -14,4 +14,4 @@ llm:
   provider: heuristic
 
 report:
-  enabled: true
+  enabled: false

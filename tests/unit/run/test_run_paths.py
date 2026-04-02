@@ -112,9 +112,21 @@ class TestOldPathsRemoved(unittest.TestCase):
     def test_no_ops_dir(self) -> None:
         """pipeline/ops/ should not exist."""
         paths = canonical_paths(Path("/tmp/run_demo"))
+        self.assertFalse(hasattr(paths, "ops_dir"))
         self.assertFalse(hasattr(paths, "health_path"))
         self.assertFalse(hasattr(paths, "topology_path"))
         self.assertFalse(hasattr(paths, "pipeline_dir"))
+
+    def test_no_compatibility_aliases(self) -> None:
+        """Compatibility aliases should be removed once callers use explicit paths."""
+        paths = canonical_paths(Path("/tmp/run_demo"))
+        self.assertFalse(hasattr(paths, "scan_dir"))
+        self.assertFalse(hasattr(paths, "optimize_dir"))
+        self.assertFalse(hasattr(paths, "validate_dir"))
+        self.assertFalse(hasattr(paths, "patch_generate_dir"))
+        self.assertFalse(hasattr(paths, "config_resolved_path"))
+        self.assertFalse(hasattr(paths, "failures_path"))
+        self.assertFalse(hasattr(paths, "sql_catalog_dir"))
 
     def test_no_report_md(self) -> None:
         """report.md should not be generated."""

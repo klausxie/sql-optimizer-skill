@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import unittest
 from pathlib import Path
+import unittest
 
 from tests.support.fixture_project_harness_support import (
     BLOCKER_FAMILIES,
-    FIXTURE_PROJECT,
+    FIXTURE_PROJECT_ROOT,
     PATCHABILITY_TARGETS,
     ROADMAP_STAGES,
     ROADMAP_THEMES,
@@ -70,7 +70,7 @@ class FixtureScenarioMatrixTest(unittest.TestCase):
             self.assertIsInstance(scenario["expectedRiskFlags"], list)
             self.assertIsInstance(scenario["targetPatchMustContain"], list)
             self.assertIsInstance(scenario["targetPatchMustNotContain"], list)
-            mapper_path = FIXTURE_PROJECT / str(scenario["mapperPath"])
+            mapper_path = FIXTURE_PROJECT_ROOT / str(scenario["mapperPath"])
             self.assertTrue(mapper_path.exists(), mapper_path)
 
         self.assertEqual(domains, {"user", "order", "shipment", "test.complex"})
@@ -93,7 +93,7 @@ class FixtureProjectScanHarnessTest(unittest.TestCase):
             self.assertEqual(str(row["statementType"]), str(scenario["statementType"]))
             self.assertEqual(
                 Path(str(row["xmlPath"])).resolve(),
-                (FIXTURE_PROJECT / str(scenario["mapperPath"])).resolve(),
+                (FIXTURE_PROJECT_ROOT / str(scenario["mapperPath"])).resolve(),
             )
             self.assertEqual(set(row.get("dynamicFeatures") or []), set(scenario["expectedScanFeatures"]))
             self.assertEqual(set(row.get("riskFlags") or []), set(scenario["expectedRiskFlags"]))
@@ -101,6 +101,47 @@ class FixtureProjectScanHarnessTest(unittest.TestCase):
                 self.assertIsNotNone(row.get("dynamicTrace"), sql_key)
             if "INCLUDE" in set(scenario["expectedScanFeatures"]):
                 self.assertGreater(len(row.get("includeTrace") or []), 0, sql_key)
+
+
+class FixtureLayoutRegressionTest(unittest.TestCase):
+    def test_repo_materials_do_not_reference_removed_fixture_project_root(self) -> None:
+        repo_root = Path(__file__).resolve().parents[3]
+        removed_fixture_root = "/".join(["tests", "fixtures", "project"])
+        removed_fixture_roots = {
+            removed_fixture_root + "/",
+            removed_fixture_root + "`",
+            removed_fixture_root + "\n",
+        }
+        checked_paths = [
+            repo_root / "AGENTS.md",
+            repo_root / "CLAUDE.md",
+            repo_root / "tests",
+            repo_root / "scripts",
+            repo_root / "python",
+        ]
+        skipped_dirs = {repo_root / "tests" / "__pycache__", repo_root / "docs"}
+        stale_refs: list[str] = []
+
+        def _scan_file(path: Path) -> None:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except Exception:
+                return
+            if any(marker in text for marker in removed_fixture_roots):
+                stale_refs.append(str(path.relative_to(repo_root)))
+
+        for path in checked_paths:
+            if path.is_file():
+                _scan_file(path)
+                continue
+            for file_path in path.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                if any(parent == skipped for parent in [file_path, *file_path.parents] for skipped in skipped_dirs):
+                    continue
+                _scan_file(file_path)
+
+        self.assertEqual(stale_refs, [])
 
 
 if __name__ == "__main__":
