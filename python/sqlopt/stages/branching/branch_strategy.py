@@ -51,12 +51,20 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
     This provides 100% coverage but can grow exponentially.
     """
 
-    def generate(self, conditions: List[str], max_branches: int = DEFAULT_MAX_BRANCHES) -> List[List[str]]:
+    def generate(
+        self,
+        conditions: List[str],
+        max_branches: int = DEFAULT_MAX_BRANCHES,
+        mutex_groups: dict[str, str] | None = None,
+    ) -> List[List[str]]:
         """Generate all 2^n combinations.
 
         Args:
             conditions: List of condition strings.
             max_branches: Maximum branches to generate.
+            mutex_groups: Optional mapping of condition -> mutex_group.
+                If provided, combinations with multiple conditions from
+                the same mutex_group will be filtered out.
 
         Returns:
             List of combinations, each containing conditions to activate.
@@ -76,6 +84,9 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
                     if mask & (1 << i):
                         combo.append(conditions[i])
                 combinations.append(combo)
+            # Post-filter: remove mutex conflicts if mutex_groups provided
+            if mutex_groups:
+                return [c for c in combinations if not _has_choose_mutex_conflict(c, mutex_groups)]
             return combinations
 
         # Otherwise, generate subset (prioritize edge cases)
@@ -101,6 +112,10 @@ class AllCombinationsStrategy(BranchGenerationStrategy):
                     combo.append(conditions[i])
             if combo not in combinations:
                 combinations.append(combo)
+
+        # Post-filter: remove mutex conflicts if mutex_groups provided
+        if mutex_groups:
+            combinations = [c for c in combinations if not _has_choose_mutex_conflict(c, mutex_groups)]
 
         return combinations[:max_branches]
 
@@ -566,3 +581,18 @@ def create_strategy(
             field_distributions=field_distributions,
         )
     return strategy_class()
+
+
+def _has_choose_mutex_conflict(
+    combination: list[str],
+    mutex_groups: dict[str, str],
+) -> bool:
+    seen_groups: set[str] = set()
+    for condition in combination:
+        group = mutex_groups.get(condition)
+        if not group:
+            continue
+        if group in seen_groups:
+            return True
+        seen_groups.add(group)
+    return False
