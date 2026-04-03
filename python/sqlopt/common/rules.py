@@ -43,6 +43,7 @@ _PHASE2_TO_FACTOR_CODE: dict[str, str] = {
     "sql_keyword_group_by": "GROUP_BY",
     "sql_keyword_join": "JOIN_WITHOUT_INDEX",
     "sql_keyword_exists": "EXISTS",
+    "sql_ast_function_wrap": "FUNCTION_ON_INDEXED_COLUMN",
 }
 
 # Phase 1 rules → RiskFactor codes
@@ -451,6 +452,18 @@ class RiskRuleRegistry:
                     resolved_factor = resolve_severity(base_factor, context)
                     factors.append(resolved_factor)
                     raw_score += rule.weight
+
+        # AST-based function wrap detection (Phase 2)
+        from sqlopt.common.function_wrap_detector import detect_function_wrapped_columns
+
+        wrapped = detect_function_wrapped_columns(sql_lower, dialect=None)
+        for column, func_name in wrapped:
+            if "FUNCTION_ON_INDEXED_COLUMN" in RISK_FACTOR_REGISTRY:
+                base_factor = RISK_FACTOR_REGISTRY["FUNCTION_ON_INDEXED_COLUMN"]
+                context = {"column": column, "function_name": func_name}
+                resolved_factor = resolve_severity(base_factor, context)
+                factors.append(resolved_factor)
+                raw_score += 3.0  # CRITICAL weight
 
         # Metadata factor collection
         if table_metadata:
