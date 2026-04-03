@@ -22,6 +22,7 @@ from .patch import (
 )
 from .report import assert_report_generated
 from .run import assert_phase_status, assert_report_rebuild_cleared, assert_run_completed
+from .validate import assert_validate_matrix_matches_scenarios
 from .workflow import assert_manifest_contains_stages
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "assert_report_generated",
     "assert_report_rebuild_cleared",
     "assert_run_completed",
+    "assert_validate_matrix_matches_scenarios",
     "dynamic_blocked_neighbor_families",
     "fixture_dynamic_registered_families",
     "fixture_registered_blocked_neighbor_families",

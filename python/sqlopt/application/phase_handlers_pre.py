@@ -32,7 +32,7 @@ def advance_preflight(
     ctx.state["current_phase"] = str(phase_transitions["preflight"])
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
+    ctx.repo.append_phase_event(
         "preflight",
         "DONE",
         artifact_refs=[str(paths.preflight_path)],
@@ -91,7 +91,7 @@ def advance_scan(
     }
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
+    ctx.repo.append_phase_event(
         "scan",
         "DONE",
         artifact_refs=artifact_refs,

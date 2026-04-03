@@ -19,8 +19,8 @@ class _FakeRepository:
         self.plan = plan
         self.saved_states: list[dict] = []
         self.saved_plans: list[dict] = []
-        self.step_results: list[tuple[str, str, dict]] = []
-        self.meta_statuses: list[str] = []
+        self.phase_events: list[tuple[str, str, dict]] = []
+        self.run_statuses: list[str] = []
 
     def load_state(self) -> dict:
         return self.state
@@ -42,11 +42,11 @@ class _FakeRepository:
         self.plan = plan
         self.saved_plans.append(dict(plan))
 
-    def append_step_result(self, phase: str, status: str, **kwargs) -> None:
-        self.step_results.append((phase, status, kwargs))
+    def append_phase_event(self, phase: str, status: str, **kwargs) -> None:
+        self.phase_events.append((phase, status, kwargs))
 
-    def set_meta_status(self, status: str) -> None:
-        self.meta_statuses.append(status)
+    def set_run_status(self, status: str) -> None:
+        self.run_statuses.append(status)
 
 
 class _DummyProgress:
@@ -129,8 +129,8 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         self.assertEqual(state["phase_status"]["report"], "DONE")
         self.assertEqual(state["current_phase"], "report")
         self.assertEqual(state["attempts_by_phase"]["report"], 2)
-        self.assertEqual(repo.meta_statuses, ["COMPLETED"])
-        self.assertEqual(repo.step_results[0][0:2], ("report", "DONE"))
+        self.assertEqual(repo.run_statuses, ["COMPLETED"])
+        self.assertEqual(repo.phase_events[0][0:2], ("report", "DONE"))
 
     def test_finalize_report_failure_delegates_to_record_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_fail_") as td:
@@ -154,7 +154,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
 
         record_failure.assert_called_once()
         self.assertEqual(record_failure.call_args.args[2], "report")
-        self.assertEqual(repo.meta_statuses, ["FAILED"])
+        self.assertEqual(repo.run_statuses, ["FAILED"])
 
     def test_finalize_report_rebuild_failure_preserves_completed_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_rebuild_fail_") as td:
@@ -187,9 +187,9 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         self.assertEqual(state["phase_status"]["report"], "DONE")
         self.assertTrue(state["report_rebuild_required"])
         self.assertEqual(state["last_reason_code"], "REPORT_FAILED")
-        self.assertEqual(repo.meta_statuses, ["COMPLETED"])
-        self.assertEqual(repo.step_results[-1][0:2], ("report", "FAILED"))
-        self.assertTrue(repo.step_results[-1][2]["detail"]["rebuild"])
+        self.assertEqual(repo.run_statuses, ["COMPLETED"])
+        self.assertEqual(repo.phase_events[-1][0:2], ("report", "FAILED"))
+        self.assertTrue(repo.phase_events[-1][2]["detail"]["rebuild"])
 
     def test_advance_preflight_failure_without_report_sets_failed_meta(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_preflight_fail_") as td:
@@ -217,7 +217,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         record_failure.assert_called_once()
         self.assertEqual(record_failure.call_args.args[2], "preflight")
         finalize_report.assert_not_called()
-        self.assertEqual(repo.meta_statuses, ["FAILED"])
+        self.assertEqual(repo.run_statuses, ["FAILED"])
 
     def test_advance_scan_filters_selected_sql_keys_into_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_scan_selection_") as td:
@@ -286,7 +286,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         self.assertEqual(state["attempts_by_phase"]["preflight"], 1)
         finalize_without_report.assert_called_once()
         self.assertEqual(finalize_without_report.call_args.kwargs["final_meta_status"], "COMPLETED")
-        self.assertEqual(repo.step_results[0][0:2], ("preflight", "DONE"))
+        self.assertEqual(repo.phase_events[0][0:2], ("preflight", "DONE"))
 
     def test_advance_optimize_completion_marks_downstream_skipped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_opt_done_") as td:
@@ -380,7 +380,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
         record_failure.assert_called_once()
         self.assertEqual(record_failure.call_args.args[2], "optimize")
         finalize_report.assert_not_called()
-        self.assertEqual(repo.meta_statuses, ["FAILED"])
+        self.assertEqual(repo.run_statuses, ["FAILED"])
 
     def test_advance_validate_failure_with_report_enabled_records_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_validate_fail_") as td:
@@ -420,7 +420,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
 
         self.assertEqual(state["phase_status"]["validate"], "FAILED")
         self.assertEqual(state["last_reason_code"], "VALIDATE_FAILED")
-        self.assertEqual(repo.step_results[-1][0:2], ("validate", "FAILED"))
+        self.assertEqual(repo.phase_events[-1][0:2], ("validate", "FAILED"))
         finalize_report.assert_called_once()
         self.assertEqual(finalize_report.call_args.kwargs["final_meta_status"], "FAILED")
 
@@ -463,9 +463,9 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
 
         self.assertEqual(state["phase_status"]["patch_generate"], "FAILED")
         self.assertEqual(state["last_reason_code"], "PATCH_FAILED")
-        self.assertEqual(repo.step_results[-1][0:2], ("patch_generate", "FAILED"))
+        self.assertEqual(repo.phase_events[-1][0:2], ("patch_generate", "FAILED"))
         finalize_report.assert_not_called()
-        self.assertEqual(repo.meta_statuses, ["FAILED"])
+        self.assertEqual(repo.run_statuses, ["FAILED"])
 
     def test_advance_rebuilds_report_when_pipeline_is_already_complete(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_workflow_report_resume_") as td:

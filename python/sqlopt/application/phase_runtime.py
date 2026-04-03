@@ -53,7 +53,7 @@ def record_failure(
     state["last_reason_code"] = reason_code
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
     repo.save_state(state)
-    repo.append_step_result(
+    repo.append_phase_event(
         phase,
         "FAILED",
         reason_code=reason_code,

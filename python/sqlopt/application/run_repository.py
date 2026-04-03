@@ -6,12 +6,12 @@ from typing import Any
 from ..io_utils import write_json
 from ..run_paths import canonical_paths
 from ..supervisor import (
-    append_step_result,
+    append_phase_event,
     get_plan,
     init_run,
     load_state,
     save_state,
-    set_meta_status,
+    set_run_status,
     set_plan,
 )
 
@@ -38,8 +38,31 @@ class RunRepository:
     def set_plan(self, plan: dict[str, Any]) -> None:
         set_plan(self.run_dir, plan)
 
+    def set_run_status(self, status: str) -> None:
+        set_run_status(self.run_dir, status)
+
+    def append_phase_event(
+        self,
+        phase: str,
+        status: str,
+        *,
+        sql_key: str | None = None,
+        reason_code: str | None = None,
+        artifact_refs: list[str] | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        append_phase_event(
+            self.run_dir,
+            phase,
+            status,
+            sql_key=sql_key,
+            reason_code=reason_code,
+            artifact_refs=artifact_refs,
+            detail=detail,
+        )
+
     def set_meta_status(self, status: str) -> None:
-        set_meta_status(self.run_dir, status)
+        self.set_run_status(status)
 
     def append_step_result(
         self,
@@ -51,8 +74,7 @@ class RunRepository:
         artifact_refs: list[str] | None = None,
         detail: dict[str, Any] | None = None,
     ) -> None:
-        append_step_result(
-            self.run_dir,
+        self.append_phase_event(
             phase,
             status,
             sql_key=sql_key,

@@ -15,17 +15,17 @@ class _RepoStub:
     def __init__(self, run_dir: Path):
         self.run_dir = run_dir
         self.saved_state: dict = {}
-        self.meta_statuses: list[str] = []
-        self.step_results: list[tuple[str, str]] = []
+        self.run_statuses: list[str] = []
+        self.phase_events: list[tuple[str, str]] = []
 
     def save_state(self, state: dict) -> None:
         self.saved_state = dict(state)
 
-    def set_meta_status(self, status: str) -> None:
-        self.meta_statuses.append(status)
+    def set_run_status(self, status: str) -> None:
+        self.run_statuses.append(status)
 
-    def append_step_result(self, phase: str, status: str, **_kwargs) -> None:
-        self.step_results.append((phase, status))
+    def append_phase_event(self, phase: str, status: str, **_kwargs) -> None:
+        self.phase_events.append((phase, status))
 
 
 class FinalizerModuleTest(unittest.TestCase):
@@ -68,8 +68,8 @@ class FinalizerModuleTest(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertEqual(state["attempts_by_phase"]["report"], 2)
-        self.assertEqual(repo.meta_statuses, ["COMPLETED"])
-        self.assertIn(("report", "DONE"), repo.step_results)
+        self.assertEqual(repo.run_statuses, ["COMPLETED"])
+        self.assertIn(("report", "DONE"), repo.phase_events)
 
     def test_finalize_report_failure_marks_ready_to_finalize_on_completed_rebuild(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_finalizer_fail_") as td:
@@ -94,7 +94,7 @@ class FinalizerModuleTest(unittest.TestCase):
             )
 
         self.assertFalse(ok)
-        self.assertEqual(repo.meta_statuses, ["READY_TO_FINALIZE"])
+        self.assertEqual(repo.run_statuses, ["READY_TO_FINALIZE"])
 
 
 if __name__ == "__main__":

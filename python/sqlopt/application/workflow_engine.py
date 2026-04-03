@@ -212,7 +212,7 @@ def _handle_phase_failure(ctx: Any, phase: str, exc: StageError) -> None:
     if report_enabled(ctx.config):
         ctx.finalize_report(ctx.run_dir, ctx.config, ctx.validator, ctx.state, final_meta_status="FAILED")
     else:
-        ctx.repo.set_meta_status("FAILED")
+        ctx.repo.set_run_status("FAILED")
 
 
 def _advance_preflight(ctx: Any) -> dict[str, Any] | None:

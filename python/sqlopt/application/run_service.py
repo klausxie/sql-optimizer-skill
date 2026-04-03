@@ -42,7 +42,7 @@ def start_run(
         repository.initialize(config, resolved_run_id)
         log_event(canonical_paths(run_dir).manifest_path, "initialize", "done", {"run_id": resolved_run_id})
     run_index.remember_run(resolved_run_id, run_dir, config_path, runs_root)
-    repository.set_meta_status("RUNNING")
+    repository.set_run_status("RUNNING")
 
     plan = repository.get_plan()
     plan["to_stage"] = to_stage

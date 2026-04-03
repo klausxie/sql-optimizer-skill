@@ -28,7 +28,7 @@ def advance_optimize(
         ctx.state["phase_status"][phase] = "DONE"
         ctx.state["current_phase"] = str(phase_transitions[phase])
         ctx.repo.save_state(ctx.state)
-        ctx.repo.append_step_result(phase, "DONE")
+        ctx.repo.append_phase_event(phase, "DONE")
         ctx.progress.report_phase_complete(phase)
         if ctx.to_stage == phase:
             ctx.state["phase_status"]["validate"] = "SKIPPED"
@@ -56,7 +56,7 @@ def advance_optimize(
     ctx.state["statements"][key][phase] = "DONE"
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
+    ctx.repo.append_phase_event(
         phase,
         "DONE",
         sql_key=key,
@@ -87,7 +87,7 @@ def advance_validate(
         ctx.state["phase_status"][phase] = "DONE"
         ctx.state["current_phase"] = str(phase_transitions[phase])
         ctx.repo.save_state(ctx.state)
-        ctx.repo.append_step_result(phase, "DONE")
+        ctx.repo.append_phase_event(phase, "DONE")
         ctx.progress.report_phase_complete(phase)
         if ctx.to_stage == phase:
             ctx.state["phase_status"]["patch_generate"] = "SKIPPED"
@@ -121,7 +121,7 @@ def advance_validate(
     ctx.state["statements"][key][phase] = "DONE"
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
+    ctx.repo.append_phase_event(
         phase,
         "DONE",
         sql_key=key,
@@ -152,9 +152,9 @@ def advance_patch_generate(
         ctx.state["phase_status"][phase] = "DONE"
         ctx.state["current_phase"] = str(phase_transitions[phase])
         ctx.repo.save_state(ctx.state)
-        ctx.repo.append_step_result(phase, "DONE")
+        ctx.repo.append_phase_event(phase, "DONE")
         ctx.progress.report_phase_complete(phase)
-        ctx.repo.set_meta_status("READY_TO_FINALIZE")
+        ctx.repo.set_run_status("READY_TO_FINALIZE")
         if ctx.to_stage == phase:
             finalize_completed_run(ctx)
         return complete_phase_result(ctx, phase)
@@ -184,7 +184,7 @@ def advance_patch_generate(
     ctx.state["statements"][key][phase] = "DONE"
     mark_updated(ctx.state)
     ctx.repo.save_state(ctx.state)
-    ctx.repo.append_step_result(
+    ctx.repo.append_phase_event(
         phase,
         "DONE",
         sql_key=key,

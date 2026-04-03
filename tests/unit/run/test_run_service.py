@@ -13,7 +13,7 @@ from sqlopt.application.requests import AdvanceStepRequest, RunStatusRequest
 class _RepoStub:
     init_calls = 0
     write_cfg_calls = 0
-    meta_statuses: list[str] = []
+    run_statuses: list[str] = []
     plans_set: list[dict] = []
     state: dict = {}
     plan: dict = {}
@@ -26,7 +26,7 @@ class _RepoStub:
     def reset(cls) -> None:
         cls.init_calls = 0
         cls.write_cfg_calls = 0
-        cls.meta_statuses = []
+        cls.run_statuses = []
         cls.plans_set = []
         cls.state = {}
         cls.plan = {"to_stage": "patch_generate"}
@@ -39,8 +39,8 @@ class _RepoStub:
     def write_resolved_config(self, config: dict) -> None:
         type(self).write_cfg_calls += 1
 
-    def set_meta_status(self, status: str) -> None:
-        type(self).meta_statuses.append(status)
+    def set_run_status(self, status: str) -> None:
+        type(self).run_statuses.append(status)
 
     def get_plan(self) -> dict:
         return dict(type(self).plan)
@@ -83,7 +83,7 @@ class RunServiceTest(unittest.TestCase):
         self.assertEqual(_RepoStub.init_calls, 1)
         # write_resolved_config is no longer called - config is now stored in plan.json
         self.assertEqual(_RepoStub.write_cfg_calls, 0)
-        self.assertEqual(_RepoStub.meta_statuses, ["RUNNING", "RUNNING"])
+        self.assertEqual(_RepoStub.run_statuses, ["RUNNING", "RUNNING"])
         self.assertEqual(_RepoStub.plans_set[-1]["to_stage"], "patch_generate")
 
     def test_start_run_persists_normalized_selection(self) -> None:

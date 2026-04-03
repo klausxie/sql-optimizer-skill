@@ -81,8 +81,8 @@ def get_plan(run_dir: Path) -> dict[str, Any]:
     return read_json(canonical_paths(run_dir).plan_path)
 
 
-def set_meta_status(run_dir: Path, status: str) -> None:
-    """Update the run status in state.json."""
+def set_run_status(run_dir: Path, status: str) -> None:
+    """Update the run status in control/state.json."""
     state = load_state(run_dir)
     state["status"] = status
     state["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -113,7 +113,7 @@ def append_manifest_event(
     )
 
 
-def append_step_result(
+def append_phase_event(
     run_dir: Path,
     phase: str,
     status: str,
@@ -123,12 +123,7 @@ def append_step_result(
     artifact_refs: list[str] | None = None,
     detail: dict[str, Any] | None = None,
 ) -> None:
-    """Compatibility wrapper for legacy step-result callers.
-
-    Older callers record phase/status style events with optional detail fields.
-    The minimal layout stores these in control/manifest.jsonl as a generic event
-    row whose payload carries the legacy metadata.
-    """
+    """Append a phase event row into control/manifest.jsonl."""
     append_manifest_event(
         run_dir,
         phase,
@@ -140,4 +135,31 @@ def append_step_result(
             "artifact_refs": list(artifact_refs or []),
             "detail": dict(detail or {}),
         },
+    )
+
+
+def set_meta_status(run_dir: Path, status: str) -> None:
+    """Legacy alias for set_run_status()."""
+    set_run_status(run_dir, status)
+
+
+def append_step_result(
+    run_dir: Path,
+    phase: str,
+    status: str,
+    *,
+    sql_key: str | None = None,
+    reason_code: str | None = None,
+    artifact_refs: list[str] | None = None,
+    detail: dict[str, Any] | None = None,
+) -> None:
+    """Legacy alias for append_phase_event()."""
+    append_phase_event(
+        run_dir,
+        phase,
+        status,
+        sql_key=sql_key,
+        reason_code=reason_code,
+        artifact_refs=artifact_refs,
+        detail=detail,
     )

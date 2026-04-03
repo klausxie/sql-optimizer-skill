@@ -67,7 +67,7 @@ class RunFinalizer:
                 state["report_rebuild_required"] = True
                 state["updated_at"] = datetime.now(timezone.utc).isoformat()
                 repo.save_state(state)
-                repo.append_step_result(
+                repo.append_phase_event(
                     "report",
                     "FAILED",
                     reason_code=reason_code,
@@ -80,7 +80,7 @@ class RunFinalizer:
                     "failed",
                     {"reason_code": reason_code, "message": str(exc)},
                 )
-                repo.set_meta_status(final_meta_status)
+                repo.set_run_status(final_meta_status)
                 return False
 
             record_failure_fn(run_dir, state, "report", reason_code, str(exc))
@@ -88,7 +88,7 @@ class RunFinalizer:
             state["current_phase"] = "report"
             state["updated_at"] = datetime.now(timezone.utc).isoformat()
             repo.save_state(state)
-            repo.set_meta_status("READY_TO_FINALIZE" if final_meta_status == "COMPLETED" else final_meta_status)
+            repo.set_run_status("READY_TO_FINALIZE" if final_meta_status == "COMPLETED" else final_meta_status)
             return False
 
         state["attempts_by_phase"]["report"] += attempts
@@ -96,8 +96,8 @@ class RunFinalizer:
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
         repo.save_state(state)
         if not report_was_done:
-            repo.append_step_result("report", "DONE", artifact_refs=[str(paths.report_json_path)])
-        repo.set_meta_status(final_meta_status)
+            repo.append_phase_event("report", "DONE", artifact_refs=[str(paths.report_json_path)])
+        repo.set_run_status(final_meta_status)
         return True
 
     def finalize_without_report(
@@ -115,5 +115,5 @@ class RunFinalizer:
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
         repo.save_state(state)
         if not report_was_skipped:
-            repo.append_step_result("report", "SKIPPED")
-        repo.set_meta_status(final_meta_status)
+            repo.append_phase_event("report", "SKIPPED")
+        repo.set_run_status(final_meta_status)
