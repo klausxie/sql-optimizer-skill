@@ -2026,8 +2026,9 @@ def generate_parse_report(output: ParseOutput, stats: ParseStageStats | None, ou
         unit_high_label = f"HIGH×{unit_high}" if unit_high > 0 else ""
         unit_medium_label = f"MEDIUM×{unit_medium}" if unit_medium > 0 else ""
 
+        json_path = f"units/{unit.sql_unit_id}.json"
         html += f"""
-        <div class="unit-item" data-high="{unit_high}" data-medium="{unit_medium}" data-risk="{unit_risk}">
+        <div class="unit-item" data-high="{unit_high}" data-medium="{unit_medium}" data-risk="{unit_risk}" data-json-path="{json_path}">
           <div class="unit-header" onclick="toggleUnit(this)">
             <span class="unit-toggle">▶</span>
             <span class="unit-id">{safe_unit_id}</span>
@@ -2303,22 +2304,24 @@ def generate_recognition_report(output: RecognitionOutput, output_path: str) -> 
             </tr>
 """
 
+    time_data_list = [
+        (b.sql_unit_id[:20], b.actual_time_ms or 0)
+        for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]
+    ]
+    time_labels_js = "[" + ", ".join(f"'{label}'" for label, _ in time_data_list) + "]"
+    time_values_js = "[" + ", ".join(str(val) for _, val in time_data_list) + "]"
+
     html += (
-        """        </tbody>
+        f"""        </tbody>
     </table>
 </div>
 <script>
-const costLabels = """
-        f"{list(cost_buckets.keys())}"
-        """;
-const costValues = """
-        f"{list(cost_buckets.values())}"
-        """;
+const costLabels = {list(cost_buckets.keys())};
+const costValues = {list(cost_buckets.values())};
 drawHorizontalBar('costChart', costValues, costLabels, '#6366f1');
-const timeData = """
-        f"{[(b.sql_unit_id[:20], b.actual_time_ms or 0) for b in sorted(baselines, key=lambda x: x.actual_time_ms or 0, reverse=True)[:10]]}"
-        """;
-drawHorizontalBar('timeChart', timeData.map(d => d[1]), timeData.map(d => d[0]), '#f59e0b');
+const timeLabels = {time_labels_js};
+const timeValues = {time_values_js};
+drawHorizontalBar('timeChart', timeValues, timeLabels, '#f59e0b');
 </script>
 """
         + BASE_JS
@@ -2440,22 +2443,24 @@ def generate_optimize_report(output: OptimizeOutput, output_path: str) -> None:
             </tr>
 """
 
+    gain_data_list = [
+        (p.sql_unit_id[:15], p.gain_ratio or 0)
+        for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]
+    ]
+    gain_labels_js = "[" + ", ".join(f"'{label}'" for label, _ in gain_data_list) + "]"
+    gain_values_js = "[" + ", ".join(str(val) for _, val in gain_data_list) + "]"
+
     html += (
-        """        </tbody>
+        f"""        </tbody>
     </table>
 </div>
 <script>
-const confLabels = """
-        f"{list(conf_buckets.keys())}"
-        """;
-const confValues = """
-        f"{list(conf_buckets.values())}"
-        """;
+const confLabels = {list(conf_buckets.keys())};
+const confValues = {list(conf_buckets.values())};
 drawHorizontalBar('confChart', confValues, confLabels, '#22c55e');
-const gainData = """
-        f"{[(p.sql_unit_id[:15], p.gain_ratio or 0) for p in sorted(proposals, key=lambda x: x.gain_ratio or 0, reverse=True)[:10]]}"
-        """;
-drawHorizontalBar('gainChart', gainData.map(d => d[1]), gainData.map(d => d[0]), '#3b82f6');
+const gainLabels = {gain_labels_js};
+const gainValues = {gain_values_js};
+drawHorizontalBar('gainChart', gainValues, gainLabels, '#3b82f6');
 </script>
 """
         + BASE_JS
