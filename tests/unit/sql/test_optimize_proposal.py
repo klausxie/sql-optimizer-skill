@@ -9,7 +9,7 @@ from sqlopt.platforms.sql.optimizer_sql import build_optimize_prompt, generate_p
 class OptimizeProposalTest(unittest.TestCase):
     def test_build_prompt_includes_template_context_for_dynamic_sql(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.findByList#v1",
+            "sqlKey": "demo.user.findByList",
             "sql": "SELECT id FROM users WHERE id IN (#{item.id}, #{item.id})",
             "templateSql": 'SELECT id FROM users WHERE id IN <foreach collection="list" item="item">#{item.id}</foreach>',
             "dynamicFeatures": ["FOREACH", "INCLUDE"],
@@ -27,7 +27,7 @@ class OptimizeProposalTest(unittest.TestCase):
 
     def test_dollar_substitution_blocks_actionability(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.findUsers#v1",
+            "sqlKey": "demo.user.findUsers",
             "sql": "SELECT * FROM users WHERE status = #{status} ORDER BY ${orderBy}",
             "statementType": "SELECT",
         }
@@ -40,7 +40,7 @@ class OptimizeProposalTest(unittest.TestCase):
 
     def test_static_sql_scores_as_high_value(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.listUsers#v1",
+            "sqlKey": "demo.user.listUsers",
             "sql": "SELECT id FROM users",
             "statementType": "SELECT",
             "dynamicFeatures": [],
@@ -53,7 +53,7 @@ class OptimizeProposalTest(unittest.TestCase):
 
     def test_dynamic_include_reduces_patch_likelihood(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.dynamicUsers#v1",
+            "sqlKey": "demo.user.dynamicUsers",
             "sql": "SELECT id FROM users WHERE id IN (#{id})",
             "statementType": "SELECT",
             "dynamicFeatures": ["IF", "INCLUDE"],

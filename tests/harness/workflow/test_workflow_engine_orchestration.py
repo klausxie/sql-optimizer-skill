@@ -235,7 +235,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                     "selection": {
                         "present": True,
                         "mapper_paths": ["src/main/resources/demo_mapper.xml"],
-                        "sql_keys": ["demo.user.b#v1"],
+                        "sql_keys": ["demo.user.b"],
                     },
                 },
             )
@@ -250,15 +250,15 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                     repository=repo,
                     run_phase_action_fn=lambda config, phase, fn: (
                         [
-                            {"sqlKey": "demo.user.a#v1", "statementType": "SELECT", "sql": "SELECT 1"},
-                            {"sqlKey": "demo.user.b#v1", "statementType": "SELECT", "sql": "SELECT 2"},
+                            {"sqlKey": "demo.user.a", "statementKey": "demo.user.a", "statementType": "SELECT", "sql": "SELECT 1"},
+                            {"sqlKey": "demo.user.b", "statementKey": "demo.user.b", "statementType": "SELECT", "sql": "SELECT 2"},
                         ],
                         1,
                     ),
                 )
             self.assertEqual(result["phase"], "scan")
-            self.assertEqual(repo.plan["sql_keys"], ["demo.user.b#v1"])
-            self.assertEqual(repo.plan["selection"]["selected_sql_keys"], ["demo.user.b#v1"])
+            self.assertEqual(repo.plan["sql_keys"], ["demo.user.b"])
+            self.assertEqual(repo.plan["selection"]["selected_sql_keys"], ["demo.user.b"])
             self.assertEqual(repo.plan["selection"]["scanned_count"], 2)
             self.assertEqual(repo.plan["selection"]["selected_count"], 1)
             self.assertTrue(repo.saved_plans)
@@ -295,8 +295,8 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["current_phase"] = "optimize"
             state["phase_status"]["preflight"] = "DONE"
             state["phase_status"]["scan"] = "DONE"
-            state["statements"] = {"demo.user.find#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}}
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            state["statements"] = {"demo.user.find": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}}
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             finalize_without_report = Mock()
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
@@ -355,14 +355,14 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["scan"] = "DONE"
             state["current_phase"] = "optimize"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             record_failure = Mock()
             finalize_report = Mock()
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
-                with patch("sqlopt.application.workflow_engine.load_index", return_value=({"demo.user.find#v1": {}}, {}, {})):
+                with patch("sqlopt.application.workflow_engine.load_index", return_value=({"demo.user.find": {}}, {}, {})):
                     with self.assertRaises(StageError):
                         workflow_engine.advance_one_step(
                             run_dir,
@@ -391,9 +391,9 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["optimize"] = "DONE"
             state["current_phase"] = "validate"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             finalize_report = Mock()
             record_failure = lambda run_dir, state, phase, reason_code, message: workflow_engine.record_failure(
                 run_dir, state, phase, reason_code, message, repository=repo
@@ -402,7 +402,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
                 with patch(
                     "sqlopt.application.workflow_engine.load_index",
-                    return_value=({"demo.user.find#v1": {}}, {"demo.user.find#v1": {}}, {}),
+                    return_value=({"demo.user.find": {}}, {"demo.user.find": {}}, {}),
                 ):
                     with self.assertRaises(StageError):
                         workflow_engine.advance_one_step(
@@ -434,9 +434,9 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["validate"] = "DONE"
             state["current_phase"] = "patch_generate"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             finalize_report = Mock()
             record_failure = lambda run_dir, state, phase, reason_code, message: workflow_engine.record_failure(
                 run_dir, state, phase, reason_code, message, repository=repo
@@ -445,7 +445,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
                 with patch(
                     "sqlopt.application.workflow_engine.load_index",
-                    return_value=({"demo.user.find#v1": {}}, {}, {"demo.user.find#v1": {"status": "PASS"}}),
+                    return_value=({"demo.user.find": {}}, {}, {"demo.user.find": {"status": "PASS"}}),
                 ):
                     with self.assertRaises(StageError):
                         workflow_engine.advance_one_step(
@@ -481,7 +481,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                 "report": "DONE",
             }
             state["report_rebuild_required"] = True
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             finalize_report = Mock(return_value=True)
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
@@ -511,7 +511,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                 "patch_generate": "DONE",
                 "report": "PENDING",
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             finalize_without_report = Mock(
                 side_effect=lambda *_args, **_kwargs: state["phase_status"].__setitem__("report", "SKIPPED")
             )
@@ -539,16 +539,16 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["optimize"] = "DONE"
             state["current_phase"] = "validate"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             progress = _CaptureProgress()
             finalize_without_report = Mock()
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=progress):
                 with patch(
                     "sqlopt.application.workflow_engine.load_index",
-                    return_value=({"demo.user.find#v1": {}}, {"demo.user.find#v1": {}}, {}),
+                    return_value=({"demo.user.find": {}}, {"demo.user.find": {}}, {}),
                 ):
                     workflow_engine.advance_one_step(
                         run_dir,
@@ -570,7 +570,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                     )
 
         self.assertIn(("validate", "Validating optimized SQL candidates"), progress.starts)
-        self.assertIn((1, 1, "demo.user.find#v1"), progress.statements)
+        self.assertIn((1, 1, "demo.user.find"), progress.statements)
         self.assertIn("validate", progress.completes)
 
     def test_advance_patch_generate_reports_phase_statement_and_complete(self) -> None:
@@ -583,16 +583,16 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["validate"] = "DONE"
             state["current_phase"] = "patch_generate"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             progress = _CaptureProgress()
             finalize_without_report = Mock()
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=progress):
                 with patch(
                     "sqlopt.application.workflow_engine.load_index",
-                    return_value=({"demo.user.find#v1": {}}, {}, {"demo.user.find#v1": {"status": "PASS"}}),
+                    return_value=({"demo.user.find": {}}, {}, {"demo.user.find": {"status": "PASS"}}),
                 ):
                     workflow_engine.advance_one_step(
                         run_dir,
@@ -614,7 +614,7 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
                     )
 
         self.assertIn(("patch_generate", "Generating patch files"), progress.starts)
-        self.assertIn((1, 1, "demo.user.find#v1"), progress.statements)
+        self.assertIn((1, 1, "demo.user.find"), progress.statements)
         self.assertIn("patch_generate", progress.completes)
 
     def test_advance_patch_generate_passes_config_to_stage_execute_one(self) -> None:
@@ -627,18 +627,18 @@ class WorkflowEngineOrchestrationTest(unittest.TestCase):
             state["phase_status"]["validate"] = "DONE"
             state["current_phase"] = "patch_generate"
             state["statements"] = {
-                "demo.user.find#v1": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
+                "demo.user.find": {"optimize": "DONE", "validate": "DONE", "patch_generate": "PENDING"}
             }
-            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find#v1"]})
+            repo = _FakeRepository(run_dir, state, {"sql_keys": ["demo.user.find"]})
             cfg = {"report": {"enabled": False}, "validate": {}, "project": {"root_path": str(run_dir)}}
 
             with patch("sqlopt.application.workflow_engine.get_progress_reporter", return_value=_DummyProgress()):
                 with patch(
                     "sqlopt.application.workflow_engine.load_index",
                     return_value=(
-                        {"demo.user.find#v1": {"sqlKey": "demo.user.find#v1"}},
+                        {"demo.user.find": {"sqlKey": "demo.user.find", "statementKey": "demo.user.find"}},
                         {},
-                        {"demo.user.find#v1": {"sqlKey": "demo.user.find#v1", "status": "PASS"}},
+                        {"demo.user.find": {"sqlKey": "demo.user.find", "statementKey": "demo.user.find", "status": "PASS"}},
                     ),
                 ):
                     with patch("sqlopt.application.workflow_engine.patch_stage.execute_one", return_value={}) as execute_one_mock:

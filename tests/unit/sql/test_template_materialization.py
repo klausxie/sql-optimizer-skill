@@ -10,7 +10,7 @@ from sqlopt.platforms.sql.template_materializer import build_rewrite_materializa
 class TemplateMaterializerTest(unittest.TestCase):
     def test_static_statement_defaults_to_statement_sql(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.listUsers#v1",
+            "sqlKey": "demo.user.listUsers",
             "sql": "SELECT * FROM users",
         }
         materialization, ops = build_rewrite_materialization(sql_unit, "SELECT id FROM users", {})
@@ -32,7 +32,7 @@ class TemplateMaterializerTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "sql": "SELECT * FROM users WHERE status = #{status}",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user",
@@ -63,7 +63,7 @@ class TemplateMaterializerTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "sql": "SELECT * FROM users WHERE status = #{status}",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user",
@@ -84,7 +84,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_can_auto_materialize_when_flag_disabled(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
@@ -114,7 +114,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_dynamic_fragment_stays_disabled_when_flag_is_off(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
@@ -141,7 +141,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_can_materialize_when_flag_enabled(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
@@ -170,7 +170,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_escapes_xml_operators(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
@@ -199,7 +199,7 @@ class TemplateMaterializerTest(unittest.TestCase):
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         nested_ref = "/tmp/x.xml::demo.user.BaseStatus"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users WHERE status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [{"ref": target_ref, "properties": [], "bindingHash": "abc"}],
@@ -238,7 +238,7 @@ class TemplateMaterializerTest(unittest.TestCase):
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         nested_ref = "/tmp/x.xml::demo.user.BaseStatus"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users u WHERE u.status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [
@@ -288,7 +288,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_with_property_binding_can_materialize_when_flag_enabled(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users u WHERE u.status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [
@@ -322,7 +322,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_with_repeated_identical_bindings_can_materialize(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users u WHERE u.status = #{status} OR EXISTS (SELECT 1 WHERE u.status = #{status})",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [
@@ -360,7 +360,7 @@ class TemplateMaterializerTest(unittest.TestCase):
     def test_static_fragment_with_mismatched_bindings_stays_unmaterializable(self) -> None:
         target_ref = "/tmp/x.xml::demo.user.BaseWhere"
         sql_unit = {
-            "sqlKey": "demo.user.findIncluded#v1",
+            "sqlKey": "demo.user.findIncluded",
             "sql": "SELECT * FROM users u WHERE u.status = #{status} OR SELECT * FROM users x WHERE x.status = #{status}",
             "dynamicFeatures": ["INCLUDE"],
             "includeBindings": [

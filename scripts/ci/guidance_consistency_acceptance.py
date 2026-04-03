@@ -120,7 +120,8 @@ def main() -> None:
         run_proc = _run(
             [
                 sys.executable,
-                str(repo_root / "scripts" / "run_until_budget.py"),
+                str(repo_root / "scripts" / "sqlopt_cli.py"),
+                "run",
                 "--config",
                 str(config_path),
                 "--to-stage",
@@ -132,7 +133,7 @@ def main() -> None:
             ],
             cwd=repo_root,
         )
-        run_payload = _require_payload(run_proc, step="run_until_budget")
+        run_payload = _require_payload(run_proc, step="sqlopt_cli run")
         if not bool(run_payload.get("complete", False)):
             raise SystemExit("guidance consistency acceptance failed: run did not complete")
 

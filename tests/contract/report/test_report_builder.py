@@ -23,11 +23,12 @@ def _config() -> dict:
 class ReportBuilderTest(unittest.TestCase):
     def test_build_report_artifacts_keeps_summary_minimal_and_generates_catalog(self) -> None:
         inputs = ReportInputs(
-            units=[{"sqlKey": "demo.user.listUsers#v1"}],
-            proposals=[{"sqlKey": "demo.user.listUsers#v1", "verdict": "CAN_IMPROVE", "issues": []}],
+            units=[{"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers"}],
+            proposals=[{"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "verdict": "CAN_IMPROVE", "issues": []}],
             acceptance=[
                 {
-                    "sqlKey": "demo.user.listUsers#v1",
+                    "sqlKey": "demo.user.listUsers",
+                    "statementKey": "demo.user.listUsers",
                     "status": "NEED_MORE_PARAMS",
                     "feedback": {"reason_code": "VALIDATE_PARAM_INSUFFICIENT"},
                     "equivalence": {"checked": False},
@@ -37,7 +38,7 @@ class ReportBuilderTest(unittest.TestCase):
             ],
             patches=[
                 {
-                    "sqlKey": "demo.user.listUsers#v1",
+                    "sqlKey": "demo.user.listUsers",
                     "statementKey": "demo.user.listUsers",
                     "applicable": True,
                     "deliveryOutcome": {"tier": "READY_TO_APPLY", "summary": "patch is ready"},
@@ -91,11 +92,12 @@ class ReportBuilderTest(unittest.TestCase):
 
     def test_build_report_artifacts_prefers_apply_when_everything_is_ready(self) -> None:
         inputs = ReportInputs(
-            units=[{"sqlKey": "demo.user.countUsers#v1"}],
+            units=[{"sqlKey": "demo.user.countUsers", "statementKey": "demo.user.countUsers"}],
             proposals=[],
             acceptance=[
                 {
-                    "sqlKey": "demo.user.countUsers#v1",
+                    "sqlKey": "demo.user.countUsers",
+                    "statementKey": "demo.user.countUsers",
                     "status": "PASS",
                     "equivalence": {"checked": True, "evidenceRefs": ["evidence/db.json"]},
                     "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
@@ -104,7 +106,7 @@ class ReportBuilderTest(unittest.TestCase):
             ],
             patches=[
                 {
-                    "sqlKey": "demo.user.countUsers#v1",
+                    "sqlKey": "demo.user.countUsers",
                     "statementKey": "demo.user.countUsers",
                     "applicable": True,
                     "patchFiles": ["patches/demo.patch"],
@@ -127,11 +129,12 @@ class ReportBuilderTest(unittest.TestCase):
 
     def test_build_report_artifacts_surfaces_verification_gate_warnings(self) -> None:
         inputs = ReportInputs(
-            units=[{"sqlKey": "demo.user.findUsers#v1"}],
+            units=[{"sqlKey": "demo.user.findUsers", "statementKey": "demo.user.findUsers"}],
             proposals=[],
             acceptance=[
                 {
-                    "sqlKey": "demo.user.findUsers#v1",
+                    "sqlKey": "demo.user.findUsers",
+                    "statementKey": "demo.user.findUsers",
                     "status": "PASS",
                     "equivalence": {"checked": True},
                     "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
@@ -143,7 +146,7 @@ class ReportBuilderTest(unittest.TestCase):
             verification_rows=[
                 {
                     "run_id": "run_demo",
-                    "sql_key": "demo.user.findUsers#v1",
+                    "sql_key": "demo.user.findUsers",
                     "statement_key": "demo.user.findUsers",
                     "phase": "validate",
                     "status": "UNVERIFIED",
@@ -168,11 +171,12 @@ class ReportBuilderTest(unittest.TestCase):
 
     def test_build_report_artifacts_preserves_dynamic_and_aggregation_catalog_fields(self) -> None:
         inputs = ReportInputs(
-            units=[{"sqlKey": "demo.user.dynamic#v1"}],
+            units=[{"sqlKey": "demo.user.dynamic", "statementKey": "demo.user.dynamic"}],
             proposals=[],
             acceptance=[
                 {
-                    "sqlKey": "demo.user.dynamic#v1",
+                    "sqlKey": "demo.user.dynamic",
+                    "statementKey": "demo.user.dynamic",
                     "status": "PASS",
                     "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
                     "rewriteFacts": {
@@ -197,7 +201,7 @@ class ReportBuilderTest(unittest.TestCase):
             ],
             patches=[
                 {
-                    "sqlKey": "demo.user.dynamic#v1",
+                    "sqlKey": "demo.user.dynamic",
                     "statementKey": "demo.user.dynamic",
                     "applicable": False,
                     "strategyType": "DYNAMIC_STATEMENT_TEMPLATE_EDIT",

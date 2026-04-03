@@ -19,16 +19,16 @@ class ReportClassificationTest(unittest.TestCase):
             (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "artifacts" / "scan.jsonl").write_text(
-                json.dumps({"sqlKey": "demo.user.findUsers#v1"}) + "\n", encoding="utf-8"
+                json.dumps({"sqlKey": "demo.user.findUsers.one"}) + "\n", encoding="utf-8"
             )
             (run_dir / "artifacts" / "proposals.jsonl").write_text(
-                json.dumps({"sqlKey": "demo.user.findUsers#v1", "issues": [], "dbEvidenceSummary": {}, "planSummary": {}, "suggestions": [], "verdict": "NOOP"})
+                json.dumps({"sqlKey": "demo.user.findUsers.one", "issues": [], "dbEvidenceSummary": {}, "planSummary": {}, "suggestions": [], "verdict": "NOOP"})
                 + "\n",
                 encoding="utf-8",
             )
             acceptance_rows = [
                 {
-                    "sqlKey": "demo.user.findUsers#v1",
+                    "sqlKey": "demo.user.findUsers.one",
                     "status": "NEED_MORE_PARAMS",
                     "equivalence": {"checked": False},
                     "perfComparison": {"checked": False, "reasonCodes": ["VALIDATE_DB_UNREACHABLE"]},
@@ -45,7 +45,7 @@ class ReportClassificationTest(unittest.TestCase):
                     "feedback": {"reason_code": "VALIDATE_DB_UNREACHABLE"},
                 },
                 {
-                    "sqlKey": "demo.user.findUsers#v2",
+                    "sqlKey": "demo.user.findUsers.two",
                     "status": "FAIL",
                     "equivalence": {"checked": True},
                     "perfComparison": {"checked": False},
@@ -68,7 +68,7 @@ class ReportClassificationTest(unittest.TestCase):
             )
             (run_dir / "artifacts" / "patches.jsonl").write_text("", encoding="utf-8")
             (run_dir / "control" / "manifest.jsonl").write_text(
-                json.dumps({"event": "failed", "payload": {"reason_code": "RUNTIME_STAGE_TIMEOUT", "statement_key": "demo.user.findUsers#v2"}})
+                json.dumps({"event": "failed", "payload": {"reason_code": "RUNTIME_STAGE_TIMEOUT", "statement_key": "demo.user.findUsers.two"}})
                 + "\n",
                 encoding="utf-8",
             )
@@ -151,12 +151,12 @@ class ReportClassificationTest(unittest.TestCase):
             run_dir = Path(td)
             (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
-            (run_dir / "artifacts" / "scan.jsonl").write_text(json.dumps({"sqlKey": "demo.user.findUsers#v1"}) + "\n", encoding="utf-8")
+            (run_dir / "artifacts" / "scan.jsonl").write_text(json.dumps({"sqlKey": "demo.user.findUsers"}) + "\n", encoding="utf-8")
             (run_dir / "artifacts" / "proposals.jsonl").write_text("", encoding="utf-8")
             (run_dir / "artifacts" / "acceptance.jsonl").write_text(
                 json.dumps(
                     {
-                        "sqlKey": "demo.user.findUsers#v1",
+                        "sqlKey": "demo.user.findUsers",
                         "status": "PASS",
                         "equivalence": {"checked": True},
                         "perfComparison": {"checked": True, "reasonCodes": []},
@@ -165,7 +165,7 @@ class ReportClassificationTest(unittest.TestCase):
                         "selectedCandidateId": "c1",
                         "verification": {
                             "run_id": "rpt_gate",
-                            "sql_key": "demo.user.findUsers#v1",
+                            "sql_key": "demo.user.findUsers",
                             "statement_key": "demo.user.findUsers",
                             "phase": "validate",
                             "status": "UNVERIFIED",

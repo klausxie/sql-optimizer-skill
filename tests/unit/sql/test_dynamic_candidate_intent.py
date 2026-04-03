@@ -33,7 +33,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped#v14",
+                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped",
                 "sql": "SELECT COUNT(1) FROM ( SELECT id FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ) filtered_users",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user.advanced",
@@ -92,7 +92,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped#v14",
+                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped",
                 "sql": "SELECT COUNT(1) FROM ( SELECT id FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ) filtered_users",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user.advanced",
@@ -142,7 +142,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v13",
+                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u "
                     "ORDER BY created_at DESC"
@@ -198,7 +198,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersRecentPagedWrapped#v16",
+                "sqlKey": "demo.user.advanced.listUsersRecentPagedWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( "
                     "SELECT id, name, email, status, created_at, updated_at FROM users ) recent_users "
@@ -257,7 +257,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v13",
+                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
                 "sql": "SELECT id, name FROM ( SELECT id, name FROM users ) u",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user.advanced",
@@ -309,7 +309,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredAliased#v17",
+                "sqlKey": "demo.user.advanced.listUsersFilteredAliased",
                 "sql": (
                     "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
                     "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -369,7 +369,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased#v18",
+                "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at "
                     "FROM users u WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -429,7 +429,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased#v24",
+                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at "
                     "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -483,7 +483,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup#v22",
+                "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup",
                 "sql": "SELECT id AS id, name AS name, email AS email FROM users u WHERE status = #{status} ORDER BY created_at DESC",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user.advanced",
@@ -540,7 +540,7 @@ class DynamicCandidateIntentTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped#v15",
+                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( "
                     "SELECT id, name, email, status, created_at, updated_at FROM users "

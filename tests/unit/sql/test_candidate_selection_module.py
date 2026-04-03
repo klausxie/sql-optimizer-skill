@@ -24,7 +24,7 @@ class CandidateSelectionModuleTest(unittest.TestCase):
             "suggestions": [{"action": "RULE", "sql": "SELECT id FROM users"}],
         }
 
-        candidates = build_candidate_pool("demo.user.listUsers#v1", proposal)
+        candidates = build_candidate_pool("demo.user.listUsers", proposal)
 
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0].id, "c1")

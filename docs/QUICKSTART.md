@@ -97,6 +97,32 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py apply --run-id <run-id>
 PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml --to-stage scan
 ```
 
+- 手动跑仓库内 sample project：
+
+```bash
+# 长期使用建议：统一走 sample_project 包装脚本
+python3 scripts/run_sample_project.py
+python3 scripts/run_sample_project.py \
+  --scope mapper \
+  --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+python3 scripts/run_sample_project.py \
+  --scope sql \
+  --sql-key demo.user.advanced.listUsersFilteredAliased
+
+# 查看最新 run
+cat tests/fixtures/projects/sample_project/runs/index.json
+
+# 查看某次 run 的核心产物
+cat tests/fixtures/projects/sample_project/runs/<run-id>/report.json
+cat tests/fixtures/projects/sample_project/runs/<run-id>/control/state.json
+cat tests/fixtures/projects/sample_project/runs/<run-id>/sql/catalog.jsonl
+```
+
+说明：
+- `run_sample_project.py` 底层直接调用 `sqlopt_cli.py run`
+- `runs/` 会保留在 `tests/fixtures/projects/sample_project/` 下
+- 如果只是想先看目录输出效果，可临时改用 `llm.provider=heuristic`
+
 - MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。
 
 ## 7. 下一步

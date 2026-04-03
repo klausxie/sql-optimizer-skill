@@ -10,7 +10,7 @@ from ....stages.patch_generate import execute_one as execute_patch_one
 from ....stages.report_builder import build_report_artifacts
 from ....stages.report_interfaces import ReportInputs, ReportStateSnapshot
 from .project import ROOT, prepare_fixture_project
-from .validate_fixture import embedded_verification_rows, run_fixture_validate_harness
+from .validate_fixture import embedded_verification_rows, resolve_fixture_unit, run_fixture_validate_harness
 
 
 def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list[dict], list[dict], object]:
@@ -35,7 +35,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
         for scenario in scenarios:
             sql_key = str(scenario["sqlKey"])
             patch_row = execute_patch_one(
-                units_by_key[sql_key],
+                resolve_fixture_unit(sql_key, units_by_key),
                 acceptance_by_key[sql_key],
                 run_dir,
                 validator,
@@ -47,7 +47,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
             patches.append(patch_row)
 
         verification_rows = embedded_verification_rows(
-            [units_by_key[str(scenario["sqlKey"])] for scenario in scenarios],
+            [resolve_fixture_unit(str(scenario["sqlKey"]), units_by_key) for scenario in scenarios],
             proposals,
             acceptance_rows,
             patches,
@@ -67,7 +67,7 @@ def run_fixture_patch_and_report_harness() -> tuple[list[dict], list[dict], list
             report_config,
             run_dir,
             ReportInputs(
-                units=[units_by_key[str(scenario["sqlKey"])] for scenario in scenarios],
+                units=[resolve_fixture_unit(str(scenario["sqlKey"]), units_by_key) for scenario in scenarios],
                 proposals=proposals,
                 acceptance=acceptance_rows,
                 patches=patches,

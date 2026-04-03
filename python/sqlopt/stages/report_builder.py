@@ -13,6 +13,7 @@ from ..run_paths import (
     canonical_paths,
     to_posix_relative,
 )
+from ..utils import statement_key_from_row
 from ..verification.summary import summarize_records
 from .report_metrics import build_failures, build_verification_gate, summarize_failures
 from .report_models import ReportArtifacts, ReportInputs, RunReportDocument
@@ -98,7 +99,7 @@ def _build_sql_artifact_rows(
         sql_key = str(unit.get("sqlKey") or "").strip()
         if not sql_key:
             continue
-        statement_key = sql_key.split("#", 1)[0]
+        statement_key = statement_key_from_row(unit)
         sql_row = sql_row_by_key.get(sql_key, {})
         acceptance_row = acceptance_by_sql_key.get(sql_key, {})
         proposal_row = proposal_by_sql_key.get(sql_key, {})

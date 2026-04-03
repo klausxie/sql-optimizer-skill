@@ -11,7 +11,7 @@ from sqlopt.platforms.sql.validator_sql import validate_proposal
 
 class ValidateProfilesTest(unittest.TestCase):
     def test_balanced_pass_with_warn_when_not_improved(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
             "suggestions": [],
@@ -47,7 +47,7 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual((result.get("semanticEquivalence") or {}).get("evidenceLevel"), "DB_COUNT")
 
     def test_semantic_error_is_need_more_params(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
             "suggestions": [],
@@ -85,7 +85,7 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual((result.get("semanticEquivalence") or {}).get("confidence"), "LOW")
 
     def test_dollar_substitution_balanced_is_need_more_params(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.findUsers", "statementKey": "demo.user.findUsers", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
         result = validate_proposal(
             sql_unit,
             proposal={"llmCandidates": [], "suggestions": []},
@@ -98,7 +98,7 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual(result.get("decisionLayers", {}).get("feasibility", {}).get("phase"), "security_block")
 
     def test_dollar_substitution_strict_is_fail(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.findUsers#v1", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.findUsers", "statementKey": "demo.user.findUsers", "sql": "SELECT * FROM users ORDER BY ${orderBy}", "statementType": "SELECT"}
         result = validate_proposal(
             sql_unit,
             proposal={"llmCandidates": [], "suggestions": []},
@@ -110,7 +110,7 @@ class ValidateProfilesTest(unittest.TestCase):
         self.assertEqual(result.get("decisionLayers", {}).get("acceptance", {}).get("validationProfile"), "strict")
 
     def test_plan_and_semantic_compare_are_capability_gated(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT id, name FROM users", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [{"id": "c1", "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC"}],
             "suggestions": [],

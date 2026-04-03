@@ -25,7 +25,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             self.assertNotIn(field, contract)
 
     def test_selects_best_improved_candidate_by_cost(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [
                 {"id": "c1", "rewrittenSql": "SELECT id FROM users", "rewriteStrategy": "projection"},
@@ -83,7 +83,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assert_patch_planning_omitted(result.to_contract())
 
     def test_prefers_more_patchable_candidate_before_best_cost(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [
                 {"id": "c1", "rewrittenSql": "SELECT id FROM users ORDER BY created_at DESC", "rewriteStrategy": "sort"},
@@ -129,7 +129,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertEqual(result.get("decisionLayers", {}).get("delivery", {}).get("selectedCandidateSource"), "rule")
 
     def test_rule_candidate_is_used_when_llm_candidate_invalid(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users ORDER BY created_at DESC", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT * FROM users ORDER BY created_at DESC", "statementType": "SELECT"}
         proposal = {
             "llmCandidates": [{"id": "bad", "rewrittenSql": "SELECT * FROM users ORDER BY ${orderBy}"}],
             "suggestions": [{"action": "PROJECT_COLUMNS", "sql": "SELECT id FROM users ORDER BY created_at DESC"}],
@@ -164,7 +164,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_rejects_question_mark_candidate_when_original_uses_hash_placeholder(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.findUsersByStatusRecent#v1",
+            "sqlKey": "demo.user.findUsersByStatusRecent",
+            "statementKey": "demo.user.findUsersByStatusRecent",
             "sql": "SELECT id FROM users WHERE status = #{status}",
             "statementType": "SELECT",
         }
@@ -198,7 +199,7 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
         self.assertIn("VALIDATE_PLACEHOLDER_SEMANTICS_MISMATCH_WARN", result.get("warnings", []))
 
     def test_validation_result_contract_omits_patch_planning_fields(self) -> None:
-        sql_unit = {"sqlKey": "demo.user.listUsers#v1", "sql": "SELECT * FROM users", "statementType": "SELECT"}
+        sql_unit = {"sqlKey": "demo.user.listUsers", "statementKey": "demo.user.listUsers", "sql": "SELECT * FROM users", "statementType": "SELECT"}
         proposal = {"llmCandidates": [], "suggestions": []}
         # Must configure db.dsn for validation to work (validation without db.dsn now raises ValueError)
         config = {"db": {"dsn": "postgresql://dummy"}, "validate": {}, "patch": {}, "policy": {}}
@@ -225,7 +226,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             )
             base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
+                "statementKey": "demo.user.countUser",
                 "sql": "select count(1) from ( SELECT id FROM users ) tmp",
                 "statementType": "SELECT",
                 "xmlPath": str(xml_path),
@@ -302,7 +304,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_validate_persists_static_alias_projection_cleanup_patch_target_for_ready_alias_only_case(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersProjectedAliases#v20",
+            "sqlKey": "demo.user.advanced.listUsersProjectedAliases",
+            "statementKey": "demo.user.advanced.listUsersProjectedAliases",
             "sql": "SELECT id AS id, name AS name, email AS email FROM users ORDER BY created_at DESC",
             "statementType": "SELECT",
         }
@@ -352,7 +355,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_validate_allows_schema_qualified_table_for_static_alias_projection_cleanup(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersProjectedAliasesSchemaQualified#v22",
+            "sqlKey": "demo.user.advanced.listUsersProjectedAliasesSchemaQualified",
+            "statementKey": "demo.user.advanced.listUsersProjectedAliasesSchemaQualified",
             "sql": "SELECT id AS id, name AS name FROM app.users ORDER BY created_at DESC",
             "statementType": "SELECT",
         }
@@ -402,7 +406,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_validate_blocks_qualified_alias_neighbor_from_static_alias_projection_cleanup(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
+            "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
+            "statementKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
             "sql": "SELECT u.id AS id, u.name AS name, u.email AS email FROM users u ORDER BY u.created_at DESC",
             "statementType": "SELECT",
         }
@@ -462,7 +467,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
             )
             base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
+                "statementKey": "demo.user.countUser",
                 "sql": "select count(1) from ( SELECT id FROM users ) tmp",
                 "statementType": "SELECT",
                 "xmlPath": str(xml_path),
@@ -549,7 +555,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredAliased#v17",
+                "sqlKey": "demo.user.advanced.listUsersFilteredAliased",
+                "statementKey": "demo.user.advanced.listUsersFilteredAliased",
                 "sql": (
                     "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
                     "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -634,7 +641,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredQualifiedAliases#v22",
+                "sqlKey": "demo.user.advanced.listUsersFilteredQualifiedAliases",
+                "statementKey": "demo.user.advanced.listUsersFilteredQualifiedAliases",
                 "sql": (
                     "SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, "
                     "users.created_at AS created_at, users.updated_at AS updated_at "
@@ -706,7 +714,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
     def test_validate_uses_registered_acceptance_policy_for_confidence_gate(self) -> None:
         with tempfile.TemporaryDirectory(prefix="validate_patch_target_acceptance_policy_") as td:
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
+                "statementKey": "demo.user.countUser",
                 "sql": "select count(1) from ( select id from users ) tmp",
                 "statementType": "SELECT",
             }
@@ -804,7 +813,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased#v18",
+                "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased",
+                "statementKey": "demo.user.advanced.listUsersFilteredTableAliased",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at "
                     "FROM users u WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -889,7 +899,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased#v24",
+                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased",
+                "statementKey": "demo.user.advanced.listUsersFilteredPredicateAliased",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at "
                     "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -957,7 +968,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_validate_rejects_text_fallback_candidate(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.countUser#v2",
+            "sqlKey": "demo.user.countUser",
+            "statementKey": "demo.user.countUser",
             "sql": "select count(1) from ( select id from users ) tmp",
             "statementType": "SELECT",
         }
@@ -982,7 +994,8 @@ class ValidateCandidateSelectionTest(unittest.TestCase):
 
     def test_prefers_canonical_count_star_when_patchability_ties(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.countUser#v2",
+            "sqlKey": "demo.user.countUser",
+            "statementKey": "demo.user.countUser",
             "sql": "select count(1) from ( select id from users ) tmp",
             "statementType": "SELECT",
         }

@@ -26,11 +26,11 @@ class StatusResolverTest(unittest.TestCase):
                         "patch_generate": "PENDING",
                         "report": "DONE",
                     },
-                    "statements": {"demo.user.a#v1": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}},
+                    "statements": {"demo.user.a": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}},
                     "attempts_by_phase": {},
                     "report_rebuild_required": False,
                 },
-                plan={"to_stage": "scan", "sql_keys": ["demo.user.a#v1"]},
+                plan={"to_stage": "scan", "sql_keys": ["demo.user.a"]},
                 meta={"status": "COMPLETED"},
                 config={"report": {"enabled": True}},
             )

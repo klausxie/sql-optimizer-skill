@@ -54,7 +54,7 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py validate-config --config sqlopt.
 ```bash
 PYTHONPATH=python python3 scripts/sqlopt_cli.py run --config sqlopt.yml \
   --mapper-path src/main/resources/com/example/mapper/user/advanced_user_mapper.xml \
-  --sql-key demo.user.advanced.listUsersFilteredAliased#v17
+  --sql-key demo.user.advanced.listUsersFilteredAliased
 ```
 
 当前推荐：日常开发优先局部 run，full run 只用于阶段验收。

@@ -50,7 +50,7 @@ class TestGateContext:
     def test_create_basic(self):
         """测试基本创建"""
         ctx = GateContext(
-            sql_unit={"sqlKey": "test#v1"},
+            sql_unit={"sqlKey": "test"},
             acceptance={"status": "PASS"},
             selection=Mock(),
             build=Mock(),
@@ -58,13 +58,13 @@ class TestGateContext:
             acceptance_rows=[],
             project_root=Path("/tmp"),
         )
-        assert ctx.sql_key == "test#v1"
+        assert ctx.sql_key == "test"
         assert ctx.context == {}
 
     def test_context_mutable(self):
         """测试 context 可变性"""
         ctx = GateContext(
-            sql_unit={"sqlKey": "test#v1"},
+            sql_unit={"sqlKey": "test"},
             acceptance={"status": "PASS"},
             selection=Mock(),
             build=Mock(),
@@ -84,7 +84,7 @@ class TestGateContext:
             return sql_key.split("#")[0]
 
         ctx = GateContext(
-            sql_unit={"sqlKey": "demo.user.findUsers#v1"},
+            sql_unit={"sqlKey": "demo.user.findUsers"},
             acceptance={"status": "PASS"},
             selection=Mock(),
             build=Mock(),
@@ -179,7 +179,7 @@ class TestPatchDecisionContext:
             status="PASS",
             semantic_gate_status="PASS",
             semantic_gate_confidence="HIGH",
-            sql_key="test#v1",
+            sql_key="test",
             statement_key="test",
             same_statement=[],
             pass_rows=[],
@@ -195,10 +195,10 @@ class TestPatchDecisionContext:
             status="PASS",
             semantic_gate_status="PASS",
             semantic_gate_confidence="HIGH",
-            sql_key="test#v1",
+            sql_key="test",
             statement_key="test",
-            same_statement=[{"sqlKey": "test#v1", "status": "PASS"}],
-            pass_rows=[{"sqlKey": "test#v1", "status": "PASS"}],
+            same_statement=[{"sqlKey": "test", "status": "PASS"}],
+            pass_rows=[{"sqlKey": "test", "status": "PASS"}],
             candidates_evaluated=1
         )
         assert ctx.has_single_pass_candidate
@@ -236,12 +236,12 @@ class TestPatchDecisionEngine:
         selection.semantic_gate_confidence = "HIGH"
         selection.selected_candidate_id = "c1"
         return GateContext(
-            sql_unit={"sqlKey": "demo.user.find#v1"},
+            sql_unit={"sqlKey": "demo.user.find"},
             acceptance={"status": "PASS"},
             selection=selection,
             build=Mock(),
             run_dir=Path("/tmp"),
-            acceptance_rows=[{"sqlKey": "demo.user.find#v1", "status": "PASS"}],
+            acceptance_rows=[{"sqlKey": "demo.user.find", "status": "PASS"}],
             project_root=Path("/tmp"),
             statement_key_fn=lambda sql_key: sql_key.split("#")[0],
         )

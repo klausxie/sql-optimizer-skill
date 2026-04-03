@@ -31,9 +31,9 @@ class ReportMetricsTest(unittest.TestCase):
 
     def test_build_and_summarize_failures_merge_acceptance_and_manifest(self) -> None:
         acceptance = [
-            {"sqlKey": "demo.user.find#v1", "status": "FAIL", "feedback": {"reason_code": "VALIDATE_SEMANTIC_ERROR"}},
-            {"sqlKey": "demo.user.find#v2", "status": "NEED_MORE_PARAMS"},
-            {"sqlKey": "demo.user.find#v3", "status": "PASS"},
+            {"sqlKey": "demo.user.find.fail", "status": "FAIL", "feedback": {"reason_code": "VALIDATE_SEMANTIC_ERROR"}},
+            {"sqlKey": "demo.user.find.params", "status": "NEED_MORE_PARAMS"},
+            {"sqlKey": "demo.user.find.pass", "status": "PASS"},
         ]
         manifest_rows = [
             ManifestEvent(stage="scan", event="failed", payload={"reason_code": "RUNTIME_RETRY_EXHAUSTED", "statement_key": "demo.user.find"}),
@@ -50,12 +50,12 @@ class ReportMetricsTest(unittest.TestCase):
         self.assertEqual(class_counts["retryable"], 1)
 
     def test_build_verification_gate_reports_warnings_and_confidence(self) -> None:
-        acceptance_rows = [{"sqlKey": "demo.user.find#v1", "status": "PASS"}]
-        patch_rows = [{"sqlKey": "demo.user.find#v1", "applicable": True}]
+        acceptance_rows = [{"sqlKey": "demo.user.find", "status": "PASS"}]
+        patch_rows = [{"sqlKey": "demo.user.find", "applicable": True}]
         verification_rows = [
-            {"sql_key": "demo.user.find#v1", "phase": "validate", "status": "UNVERIFIED"},
-            {"sql_key": "demo.user.find#v1", "phase": "patch_generate", "status": "UNVERIFIED"},
-            {"sql_key": "demo.user.find#v1", "phase": "optimize", "status": "PARTIAL", "reason_code": "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"},
+            {"sql_key": "demo.user.find", "phase": "validate", "status": "UNVERIFIED"},
+            {"sql_key": "demo.user.find", "phase": "patch_generate", "status": "UNVERIFIED"},
+            {"sql_key": "demo.user.find", "phase": "optimize", "status": "PARTIAL", "reason_code": "OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR"},
         ]
         warnings, confidence, gate = build_verification_gate(acceptance_rows, patch_rows, verification_rows)
         self.assertEqual(confidence, "LOW")
@@ -64,23 +64,23 @@ class ReportMetricsTest(unittest.TestCase):
         self.assertTrue(any("OPTIMIZE_DB_EXPLAIN_SYNTAX_ERROR" in row for row in warnings))
         self.assertEqual(gate["unverified_pass_count"], 1)
         self.assertEqual(gate["unverified_applicable_patch_count"], 1)
-        self.assertEqual(gate["critical_unverified_sql_keys"], ["demo.user.find#v1"])
+        self.assertEqual(gate["critical_unverified_sql_keys"], ["demo.user.find"])
 
     def test_summarize_semantic_gates_counts_statuses_and_reason_codes(self) -> None:
         acceptance_rows = [
             {
-                "sqlKey": "demo.user.find#v1",
+                "sqlKey": "demo.user.find.pass",
                 "semanticEquivalence": {"status": "PASS", "reasons": ["SEMANTIC_PREDICATE_STABLE"]},
             },
             {
-                "sqlKey": "demo.user.find#v2",
+                "sqlKey": "demo.user.find.uncertain",
                 "semanticEquivalence": {"status": "UNCERTAIN", "reasons": ["SEMANTIC_PROJECTION_CHANGED"]},
             },
             {
-                "sqlKey": "demo.user.find#v3",
+                "sqlKey": "demo.user.find.fail",
                 "semanticEquivalence": {"status": "FAIL", "reasons": ["SEMANTIC_PREDICATE_ADDED_OR_REMOVED"]},
             },
-            {"sqlKey": "demo.user.find#v4"},
+            {"sqlKey": "demo.user.find.unknown"},
         ]
         counts, reason_counts = summarize_semantic_gates(acceptance_rows)
         self.assertEqual(counts["pass"], 2)
@@ -92,7 +92,7 @@ class ReportMetricsTest(unittest.TestCase):
     def test_summarize_semantic_gate_quality_counts_confidence_evidence_and_conflicts(self) -> None:
         acceptance_rows = [
             {
-                "sqlKey": "demo.user.find#v1",
+                "sqlKey": "demo.user.find.pass",
                 "semanticEquivalence": {
                     "status": "PASS",
                     "confidence": "HIGH",
@@ -101,7 +101,7 @@ class ReportMetricsTest(unittest.TestCase):
                 },
             },
             {
-                "sqlKey": "demo.user.find#v2",
+                "sqlKey": "demo.user.find.fail",
                 "semanticEquivalence": {
                     "status": "FAIL",
                     "confidence": "HIGH",
@@ -109,7 +109,7 @@ class ReportMetricsTest(unittest.TestCase):
                     "hardConflicts": ["SEMANTIC_ROW_COUNT_MISMATCH"],
                 },
             },
-            {"sqlKey": "demo.user.find#v3"},
+            {"sqlKey": "demo.user.find.unknown"},
         ]
         confidence, evidence_level, conflicts = summarize_semantic_gate_quality(acceptance_rows)
         self.assertEqual(confidence["HIGH"], 2)
@@ -122,7 +122,7 @@ class ReportMetricsTest(unittest.TestCase):
     def test_build_failures_includes_low_confidence_pass_gate(self) -> None:
         acceptance = [
             {
-                "sqlKey": "demo.user.find#v1",
+                "sqlKey": "demo.user.find.low_confidence",
                 "status": "PASS",
                 "semanticEquivalence": {"status": "PASS", "confidence": "LOW"},
             }
@@ -134,21 +134,21 @@ class ReportMetricsTest(unittest.TestCase):
     def test_summarize_semantic_confidence_upgrades_counts_sources(self) -> None:
         acceptance_rows = [
             {
-                "sqlKey": "demo.user.find#v1",
+                "sqlKey": "demo.user.find.upgraded_source",
                 "semanticEquivalence": {
                     "confidenceUpgradeApplied": True,
                     "confidenceUpgradeEvidenceSources": ["DB_FINGERPRINT"],
                 },
             },
             {
-                "sqlKey": "demo.user.find#v2",
+                "sqlKey": "demo.user.find.upgraded_reason",
                 "semanticEquivalence": {
                     "confidenceUpgradeApplied": True,
                     "confidenceUpgradeReasons": ["SEMANTIC_CONFIDENCE_UPGRADE_DB_FINGERPRINT_PARTIAL"],
                 },
             },
             {
-                "sqlKey": "demo.user.find#v3",
+                "sqlKey": "demo.user.find.not_upgraded",
                 "semanticEquivalence": {
                     "confidenceUpgradeApplied": False,
                 },

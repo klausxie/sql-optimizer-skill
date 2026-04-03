@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from ..utils import statement_key_from_row
 
 _NAMESPACE_RE = re.compile(r"<mapper\b[^>]*\bnamespace\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
 _STATEMENT_RE = re.compile(
@@ -236,8 +237,8 @@ def _build_statement_meta(xml_path: Path, namespace: str, xml_text: str, match: 
 
 
 def _enrich_sql_unit(unit: dict[str, Any], statements_by_key: dict[str, dict[str, Any]]) -> None:
-    statement_key = str(unit.get("sqlKey", "")).split("#", 1)[0]
-    meta = statements_by_key.get(statement_key)
+    key = statement_key_from_row(unit)
+    meta = statements_by_key.get(key)
     if not meta:
         return
     locators = dict(unit.get("locators") or {})

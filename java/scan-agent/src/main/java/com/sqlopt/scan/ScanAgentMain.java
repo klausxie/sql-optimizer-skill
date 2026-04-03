@@ -525,12 +525,12 @@ public class ScanAgentMain {
         String riskFlags = meta.containsDollar ? "[\"DOLLAR_SUBSTITUTION\"]" : "[]";
         String parameterMappingsJson = buildParameterMappings(boundSql.getParameterMappings());
         return "{"
-                + "\"sqlKey\":\"" + esc(fullId + "#v1") + "\"," 
+                + "\"sqlKey\":\"" + esc(fullId) + "\"," 
+                + "\"statementKey\":\"" + esc(fullId) + "\"," 
                 + "\"xmlPath\":\"" + esc(file.toString()) + "\"," 
                 + "\"namespace\":\"" + esc(meta.namespace) + "\"," 
                 + "\"statementId\":\"" + esc(meta.statementId) + "\"," 
                 + "\"statementType\":\"" + ms.getSqlCommandType().name() + "\"," 
-                + "\"variantId\":\"v1\"," 
                 + "\"sql\":\"" + esc(normalizedSql) + "\"," 
                 + "\"templateSql\":\"" + esc(meta.templateSql) + "\","
                 + "\"dynamicFeatures\":" + buildStringArray(meta.dynamicFeatures) + ","

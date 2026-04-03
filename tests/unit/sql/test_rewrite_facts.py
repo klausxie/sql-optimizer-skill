@@ -22,7 +22,7 @@ class RewriteFactsTest(unittest.TestCase):
             columns_ref = f"{xml_path.resolve()}::demo.user.UserBaseColumns"
             base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
                 "sql": "select count(1) from ( SELECT id, name FROM users ) tmp",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user",
@@ -82,7 +82,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_simple_cte_inline_candidate(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listRecentUsersViaCte#v11",
+            "sqlKey": "demo.user.advanced.listRecentUsersViaCte",
             "sql": (
                 "WITH recent_users AS ( SELECT id, name, email, status, created_at, updated_at "
                 "FROM users WHERE created_at >= #{createdAfter} ) "
@@ -129,7 +129,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_static_include_dynamic_template_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersRecentPaged#v4",
+            "sqlKey": "demo.user.advanced.listUsersRecentPaged",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 100",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -160,7 +160,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_treats_nested_static_include_tree_as_static_include_only(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.countUser#v2",
+            "sqlKey": "demo.user.countUser",
             "sql": "select count(1) from ( SELECT id, name, email, status, created_at, updated_at FROM users ) tmp",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user",
@@ -194,7 +194,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_marks_static_include_with_properties_as_fragment_dependent(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersWithBoundInclude#v1",
+            "sqlKey": "demo.user.advanced.listUsersWithBoundInclude",
             "sql": "SELECT id, name FROM users ORDER BY created_at DESC",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -230,7 +230,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_foreach_dynamic_template_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.findOrdersByNos#v1",
+            "sqlKey": "demo.order.harness.findOrdersByNos",
             "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE order_no IN (#{orderNo})",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -263,7 +263,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_marks_complex_dynamic_filter_as_unsafe_statement_rewrite(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.findUsersByKeyword#v8",
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -292,7 +292,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_marks_dynamic_filter_select_list_cleanup_as_safe_baseline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersFilteredAliased#v17",
+            "sqlKey": "demo.user.advanced.listUsersFilteredAliased",
             "sql": (
                 "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
                 "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -325,7 +325,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_marks_dynamic_filter_from_alias_cleanup_as_safe_baseline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased#v18",
+            "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased",
             "sql": (
                 "SELECT id, name, email, status, created_at, updated_at "
                 "FROM users u WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
@@ -358,7 +358,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_blocks_combined_dynamic_filter_cleanup_as_scope_mismatch(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup#v22",
+            "sqlKey": "demo.user.advanced.listUsersFilteredCombinedCleanup",
             "sql": (
                 "SELECT id AS id, name AS name, email AS email FROM users u "
                 "WHERE status = #{status} ORDER BY created_at DESC"
@@ -390,7 +390,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_blocks_bind_foreach_and_set_from_dynamic_envelope_scope(self) -> None:
         bind_unit = {
-            "sqlKey": "demo.user.advanced.listUsersFilteredBind#v23",
+            "sqlKey": "demo.user.advanced.listUsersFilteredBind",
             "sql": "SELECT id, name FROM users WHERE status = #{status}",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -403,7 +403,7 @@ class RewriteFactsTest(unittest.TestCase):
             "dynamicTrace": {"statementFeatures": ["WHERE", "IF", "BIND"]},
         }
         foreach_unit = {
-            "sqlKey": "demo.user.advanced.listUsersFilteredForeach#v24",
+            "sqlKey": "demo.user.advanced.listUsersFilteredForeach",
             "sql": "SELECT id, name FROM users WHERE id IN (#{ids[0]})",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -416,7 +416,7 @@ class RewriteFactsTest(unittest.TestCase):
             "dynamicTrace": {"statementFeatures": ["WHERE", "FOREACH"]},
         }
         set_unit = {
-            "sqlKey": "demo.user.advanced.updateUsersFilteredSet#v25",
+            "sqlKey": "demo.user.advanced.updateUsersFilteredSet",
             "sql": "UPDATE users SET status = #{status} WHERE id = #{id}",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -456,7 +456,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_distinct_relaxation_boundary(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listDistinctUserStatuses#v10",
+            "sqlKey": "demo.user.advanced.listDistinctUserStatuses",
             "sql": "SELECT DISTINCT status FROM users ORDER BY status",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -494,7 +494,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_group_by_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.aggregateOrdersByStatus#v5",
+            "sqlKey": "demo.order.harness.aggregateOrdersByStatus",
             "sql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -522,7 +522,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_having_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.listOrderUserCountsHaving#v8",
+            "sqlKey": "demo.order.harness.listOrderUserCountsHaving",
             "sql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -543,7 +543,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_detects_group_by_from_alias_cleanup_safe_baseline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased#v11",
+            "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased",
             "sql": "SELECT o.status AS status, COUNT(*) AS total, SUM(o.amount) AS total_amount FROM orders o GROUP BY o.status ORDER BY o.status",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -572,7 +572,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_detects_group_by_having_from_alias_cleanup_safe_baseline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased#v12",
+            "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased",
             "sql": "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -600,7 +600,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_detects_distinct_from_alias_cleanup_safe_baseline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+            "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased",
             "sql": "SELECT DISTINCT u.status FROM users u ORDER BY u.status",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.user.advanced",
@@ -624,7 +624,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_having_wrapper_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped#v10",
+            "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped",
             "sql": (
                 "SELECT user_id, COUNT(*) AS total "
                 "FROM ( SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ) oh "
@@ -663,7 +663,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_window_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.listOrderAmountWindowRanks#v7",
+            "sqlKey": "demo.order.harness.listOrderAmountWindowRanks",
             "sql": "SELECT order_no, amount, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS row_rank FROM orders",
             "xmlPath": "/tmp/demo_mapper.xml",
             "namespace": "demo.order.harness",
@@ -688,7 +688,7 @@ class RewriteFactsTest(unittest.TestCase):
 
     def test_build_rewrite_facts_model_captures_union_shape(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.shipment.harness.listShipmentStatusUnion#v6",
+            "sqlKey": "demo.shipment.harness.listShipmentStatusUnion",
             "sql": (
                 "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
                 "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' ORDER BY status, id"

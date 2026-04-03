@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..utils import statement_key_from_row
 from .proposal_models import LLM_CANDIDATES_KEY
 
 
@@ -168,7 +169,7 @@ def build_sql_rows(units: list[dict[str, Any]], acceptance: list[dict[str, Any]]
     rows: list[dict[str, Any]] = []
     for unit in units:
         sql_key = str(unit.get("sqlKey") or "")
-        statement_key = sql_key.split("#", 1)[0]
+        statement_key = statement_key_from_row(unit)
         acceptance_row = acceptance_by_sql_key.get(sql_key, {})
         patch_row = patch_by_statement.get(statement_key, {})
         perf = acceptance_row.get("perfComparison") or {}

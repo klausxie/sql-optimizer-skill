@@ -40,7 +40,7 @@ class ContractModelInterfacesTest(unittest.TestCase):
         )
         # ValidationResult no longer includes patch-related fields like rewrite_facts
         result = sql_models.ValidationResult(
-            sql_key="demo.user.listUsers#v1",
+            sql_key="demo.user.listUsers",
             status="PASS",
             rewritten_sql="SELECT id FROM users",
             equivalence=equivalence.to_contract(),
@@ -63,7 +63,7 @@ class ContractModelInterfacesTest(unittest.TestCase):
         self.assertFalse(hasattr(perf, "as_dict"))
         self.assertFalse(hasattr(selection, "candidate_evaluations_payload"))
         self.assertEqual(selection.candidate_evaluations_to_contract()[0]["candidateId"], "c1")
-        self.assertEqual(result.to_contract()["sqlKey"], "demo.user.listUsers#v1")
+        self.assertEqual(result.to_contract()["sqlKey"], "demo.user.listUsers")
         # rewrite_facts is no longer in ValidationResult - it's computed by patch_generate stage
         self.assertNotIn("rewriteFacts", result.to_contract())
         self.assertNotIn("patchStrategyCandidates", result.to_contract())
@@ -73,7 +73,7 @@ class ContractModelInterfacesTest(unittest.TestCase):
 
     def test_report_model_exports_use_to_contract_only(self) -> None:
         failure = report_interfaces.FailureRecord(
-            sql_key="demo.user.listUsers#v1",
+            sql_key="demo.user.listUsers",
             reason_code="VALIDATE_PERF_NOT_IMPROVED",
             status="NEED_MORE_PARAMS",
             classification="degradable",

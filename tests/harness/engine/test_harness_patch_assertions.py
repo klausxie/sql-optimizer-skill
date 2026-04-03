@@ -29,7 +29,7 @@ class HarnessPatchAssertionsTest(unittest.TestCase):
         assert_fixture_scenario_summary(
             summary,
             next_count=1,
-            next_target_sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            next_target_sql_key="demo.user.advanced.listDistinctUserStatuses",
             roadmap_theme_counts={"CTE_ENABLEMENT": 1},
         )
 

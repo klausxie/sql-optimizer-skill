@@ -43,7 +43,7 @@ def _render_outputs(
 
 class OutputGuidanceConsistencyTest(unittest.TestCase):
     def test_critical_gap_keeps_report_in_inspect_mode(self) -> None:
-        sql_key = "demo.user.findUsers#v1"
+        sql_key = "demo.user.findUsers"
         artifacts, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[{"sqlKey": sql_key, "status": "PASS", "decisionLayers": {"delivery": {"tier": "READY"}}}],
@@ -71,7 +71,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(verify_payload["evidence_state"], "CRITICAL_GAP")
 
     def test_ready_to_apply_keeps_report_in_apply_mode(self) -> None:
-        sql_key = "demo.user.applyPatch#v1"
+        sql_key = "demo.user.applyPatch"
         artifacts, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[
@@ -98,7 +98,7 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "apply")
 
     def test_security_block_still_surfaces_in_verify_payload(self) -> None:
-        sql_key = "demo.user.findUsers#v2"
+        sql_key = "demo.user.findUsersSecurity"
         _artifacts, verify_payload = _render_outputs(
             sql_key=sql_key,
             acceptance_rows=[

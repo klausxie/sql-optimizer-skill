@@ -14,7 +14,7 @@ from ..manifest import log_event
 from ..platforms.sql.candidate_generation_engine import evaluate_candidate_generation
 from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
 from ..run_paths import canonical_paths
-from ..utils import statement_key, is_sql_syntax_error
+from ..utils import statement_key, statement_key_from_row, is_sql_syntax_error
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
 from .llm_feedback import collect_llm_feedback, save_feedback_record
@@ -339,6 +339,7 @@ def _save_artifacts(
     verification_payload = _append_verification(
         run_dir,
         validator,
+        sql_unit,
         sql_unit["sqlKey"],
         proposal,
         trace,
@@ -431,6 +432,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
 def _append_verification(
     run_dir: Path,
     validator: ContractValidator,
+    sql_unit: dict[str, Any],
     sql_key: str,
     proposal: dict[str, Any],
     trace: dict[str, Any],
@@ -502,7 +504,7 @@ def _append_verification(
         VerificationRecord(
             run_id=run_dir.name,
             sql_key=sql_key,
-            statement_key=statement_key(sql_key),
+            statement_key=statement_key(sql_key, statement_key_from_row(sql_unit)),
             phase="optimize",
             status=verification_status,
             reason_code=verification_reason_code,

@@ -32,7 +32,7 @@ class WorkflowEngineRequestsTest(unittest.TestCase):
                     "report": "PENDING",
                 },
                 "statements": {
-                    "demo.user.find#v1": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
+                    "demo.user.find": {"optimize": "PENDING", "validate": "PENDING", "patch_generate": "PENDING"}
                 },
                 "attempts_by_phase": {"optimize": 1},
                 "last_reason_code": None,
@@ -45,7 +45,7 @@ class WorkflowEngineRequestsTest(unittest.TestCase):
         snapshot = workflow_engine.build_status_snapshot(request)
 
         self.assertEqual(snapshot["run_id"], "run_demo")
-        self.assertEqual(snapshot["current_sql_key"], "demo.user.find#v1")
+        self.assertEqual(snapshot["current_sql_key"], "demo.user.find")
         self.assertEqual(snapshot["next_action"], "resume")
         self.assertFalse(snapshot["complete"])
 

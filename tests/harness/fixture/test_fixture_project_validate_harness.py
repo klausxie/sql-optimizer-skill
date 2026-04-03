@@ -41,7 +41,7 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
     def test_fixture_registered_blocked_neighbor_helper_excludes_ready_static_registered_rows(self) -> None:
         ready_only_scenarios = [
             {
-                "sqlKey": "demo.user.advanced.listUsersProjectedAliases#v20",
+                "sqlKey": "demo.user.advanced.listUsersProjectedAliases",
                 "scenarioClass": "PATCH_READY_STATEMENT",
                 "targetPatchStrategy": "EXACT_TEMPLATE_EDIT",
                 "targetRegisteredFamily": "STATIC_ALIAS_PROJECTION_CLEANUP",
@@ -51,7 +51,7 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
 
         scenarios = ready_only_scenarios + [
             {
-                "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
+                "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
                 "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
                 "targetPatchStrategy": None,
                 "targetRegisteredFamily": "STATIC_ALIAS_PROJECTION_CLEANUP",

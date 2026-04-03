@@ -57,7 +57,7 @@ def make_context(
 ):
     """创建模拟的 GateContext"""
     return GateContext(
-        sql_unit=sql_unit or {"sqlKey": "test#v1", "locators": {"statementId": "test"}},
+        sql_unit=sql_unit or {"sqlKey": "test", "locators": {"statementId": "test"}},
         acceptance=acceptance or {"status": "PASS"},
         selection=selection or make_mock_selection(),
         build=build or make_mock_build(),
@@ -74,7 +74,7 @@ class TestLocatorGate:
         """有 locator 时通过"""
         gate = LocatorGate()
         ctx = make_context(
-            sql_unit={"sqlKey": "test#v1", "locators": {"statementId": "test"}}
+            sql_unit={"sqlKey": "test", "locators": {"statementId": "test"}}
         )
         result = gate.execute(ctx)
         assert result.is_pass
@@ -83,7 +83,7 @@ class TestLocatorGate:
         """无 locator 时跳过"""
         gate = LocatorGate()
         ctx = make_context(
-            sql_unit={"sqlKey": "test#v1", "locators": {}}
+            sql_unit={"sqlKey": "test", "locators": {}}
         )
         result = gate.execute(ctx)
         assert result.is_skip
@@ -171,7 +171,7 @@ class TestCandidateGate:
 
         ctx = make_context(
             acceptance_rows=[
-                {"sqlKey": "test#v1", "status": "PASS"}
+                {"sqlKey": "test", "status": "PASS"}
             ]
         )
         ctx.statement_key_fn = statement_key_fn

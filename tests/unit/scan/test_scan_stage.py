@@ -23,6 +23,19 @@ class _Proc:
 
 
 class ScannerAdapterTest(unittest.TestCase):
+    def test_build_unit_uses_statement_key_without_default_variant_suffix(self) -> None:
+        unit = scanner_adapter._build_unit(
+            Path("/tmp/demo_mapper.xml"),
+            "demo.user",
+            "findUsers",
+            "SELECT",
+            "SELECT * FROM users",
+            1,
+        )
+        self.assertEqual(unit["statementKey"], "demo.user.findUsers")
+        self.assertEqual(unit["sqlKey"], "demo.user.findUsers")
+        self.assertNotIn("variantId", unit)
+
     def test_run_scan_supports_foreach_object_collection(self) -> None:
         jar = ROOT / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
         if not jar.exists():
@@ -198,6 +211,7 @@ class ScannerAdapterTest(unittest.TestCase):
                     json.dumps(
                         {
                             "sqlKey": "demo.user.findUsers#v1",
+                            "statementKey": "demo.user.findUsers",
                             "xmlPath": "x.xml",
                             "namespace": "demo.user",
                             "statementId": "findUsers",
@@ -218,6 +232,55 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertEqual(units, [])
             self.assertEqual(warnings[-1]["severity"], "fatal")
             self.assertIn("strict mode", warnings[-1]["message"])
+
+    def test_run_scan_normalizes_java_default_v1_identity(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_") as td:
+            root = Path(td)
+            jar = root / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
+            jar.parent.mkdir(parents=True, exist_ok=True)
+            jar.write_text("jar-placeholder", encoding="utf-8")
+            run_dir = root / "runs" / "run_scan_java_identity"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(root)},
+                "scan": {
+                    "mapper_globs": ["src/main/resources/**/*.xml"],
+                    "java_scanner": {"jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"},
+                },
+                "db": {"platform": "postgresql"},
+            }
+            with patch(
+                "sqlopt.adapters.scanner_java.run_capture_text",
+                return_value=_Proc(0, "", ""),
+            ) as run_mock:
+                out_path = run_dir / "artifacts" / "scan.jsonl"
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(
+                    json.dumps(
+                        {
+                            "sqlKey": "demo.user.findUsers#v1",
+                            "xmlPath": "x.xml",
+                            "namespace": "demo.user",
+                            "statementId": "findUsers",
+                            "statementType": "SELECT",
+                            "variantId": "v1",
+                            "sql": "SELECT * FROM users",
+                            "parameterMappings": [],
+                            "paramExample": {},
+                            "locators": {"statementId": "findUsers"},
+                            "riskFlags": [],
+                            "scanWarnings": None,
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+
+            self.assertEqual(warnings, [])
+            self.assertEqual(units[0]["statementKey"], "demo.user.findUsers")
+            self.assertEqual(units[0]["sqlKey"], "demo.user.findUsers")
+            self.assertNotIn("variantId", units[0])
             cmd = run_mock.call_args.args[0]
             self.assertEqual(Path(cmd[2]), jar.resolve())
 
@@ -262,7 +325,9 @@ class ScannerAdapterTest(unittest.TestCase):
             with patch("sqlopt.adapters.scanner_java.run_capture_text", side_effect=_fake_run):
                 units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
             self.assertEqual(len(units), 1)
-            self.assertEqual(units[0]["sqlKey"], "demo.user.findUsers#v1")
+            self.assertEqual(units[0]["statementKey"], "demo.user.findUsers")
+            self.assertEqual(units[0]["sqlKey"], "demo.user.findUsers")
+            self.assertNotIn("variantId", units[0])
             self.assertEqual(warnings, [])
 
     def test_python_fallback_skips_non_mapper_xml(self) -> None:

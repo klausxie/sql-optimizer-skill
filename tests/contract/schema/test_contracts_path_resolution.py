@@ -53,6 +53,25 @@ class ContractsPathResolutionTest(unittest.TestCase):
             with self.assertRaisesRegex(ContractError, "unknown schema"):
                 validator.validate(name, {})
 
+    def test_sqlunit_allows_statement_key_without_default_variant_id(self) -> None:
+        validator = ContractValidator(Path(__file__).resolve().parents[3])
+        validator.validate(
+            "sqlunit",
+            {
+                "sqlKey": "demo.user.findUsers",
+                "statementKey": "demo.user.findUsers",
+                "xmlPath": "src/main/resources/demo_mapper.xml",
+                "namespace": "demo.user",
+                "statementId": "findUsers",
+                "statementType": "SELECT",
+                "sql": "SELECT * FROM users",
+                "parameterMappings": [],
+                "paramExample": {},
+                "locators": {"statementId": "findUsers"},
+                "riskFlags": [],
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,7 +35,7 @@ class StatusResolverModuleTest(unittest.TestCase):
                         "patch_generate": "PENDING",
                         "report": "PENDING",
                     },
-                    "statements": {"demo#v1": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}},
+                    "statements": {"demo": {"optimize": "DONE", "validate": "PENDING", "patch_generate": "PENDING"}},
                 },
                 plan={"to_stage": "patch_generate"},
                 meta={"status": "RUNNING"},
@@ -44,7 +44,7 @@ class StatusResolverModuleTest(unittest.TestCase):
         )
         self.assertFalse(result.complete)
         self.assertEqual(result.next_action, "resume")
-        self.assertEqual(result.current_sql_key, "demo#v1")
+        self.assertEqual(result.current_sql_key, "demo")
 
     def test_resolve_status_returns_report_rebuild_for_completed_run(self) -> None:
         resolver = self._resolver()

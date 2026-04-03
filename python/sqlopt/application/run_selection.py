@@ -4,6 +4,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from ..utils import statement_key, statement_key_from_row
+
 
 def _normalize_relative_project_path(project_root: Path, raw_path: str) -> str:
     text = str(raw_path or "").strip()
@@ -106,8 +108,24 @@ def filter_units_by_sql_keys(
     if not requested:
         return list(units), []
     units_by_key = {str(row.get("sqlKey") or ""): row for row in units if str(row.get("sqlKey") or "").strip()}
-    selected = [units_by_key[key] for key in requested if key in units_by_key]
-    missing = [key for key in requested if key not in units_by_key]
+    units_by_statement: dict[str, list[dict[str, Any]]] = {}
+    for row in units:
+        row_statement_key = statement_key_from_row(row)
+        if row_statement_key:
+            units_by_statement.setdefault(row_statement_key, []).append(row)
+
+    selected: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for key in requested:
+        unit = units_by_key.get(key)
+        if unit is None:
+            statement_matches = units_by_statement.get(statement_key(key), [])
+            if len(statement_matches) == 1:
+                unit = statement_matches[0]
+        if unit is None:
+            missing.append(key)
+            continue
+        selected.append(unit)
     return selected, missing
 
 

@@ -166,15 +166,15 @@ def main() -> None:
             raise SystemExit("smoke verification failed: opencode command docs missing after install")
 
         runtime_python = _installed_runtime_python()
-        run_script = _installed_runtime_script("run_until_budget.py")
-        status_script = _installed_runtime_script("run_with_resolved_id.py")
-        if not runtime_python.exists() or not run_script.exists() or not status_script.exists():
-            raise SystemExit("smoke verification failed: installed runtime scripts missing")
+        cli_script = _installed_runtime_script("sqlopt_cli.py")
+        if not runtime_python.exists() or not cli_script.exists():
+            raise SystemExit("smoke verification failed: installed runtime cli missing")
 
         run_proc = _run(
             [
                 str(runtime_python),
-                str(run_script),
+                str(cli_script),
+                "run",
                 "--config",
                 "./sqlopt.local.yml",
                 "--to-stage",
@@ -186,7 +186,7 @@ def main() -> None:
             ],
             cwd=project_dir,
         )
-        _require_ok(run_proc, step="installed run_until_budget")
+        _require_ok(run_proc, step="installed sqlopt_cli run")
         run_payload = _parse_last_dict(run_proc.stdout)
         run_id = str(run_payload.get("run_id") or "").strip() or _latest_run_id(project_dir)
         if not run_id:
@@ -195,7 +195,7 @@ def main() -> None:
         status_proc = _run(
             [
                 str(runtime_python),
-                str(status_script),
+                str(cli_script),
                 "status",
                 "--run-id",
                 run_id,

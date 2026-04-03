@@ -10,10 +10,8 @@ from typing import Any
 
 from ..errors import StageError
 from ..io_utils import write_json
-from ..llm.provider import _extract_json_events, _opencode_env
 from ..platforms.dispatch import check_db_connectivity
 from ..run_paths import canonical_paths
-from ..subprocess_utils import run_capture_text
 from ..utils import truncate_string
 from .preflight_strategy import DbCheckPolicy, LlmCheckPolicy, ScannerCheckPolicy, build_preflight_policy
 
@@ -77,45 +75,9 @@ def _check_opencode(config: dict[str, Any], policy: LlmCheckPolicy | None = None
             error="opencode command not found",
             reason_code="PREFLIGHT_LLM_UNREACHABLE",
         )
-    llm_cfg = _resolve_llm_config(config)
-    cmd = ["opencode", "run", "--format", "json", "--variant", "minimal"]
-    opencode_model = str(llm_cfg.get("opencode_model") or "").strip()
-    if opencode_model:
-        cmd.extend(["-m", opencode_model])
-    cmd.append("ping")
-    timeout_ms = int(llm_cfg.get("timeout_ms", 15000))
-    try:
-        proc = run_capture_text(
-            cmd,
-            timeout_s=max(1000, timeout_ms) / 1000.0,
-            env=_opencode_env(),
-        )
-    except Exception as exc:
-        return _build_check_result(
-            "llm",
-            enabled=True,
-            ok=False,
-            error=str(exc),
-            reason_code="PREFLIGHT_LLM_UNREACHABLE",
-        )
-    if proc.returncode != 0:
-        detail = proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}"
-        return _build_check_result(
-            "llm",
-            enabled=True,
-            ok=False,
-            error=detail,
-            reason_code="PREFLIGHT_LLM_UNREACHABLE",
-        )
-    _, err = _extract_json_events(proc.stdout)
-    if err:
-        return _build_check_result(
-            "llm",
-            enabled=True,
-            ok=False,
-            error=err,
-            reason_code="PREFLIGHT_LLM_UNREACHABLE",
-        )
+    # Keep preflight cheap and deterministic: opencode_run availability is the
+    # only hard requirement here. A real ping can exceed preflight's stage
+    # budget even when the provider works correctly for normal optimize calls.
     return _build_check_result("llm", enabled=True, ok=True)
 
 

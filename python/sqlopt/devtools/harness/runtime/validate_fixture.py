@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 from ....platforms.sql.patch_strategy_planner import plan_patch_strategy
 from ....platforms.sql.validator_sql import validate_proposal
-from ..scenarios import load_scenarios
+from ....utils import statement_key
+from ..scenarios.loader import load_scenarios
 from .scan_fixture import scan_fixture_project
 
 
@@ -91,13 +92,24 @@ def _fake_plan_for_mode(mode: str) -> dict:
     raise AssertionError(mode)
 
 
+def resolve_fixture_unit(sql_key: str, units_by_key: dict[str, dict]) -> dict:
+    unit = units_by_key.get(sql_key)
+    if unit is not None:
+        return unit
+    target_statement_key = statement_key(sql_key)
+    statement_matches = [row for row in units_by_key.values() if statement_key(str(row.get("sqlKey") or "")) == target_statement_key]
+    if len(statement_matches) == 1:
+        return statement_matches[0]
+    raise KeyError(sql_key)
+
+
 def validate_fixture_scenario(
     *,
     scenario: dict,
     units_by_key: dict[str, dict],
 ) -> tuple[dict, dict]:
     sql_key = str(scenario["sqlKey"])
-    unit = units_by_key[sql_key]
+    unit = resolve_fixture_unit(sql_key, units_by_key)
     proposal = _proposal_for_candidate(str(scenario["validateCandidateSql"]))
     mode = str(scenario["validateEvidenceMode"])
     config = _config_for_validate()
@@ -133,7 +145,7 @@ def run_fixture_validate_harness(
         proposals.append(proposal)
 
         sql_key = str(scenario["sqlKey"])
-        unit = units_by_key[sql_key]
+        unit = resolve_fixture_unit(sql_key, units_by_key)
         rewritten_sql = str(acceptance.get("rewrittenSql") or "").strip()
         if rewritten_sql and fragment_catalog:
             try:

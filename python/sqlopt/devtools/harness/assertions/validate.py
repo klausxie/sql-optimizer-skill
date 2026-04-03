@@ -3,105 +3,105 @@ from __future__ import annotations
 from .helpers import semantic_gate_bucket
 
 _FIXTURE_REWRITE_EXPECTATIONS: dict[str, dict[tuple[str, ...], object]] = {
-    "demo.user.advanced.countUsersDirectFiltered#v3": {
+    "demo.user.advanced.countUsersDirectFiltered": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "WHERE_CLAUSE",
     },
-    "demo.user.advanced.listUsersRecentPaged#v5": {
+    "demo.user.advanced.listUsersRecentPaged": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "STATIC_INCLUDE_ONLY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.user.advanced.countUsersFilteredWrapped#v4": {
+    "demo.user.advanced.countUsersFilteredWrapped": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_COUNT_WRAPPER",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_COUNT_WRAPPER_COLLAPSE",
     },
-    "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14": {
+    "demo.user.advanced.listUsersViaStaticIncludeWrapped": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "STATIC_INCLUDE_ONLY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.user.advanced.listUsersFilteredWrapped#v15": {
+    "demo.user.advanced.listUsersFilteredWrapped": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
     },
-    "demo.user.advanced.listUsersRecentPagedWrapped#v16": {
+    "demo.user.advanced.listUsersRecentPagedWrapped": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "STATIC_INCLUDE_ONLY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
     },
-    "demo.user.advanced.listUsersFilteredAliased#v17": {
+    "demo.user.advanced.listUsersFilteredAliased": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
     },
-    "demo.user.advanced.listUsersFilteredQualifiedAliases#v22": {
+    "demo.user.advanced.listUsersFilteredQualifiedAliases": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
     },
-    "demo.user.advanced.listUsersFilteredAliasedChoose#v23": {
+    "demo.user.advanced.listUsersFilteredAliasedChoose": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "REVIEW_REQUIRED",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "WHERE_CLAUSE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): None,
     },
-    "demo.user.advanced.listUsersFilteredTableAliased#v18": {
+    "demo.user.advanced.listUsersFilteredTableAliased": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
     },
-    "demo.user.advanced.listUsersFilteredPredicateAliased#v24": {
+    "demo.user.advanced.listUsersFilteredPredicateAliased": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
     },
-    "demo.order.harness.findOrdersByNos#v1": {
+    "demo.order.harness.findOrdersByNos": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "FOREACH_IN_PREDICATE",
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "REVIEW_REQUIRED",
     },
-    "demo.user.advanced.listDistinctUserStatuses#v11": {
+    "demo.user.advanced.listDistinctUserStatuses": {
         ("rewriteFacts", "aggregationQuery", "distinctPresent"): True,
         ("rewriteFacts", "aggregationQuery", "distinctRelaxationCandidate"): True,
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "shapeFamily"): "DISTINCT",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "constraintFamily"): "DISTINCT_RELAXATION",
     },
-    "demo.order.harness.aggregateOrdersByStatus#v5": {
+    "demo.order.harness.aggregateOrdersByStatus": {
         ("rewriteFacts", "aggregationQuery", "groupByPresent"): True,
         ("rewriteFacts", "aggregationQuery", "groupByColumns"): ["status"],
         ("rewriteFacts", "aggregationQuery", "aggregateFunctions"): ["COUNT", "SUM"],
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "shapeFamily"): "GROUP_BY",
     },
-    "demo.order.harness.aggregateOrdersByStatusWrapped#v9": {
+    "demo.order.harness.aggregateOrdersByStatusWrapped": {
         ("rewriteFacts", "aggregationQuery", "groupByPresent"): True,
         ("rewriteFacts", "aggregationQuery", "groupByColumns"): ["status"],
         ("rewriteFacts", "aggregationQuery", "aggregateFunctions"): ["COUNT", "SUM"],
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "safeBaselineFamily"): "REDUNDANT_GROUP_BY_WRAPPER",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.order.harness.listOrderUserCountsHaving#v8": {
+    "demo.order.harness.listOrderUserCountsHaving": {
         ("rewriteFacts", "aggregationQuery", "havingPresent"): True,
         ("rewriteFacts", "aggregationQuery", "havingExpression"): "COUNT(*) > 1",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "shapeFamily"): "HAVING",
     },
-    "demo.order.harness.listOrderUserCountsHavingWrapped#v10": {
+    "demo.order.harness.listOrderUserCountsHavingWrapped": {
         ("rewriteFacts", "aggregationQuery", "groupByPresent"): True,
         ("rewriteFacts", "aggregationQuery", "havingPresent"): True,
         ("rewriteFacts", "aggregationQuery", "havingExpression"): "COUNT(*) > 1",
@@ -109,14 +109,14 @@ _FIXTURE_REWRITE_EXPECTATIONS: dict[str, dict[tuple[str, ...], object]] = {
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "safeBaselineFamily"): "REDUNDANT_HAVING_WRAPPER",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.order.harness.aggregateOrdersByStatusAliased#v11": {
+    "demo.order.harness.aggregateOrdersByStatusAliased": {
         ("rewriteFacts", "aggregationQuery", "groupByPresent"): True,
         ("rewriteFacts", "aggregationQuery", "groupByColumns"): ["o.status"],
         ("rewriteFacts", "aggregationQuery", "aggregateFunctions"): ["COUNT", "SUM"],
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "safeBaselineFamily"): "GROUP_BY_FROM_ALIAS_CLEANUP",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.order.harness.listOrderUserCountsHavingAliased#v12": {
+    "demo.order.harness.listOrderUserCountsHavingAliased": {
         ("rewriteFacts", "aggregationQuery", "groupByPresent"): True,
         ("rewriteFacts", "aggregationQuery", "havingPresent"): True,
         ("rewriteFacts", "aggregationQuery", "groupByColumns"): ["o.user_id"],
@@ -124,18 +124,18 @@ _FIXTURE_REWRITE_EXPECTATIONS: dict[str, dict[tuple[str, ...], object]] = {
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "safeBaselineFamily"): "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.user.advanced.listDistinctUserStatusesAliased#v19": {
+    "demo.user.advanced.listDistinctUserStatusesAliased": {
         ("rewriteFacts", "aggregationQuery", "distinctPresent"): True,
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "safeBaselineFamily"): "DISTINCT_FROM_ALIAS_CLEANUP",
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
     },
-    "demo.order.harness.listOrderAmountWindowRanks#v7": {
+    "demo.order.harness.listOrderAmountWindowRanks": {
         ("rewriteFacts", "aggregationQuery", "windowPresent"): True,
         ("rewriteFacts", "aggregationQuery", "windowFunctions"): ["ROW_NUMBER"],
         ("rewriteFacts", "aggregationQuery", "orderByExpression"): None,
         ("rewriteFacts", "aggregationQuery", "capabilityProfile", "shapeFamily"): "WINDOW",
     },
-    "demo.shipment.harness.listShipmentStatusUnion#v6": {
+    "demo.shipment.harness.listShipmentStatusUnion": {
         ("rewriteFacts", "aggregationQuery", "unionPresent"): True,
         ("rewriteFacts", "aggregationQuery", "unionBranches"): 2,
         ("rewriteFacts", "aggregationQuery", "orderByExpression"): "status, id",

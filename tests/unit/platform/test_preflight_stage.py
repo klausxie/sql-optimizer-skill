@@ -46,7 +46,7 @@ class PreflightStageTest(unittest.TestCase):
             saved = read_json(run_dir / "control" / "preflight.json")
             self.assertTrue(saved.get("ok"))
 
-    def test_preflight_fail_when_opencode_unavailable(self) -> None:
+    def test_preflight_fail_when_opencode_command_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
             run_dir = Path(td) / "runs" / "run_pf_fail"
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
@@ -56,13 +56,26 @@ class PreflightStageTest(unittest.TestCase):
                 "scan": {},
                 "llm": {"enabled": True, "provider": "opencode_run", "timeout_ms": 1000},
             }
-            with patch("sqlopt.stages.preflight.shutil.which", return_value="/usr/bin/opencode"):
-                with patch("sqlopt.stages.preflight.run_capture_text", return_value=_Proc(1, "", "network down")):
-                    with self.assertRaises(StageError) as cm:
-                        preflight.execute(config, run_dir)
+            with patch("sqlopt.stages.preflight.shutil.which", return_value=None):
+                with self.assertRaises(StageError) as cm:
+                    preflight.execute(config, run_dir)
             self.assertEqual(cm.exception.reason_code, "PREFLIGHT_LLM_UNREACHABLE")
             saved = read_json(run_dir / "control" / "preflight.json")
             self.assertFalse(saved.get("ok"))
+
+    def test_preflight_opencode_only_checks_command_availability(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:
+            run_dir = Path(td) / "runs" / "run_pf_opencode_ok"
+            (run_dir / "control").mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(Path(td).resolve())},
+                "validate": {"db_reachable": False},
+                "scan": {},
+                "llm": {"enabled": True, "provider": "opencode_run", "timeout_ms": 1000},
+            }
+            with patch("sqlopt.stages.preflight.shutil.which", return_value="/usr/bin/opencode"):
+                result = preflight.execute(config, run_dir)
+            self.assertTrue(result.get("ok"))
 
     def test_preflight_skips_db_check_when_platform_capability_disables_it(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_preflight_") as td:

@@ -1,6 +1,6 @@
 [
   {
-    "sqlKey": "demo.user.listUsers#v1",
+    "sqlKey": "demo.user.listUsers",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/simple_user_mapper.xml",
     "domain": "user",
@@ -27,7 +27,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.countUser#v2",
+    "sqlKey": "demo.user.countUser",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/simple_user_mapper.xml",
     "domain": "user",
@@ -57,7 +57,7 @@
     "roadmapTheme": "WRAPPER_COLLAPSE"
   },
   {
-    "sqlKey": "demo.user.findUsers#v3",
+    "sqlKey": "demo.user.findUsers",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/simple_user_mapper.xml",
     "domain": "user",
@@ -86,7 +86,7 @@
     "roadmapTheme": "SECURITY_GUARDRAIL"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+    "sqlKey": "demo.user.advanced.listUsersProjected",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -115,7 +115,7 @@
     "roadmapTheme": "STATEMENT_PATCH"
   },
   {
-    "sqlKey": "demo.user.advanced.countUsersWrapped#v2",
+    "sqlKey": "demo.user.advanced.countUsersWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -145,7 +145,7 @@
     "roadmapTheme": "WRAPPER_COLLAPSE"
   },
   {
-    "sqlKey": "demo.user.advanced.countUsersDirectFiltered#v3",
+    "sqlKey": "demo.user.advanced.countUsersDirectFiltered",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -173,7 +173,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.countUsersFilteredWrapped#v4",
+    "sqlKey": "demo.user.advanced.countUsersFilteredWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -208,7 +208,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersRecentPaged#v5",
+    "sqlKey": "demo.user.advanced.listUsersRecentPaged",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -235,7 +235,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.findUsersUnsafeOrderBy#v6",
+    "sqlKey": "demo.user.advanced.findUsersUnsafeOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -264,7 +264,7 @@
     "roadmapTheme": "SECURITY_GUARDRAIL"
   },
   {
-    "sqlKey": "demo.user.advanced.findUsersByIds#v7",
+    "sqlKey": "demo.user.advanced.findUsersByIds",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -291,7 +291,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.findUsersByKeyword#v8",
+    "sqlKey": "demo.user.advanced.findUsersByKeyword",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -319,7 +319,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.updateUserSelective#v9",
+    "sqlKey": "demo.user.advanced.updateUserSelective",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -345,7 +345,7 @@
     "roadmapTheme": "DML_BOUNDARY"
   },
   {
-    "sqlKey": "demo.user.advanced.listUserCountsByStatus#v10",
+    "sqlKey": "demo.user.advanced.listUserCountsByStatus",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -368,7 +368,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.order.harness.findOrdersByNos#v1",
+    "sqlKey": "demo.order.harness.findOrdersByNos",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -395,7 +395,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus#v2",
+    "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -423,7 +423,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.order.harness.listOrdersWithUsersPaged#v3",
+    "sqlKey": "demo.order.harness.listOrdersWithUsersPaged",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -449,7 +449,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.order.harness.findOrdersByRawPredicate#v4",
+    "sqlKey": "demo.order.harness.findOrdersByRawPredicate",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -477,7 +477,7 @@
     "roadmapTheme": "SECURITY_GUARDRAIL"
   },
   {
-    "sqlKey": "demo.order.harness.aggregateOrdersByStatus#v5",
+    "sqlKey": "demo.order.harness.aggregateOrdersByStatus",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -500,7 +500,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.order.harness.updateOrderStatusByNos#v6",
+    "sqlKey": "demo.order.harness.updateOrderStatusByNos",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -525,7 +525,7 @@
     "roadmapTheme": "DML_BOUNDARY"
   },
   {
-    "sqlKey": "demo.shipment.harness.findShipments#v1",
+    "sqlKey": "demo.shipment.harness.findShipments",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -552,7 +552,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.shipment.harness.findShipmentWithOrderUnsafeSort#v2",
+    "sqlKey": "demo.shipment.harness.findShipmentWithOrderUnsafeSort",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -580,7 +580,7 @@
     "roadmapTheme": "SECURITY_GUARDRAIL"
   },
   {
-    "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds#v3",
+    "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -607,7 +607,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.shipment.harness.listRecentShipmentsPaged#v4",
+    "sqlKey": "demo.shipment.harness.listRecentShipmentsPaged",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -636,7 +636,7 @@
     "roadmapTheme": "STATEMENT_PATCH"
   },
   {
-    "sqlKey": "demo.shipment.harness.markShipmentsDeleted#v5",
+    "sqlKey": "demo.shipment.harness.markShipmentsDeleted",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -661,7 +661,7 @@
     "roadmapTheme": "DML_BOUNDARY"
   },
   {
-    "sqlKey": "demo.user.advanced.listDistinctUserStatuses#v11",
+    "sqlKey": "demo.user.advanced.listDistinctUserStatuses",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -684,7 +684,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.user.advanced.listRecentUsersViaCte#v12",
+    "sqlKey": "demo.user.advanced.listRecentUsersViaCte",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -715,7 +715,7 @@
     "roadmapTheme": "CTE_ENABLEMENT"
   },
   {
-    "sqlKey": "demo.user.advanced.listDistinctUserStatusesWrapped#v13",
+    "sqlKey": "demo.user.advanced.listDistinctUserStatusesWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -745,7 +745,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14",
+    "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -778,7 +778,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredWrapped#v15",
+    "sqlKey": "demo.user.advanced.listUsersFilteredWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -813,7 +813,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersRecentPagedWrapped#v16",
+    "sqlKey": "demo.user.advanced.listUsersRecentPagedWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -846,7 +846,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredAliased#v17",
+    "sqlKey": "demo.user.advanced.listUsersFilteredAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -881,7 +881,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased#v18",
+    "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -915,7 +915,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.order.harness.listOrderAmountWindowRanks#v7",
+    "sqlKey": "demo.order.harness.listOrderAmountWindowRanks",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -938,7 +938,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.order.harness.listOrderUserCountsHaving#v8",
+    "sqlKey": "demo.order.harness.listOrderUserCountsHaving",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -961,7 +961,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.shipment.harness.listShipmentStatusUnion#v6",
+    "sqlKey": "demo.shipment.harness.listShipmentStatusUnion",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml",
     "domain": "shipment",
@@ -984,7 +984,7 @@
     "roadmapTheme": "COMPLEX_QUERY_SHAPE"
   },
   {
-    "sqlKey": "demo.order.harness.aggregateOrdersByStatusWrapped#v9",
+    "sqlKey": "demo.order.harness.aggregateOrdersByStatusWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -1014,7 +1014,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped#v10",
+    "sqlKey": "demo.order.harness.listOrderUserCountsHavingWrapped",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -1045,7 +1045,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased#v11",
+    "sqlKey": "demo.order.harness.aggregateOrdersByStatusAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -1076,7 +1076,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased#v12",
+    "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/order/order_harness_mapper.xml",
     "domain": "order",
@@ -1108,7 +1108,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased#v19",
+    "sqlKey": "demo.user.advanced.listDistinctUserStatusesAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1138,7 +1138,7 @@
     "roadmapTheme": "AGGREGATION_SEMANTICS"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersProjectedAliases#v20",
+    "sqlKey": "demo.user.advanced.listUsersProjectedAliases",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1173,7 +1173,7 @@
     "roadmapTheme": "STATEMENT_PATCH"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases#v21",
+    "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1197,7 +1197,7 @@
     "roadmapTheme": "STATEMENT_PATCH"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredQualifiedAliases#v22",
+    "sqlKey": "demo.user.advanced.listUsersFilteredQualifiedAliases",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1225,7 +1225,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredAliasedChoose#v23",
+    "sqlKey": "demo.user.advanced.listUsersFilteredAliasedChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1253,7 +1253,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased#v24",
+    "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliased",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/user/advanced_user_mapper.xml",
     "domain": "user",
@@ -1281,7 +1281,7 @@
     "roadmapTheme": "DYNAMIC_TEMPLATE"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentLevel1#v1",
+    "sqlKey": "demo.test.complex.multiFragmentLevel1",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1306,7 +1306,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentLevel2#v2",
+    "sqlKey": "demo.test.complex.multiFragmentLevel2",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1331,7 +1331,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentLevel3WithWhere#v3",
+    "sqlKey": "demo.test.complex.multiFragmentLevel3WithWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1358,7 +1358,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentLevel4#v4",
+    "sqlKey": "demo.test.complex.multiFragmentLevel4",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1384,7 +1384,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentSeparate#v5",
+    "sqlKey": "demo.test.complex.multiFragmentSeparate",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1410,7 +1410,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.updateWithFragmentSet#v6",
+    "sqlKey": "demo.test.complex.updateWithFragmentSet",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1436,7 +1436,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.selectWithFragmentWhere#v7",
+    "sqlKey": "demo.test.complex.selectWithFragmentWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1462,7 +1462,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.selectWithFragmentChoose#v8",
+    "sqlKey": "demo.test.complex.selectWithFragmentChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1488,7 +1488,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.deepFragmentChain#v9",
+    "sqlKey": "demo.test.complex.deepFragmentChain",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1513,7 +1513,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fragmentCondensed#v10",
+    "sqlKey": "demo.test.complex.fragmentCondensed",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1540,7 +1540,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fragmentMultiplePlaces#v11",
+    "sqlKey": "demo.test.complex.fragmentMultiplePlaces",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1565,7 +1565,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fragmentDynamicColumns#v12",
+    "sqlKey": "demo.test.complex.fragmentDynamicColumns",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1594,7 +1594,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fragmentInJoin#v13",
+    "sqlKey": "demo.test.complex.fragmentInJoin",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1619,7 +1619,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fragmentWithChoose#v14",
+    "sqlKey": "demo.test.complex.fragmentWithChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1644,7 +1644,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.realWorldFragmentSystem#v15",
+    "sqlKey": "demo.test.complex.realWorldFragmentSystem",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1673,7 +1673,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.subqueryWithFragment#v16",
+    "sqlKey": "demo.test.complex.subqueryWithFragment",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1701,7 +1701,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.batchInsertDynamic#v17",
+    "sqlKey": "demo.test.complex.batchInsertDynamic",
     "statementType": "INSERT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1727,7 +1727,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.havingWithDynamic#v18",
+    "sqlKey": "demo.test.complex.havingWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1753,7 +1753,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.distinctWithDynamic#v19",
+    "sqlKey": "demo.test.complex.distinctWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1783,7 +1783,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.unionAllWithFragment#v20",
+    "sqlKey": "demo.test.complex.unionAllWithFragment",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1811,7 +1811,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiUnionDynamic#v21",
+    "sqlKey": "demo.test.complex.multiUnionDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1839,7 +1839,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexCaseWhen#v22",
+    "sqlKey": "demo.test.complex.nestedFragmentInSubquery",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1866,34 +1866,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedFragmentInSubquery#v23",
-    "statementType": "SELECT",
-    "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
-    "domain": "test.complex",
-    "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
-    "purpose": "generated: complex dynamic features - expected blocked",
-    "expectedScanFeatures": [
-      "INCLUDE",
-      "WHERE",
-      "IF"
-    ],
-    "expectedRiskFlags": [],
-    "validateCandidateSql": "SELECT * FROM users",
-    "validateEvidenceMode": "compare_disabled",
-    "targetValidateStatus": "NEED_MORE_PARAMS",
-    "targetSemanticGate": "UNCERTAIN",
-    "targetPatchability": "REVIEW",
-    "targetPatchStrategy": null,
-    "targetPrimaryBlocker": "SEMANTIC_GATE_UNCERTAIN",
-    "targetPatchReasonCode": "PATCH_CONFLICT_NO_CLEAR_WINNER",
-    "targetPatchMustContain": [],
-    "targetPatchMustNotContain": [],
-    "targetBlockerFamily": "TEMPLATE_UNSUPPORTED",
-    "roadmapStage": "EXTENSION",
-    "roadmapTheme": "COMPLEX_DYNAMIC"
-  },
-  {
-    "sqlKey": "demo.test.complex.updateNestedFragmentSet#v24",
+    "sqlKey": "demo.test.complex.updateNestedFragmentSet",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1922,7 +1895,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.paginationComplex#v25",
+    "sqlKey": "demo.test.complex.paginationComplex",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1950,7 +1923,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexJoinMultipleFragments#v26",
+    "sqlKey": "demo.test.complex.complexJoinMultipleFragments",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -1980,7 +1953,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fullTextSearchDynamic#v27",
+    "sqlKey": "demo.test.complex.fullTextSearchDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2007,7 +1980,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.windowFunctionWithDynamicPartition#v28",
+    "sqlKey": "demo.test.complex.windowFunctionWithDynamicPartition",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2037,7 +2010,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multipleCTEWithDynamic#v29",
+    "sqlKey": "demo.test.complex.multipleCTEWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2064,7 +2037,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedSubqueriesWithDynamic#v30",
+    "sqlKey": "demo.test.complex.nestedSubqueriesWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2093,7 +2066,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexCaseWhen#v31",
+    "sqlKey": "demo.test.complex.complexCaseWhen",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2122,7 +2095,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.batchInsertWithSelect#v32",
+    "sqlKey": "demo.test.complex.batchInsertWithSelect",
     "statementType": "INSERT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2149,7 +2122,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.jsonFunctionsWithDynamic#v33",
+    "sqlKey": "demo.test.complex.jsonFunctionsWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2176,7 +2149,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.forUpdateWithDynamic#v34",
+    "sqlKey": "demo.test.complex.forUpdateWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2203,7 +2176,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.straightJoinWithDynamic#v35",
+    "sqlKey": "demo.test.complex.straightJoinWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2233,7 +2206,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexBusinessReport#v36",
+    "sqlKey": "demo.test.complex.complexBusinessReport",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2261,7 +2234,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.staticSimpleSelect#v37",
+    "sqlKey": "demo.test.complex.staticSimpleSelect",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2284,7 +2257,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.staticOrderBy#v38",
+    "sqlKey": "demo.test.complex.staticOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2307,7 +2280,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.staticGroupBy#v39",
+    "sqlKey": "demo.test.complex.staticGroupBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2330,7 +2303,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeSimple#v40",
+    "sqlKey": "demo.test.complex.includeSimple",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2355,7 +2328,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeWithWhere#v41",
+    "sqlKey": "demo.test.complex.includeWithWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2380,7 +2353,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeNested#v42",
+    "sqlKey": "demo.test.complex.includeNested",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2405,7 +2378,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifSimple#v43",
+    "sqlKey": "demo.test.complex.ifSimple",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2430,7 +2403,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifMultiple#v44",
+    "sqlKey": "demo.test.complex.ifMultiple",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2455,7 +2428,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifWithOrderBy#v45",
+    "sqlKey": "demo.test.complex.ifWithOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2482,7 +2455,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifDynamicPredicate#v46",
+    "sqlKey": "demo.test.complex.ifDynamicPredicate",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2507,7 +2480,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.whereBlock#v47",
+    "sqlKey": "demo.test.complex.whereBlock",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2533,7 +2506,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachInList#v48",
+    "sqlKey": "demo.test.complex.foreachInList",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2558,7 +2531,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachInListWithWhere#v49",
+    "sqlKey": "demo.test.complex.foreachInListWithWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2583,7 +2556,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachMultiColumn#v50",
+    "sqlKey": "demo.test.complex.foreachMultiColumn",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2608,7 +2581,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachBatchInsert#v51",
+    "sqlKey": "demo.test.complex.foreachBatchInsert",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2633,7 +2606,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseBasic#v52",
+    "sqlKey": "demo.test.complex.chooseBasic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2658,7 +2631,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseMultipleWhen#v53",
+    "sqlKey": "demo.test.complex.chooseMultipleWhen",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2683,7 +2656,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.trimPrefixOverrides#v54",
+    "sqlKey": "demo.test.complex.trimPrefixOverrides",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2709,7 +2682,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.trimSuffixOverrides#v55",
+    "sqlKey": "demo.test.complex.trimSuffixOverrides",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2735,7 +2708,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.setDynamic#v56",
+    "sqlKey": "demo.test.complex.setDynamic",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2761,7 +2734,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindVariable#v57",
+    "sqlKey": "demo.test.complex.bindVariable",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2786,7 +2759,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindComplex#v58",
+    "sqlKey": "demo.test.complex.bindComplex",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2811,7 +2784,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.joinTwoTables#v59",
+    "sqlKey": "demo.test.complex.joinTwoTables",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2834,7 +2807,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.joinThreeTables#v60",
+    "sqlKey": "demo.test.complex.joinThreeTables",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2857,7 +2830,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.joinFourTables#v61",
+    "sqlKey": "demo.test.complex.joinFourTables",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2880,7 +2853,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.leftJoinWithNull#v62",
+    "sqlKey": "demo.test.complex.leftJoinWithNull",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2903,7 +2876,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.existsSubquery#v63",
+    "sqlKey": "demo.test.complex.existsSubquery",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2926,7 +2899,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.inSubquery#v64",
+    "sqlKey": "demo.test.complex.inSubquery",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2949,7 +2922,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.scalarSubquery#v65",
+    "sqlKey": "demo.test.complex.scalarSubquery",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2972,7 +2945,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.fromClauseSubquery#v66",
+    "sqlKey": "demo.test.complex.fromClauseSubquery",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -2995,7 +2968,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.unionTwo#v67",
+    "sqlKey": "demo.test.complex.unionTwo",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3018,7 +2991,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.unionThree#v68",
+    "sqlKey": "demo.test.complex.unionThree",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3041,7 +3014,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.rowNumberWindow#v69",
+    "sqlKey": "demo.test.complex.rowNumberWindow",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3064,7 +3037,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.rankWindow#v70",
+    "sqlKey": "demo.test.complex.rankWindow",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3087,7 +3060,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.aggregateWindow#v71",
+    "sqlKey": "demo.test.complex.aggregateWindow",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3110,7 +3083,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.dynamicOrderBy#v72",
+    "sqlKey": "demo.test.complex.dynamicOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3135,7 +3108,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.dynamicGroupBy#v73",
+    "sqlKey": "demo.test.complex.dynamicGroupBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3160,7 +3133,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.wrapperCount#v74",
+    "sqlKey": "demo.test.complex.wrapperCount",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3183,7 +3156,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.wrapperWithAgg#v75",
+    "sqlKey": "demo.test.complex.wrapperWithAgg",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3206,7 +3179,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexAllFeatures#v76",
+    "sqlKey": "demo.test.complex.complexAllFeatures",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3236,7 +3209,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.emptyWhere#v77",
+    "sqlKey": "demo.test.complex.emptyWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3261,7 +3234,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.emptyForeach#v78",
+    "sqlKey": "demo.test.complex.emptyForeach",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3286,7 +3259,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedChoose#v79",
+    "sqlKey": "demo.test.complex.nestedChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3311,7 +3284,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multiFragmentInclude#v80",
+    "sqlKey": "demo.test.complex.multiFragmentInclude",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3336,7 +3309,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindForeach#v81",
+    "sqlKey": "demo.test.complex.bindForeach",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3362,7 +3335,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.caseWhen#v82",
+    "sqlKey": "demo.test.complex.caseWhen",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3385,7 +3358,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.dynamicLimit#v83",
+    "sqlKey": "demo.test.complex.dynamicLimit",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3410,7 +3383,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.existsWithIf#v84",
+    "sqlKey": "demo.test.complex.existsWithIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3435,7 +3408,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.selfJoin#v85",
+    "sqlKey": "demo.test.complex.selfJoin",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3458,7 +3431,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.havingDynamic#v86",
+    "sqlKey": "demo.test.complex.havingDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3483,7 +3456,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.distinctWithWhere#v87",
+    "sqlKey": "demo.test.complex.distinctWithWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3509,7 +3482,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.countWithCondition#v88",
+    "sqlKey": "demo.test.complex.countWithCondition",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3535,7 +3508,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.joinWithForeach#v89",
+    "sqlKey": "demo.test.complex.joinWithForeach",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3560,7 +3533,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexOrCondition#v90",
+    "sqlKey": "demo.test.complex.complexOrCondition",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3586,7 +3559,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedIfInWhere#v91",
+    "sqlKey": "demo.test.complex.nestedIfInWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3612,7 +3585,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.withRecursive#v92",
+    "sqlKey": "demo.test.complex.withRecursive",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3635,7 +3608,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifWhereOrderBy#v93",
+    "sqlKey": "demo.test.complex.ifWhereOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3663,7 +3636,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifWhereOrderByLimit#v94",
+    "sqlKey": "demo.test.complex.ifWhereOrderByLimit",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3689,7 +3662,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifWhereLimit#v95",
+    "sqlKey": "demo.test.complex.ifWhereLimit",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3715,7 +3688,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifWhereLimitOffset#v96",
+    "sqlKey": "demo.test.complex.ifWhereLimitOffset",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3741,7 +3714,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseWithOrder#v97",
+    "sqlKey": "demo.test.complex.chooseWithOrder",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3766,7 +3739,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseWithLimit#v98",
+    "sqlKey": "demo.test.complex.chooseWithLimit",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3792,7 +3765,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachWithWhere#v99",
+    "sqlKey": "demo.test.complex.foreachWithWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3819,7 +3792,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.foreachWithMultipleWhere#v100",
+    "sqlKey": "demo.test.complex.foreachWithMultipleWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3846,7 +3819,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifForeachConditional#v101",
+    "sqlKey": "demo.test.complex.ifForeachConditional",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3872,7 +3845,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifForeachWithSort#v102",
+    "sqlKey": "demo.test.complex.ifForeachWithSort",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3901,7 +3874,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeIfWhere#v103",
+    "sqlKey": "demo.test.complex.includeIfWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3928,7 +3901,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeIfWithLimit#v104",
+    "sqlKey": "demo.test.complex.includeIfWithLimit",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3954,7 +3927,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.setIfDynamic#v105",
+    "sqlKey": "demo.test.complex.setIfDynamic",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -3980,7 +3953,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.setIfWithWhere#v106",
+    "sqlKey": "demo.test.complex.setIfWithWhere",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4008,7 +3981,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifOrderByDynamic#v107",
+    "sqlKey": "demo.test.complex.ifOrderByDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4035,7 +4008,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifOrderByFixed#v108",
+    "sqlKey": "demo.test.complex.ifOrderByFixed",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4060,7 +4033,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedIfMultiple#v109",
+    "sqlKey": "demo.test.complex.nestedIfMultiple",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4086,7 +4059,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedIfChained#v110",
+    "sqlKey": "demo.test.complex.nestedIfChained",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4112,7 +4085,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.whereForeachIn#v111",
+    "sqlKey": "demo.test.complex.whereForeachIn",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4139,7 +4112,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.whereForeachMultiColumn#v112",
+    "sqlKey": "demo.test.complex.whereForeachMultiColumn",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4165,7 +4138,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeWhereDynamic#v113",
+    "sqlKey": "demo.test.complex.includeWhereDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4192,7 +4165,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.includeWhereWithOrder#v114",
+    "sqlKey": "demo.test.complex.includeWhereWithOrder",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4219,7 +4192,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindIfUsage#v115",
+    "sqlKey": "demo.test.complex.bindIfUsage",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4246,7 +4219,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindForeachIf#v116",
+    "sqlKey": "demo.test.complex.bindForeachIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4274,7 +4247,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.trimIfWhere#v117",
+    "sqlKey": "demo.test.complex.trimIfWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4300,7 +4273,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.trimSuffixOrderBy#v118",
+    "sqlKey": "demo.test.complex.trimSuffixOrderBy",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4328,7 +4301,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedIfDeep#v119",
+    "sqlKey": "demo.test.complex.nestedIfDeep",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4356,7 +4329,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedChooseInChoose#v120",
+    "sqlKey": "demo.test.complex.nestedChooseInChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4381,7 +4354,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexAllDynamic#v121",
+    "sqlKey": "demo.test.complex.complexAllDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4410,7 +4383,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexIfExpression#v122",
+    "sqlKey": "demo.test.complex.complexIfExpression",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4437,7 +4410,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.recursiveInclude#v123",
+    "sqlKey": "demo.test.complex.recursiveInclude",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4464,7 +4437,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.nestedForeachInIf#v124",
+    "sqlKey": "demo.test.complex.nestedForeachInIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4490,7 +4463,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.complexTrimAllFeatures#v125",
+    "sqlKey": "demo.test.complex.complexTrimAllFeatures",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4516,7 +4489,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseManyBranches#v126",
+    "sqlKey": "demo.test.complex.chooseManyBranches",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4541,7 +4514,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ifInChooseAndWhere#v127",
+    "sqlKey": "demo.test.complex.ifInChooseAndWhere",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4570,7 +4543,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.setNestedIf#v128",
+    "sqlKey": "demo.test.complex.setNestedIf",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4596,7 +4569,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multipleForeach#v129",
+    "sqlKey": "demo.test.complex.multipleForeach",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4623,7 +4596,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.bindComplexExpr#v130",
+    "sqlKey": "demo.test.complex.bindComplexExpr",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4651,7 +4624,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.ultraNestedIf#v131",
+    "sqlKey": "demo.test.complex.ultraNestedIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4677,7 +4650,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.tripleNestedChoose#v132",
+    "sqlKey": "demo.test.complex.tripleNestedChoose",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4702,7 +4675,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.unionWithDynamic#v133",
+    "sqlKey": "demo.test.complex.unionWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4730,7 +4703,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.cteRecursiveWithDynamic#v134",
+    "sqlKey": "demo.test.complex.cteRecursiveWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4758,7 +4731,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.tripleForeach#v135",
+    "sqlKey": "demo.test.complex.tripleForeach",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4785,7 +4758,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.realWorldComplex#v136",
+    "sqlKey": "demo.test.complex.realWorldComplex",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4815,7 +4788,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.multipleBindComplex#v137",
+    "sqlKey": "demo.test.complex.multipleBindComplex",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4844,7 +4817,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.updateDeepComplex#v138",
+    "sqlKey": "demo.test.complex.updateDeepComplex",
     "statementType": "UPDATE",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4872,7 +4845,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.subqueryWithDynamic#v139",
+    "sqlKey": "demo.test.complex.subqueryWithDynamic",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4901,7 +4874,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.chooseNestedWhereIf#v140",
+    "sqlKey": "demo.test.complex.chooseNestedWhereIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",
@@ -4930,7 +4903,7 @@
     "roadmapTheme": "COMPLEX_DYNAMIC"
   },
   {
-    "sqlKey": "demo.test.complex.trimNestedIf#v141",
+    "sqlKey": "demo.test.complex.trimNestedIf",
     "statementType": "SELECT",
     "mapperPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
     "domain": "test.complex",

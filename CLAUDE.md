@@ -24,7 +24,7 @@ python3 scripts/schema_validate_all.py
 python3 scripts/ci/release_acceptance.py
 
 # Scan smoke on sample project
-python3 scripts/run_until_budget.py \
+python3 scripts/run_sample_project.py \
   --config tests/fixtures/configs/sample_project/scan.local.yml \
   --to-stage scan \
   --max-steps 10 \

@@ -23,7 +23,7 @@ class VerificationWriterTest(unittest.TestCase):
             validator = _NoValidateContractValidator()
             record = VerificationRecord(
                 run_id="run_demo",
-                sql_key="demo.user.listUsers#v1",
+                sql_key="demo.user.listUsers",
                 statement_key="demo.user.listUsers",
                 phase="validate",
                 status="PARTIAL",
@@ -52,7 +52,7 @@ class VerificationWriterTest(unittest.TestCase):
             [
                 {
                     "run_id": "run_demo",
-                    "sql_key": "demo.user.listUsers#v1",
+                    "sql_key": "demo.user.listUsers",
                     "statement_key": "demo.user.listUsers",
                     "phase": "optimize",
                     "status": "PARTIAL",

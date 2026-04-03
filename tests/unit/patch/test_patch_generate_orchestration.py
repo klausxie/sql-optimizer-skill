@@ -41,7 +41,7 @@ SIMPLE_USER_MAPPER = (
 class PatchGenerateOrchestrationTest(unittest.TestCase):
     def _thin_acceptance(self, *, rewritten_sql: str = "SELECT id FROM users") -> dict:
         return {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": rewritten_sql,
             "selectedCandidateId": "c1",
@@ -53,7 +53,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def _patch_target(self, *, target_sql: str = "SELECT id FROM users", after_template: str = "SELECT id FROM users") -> dict:
         return {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "selectedCandidateId": "c1",
             "targetSql": target_sql,
             "targetSqlNormalized": target_sql,
@@ -139,7 +139,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         statement_end = content.index("</select>", statement_start)
         return (
             {
-                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped#v15",
+                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( "
                     "SELECT id, name, email, status, created_at, updated_at FROM users "
@@ -169,7 +169,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_missing_statement_locator_short_circuits_generation(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "equivalence": {},
@@ -177,7 +177,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
             "securityChecks": {},
         }
         run_dir = self._prepare_run_dir(acceptance)
-        unit = {"sqlKey": "demo.user.find#v1", "statementType": "SELECT", "sql": "SELECT * FROM users", "locators": {}}
+        unit = {"sqlKey": "demo.user.find", "statementType": "SELECT", "sql": "SELECT * FROM users", "locators": {}}
 
         with patch("sqlopt.stages.patch_generate._build_template_plan_patch") as template_mock:
             with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
@@ -192,7 +192,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -242,7 +242,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -282,7 +282,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -327,7 +327,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_non_pass_acceptance_short_circuits_generation(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "REJECT",
             "rewrittenSql": "SELECT id FROM users",
             "equivalence": {},
@@ -336,7 +336,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "locators": {"statementId": "findUsers"},
@@ -351,7 +351,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_security_block_non_pass_emits_repairable_patch_guidance(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "NEED_MORE_PARAMS",
             "rewrittenSql": "SELECT id FROM users",
             "feedback": {"reason_code": "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"},
@@ -363,7 +363,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users ORDER BY ${orderBy}",
             "locators": {"statementId": "findUsers"},
@@ -391,7 +391,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         因为新引擎的门控架构使用不同的错误码映射
         """
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "patchTarget": self._patch_target(),
@@ -401,7 +401,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
@@ -425,7 +425,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         旧引擎：先尝试模板补丁，失败后返回 REVIEW_REQUIRED
         """
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "patchTarget": self._patch_target(),
@@ -435,7 +435,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "dynamicFeatures": ["FOREACH"],
@@ -455,7 +455,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_semantic_gate_not_pass_short_circuits_generation(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "semanticEquivalence": {"status": "UNCERTAIN"},
@@ -465,7 +465,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "locators": {"statementId": "findUsers"},
@@ -482,7 +482,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_semantic_low_confidence_short_circuits_generation(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "SELECT id FROM users",
             "semanticEquivalence": {"status": "PASS", "confidence": "LOW"},
@@ -492,7 +492,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "locators": {"statementId": "findUsers"},
@@ -509,7 +509,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
 
     def test_no_effective_change_short_circuits_before_patch_build(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "status": "PASS",
             "rewrittenSql": "  SELECT   *   FROM users   ",
             "patchTarget": self._patch_target(target_sql="SELECT * FROM users", after_template="SELECT * FROM users"),
@@ -520,7 +520,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users",
             "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "user_mapper.xml"),
@@ -535,14 +535,14 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         unified_mock.assert_not_called()
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_NO_EFFECTIVE_CHANGE")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
-        patch_file = run_dir / "pipeline" / "patch_generate" / "files" / "demo.user.find#v1.patch"
+        patch_file = run_dir / "pipeline" / "patch_generate" / "files" / "demo.user.find.patch"
         self.assertFalse(patch_file.exists())
 
     def test_patch_generate_recomputes_patch_plan_from_thin_acceptance(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(ADVANCED_USER_MAPPER),
@@ -593,7 +593,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(ADVANCED_USER_MAPPER),
@@ -612,7 +612,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -649,7 +649,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -683,7 +683,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -717,7 +717,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),
@@ -757,7 +757,7 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         run_dir = self._prepare_run_dir(acceptance)
         xml_path = ADVANCED_USER_MAPPER
         unit = {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "statementType": "SELECT",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC",
             "xmlPath": str(xml_path),

@@ -8,7 +8,7 @@ from ..io_utils import append_jsonl, write_json
 from ..manifest import log_event
 from ..platforms.sql.validator_sql import validate_proposal
 from ..run_paths import canonical_paths
-from ..utils import statement_key
+from ..utils import statement_key, statement_key_from_row
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
 
@@ -114,7 +114,7 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
         VerificationRecord(
             run_id=run_dir.name,
             sql_key=sql_key,
-            statement_key=statement_key(sql_key),
+            statement_key=statement_key(sql_key, statement_key_from_row(sql_unit)),
             phase="validate",
             status=verification_status,
             reason_code=verification_reason_code,

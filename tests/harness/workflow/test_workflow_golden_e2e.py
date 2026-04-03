@@ -204,7 +204,7 @@ class WorkflowGoldenE2ETest(unittest.TestCase):
                 run_id,
                 project_root=project_root,
                 to_stage="patch_generate",
-                selection={"sql_keys": ["demo.user.advanced.listUsersFilteredAliased#v17"]},
+                selection={"sql_keys": ["demo.user.advanced.listUsersFilteredAliased"]},
             )
             self.addCleanup(lambda: shutil.rmtree(run_dir, ignore_errors=True))
 

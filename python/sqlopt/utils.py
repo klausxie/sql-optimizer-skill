@@ -8,16 +8,33 @@ from __future__ import annotations
 from typing import Any
 
 
-def statement_key(sql_key: str) -> str:
+def statement_key(sql_key: str, explicit_statement_key: str | None = None) -> str:
     """从 sql_key 中提取 statement_key（去掉版本后缀）。
 
     Args:
         sql_key: 完整的 SQL key，如 "demo.user.findUsers#v1"
+        explicit_statement_key: 显式 statement_key，若提供则优先返回
 
     Returns:
         Statement key，如 "demo.user.findUsers"
     """
-    return sql_key.split("#", 1)[0]
+    explicit = str(explicit_statement_key or "").strip()
+    if explicit:
+        return explicit
+    return str(sql_key or "").split("#", 1)[0]
+
+
+def statement_key_from_row(row: dict[str, Any] | None) -> str:
+    """从对象中稳定提取 statement_key。
+
+    优先读取显式 statementKey/statement_key，兼容旧数据时再从 sqlKey/sql_key 推导。
+    """
+    payload = row or {}
+    explicit = str(payload.get("statementKey") or payload.get("statement_key") or "").strip()
+    if explicit:
+        return explicit
+    sql_key = str(payload.get("sqlKey") or payload.get("sql_key") or "").strip()
+    return statement_key(sql_key)
 
 
 def sql_key_path_component(sql_key: str) -> str:

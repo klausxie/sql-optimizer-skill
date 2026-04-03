@@ -89,7 +89,8 @@ def main() -> None:
         proc = _run(
             [
                 sys.executable,
-                str(repo_root / "scripts" / "run_until_budget.py"),
+                str(repo_root / "scripts" / "sqlopt_cli.py"),
+                "run",
                 "--config",
                 str(config_path),
                 "--to-stage",
@@ -101,7 +102,7 @@ def main() -> None:
             ],
             cwd=repo_root,
         )
-        payload = _require_ok(proc, step="run_until_budget")
+        payload = _require_ok(proc, step="sqlopt_cli run")
         if not bool(payload.get("complete", False)):
             raise SystemExit("verification chain acceptance failed: run did not complete")
 

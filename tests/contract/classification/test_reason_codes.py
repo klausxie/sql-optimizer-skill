@@ -55,11 +55,11 @@ class TestReasonCodeRegistry:
         """Test formatting error message with context."""
         msg = format_error_message(
             "VALIDATE_DB_UNREACHABLE",
-            context={"sql_key": "demo.user.findUsers#v1", "phase": "validate"}
+            context={"sql_key": "demo.user.findUsers", "phase": "validate"}
         )
         assert "[DEGRADABLE]" in msg
         assert "Cannot connect to database" in msg
-        assert "demo.user.findUsers#v1" in msg
+        assert "demo.user.findUsers" in msg
         assert "validate" in msg
 
     def test_format_error_message_without_context(self):

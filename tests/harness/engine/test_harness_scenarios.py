@@ -17,31 +17,31 @@ class HarnessScenariosTest(unittest.TestCase):
 
         self.assertGreaterEqual(len(scenarios), 20)
         self.assertEqual(summary["roadmapStageCounts"]["NEXT"], 1)
-        self.assertIn("demo.user.advanced.listDistinctUserStatuses#v11", summary["nextTargetSqlKeys"])
+        self.assertIn("demo.user.advanced.listDistinctUserStatuses", summary["nextTargetSqlKeys"])
 
     def test_generate_extension_scenarios_only_emits_new_complex_units(self) -> None:
         existing = [
             {
-                "sqlKey": "demo.test.complex.existing#v1",
+                "sqlKey": "demo.test.complex.existing",
                 "roadmapStage": "BASELINE",
             }
         ]
         units_by_key = {
-            "demo.test.complex.existing#v1": {
+            "demo.test.complex.existing": {
                 "statementType": "SELECT",
                 "statementId": "existing",
                 "dynamicFeatures": ["IF", "FOREACH"],
                 "riskFlags": [],
                 "xmlPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
             },
-            "demo.test.complex.newDynamic#v1": {
+            "demo.test.complex.newDynamic": {
                 "statementType": "SELECT",
                 "statementId": "newDynamic",
                 "dynamicFeatures": ["IF", "FOREACH"],
                 "riskFlags": [],
                 "xmlPath": "src/main/resources/com/example/mapper/test/complex_harness_mapper.xml",
             },
-            "demo.user.other#v1": {
+            "demo.user.other": {
                 "statementType": "SELECT",
                 "statementId": "other",
                 "dynamicFeatures": [],
@@ -54,7 +54,7 @@ class HarnessScenariosTest(unittest.TestCase):
 
         self.assertEqual(len(generated), 1)
         row = generated[0]
-        self.assertEqual(row["sqlKey"], "demo.test.complex.newDynamic#v1")
+        self.assertEqual(row["sqlKey"], "demo.test.complex.newDynamic")
         self.assertEqual(row["roadmapStage"], "EXTENSION")
         self.assertEqual(row["roadmapTheme"], "COMPLEX_DYNAMIC")
         self.assertEqual(row["targetPatchability"], "REVIEW")
@@ -63,7 +63,7 @@ class HarnessScenariosTest(unittest.TestCase):
     def test_calibrate_extension_scenarios_updates_only_extension_rows(self) -> None:
         scenarios = [
             {
-                "sqlKey": "demo.keep#v1",
+                "sqlKey": "demo.keep",
                 "roadmapStage": "BASELINE",
                 "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
                 "targetPatchReasonCode": "UNCHANGED",
@@ -75,7 +75,7 @@ class HarnessScenariosTest(unittest.TestCase):
                 "targetBlockerFamily": "TEMPLATE_UNSUPPORTED",
             },
             {
-                "sqlKey": "demo.ext#v1",
+                "sqlKey": "demo.ext",
                 "roadmapStage": "EXTENSION",
                 "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
                 "targetPatchReasonCode": "OLD",
@@ -89,14 +89,14 @@ class HarnessScenariosTest(unittest.TestCase):
         ]
         acceptance_rows = [
             {
-                "sqlKey": "demo.ext#v1",
+                "sqlKey": "demo.ext",
                 "status": "PASS",
                 "semanticEquivalence": {"status": "PASS"},
             }
         ]
         patches = [
             {
-                "sqlKey": "demo.ext#v1",
+                "sqlKey": "demo.ext",
                 "strategyType": "EXACT_TEMPLATE_EDIT",
                 "selectionReason": {"code": "PATCH_READY_EXACT_TEMPLATE_EDIT"},
                 "deliveryStage": "APPLY_READY",

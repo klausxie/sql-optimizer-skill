@@ -17,7 +17,7 @@ def _validator() -> ContractValidator:
 
 def _acceptance_result_payload() -> dict[str, object]:
     return {
-        "sqlKey": "demo.user.countUser#v2",
+        "sqlKey": "demo.user.countUser",
         "status": "PASS",
         "equivalence": {},
         "perfComparison": {},
@@ -27,7 +27,7 @@ def _acceptance_result_payload() -> dict[str, object]:
 
 def _patch_result_payload() -> dict[str, object]:
     return {
-        "sqlKey": "demo.user.countUser#v2",
+        "sqlKey": "demo.user.countUser",
         "patchFiles": [],
         "diffSummary": {"skipped": True, "changed": False},
         "applyMode": "AUTO",
@@ -38,7 +38,7 @@ def _patch_result_payload() -> dict[str, object]:
 def test_patch_target_contract_requires_replay_artifacts() -> None:
     with pytest.raises(ValueError, match="PATCH_REPLAY_CONTRACT_MISSING"):
         build_patch_target_contract(
-            sql_key="demo.user.countUser#v2",
+            sql_key="demo.user.countUser",
             target_sql="SELECT COUNT(*) FROM users",
             selected_candidate_id="1",
             selected_patch_strategy={"strategyType": "SAFE_WRAPPER_COLLAPSE"},
@@ -129,7 +129,7 @@ def test_acceptance_result_requires_semantic_gate_core_fields_when_present() -> 
 
 def test_acceptance_result_rejects_patch_owned_fields() -> None:
     payload = _acceptance_result_payload()
-    payload["patchTarget"] = {"sqlKey": "demo.user.countUser#v2"}
+    payload["patchTarget"] = {"sqlKey": "demo.user.countUser"}
 
     with pytest.raises(ContractError, match="acceptance_result schema validation failed"):
         _validator().validate("acceptance_result", payload)
@@ -138,7 +138,7 @@ def test_acceptance_result_rejects_patch_owned_fields() -> None:
 def test_patch_result_rejects_public_patch_target() -> None:
     payload = _patch_result_payload()
     payload["patchTarget"] = {
-        "sqlKey": "demo.user.countUser#v2",
+        "sqlKey": "demo.user.countUser",
         "selectedCandidateId": "1",
         "targetSql": "SELECT COUNT(*) FROM users",
         "targetSqlNormalized": "SELECT COUNT(*) FROM users",
@@ -202,7 +202,7 @@ def test_patch_result_requires_complete_gate_core_fields_when_present() -> None:
 
 def test_complete_patch_target_contract_is_internal_only() -> None:
     contract = build_patch_target_contract(
-        sql_key="demo.user.countUser#v2",
+        sql_key="demo.user.countUser",
         target_sql=" SELECT  COUNT(*)  FROM users ",
         selected_candidate_id="1",
         selected_patch_strategy={"strategyType": "SAFE_WRAPPER_COLLAPSE"},

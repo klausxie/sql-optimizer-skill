@@ -28,7 +28,7 @@ SIMPLE_USER_MAPPER = (
 class PatchApplicabilityTest(unittest.TestCase):
     def _base_unit(self) -> dict:
         return {
-            "sqlKey": "demo.user.listUsersSorted#v1",
+            "sqlKey": "demo.user.listUsersSorted",
             "statementType": "SELECT",
             "sql": "SELECT * FROM users ORDER BY created_at DESC",
             "xmlPath": str(SIMPLE_USER_MAPPER),
@@ -37,7 +37,7 @@ class PatchApplicabilityTest(unittest.TestCase):
 
     def _base_acceptance(self) -> dict:
         return {
-            "sqlKey": "demo.user.listUsersSorted#v1",
+            "sqlKey": "demo.user.listUsersSorted",
             "status": "PASS",
             "rewrittenSql": "SELECT id, name FROM users ORDER BY created_at DESC",
             "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
@@ -136,7 +136,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.listUsersSorted#v1",
+                "sqlKey": "demo.user.listUsersSorted",
                 "status": "PASS",
                 "rewrittenSql": " SELECT  *   FROM   users   ORDER   BY created_at DESC ",
                 "equivalence": {},
@@ -161,7 +161,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             unified_mock.assert_not_called()
             self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_NO_EFFECTIVE_CHANGE")
             self.assertEqual(patch_row.get("patchFiles"), [])
-            patch_file = run_dir / "patches" / "demo.user.listUsersSorted#v1.patch"
+            patch_file = run_dir / "patches" / "demo.user.listUsersSorted.patch"
             self.assertFalse(patch_file.exists())
 
     def test_patch_skips_statement_level_include_change_without_fragment_rewrite(self) -> None:
@@ -182,7 +182,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id, name FROM users WHERE status = #{status}",
                 "equivalence": {},
@@ -194,7 +194,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "statementType": "SELECT",
                 "namespace": "demo.user",
                 "statementId": "findIncluded",
@@ -277,7 +277,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id, name FROM users WHERE status = #{status}",
                 "rewriteMaterialization": {
@@ -300,7 +300,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             }
             (run_dir / "artifacts" / "acceptance.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "statementType": "SELECT",
                 "namespace": "demo.user",
                 "statementId": "findIncluded",
@@ -341,7 +341,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.order.findOrdersByNos#v1",
+                "sqlKey": "demo.order.findOrdersByNos",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id, order_no FROM orders WHERE order_no IN (#{orderNo})",
                 "equivalence": {},
@@ -361,7 +361,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.order.findOrdersByNos#v1",
+                "sqlKey": "demo.order.findOrdersByNos",
                 "statementType": "SELECT",
                 "namespace": "demo.order",
                 "statementId": "findOrdersByNos",
@@ -429,7 +429,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 encoding="utf-8",
             )
             acceptance = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "status": "PASS",
                 "rewrittenSql": "SELECT * FROM users WHERE status = #{status} ORDER BY created_at DESC",
                 "rewriteMaterialization": {
@@ -452,7 +452,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             }
             (run_dir / "artifacts" / "acceptance.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "statementType": "SELECT",
                 "sql": "SELECT * FROM users WHERE status = #{status}",
                 "dynamicFeatures": ["INCLUDE"],
@@ -491,7 +491,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id, name FROM users ORDER BY status",
                 "rewriteMaterialization": {
@@ -514,7 +514,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             }
             (run_dir / "artifacts" / "acceptance.jsonl").write_text(json.dumps(acceptance) + "\n", encoding="utf-8")
             unit = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
                 "statementType": "SELECT",
                 "namespace": "demo.user",
                 "statementId": "listUsers",
@@ -544,7 +544,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findUsersByStatusRecent#v1",
+                "sqlKey": "demo.user.findUsersByStatusRecent",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id, name, email, status, created_at FROM users WHERE status = ? ORDER BY created_at DESC",
                 "equivalence": {},
@@ -556,7 +556,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.user.findUsersByStatusRecent#v1",
+                "sqlKey": "demo.user.findUsersByStatusRecent",
                 "statementType": "SELECT",
                 "sql": "SELECT id, name, email, status, created_at FROM users WHERE status = #{status} ORDER BY created_at DESC",
                 "xmlPath": str(
@@ -577,7 +577,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findByList#v1",
+                "sqlKey": "demo.user.findByList",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id FROM users WHERE id IN (#{item.id}, #{item.id})",
                 "equivalence": {},
@@ -589,7 +589,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.user.findByList#v1",
+                "sqlKey": "demo.user.findByList",
                 "statementType": "SELECT",
                 "sql": "SELECT id FROM users WHERE id IN (#{item.id}, #{item.id})",
                 "templateSql": 'SELECT id FROM users WHERE id IN <foreach collection="list" item="item">#{item.id}</foreach>',
@@ -615,7 +615,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id FROM users WHERE status = #{status}",
                 "equivalence": {},
@@ -627,7 +627,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.user.findIncluded#v1",
+                "sqlKey": "demo.user.findIncluded",
                 "statementType": "SELECT",
                 "sql": "SELECT id FROM users WHERE status = #{status}",
                 "templateSql": 'SELECT id FROM users <include refid="BaseWhere" />',
@@ -658,7 +658,7 @@ class PatchApplicabilityTest(unittest.TestCase):
             (run_dir / "control").mkdir(parents=True, exist_ok=True)
             (run_dir / "control" / "manifest.jsonl").write_text("", encoding="utf-8")
             acceptance = {
-                "sqlKey": "demo.user.findIncludedDynamic#v1",
+                "sqlKey": "demo.user.findIncludedDynamic",
                 "status": "PASS",
                 "rewrittenSql": "SELECT id FROM users WHERE status = #{status}",
                 "equivalence": {},
@@ -670,7 +670,7 @@ class PatchApplicabilityTest(unittest.TestCase):
                 json.dumps(acceptance, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             unit = {
-                "sqlKey": "demo.user.findIncludedDynamic#v1",
+                "sqlKey": "demo.user.findIncludedDynamic",
                 "statementType": "SELECT",
                 "sql": "SELECT id FROM users WHERE status = #{status}",
                 "templateSql": 'SELECT id FROM users <include refid="BaseWhere" />',

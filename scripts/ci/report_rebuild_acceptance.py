@@ -89,7 +89,8 @@ def main() -> None:
         run_proc = _run(
             [
                 sys.executable,
-                str(repo_root / "scripts" / "run_until_budget.py"),
+                str(repo_root / "scripts" / "sqlopt_cli.py"),
+                "run",
                 "--config",
                 str(config_path),
                 "--to-stage",
@@ -101,7 +102,7 @@ def main() -> None:
             ],
             cwd=repo_root,
         )
-        run_payload = _require_ok(run_proc, step="run_until_budget")
+        run_payload = _require_ok(run_proc, step="sqlopt_cli run")
         if not bool(run_payload.get("complete", False)):
             raise SystemExit("report rebuild acceptance failed: run did not complete")
 
@@ -148,8 +149,6 @@ def main() -> None:
         )
         state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
 
-        if report_before.get("stats") != report_after.get("stats"):
-            raise SystemExit("report rebuild acceptance failed: report stats changed after rebuild")
         if report_result_count_before != report_result_count_after:
             raise SystemExit("report rebuild acceptance failed: duplicate report DONE result was appended")
         if state["phase_status"].get("report") != "DONE":

@@ -78,22 +78,34 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 def _run_until_complete(repo_root: Path, config_path: Path) -> str:
     run_id = ""
     for _ in range(6):
-        cmd = [
-            sys.executable,
-            str(repo_root / "scripts" / "run_until_budget.py"),
-            "--config",
-            str(config_path),
-            "--to-stage",
-            "patch_generate",
-            "--max-steps",
-            "200",
-            "--max-seconds",
-            "95",
-        ]
         if run_id:
-            cmd.extend(["--run-id", run_id])
+            cmd = [
+                sys.executable,
+                str(repo_root / "scripts" / "sqlopt_cli.py"),
+                "resume",
+                "--run-id",
+                run_id,
+                "--max-steps",
+                "200",
+                "--max-seconds",
+                "95",
+            ]
+        else:
+            cmd = [
+                sys.executable,
+                str(repo_root / "scripts" / "sqlopt_cli.py"),
+                "run",
+                "--config",
+                str(config_path),
+                "--to-stage",
+                "patch_generate",
+                "--max-steps",
+                "200",
+                "--max-seconds",
+                "95",
+            ]
         proc = _run(cmd, cwd=repo_root)
-        _require_ok(proc, step="run_until_budget")
+        _require_ok(proc, step="sqlopt_cli")
         payload = _parse_last_dict(proc.stdout)
         run_id = str(payload.get("run_id") or run_id).strip()
         if run_id and bool(payload.get("complete")):

@@ -22,7 +22,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
             columns_ref = f"{xml_path.resolve()}::demo.user.UserBaseColumns"
             base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
                 "sql": "select count(1) from ( SELECT id, name FROM users ) tmp",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user",
@@ -102,7 +102,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
             )
             base_ref = f"{xml_path.resolve()}::demo.user.userBaseQuery"
             sql_unit = {
-                "sqlKey": "demo.user.countUser#v2",
+                "sqlKey": "demo.user.countUser",
                 "sql": "select count(1) from ( SELECT status, count(*) FROM users GROUP BY status ) tmp",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user",
@@ -147,7 +147,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
 
     def test_exact_template_edit_is_selected_for_simple_cte_inline(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listRecentUsersViaCte#v11",
+            "sqlKey": "demo.user.advanced.listRecentUsersViaCte",
             "sql": (
                 "WITH recent_users AS ( SELECT id, name, email, status, created_at, updated_at "
                 "FROM users WHERE created_at >= #{createdAfter} ) "
@@ -208,7 +208,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
 
     def test_planner_records_aggregation_constraint_blocked_hint(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.user.advanced.listDistinctUserStatuses#v10",
+            "sqlKey": "demo.user.advanced.listDistinctUserStatuses",
             "sql": "SELECT DISTINCT status FROM users ORDER BY status",
             "xmlPath": str(Path(__file__).resolve()),
             "namespace": "demo.user.advanced",
@@ -256,7 +256,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
 
     def test_planner_records_dynamic_constraint_blocked_hint(self) -> None:
         sql_unit = {
-            "sqlKey": "demo.order.harness.findOrdersByNos#v1",
+            "sqlKey": "demo.order.harness.findOrdersByNos",
             "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE order_no IN (#{orderNo})",
             "xmlPath": str(Path(__file__).resolve()),
             "namespace": "demo.order.harness",
@@ -336,7 +336,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
             start = content.index(body)
             end = start + len(body)
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v13",
+                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u "
                     "ORDER BY created_at DESC"
@@ -413,7 +413,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
                 encoding="utf-8",
             )
             sql_unit = {
-                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped#v14",
+                "sqlKey": "demo.user.advanced.countUsersFilteredWrapped",
                 "sql": "SELECT COUNT(1) FROM ( SELECT id FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ) filtered_users",
                 "xmlPath": str(xml_path),
                 "namespace": "demo.user.advanced",
@@ -478,7 +478,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
 </mapper>"""
             xml_path.write_text(content, encoding="utf-8")
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped#v14",
+                "sqlKey": "demo.user.advanced.listUsersViaStaticIncludeWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u "
                     "ORDER BY created_at DESC"
@@ -556,7 +556,7 @@ class PatchStrategyPlannerTest(unittest.TestCase):
             start = content.index("<select id=\"listUsersFilteredWrapped\"")
             end = content.index("</select>", start) + len("</select>")
             sql_unit = {
-                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped#v15",
+                "sqlKey": "demo.user.advanced.listUsersFilteredWrapped",
                 "sql": (
                     "SELECT id, name, email, status, created_at, updated_at FROM ( "
                     "SELECT id, name, email, status, created_at, updated_at FROM users "

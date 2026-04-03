@@ -10,7 +10,7 @@ from sqlopt.stages import patching_results
 class PatchingResultsTest(unittest.TestCase):
     def test_skip_patch_result_includes_optional_apply_fields(self) -> None:
         patch = patching_results.skip_patch_result(
-            sql_key="demo.user.find#v1",
+            sql_key="demo.user.find",
             statement_key="demo.user.find",
             reason_code="PATCH_NOT_APPLICABLE",
             reason_message="generated patch cannot apply",
@@ -43,7 +43,7 @@ class PatchingResultsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_result_") as td:
             patch_file = Path(td) / "demo.patch"
             patch = patching_results.selected_patch_result(
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
                 patch_file=patch_file,
                 changed_lines=4,

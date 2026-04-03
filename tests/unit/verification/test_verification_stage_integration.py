@@ -30,12 +30,12 @@ ADVANCED_USER_MAPPER = (
 
 def _sql_unit() -> dict:
     return {
-        "sqlKey": "demo.user.listUsers#v1",
+        "sqlKey": "demo.user.listUsers",
+        "statementKey": "demo.user.listUsers",
         "xmlPath": "src/main/resources/demo_mapper.xml",
         "namespace": "demo.user",
         "statementId": "listUsers",
         "statementType": "select",
-        "variantId": "v1",
         "sql": "SELECT id FROM users WHERE id = #{id}",
         "templateSql": "SELECT id FROM users WHERE id = #{id}",
         "parameterMappings": [],
@@ -85,7 +85,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_") as td:
             run_dir = Path(td)
             proposal = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
+                "statementKey": "demo.user.listUsers",
                 "issues": [{"code": "SEQ_SCAN"}],
                 "dbEvidenceSummary": {},
                 "planSummary": {},
@@ -111,7 +112,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_") as td:
             run_dir = Path(td)
             proposal = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
+                "statementKey": "demo.user.listUsers",
                 "issues": [{"code": "SEQ_SCAN"}],
                 "dbEvidenceSummary": {"explainError": "You have an error in your SQL syntax near ILIKE"},
                 "planSummary": {"summary": "EXPLAIN failed"},
@@ -138,7 +140,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_trace_empty_") as td:
             run_dir = Path(td)
             proposal = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
+                "statementKey": "demo.user.listUsers",
                 "issues": [{"code": "SEQ_SCAN"}],
                 "dbEvidenceSummary": {},
                 "planSummary": {},
@@ -173,7 +176,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             sql_unit = _sql_unit()
             sql_unit["sql"] = "SELECT * FROM users WHERE id = ${id}"
             proposal = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
+                "statementKey": "demo.user.listUsers",
                 "issues": [{"code": "DOLLAR_SUBSTITUTION"}],
                 "dbEvidenceSummary": {},
                 "planSummary": {},
@@ -197,10 +201,12 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_opt_recover_empty_") as td:
             run_dir = Path(td)
             sql_unit = _sql_unit()
-            sql_unit["sqlKey"] = "demo.user.cte#v1"
+            sql_unit["sqlKey"] = "demo.user.cte"
+            sql_unit["statementKey"] = "demo.user.cte"
             sql_unit["sql"] = "WITH recent_users AS (SELECT id, created_at FROM users) SELECT id, created_at FROM recent_users ORDER BY created_at DESC"
             proposal = {
-                "sqlKey": "demo.user.cte#v1",
+                "sqlKey": "demo.user.cte",
+                "statementKey": "demo.user.cte",
                 "issues": [],
                 "dbEvidenceSummary": {},
                 "planSummary": {},
@@ -220,7 +226,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             self.assertEqual(proposal_row["llmCandidates"][0]["rewriteStrategy"], "INLINE_SIMPLE_CTE_RECOVERED")
             self.assertEqual(proposal_row["candidateGenerationDiagnostics"]["degradationKind"], "EMPTY_CANDIDATES")
             self.assertTrue(proposal_row["candidateGenerationDiagnostics"]["recoverySucceeded"])
-            diagnostics_path = run_dir / "sql" / "demo_user_cte_v1" / "candidate_generation_diagnostics.json"
+            diagnostics_path = run_dir / "sql" / "demo_user_cte" / "candidate_generation_diagnostics.json"
             self.assertTrue(diagnostics_path.exists())
             diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
             self.assertEqual(diagnostics["recoveryStrategy"], "INLINE_SIMPLE_CTE_RECOVERED")
@@ -229,7 +235,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_") as td:
             run_dir = Path(td)
             result = ValidationResult(
-                sql_key="demo.user.listUsers#v1",
+                sql_key="demo.user.listUsers",
                 status="PASS",
                 equivalence={"checked": True},
                 perf_comparison={"checked": True, "reasonCodes": []},
@@ -260,7 +266,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             run_dir = Path(td)
             (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
             acceptance = {
-                "sqlKey": "demo.user.listUsers#v1",
+                "sqlKey": "demo.user.listUsers",
+                "statementKey": "demo.user.listUsers",
                 "status": "FAIL",
                 "equivalence": {"checked": True},
                 "perfComparison": {"checked": True, "reasonCodes": []},
@@ -287,7 +294,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             statement_end = xml_text.index("</select>", statement_start)
             rewritten_sql = "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC"
             acceptance = {
-                "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+                "sqlKey": "demo.user.advanced.listUsersProjected",
+                "statementKey": "demo.user.advanced.listUsersProjected",
                 "status": "PASS",
                 "rewrittenSql": rewritten_sql,
                 "selectedCandidateId": "c1",
@@ -303,12 +311,12 @@ class VerificationStageIntegrationTest(unittest.TestCase):
             with patch("sqlopt.stages.patch_generate._check_patch_applicable", return_value=(True, None)):
                 patch_generate.execute_one(
                     {
-                        "sqlKey": "demo.user.advanced.listUsersProjected#v1",
+                        "sqlKey": "demo.user.advanced.listUsersProjected",
+                        "statementKey": "demo.user.advanced.listUsersProjected",
                         "xmlPath": str(xml_path),
                         "namespace": "demo.user.advanced",
                         "statementId": "listUsersProjected",
                         "statementType": "select",
-                        "variantId": "v1",
                         "sql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
                         "templateSql": "SELECT id, name, email, status, created_at, updated_at FROM ( SELECT id, name, email, status, created_at, updated_at FROM users ) u ORDER BY created_at DESC",
                         "parameterMappings": [],

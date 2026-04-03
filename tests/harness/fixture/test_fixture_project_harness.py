@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import unittest
 
-from sqlopt.devtools.harness.runtime import FIXTURE_PROJECT_ROOT, scan_fixture_project
+from sqlopt.devtools.harness.runtime import FIXTURE_PROJECT_ROOT, FIXTURE_SCENARIOS_PATH, scan_fixture_project
 from sqlopt.devtools.harness.scenarios import (
     BLOCKER_FAMILIES,
     PATCHABILITY_TARGETS,
@@ -16,9 +17,16 @@ from sqlopt.devtools.harness.scenarios import (
     load_fixture_scenarios,
     summarize_fixture_scenarios,
 )
+from sqlopt.utils import statement_key
 
 
 class FixtureScenarioMatrixTest(unittest.TestCase):
+    def test_fixture_scenario_source_uses_plain_statement_sql_keys(self) -> None:
+        raw_scenarios = json.loads(FIXTURE_SCENARIOS_PATH.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(raw_scenarios), 20)
+        sql_keys = [str(row.get("sqlKey") or "") for row in raw_scenarios]
+        self.assertTrue(all("#" not in sql_key for sql_key in sql_keys))
+
     def test_fixture_scenario_matrix_is_well_formed(self) -> None:
         scenarios = load_fixture_scenarios()
         self.assertGreaterEqual(len(scenarios), 20)
@@ -76,19 +84,19 @@ class FixtureScenarioMatrixTest(unittest.TestCase):
         self.assertEqual(scenario_classes, SCENARIO_CLASSES)
         summary = summarize_fixture_scenarios(scenarios)
         self.assertEqual(summary["roadmapStageCounts"]["NEXT"], 1)
-        self.assertIn("demo.user.advanced.listDistinctUserStatuses#v11", summary["nextTargetSqlKeys"])
+        self.assertIn("demo.user.advanced.listDistinctUserStatuses", summary["nextTargetSqlKeys"])
         self.assertEqual(summary["roadmapThemeCounts"]["CTE_ENABLEMENT"], 1)
 
 
 class FixtureProjectScanHarnessTest(unittest.TestCase):
     def test_fixture_project_scan_matches_scenario_matrix(self) -> None:
         scenarios = load_fixture_scenarios()
-        expected_by_key = {str(row["sqlKey"]): row for row in scenarios}
+        expected_by_statement_key = {statement_key(str(row["sqlKey"])): row for row in scenarios}
         _units, actual_by_key, _fragment_catalog = scan_fixture_project()
-        self.assertEqual(set(actual_by_key), set(expected_by_key))
+        self.assertEqual(set(actual_by_key), set(expected_by_statement_key))
 
-        for sql_key, scenario in expected_by_key.items():
-            row = actual_by_key[sql_key]
+        for statement_key_value, scenario in expected_by_statement_key.items():
+            row = actual_by_key[statement_key_value]
             self.assertEqual(str(row["statementType"]), str(scenario["statementType"]))
             self.assertEqual(
                 Path(str(row["xmlPath"])).resolve(),
@@ -97,9 +105,9 @@ class FixtureProjectScanHarnessTest(unittest.TestCase):
             self.assertEqual(set(row.get("dynamicFeatures") or []), set(scenario["expectedScanFeatures"]))
             self.assertEqual(set(row.get("riskFlags") or []), set(scenario["expectedRiskFlags"]))
             if scenario["expectedScanFeatures"]:
-                self.assertIsNotNone(row.get("dynamicTrace"), sql_key)
+                self.assertIsNotNone(row.get("dynamicTrace"), statement_key_value)
             if "INCLUDE" in set(scenario["expectedScanFeatures"]):
-                self.assertGreater(len(row.get("includeTrace") or []), 0, sql_key)
+                self.assertGreater(len(row.get("includeTrace") or []), 0, statement_key_value)
 
 
 class FixtureLayoutRegressionTest(unittest.TestCase):

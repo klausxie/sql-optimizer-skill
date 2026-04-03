@@ -12,6 +12,7 @@ from ..errors import StageError
 from ..io_utils import read_jsonl, write_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
+from ..utils import statement_key_from_row
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
 import glob
@@ -114,6 +115,7 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
             fragment_index[key] = fragment
     fragment_catalog_enabled = bool(scan_cfg.get("enable_fragment_catalog", True))
     for unit in units:
+        unit["statementKey"] = statement_key_from_row(unit)
         sql_key = str(unit.get("sqlKey") or "")
         dynamic_features = [str(x) for x in (unit.get("dynamicFeatures") or []) if str(x).strip()]
         locators = dict(unit.get("locators") or {})
@@ -173,7 +175,7 @@ def execute(config: dict[str, Any], run_dir: Path, validator: ContractValidator)
             VerificationRecord(
                 run_id=run_dir.name,
                 sql_key=sql_key,
-                statement_key=_statement_key(sql_key),
+                statement_key=statement_key_from_row(unit),
                 phase="scan",
                 status=status,
                 reason_code=reason_code,

@@ -1,0 +1,955 @@
+{
+  "run_id": "run_5ab018bb1d18",
+  "status": "COMPLETED",
+  "contract_version": "v1.0.0",
+  "skill_version": "v1.0.0",
+  "config_version": "v1",
+  "current_phase": "report",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "PENDING",
+    "validate": "PENDING",
+    "patch_generate": "PENDING",
+    "report": "DONE"
+  },
+  "statements": {
+    "demo.order.harness.findOrdersByNos": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.findOrdersByUserIdsAndStatus": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.listOrdersWithUsersPaged": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.findOrdersByRawPredicate": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.aggregateOrdersByStatus": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.updateOrderStatusByNos": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.listOrderAmountWindowRanks": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.listOrderUserCountsHaving": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.aggregateOrdersByStatusWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.listOrderUserCountsHavingWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.aggregateOrdersByStatusAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.order.harness.listOrderUserCountsHavingAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.findShipments": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.findShipmentWithOrderUnsafeSort": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.findShipmentsByOrderIds": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.listRecentShipmentsPaged": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.markShipmentsDeleted": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.shipment.harness.listShipmentStatusUnion": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentLevel1": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentLevel2": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentLevel3WithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentLevel4": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentSeparate": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.updateWithFragmentSet": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.selectWithFragmentWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.selectWithFragmentChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.deepFragmentChain": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fragmentCondensed": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fragmentMultiplePlaces": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fragmentDynamicColumns": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fragmentInJoin": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fragmentWithChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.realWorldFragmentSystem": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.subqueryWithFragment": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.batchInsertDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.havingWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.distinctWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.unionAllWithFragment": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiUnionDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexCaseWhen": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedFragmentInSubquery": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.updateNestedFragmentSet": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.paginationComplex": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexJoinMultipleFragments": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fullTextSearchDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.windowFunctionWithDynamicPartition": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multipleCTEWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedSubqueriesWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.batchInsertWithSelect": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.jsonFunctionsWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.forUpdateWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.straightJoinWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexBusinessReport": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.staticSimpleSelect": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.staticOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.staticGroupBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeSimple": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeWithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeNested": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifSimple": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifMultiple": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifWithOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifDynamicPredicate": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.whereBlock": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachInList": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachInListWithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachMultiColumn": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachBatchInsert": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseBasic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseMultipleWhen": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.trimPrefixOverrides": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.trimSuffixOverrides": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.setDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindVariable": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindComplex": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.joinTwoTables": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.joinThreeTables": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.joinFourTables": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.leftJoinWithNull": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.existsSubquery": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.inSubquery": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.scalarSubquery": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.fromClauseSubquery": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.unionTwo": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.unionThree": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.rowNumberWindow": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.rankWindow": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.aggregateWindow": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.dynamicOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.dynamicGroupBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.wrapperCount": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.wrapperWithAgg": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexAllFeatures": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.emptyWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.emptyForeach": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multiFragmentInclude": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindForeach": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.caseWhen": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.dynamicLimit": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.existsWithIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.selfJoin": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.havingDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.distinctWithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.countWithCondition": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.joinWithForeach": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexOrCondition": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedIfInWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.withRecursive": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifWhereOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifWhereOrderByLimit": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifWhereLimit": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifWhereLimitOffset": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseWithOrder": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseWithLimit": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachWithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.foreachWithMultipleWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifForeachConditional": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifForeachWithSort": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeIfWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeIfWithLimit": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.setIfDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.setIfWithWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifOrderByDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifOrderByFixed": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedIfMultiple": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedIfChained": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.whereForeachIn": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.whereForeachMultiColumn": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeWhereDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.includeWhereWithOrder": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindIfUsage": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindForeachIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.trimIfWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.trimSuffixOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedIfDeep": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedChooseInChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexAllDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexIfExpression": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.recursiveInclude": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.nestedForeachInIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.complexTrimAllFeatures": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseManyBranches": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ifInChooseAndWhere": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.setNestedIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multipleForeach": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.bindComplexExpr": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.ultraNestedIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.tripleNestedChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.unionWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.cteRecursiveWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.tripleForeach": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.realWorldComplex": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.multipleBindComplex": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.updateDeepComplex": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.subqueryWithDynamic": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.chooseNestedWhereIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.test.complex.trimNestedIf": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersProjected": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.countUsersWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.countUsersDirectFiltered": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.countUsersFilteredWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersRecentPaged": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.findUsersUnsafeOrderBy": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.findUsersByIds": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.findUsersByKeyword": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.updateUserSelective": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUserCountsByStatus": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listDistinctUserStatuses": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listRecentUsersViaCte": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listDistinctUserStatusesWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersViaStaticIncludeWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersRecentPagedWrapped": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredTableAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listDistinctUserStatusesAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersProjectedAliases": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersProjectedQualifiedAliases": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredQualifiedAliases": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredAliasedChoose": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.advanced.listUsersFilteredPredicateAliased": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.listUsers": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.countUser": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    },
+    "demo.user.findUsers": {
+      "optimize": "PENDING",
+      "validate": "PENDING",
+      "patch_generate": "PENDING"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 0,
+    "validate": 0,
+    "patch_generate": 0,
+    "report": 1
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-04-03T05:17:16.502105+00:00"
+}

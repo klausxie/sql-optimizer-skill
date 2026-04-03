@@ -40,7 +40,7 @@ class PatchVerificationTest(unittest.TestCase):
     def _patch_target(self, *, family: str = "STATIC_STATEMENT_REWRITE") -> dict:
         target_sql = "SELECT id FROM users"
         return {
-            "sqlKey": "demo.user.find#v1",
+            "sqlKey": "demo.user.find",
             "selectedCandidateId": "c1",
             "targetSql": target_sql,
             "targetSqlNormalized": target_sql,
@@ -108,10 +108,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -152,10 +152,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -185,10 +185,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -224,10 +224,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -262,10 +262,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -294,10 +294,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="UNCERTAIN",
                 semantic_gate_confidence="LOW",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -324,10 +324,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="LOW",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -370,10 +370,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -406,10 +406,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -454,10 +454,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -499,10 +499,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -543,10 +543,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -583,10 +583,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 
@@ -626,10 +626,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -664,10 +664,10 @@ class PatchVerificationTest(unittest.TestCase):
                     status="PASS",
                     semantic_gate_status="PASS",
                     semantic_gate_confidence="HIGH",
-                    sql_key="demo.user.find#v1",
+                    sql_key="demo.user.find",
                     statement_key="demo.user.find",
-                    same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                    pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                    same_statement=[{"sqlKey": "demo.user.find"}],
+                    pass_rows=[{"sqlKey": "demo.user.find"}],
                 )
             rows = _read_ledger(run_dir)
 
@@ -701,10 +701,10 @@ class PatchVerificationTest(unittest.TestCase):
                 status="PASS",
                 semantic_gate_status="PASS",
                 semantic_gate_confidence="HIGH",
-                sql_key="demo.user.find#v1",
+                sql_key="demo.user.find",
                 statement_key="demo.user.find",
-                same_statement=[{"sqlKey": "demo.user.find#v1"}],
-                pass_rows=[{"sqlKey": "demo.user.find#v1"}],
+                same_statement=[{"sqlKey": "demo.user.find"}],
+                pass_rows=[{"sqlKey": "demo.user.find"}],
             )
             rows = _read_ledger(run_dir)
 

@@ -53,82 +53,82 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         assert_fixture_scenario_summary(
             summary,
             next_count=1,
-            next_target_sql_key="demo.user.advanced.listDistinctUserStatuses#v11",
+            next_target_sql_key="demo.user.advanced.listDistinctUserStatuses",
         )
         sql_rows = {str(row["sql_key"]): row for row in report_artifacts.diagnostics_sql_artifacts}
-        self.assertEqual(sql_rows["demo.user.advanced.listUsersRecentPaged#v5"]["dynamic_shape_family"], "STATIC_INCLUDE_ONLY")
-        self.assertEqual(sql_rows["demo.user.advanced.countUsersFilteredWrapped#v4"]["dynamic_shape_family"], "IF_GUARDED_COUNT_WRAPPER")
+        self.assertEqual(sql_rows["demo.user.advanced.listUsersRecentPaged"]["dynamic_shape_family"], "STATIC_INCLUDE_ONLY")
+        self.assertEqual(sql_rows["demo.user.advanced.countUsersFilteredWrapped"]["dynamic_shape_family"], "IF_GUARDED_COUNT_WRAPPER")
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersViaStaticIncludeWrapped#v14"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersViaStaticIncludeWrapped"]["dynamic_shape_family"],
             "STATIC_INCLUDE_ONLY",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredWrapped#v15"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredWrapped"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersRecentPagedWrapped#v16"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersRecentPagedWrapped"]["dynamic_shape_family"],
             "STATIC_INCLUDE_ONLY",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredAliased#v17"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredAliased"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredAliased#v17"]["dynamic_baseline_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredAliased"]["dynamic_baseline_family"],
             "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredAliased#v17"]["dynamic_delivery_class"],
+            sql_rows["demo.user.advanced.listUsersFilteredAliased"]["dynamic_delivery_class"],
             "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_baseline_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases"]["dynamic_baseline_family"],
             "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases#v22"]["dynamic_delivery_class"],
+            sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases"]["dynamic_delivery_class"],
             "SAFE_BASELINE_BLOCKED",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose#v23"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose#v23"]["dynamic_delivery_class"],
+            sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose"]["dynamic_delivery_class"],
             "REVIEW_ONLY",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredTableAliased#v18"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredTableAliased"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredTableAliased#v18"]["dynamic_baseline_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredTableAliased"]["dynamic_baseline_family"],
             "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredTableAliased#v18"]["dynamic_delivery_class"],
+            sql_rows["demo.user.advanced.listUsersFilteredTableAliased"]["dynamic_delivery_class"],
             "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_shape_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased"]["dynamic_shape_family"],
             "IF_GUARDED_FILTER_STATEMENT",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_baseline_family"],
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased"]["dynamic_baseline_family"],
             "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
         )
         self.assertEqual(
-            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased#v24"]["dynamic_delivery_class"],
+            sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased"]["dynamic_delivery_class"],
             "SAFE_BASELINE_BLOCKED",
         )
-        self.assertEqual(sql_rows["demo.order.harness.findOrdersByNos#v1"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
+        self.assertEqual(sql_rows["demo.order.harness.findOrdersByNos"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
         self.assertEqual(
-            sql_rows["demo.order.harness.findOrdersByNos#v1"]["dynamic_blocking_reason"],
+            sql_rows["demo.order.harness.findOrdersByNos"]["dynamic_blocking_reason"],
             "FOREACH_INCLUDE_PREDICATE",
         )
 

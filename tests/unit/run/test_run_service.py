@@ -110,14 +110,14 @@ class RunServiceTest(unittest.TestCase):
                                 repo_root=project_root,
                                 selection={
                                     "mapper_paths": [str(mapper)],
-                                    "sql_keys": ["demo.user.listUsers#v1"],
+                                    "sql_keys": ["demo.user.listUsers"],
                                 },
                             )
 
         selection = _RepoStub.plans_set[-1]["selection"]
         self.assertTrue(selection["present"])
         self.assertEqual(selection["mapper_paths"], ["src/main/resources/demo_mapper.xml"])
-        self.assertEqual(selection["sql_keys"], ["demo.user.listUsers#v1"])
+        self.assertEqual(selection["sql_keys"], ["demo.user.listUsers"])
 
     def test_start_run_rejects_selection_mismatch_for_existing_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_run_service_selection_conflict_") as td:
@@ -134,7 +134,7 @@ class RunServiceTest(unittest.TestCase):
                 "selection": {
                     "present": True,
                     "mapper_paths": ["src/main/resources/a.xml"],
-                    "sql_keys": ["demo.a#v1"],
+                    "sql_keys": ["demo.a"],
                 },
             }
             config = {"project": {"root_path": str(project_root)}, "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]}}
@@ -148,7 +148,7 @@ class RunServiceTest(unittest.TestCase):
                                 "patch_generate",
                                 "run_fixed",
                                 repo_root=project_root,
-                                selection={"mapper_paths": [str(mapper_b)], "sql_keys": ["demo.b#v1"]},
+                                selection={"mapper_paths": [str(mapper_b)], "sql_keys": ["demo.b"]},
                             )
 
     def test_resume_run_builds_advance_request_from_saved_plan(self) -> None:

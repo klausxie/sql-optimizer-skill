@@ -11,7 +11,7 @@ from sqlopt.stages.report_interfaces import ReportInputs, ReportStateSnapshot
 
 class ActionGuidanceConsistencyTest(unittest.TestCase):
     def test_report_keeps_template_rewrite_cases_in_inspect_mode(self) -> None:
-        sql_key = "demo.user.findIncluded#v1"
+        sql_key = "demo.user.findIncluded"
         acceptance_rows = [
             {
                 "sqlKey": sql_key,

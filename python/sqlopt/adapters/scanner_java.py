@@ -13,6 +13,7 @@ from ..io_utils import write_jsonl
 from ..manifest import log_event
 from ..run_paths import canonical_paths
 from ..subprocess_utils import run_capture_text
+from ..utils import statement_key as _statement_key
 from .mapper_catalog import enrich_sql_units_with_catalog
 
 
@@ -25,13 +26,14 @@ def _is_mybatis_mapper_root(root: ET.Element) -> bool:
 
 
 def _build_unit(xml_path: Path, namespace: str, statement_id: str, statement_type: str, sql: str, idx: int) -> dict[str, Any]:
+    statement_key = f"{namespace}.{statement_id}"
     return {
-        "sqlKey": f"{namespace}.{statement_id}#v{idx}",
+        "sqlKey": statement_key,
+        "statementKey": statement_key,
         "xmlPath": str(xml_path),
         "namespace": namespace,
         "statementId": statement_id,
         "statementType": statement_type,
-        "variantId": f"v{idx}",
         "sql": " ".join(sql.split()),
         "parameterMappings": [],
         "paramExample": {},
@@ -39,6 +41,22 @@ def _build_unit(xml_path: Path, namespace: str, statement_id: str, statement_typ
         "riskFlags": ["DOLLAR_SUBSTITUTION"] if "${" in sql else [],
         "scanWarnings": None,
     }
+
+
+def _normalize_unit_identity(unit: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(unit)
+    sql_key = str(payload.get("sqlKey") or "").strip()
+    explicit_statement_key = str(payload.get("statementKey") or "").strip()
+    statement_key = _statement_key(sql_key, explicit_statement_key)
+    variant_id = str(payload.get("variantId") or "").strip()
+    if sql_key == f"{statement_key}#v1" and variant_id in {"", "v1"}:
+        payload["sqlKey"] = statement_key
+        payload.pop("variantId", None)
+    if statement_key:
+        payload["statementKey"] = statement_key
+    if not str(payload.get("variantId") or "").strip():
+        payload.pop("variantId", None)
+    return payload
 
 
 def _normalize_scanned_sql_text(sql: str, statement_type: str, dynamic_features: list[str] | None = None) -> str:
@@ -264,7 +282,7 @@ def _python_fallback_scan(project_root: Path, mapper_globs: list[str], manifest_
                 "statementFeatures": unit["dynamicFeatures"],
                 "includeFragments": include_fragments,
             } if unit["dynamicFeatures"] or include_trace else None
-            units.append(_normalize_unit_sql(unit))
+            units.append(_normalize_unit_sql(_normalize_unit_identity(unit)))
     return units, warnings
 
 
@@ -421,7 +439,7 @@ def run_scan(config: dict[str, Any], run_dir: Path, manifest_path: Path) -> tupl
         if units:
             if _strict_mode_rejects_warnings(class_resolution_mode, warnings):
                 return [], _java_scan_failure("class resolution degraded under strict mode")
-            units = [_normalize_unit_sql(dict(unit)) for unit in units]
+            units = [_normalize_unit_sql(_normalize_unit_identity(dict(unit))) for unit in units]
             units, _ = _write_fragment_catalog(
                 units=units,
                 enable_fragment_catalog=enable_fragment_catalog,
