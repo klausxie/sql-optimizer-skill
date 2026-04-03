@@ -6,6 +6,14 @@ from itertools import combinations
 from sqlopt.common.defaults import DEFAULT_MAX_BRANCHES
 from sqlopt.stages.branching.dimension_extractor import BranchDimension
 
+# Trigger complement sweep when conditions > this threshold
+COMPLEMENT_TRIGGER_THRESHOLD = 10
+# Max complement combinations to generate
+COMPLEMENT_MAX_COMBINATIONS = 10
+# Min/Max combination widths for complement sweep
+COMPLEMENT_MIN_WIDTH = 5
+COMPLEMENT_MAX_WIDTH = 6
+
 
 @dataclass
 class DimensionCandidate:
@@ -50,12 +58,17 @@ class RiskGuidedLadderPlanner:
             reverse=True,
         )
 
-        add_combo(tuple())
+        add_combo(())
 
         for candidate in sorted_candidates:
             if len(combinations_out) >= self.max_branches:
                 break
             add_combo(candidate.dimension.activation_conditions)
+
+        for combo in self._generate_complement_sweep(sorted_candidates):
+            if len(combinations_out) >= self.max_branches:
+                break
+            add_combo(tuple(combo))
 
         top_pair_candidates = sorted_candidates[: min(12, len(sorted_candidates))]
         for pair in combinations(top_pair_candidates, 2):
@@ -119,3 +132,41 @@ class RiskGuidedLadderPlanner:
                 seen.add(condition)
                 normalized.append(condition)
         return normalized
+
+    def _generate_complement_sweep(
+        self,
+        candidates: list[DimensionCandidate],
+        budget: int = COMPLEMENT_MAX_COMBINATIONS,
+    ) -> list[list[str]]:
+        if len(candidates) <= COMPLEMENT_TRIGGER_THRESHOLD:
+            return []
+
+        top_12 = candidates[: min(12, len(candidates))]
+        top_12_ids = {id(c) for c in top_12}
+        middle_risk = [c for c in candidates if id(c) not in top_12_ids]
+
+        if not middle_risk:
+            return []
+
+        middle_risk_ids = {id(c) for c in middle_risk}
+
+        combos: list[tuple[DimensionCandidate, ...]] = []
+
+        for width in range(COMPLEMENT_MIN_WIDTH, COMPLEMENT_MAX_WIDTH + 1):
+            if width > len(candidates):
+                continue
+            for combo in combinations(candidates, width):
+                if not any(id(c) in middle_risk_ids for c in combo):
+                    continue
+                if self._has_mutex_conflict(combo):
+                    continue
+                combos.append(combo)
+
+        combos.sort(key=lambda c: sum(x.score for x in c), reverse=True)
+
+        results: list[list[str]] = []
+        for combo in combos[:budget]:
+            merged = self._merge_candidate_conditions(combo)
+            results.append(merged)
+
+        return results
