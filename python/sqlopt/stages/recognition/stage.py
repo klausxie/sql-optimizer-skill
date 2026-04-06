@@ -77,7 +77,13 @@ def _resolve_mybatis_params_for_explain(
             if hot_value:
                 # Get column type for formatting
                 col_type = get_column_type_from_context(param_name, sql_lower) if table_schemas else None
-                return _format_hot_value(hot_value, col_type)
+                value = _format_hot_value(hot_value, col_type)
+
+                # Add LIKE wildcard if in LIKE context
+                if _is_like_context(sql_lower, param_name):
+                    value = _add_like_wildcard(value)
+
+                return value
 
         # 2. Fallback to static sample value logic (existing code)
         col_type = get_column_type_from_context(param_name, sql_lower) if table_schemas else None
@@ -98,14 +104,21 @@ def _resolve_mybatis_params_for_explain(
                 return "'test'"
             return "'test'"
         if any(k in param_lower for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
-            return "1"
-        if any(k in param_lower for k in ["status", "type", "mode", "state"]):
-            return "1"
-        if any(k in param_lower for k in ["name", "email", "title", "desc", "keyword"]):
-            return "'test'"
-        if any(k in param_lower for k in ["date", "time", "start", "end"]):
-            return "'2024-01-01'"
-        return "1"
+            value = "1"
+        elif any(k in param_lower for k in ["status", "type", "mode", "state"]):
+            value = "1"
+        elif any(k in param_lower for k in ["name", "email", "title", "desc", "keyword"]):
+            value = "'test'"
+        elif any(k in param_lower for k in ["date", "time", "start", "end"]):
+            value = "'2024-01-01'"
+        else:
+            value = "1"
+
+        # Add LIKE wildcard if in LIKE context
+        if _is_like_context(sql_lower, param_name):
+            value = _add_like_wildcard(value)
+
+        return value
 
     # First handle ${} string replacement, then #{} prepared statement params
     sql = _resolve_dollar_params(sql)
@@ -182,6 +195,46 @@ def _format_hot_value(value: str, col_type: str | None = None) -> str:
 
     # Other types need quotes
     return f"'{value}'"
+
+
+def _is_like_context(sql_lower: str, param_name: str) -> bool:
+    """Detect if parameter is used in a LIKE clause.
+
+    Returns True if the parameter appears in a LIKE context,
+    which means we should add wildcards to the value.
+    """
+    # Escape the param name for regex
+    param_escaped = re.escape(param_name)
+
+    # Build pattern strings using format
+    like_pattern = "like%s['\"]?%%?#\\{%s\\}?['\"]?%%?" % (r"\s+", param_escaped)
+    ilike_pattern = "ilike%s['\"]?%%?#\\{%s\\}?['\"]?%%?" % (r"\s+", param_escaped)
+
+    # Check for LIKE patterns with the parameter
+    if re.search(like_pattern, sql_lower, re.IGNORECASE):
+        return True
+    if re.search(ilike_pattern, sql_lower, re.IGNORECASE):
+        return True
+
+    return False
+
+
+def _add_like_wildcard(value: str) -> str:
+    """Add SQL LIKE wildcards to a value.
+
+    If value already has wildcards, return as-is.
+    Otherwise wrap with % wildcards.
+    """
+    if not value:
+        return value
+
+    # Already has wildcards
+    if value.startswith("%") or value.endswith("%"):
+        return value
+
+    # Remove surrounding quotes if present
+    stripped = value.strip("'\"")
+    return f"%{stripped}%"
 
 
 def _is_select_statement(sql: str) -> bool:
