@@ -93,6 +93,9 @@ def _resolve_mybatis_params_for_explain(
                 return "'2024-01-01'"
             if any(t in col_type for t in ["TIME", "TIMESTAMP"]):
                 return "'2024-01-01 00:00:00'"
+            # Explicit VARCHAR/CHAR/TEXT handling
+            if any(t in col_type for t in ["VARCHAR", "CHAR", "TEXT", "NVARCHAR", "CHARACTER"]):
+                return "'test'"
             return "'test'"
         if any(k in param_lower for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
             return "1"
