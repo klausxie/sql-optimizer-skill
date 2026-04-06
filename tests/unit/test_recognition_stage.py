@@ -766,3 +766,132 @@ class TestRecognitionOutputStructure:
         output = RecognitionOutput.from_json(json_str)
         assert len(output.baselines) == 1
         assert output.baselines[0].sql_unit_id == "test_unit"
+
+
+# Tests for hot value replacement
+
+from sqlopt.contracts.init import FieldDistribution
+from sqlopt.stages.recognition.stage import (
+    _resolve_mybatis_params_for_explain,
+    _lookup_hot_value,
+    _format_hot_value,
+)
+
+
+def test_lookup_hot_value_found():
+    """Test finding hot value for parameter."""
+    fd = FieldDistribution(
+        table_name="users",
+        column_name="user_id",
+        distinct_count=100,
+        null_count=0,
+        total_count=1000,
+        top_values=[{"value": "42", "count": 500}],
+    )
+    field_dists = {"users": [fd]}
+
+    result = _lookup_hot_value("user_id", "select * from users where user_id = #{user_id}", field_dists)
+    assert result == "42"
+
+
+def test_lookup_hot_value_not_found():
+    """Test when no hot value available."""
+    field_dists = {}
+
+    result = _lookup_hot_value("user_id", "select * from users", field_dists)
+    assert result is None
+
+
+def test_lookup_hot_value_table_mismatch():
+    """Test when table doesn't match SQL."""
+    fd = FieldDistribution(
+        table_name="orders",
+        column_name="order_id",
+        distinct_count=100,
+        null_count=0,
+        total_count=500,
+        top_values=[{"value": "100", "count": 50}],
+    )
+    field_dists = {"orders": [fd]}
+
+    result = _lookup_hot_value("order_id", "select * from users where user_id = #{user_id}", field_dists)
+    assert result is None
+
+
+def test_lookup_hot_value_snake_case():
+    """Test parameter name with snake_case matching."""
+    fd = FieldDistribution(
+        table_name="users",
+        column_name="user_id",
+        distinct_count=100,
+        null_count=0,
+        total_count=1000,
+        top_values=[{"value": "99", "count": 300}],
+    )
+    field_dists = {"users": [fd]}
+
+    # camelCase param should match snake_case column
+    result = _lookup_hot_value("userId", "select * from users where userId = #{userId}", field_dists)
+    assert result == "99"
+
+
+def test_format_hot_value_numeric():
+    """Test numeric value formatting."""
+    assert _format_hot_value("42", "INTEGER") == "42"
+    assert _format_hot_value("123.45", "DECIMAL") == "123.45"
+    assert _format_hot_value("1", "BIGINT") == "1"
+
+
+def test_format_hot_value_string():
+    """Test string value formatting."""
+    assert _format_hot_value("admin", "VARCHAR") == "'admin'"
+    assert _format_hot_value("test", None) == "'test'"
+    assert _format_hot_value("active", "TEXT") == "'active'"
+
+
+def test_format_hot_value_already_numeric():
+    """Test value that's already numeric string."""
+    assert _format_hot_value("42", "VARCHAR") == "42"
+    assert _format_hot_value("-5", "VARCHAR") == "-5"
+    assert _format_hot_value("3.14", "VARCHAR") == "3.14"
+
+
+def test_resolve_mybatis_params_with_hot_value():
+    """Test param replacement uses hot value."""
+    fd = FieldDistribution(
+        table_name="users",
+        column_name="status",
+        distinct_count=5,
+        null_count=0,
+        total_count=1000,
+        top_values=[{"value": "active", "count": 800}],
+    )
+    field_dists = {"users": [fd]}
+
+    sql = "SELECT * FROM users WHERE status = #{status}"
+    result = _resolve_mybatis_params_for_explain(sql, None, field_dists)
+
+    assert "= 'active'" in result
+    assert "#{status}" not in result
+
+
+def test_resolve_mybatis_params_without_hot_value():
+    """Test fallback to static value when no hot value."""
+    field_dists = {}
+
+    sql = "SELECT * FROM users WHERE name = #{name}"
+    result = _resolve_mybatis_params_for_explain(sql, None, field_dists)
+
+    # Should use static sample value (from param name "name")
+    assert "'test'" in result
+    assert "#{name}" not in result
+
+
+def test_resolve_mybatis_params_with_field_distributions_none():
+    """Test when field_distributions is None."""
+    sql = "SELECT * FROM users WHERE id = #{id}"
+    result = _resolve_mybatis_params_for_explain(sql, None, None)
+
+    # Should use static sample value
+    assert "1" in result
+    assert "#{id}" not in result
