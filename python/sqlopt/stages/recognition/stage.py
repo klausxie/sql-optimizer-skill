@@ -407,6 +407,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                     expanded_sql=branch.expanded_sql,
                     branch_type=branch.branch_type,
                     table_schemas=table_schemas,
+                    field_distributions=field_distributions,
                     platform=platform,
                     db_connector=db_connector,
                 )
@@ -457,6 +458,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 expanded_sql=expanded_sql,
                 branch_type=branch_type,
                 table_schemas=table_schemas,
+                field_distributions=field_distributions,
                 platform=platform,
                 db_connector=None,
             )
@@ -552,7 +554,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
                 branch_type="baseline_only",
             )
 
-        sql_for_execution = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas)
+        sql_for_execution = _resolve_mybatis_params_for_explain(expanded_sql, table_schemas, field_distributions)
         logger.debug("[RECOGNITION]   EXPLAIN for %s.%s: %s...", sql_unit_id, path_id, sql_for_execution[:60])
 
         try:
