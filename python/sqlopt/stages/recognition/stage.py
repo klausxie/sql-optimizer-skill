@@ -93,6 +93,54 @@ def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, Table
     return re.sub(r"#\{([^}]+)\}", get_sample_value, sql)
 
 
+def _lookup_hot_value(
+    param_name: str,
+    sql_lower: str,
+    field_distributions: dict[str, list[FieldDistribution]],
+) -> str | None:
+    """Look up top-1 hot value for a parameter from field_distributions."""
+    if not field_distributions:
+        return None
+
+    def camel_to_snake(name: str) -> str:
+        result = []
+        for i, c in enumerate(name):
+            if c.isupper() and i > 0:
+                result.append("_")
+            result.append(c.lower())
+        return "".join(result)
+
+    param_lower = param_name.lower()
+    param_snake = camel_to_snake(param_name)
+
+    for table_name, dists in field_distributions.items():
+        if table_name not in sql_lower:
+            continue
+        for dist in dists:
+            col_name = dist.column_name.lower()
+            if col_name in (param_lower, param_snake):
+                if dist.top_values and len(dist.top_values) > 0:
+                    return str(dist.top_values[0].get("value"))
+    return None
+
+
+def _format_hot_value(value: str, col_type: str | None = None) -> str:
+    """Format hot value based on column type."""
+    if value is None:
+        return value
+
+    # Numeric types don't need quotes
+    if col_type and any(t in col_type.upper() for t in ["INT", "BIGINT", "DECIMAL", "FLOAT", "DOUBLE", "NUMERIC", "SERIAL"]):
+        return value
+
+    # Already a numeric string
+    if value.lstrip("-").replace(".", "", 1).isdigit():
+        return value
+
+    # Other types need quotes
+    return f"'{value}'"
+
+
 def _is_select_statement(sql: str) -> bool:
     """Best-effort detection for read-only queries that can be safely executed."""
     sql_upper = sql.lstrip().upper()
