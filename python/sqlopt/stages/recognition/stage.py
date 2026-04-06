@@ -19,7 +19,7 @@ from sqlopt.common.stage_report_generator import generate_recognition_report
 from sqlopt.common.summary_generator import (
     generate_recognition_summary_markdown,
 )
-from sqlopt.contracts.init import TableSchema
+from sqlopt.contracts.init import FieldDistribution, TableSchema
 from sqlopt.contracts.parse import ParseOutput
 from sqlopt.contracts.recognition import PerformanceBaseline, RecognitionOutput
 from sqlopt.stages.base import Stage
