@@ -895,3 +895,123 @@ def test_resolve_mybatis_params_with_field_distributions_none():
     # Should use static sample value
     assert "1" in result
     assert "#{id}" not in result
+
+
+# Tests for param replacement optimization
+
+
+def test_resolve_dollar_params():
+    """Test ${} string replacement."""
+    from sqlopt.stages.recognition.stage import _resolve_dollar_params
+
+    # Test basic string replacement
+    sql = "SELECT * FROM ${table_name} WHERE name = #{name}"
+    result = _resolve_dollar_params(sql)
+    assert "'placeholder_value'" in result
+    assert "${table_name}" not in result
+
+    # Test with numeric variable
+    sql = "SELECT * FROM users WHERE user_id = ${userId}"
+    result = _resolve_dollar_params(sql)
+    assert "1" in result
+    assert "${userId}" not in result
+
+
+def test_is_like_context():
+    """Test LIKE context detection."""
+    from sqlopt.stages.recognition.stage import _is_like_context
+
+    # Test LIKE with wildcard prefix
+    sql = "select * from users where name like '%' || #{keyword}"
+    assert _is_like_context(sql, "keyword") is True
+
+    # Test LIKE with wildcard suffix
+    sql = "select * from users where name like #{keyword} || '%'"
+    assert _is_like_context(sql, "keyword") is True
+
+    # Test NOT LIKE
+    sql = "select * from users where name not like #{keyword}"
+    assert _is_like_context(sql, "keyword") is False
+
+    # Test regular equality
+    sql = "select * from users where name = #{name}"
+    assert _is_like_context(sql, "name") is False
+
+
+def test_add_like_wildcard():
+    """Test LIKE wildcard addition."""
+    from sqlopt.stages.recognition.stage import _add_like_wildcard
+
+    # Should add wildcards
+    assert _add_like_wildcard("test") == "%test%"
+    assert _add_like_wildcard("'test'") == "%test%"
+
+    # Already has wildcards - should not double wrap
+    assert _add_like_wildcard("%test%") == "%test%"
+    assert _add_like_wildcard("test%") == "test%"
+
+
+def test_varchar_type_handling():
+    """Test VARCHAR type parameter replacement."""
+    from sqlopt.stages.recognition.stage import _resolve_mybatis_params_for_explain
+    from sqlopt.contracts.init import FieldDistribution, TableSchema, TableColumn
+
+    # Create schema with VARCHAR column
+    schema = TableSchema(
+        table_name="users",
+        columns=[
+            {"name": "name", "type": "VARCHAR", "is_nullable": True}
+        ],
+        indexes=[],
+    )
+    table_schemas = {"users": schema}
+
+    sql = "SELECT * FROM users WHERE name = #{name}"
+    result = _resolve_mybatis_params_for_explain(sql, table_schemas, {})
+
+    assert "'test'" in result
+    assert "#{name}" not in result
+
+
+def test_smart_sample_values_limit():
+    """Test smart sample value for limit parameter."""
+    from sqlopt.stages.recognition.stage import _resolve_mybatis_params_for_explain
+
+    sql = "SELECT * FROM users LIMIT #{limit}"
+    result = _resolve_mybatis_params_for_explain(sql, None, {})
+
+    assert "100" in result
+    assert "#{limit}" not in result
+
+
+def test_smart_sample_values_offset():
+    """Test smart sample value for offset parameter."""
+    from sqlopt.stages.recognition.stage import _resolve_mybatis_params_for_explain
+
+    sql = "SELECT * FROM users OFFSET #{offset}"
+    result = _resolve_mybatis_params_for_explain(sql, None, {})
+
+    assert "0" in result
+    assert "#{offset}" not in result
+
+
+def test_like_context_with_hot_value():
+    """Test LIKE context with hot value replacement."""
+    from sqlopt.stages.recognition.stage import _resolve_mybatis_params_for_explain
+    from sqlopt.contracts.init import FieldDistribution
+
+    fd = FieldDistribution(
+        table_name="users",
+        column_name="name",
+        distinct_count=100,
+        null_count=0,
+        total_count=1000,
+        top_values=[{"value": "john", "count": 500}],
+    )
+    field_dists = {"users": [fd]}
+
+    # Hot value should get wildcards in LIKE context
+    sql = "SELECT * FROM users WHERE name LIKE '%' || #{name}"
+    result = _resolve_mybatis_params_for_explain(sql, None, field_dists)
+
+    assert "%john%" in result
