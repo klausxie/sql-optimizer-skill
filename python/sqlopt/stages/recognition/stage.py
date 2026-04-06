@@ -104,7 +104,33 @@ def _resolve_mybatis_params_for_explain(
             return "'2024-01-01'"
         return "1"
 
+    # First handle ${} string replacement, then #{} prepared statement params
+    sql = _resolve_dollar_params(sql)
     return re.sub(r"#\{([^}]+)\}", get_sample_value, sql)
+
+
+def _resolve_dollar_params(sql: str) -> str:
+    """Replace MyBatis ${} string substitution with placeholder values.
+
+    ${} is string interpolation (not prepared statement), so we need
+    to replace it with actual values for EXPLAIN to work.
+    """
+    def replacer(match: re.Match) -> str:
+        var_name = match.group(1)
+        var_lower = var_name.lower()
+
+        # Infer type from variable name
+        if any(k in var_lower for k in ["name", "title", "desc", "keyword", "email"]):
+            return "'placeholder_value'"
+        if any(k in var_lower for k in ["id", "num", "count", "page", "size"]):
+            return "1"
+        if any(k in var_lower for k in ["date", "time", "start", "end"]):
+            return "'2024-01-01'"
+
+        # Default fallback
+        return "'value'"
+
+    return re.sub(r"\$\{([^}]+)\}", replacer, sql)
 
 
 def _lookup_hot_value(
