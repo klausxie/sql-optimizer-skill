@@ -281,16 +281,28 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
             except (OSError, TypeError, ValueError, json.JSONDecodeError):
                 logger.debug("[RECOGNITION] Failed to load table schemas, using heuristics")
 
+        # Load field_distributions for hot value replacement
+        field_distributions: dict[str, list[FieldDistribution]] = {}
+        field_distributions_file = loader.get_init_field_distributions_path()
+        if field_distributions_file.exists():
+            try:
+                fd_data = json.loads(field_distributions_file.read_text(encoding="utf-8"))
+                for table_name, dist_list in fd_data.items():
+                    field_distributions[table_name] = [FieldDistribution(**d) for d in dist_list]
+                logger.info(f"[RECOGNITION] Loaded field distributions for {len(field_distributions)} table(s)")
+            except (OSError, TypeError, ValueError, json.JSONDecodeError):
+                logger.debug("[RECOGNITION] Failed to load field distributions, using static values")
+
         start_time = time.time()
         db_connector = self._get_db_connector()
         try:
             if self.config and self.config.concurrency.enabled and db_connector is None:
                 logger.info("[RECOGNITION] Using concurrent execution mode")
-                baselines = self._run_concurrent(parse_data, table_schemas, self._progress_callback)
+                baselines = self._run_concurrent(parse_data, table_schemas, field_distributions, self._progress_callback)
             else:
                 if db_connector is not None and self.config and self.config.concurrency.enabled:
                     logger.info("[RECOGNITION] DB baseline enabled, forcing sequential execution")
-                baselines = self._run_sequential(parse_data, table_schemas, self._progress_callback, db_connector)
+                baselines = self._run_sequential(parse_data, table_schemas, field_distributions, self._progress_callback, db_connector)
         finally:
             self._disconnect_db_connector()
 
@@ -306,6 +318,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         self,
         parse_data: ParseOutput,
         table_schemas: dict[str, TableSchema] | None,
+        field_distributions: dict[str, list[FieldDistribution]],
         progress_callback: ProgressCallback | None,
         db_connector: Any | None,
     ) -> list[PerformanceBaseline]:
@@ -350,6 +363,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         self,
         parse_data: ParseOutput,
         table_schemas: dict[str, TableSchema] | None,
+        field_distributions: dict[str, list[FieldDistribution]],
         progress_callback: ProgressCallback | None,
     ) -> list[PerformanceBaseline]:
         tasks: list[tuple[str, str, str, str | None]] = [
@@ -460,6 +474,7 @@ class RecognitionStage(Stage[None, RecognitionOutput]):
         expanded_sql: str,
         branch_type: str | None,
         table_schemas: dict[str, TableSchema] | None,
+        field_distributions: dict[str, list[FieldDistribution]],
         platform: str,
         db_connector: Any | None,
     ) -> PerformanceBaseline:
