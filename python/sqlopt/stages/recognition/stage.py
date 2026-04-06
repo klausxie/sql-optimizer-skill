@@ -29,7 +29,11 @@ logger = logging.getLogger(__name__)
 ProgressCallback = Callable[[str, tuple[int, int] | None], None]
 
 
-def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, TableSchema] | None = None) -> str:
+def _resolve_mybatis_params_for_explain(
+    sql: str,
+    table_schemas: dict[str, TableSchema] | None = None,
+    field_distributions: dict[str, list[FieldDistribution]] | None = None,
+) -> str:
     """Replace MyBatis #{} params with sample values for EXPLAIN execution.
 
     Database EXPLAIN requires actual parameter values, not placeholders.
@@ -66,7 +70,17 @@ def _resolve_mybatis_params_for_explain(sql: str, table_schemas: dict[str, Table
         param_name = match.group(1).split(".")[0]
         param_lower = param_name.lower()
         sql_lower = sql.lower()
-        col_type = get_column_type_from_context(param_name, sql_lower)
+
+        # 1. Try hot value first
+        if field_distributions:
+            hot_value = _lookup_hot_value(param_name, sql_lower, field_distributions)
+            if hot_value:
+                # Get column type for formatting
+                col_type = get_column_type_from_context(param_name, sql_lower) if table_schemas else None
+                return _format_hot_value(hot_value, col_type)
+
+        # 2. Fallback to static sample value logic (existing code)
+        col_type = get_column_type_from_context(param_name, sql_lower) if table_schemas else None
         if col_type:
             if any(
                 t in col_type
