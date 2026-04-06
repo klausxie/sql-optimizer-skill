@@ -211,19 +211,36 @@ def _is_like_context(sql_lower: str, param_name: str) -> bool:
 
     Returns True if the parameter appears in a LIKE context,
     which means we should add wildcards to the value.
+
+    Handles patterns like:
+    - LIKE #{param}
+    - LIKE '%' || #{param}
+    - LIKE #{param} || '%'
+    - LIKE CONCAT('%', #{param})
     """
     # Escape the param name for regex
     param_escaped = re.escape(param_name)
 
     # Build pattern strings using format
-    like_pattern = "like%s['\"]?%%?#\\{%s\\}?['\"]?%%?" % (r"\s+", param_escaped)
-    ilike_pattern = "ilike%s['\"]?%%?#\\{%s\\}?['\"]?%%?" % (r"\s+", param_escaped)
+    # Pattern 1: like #{param} or like '%'#{param}
+    like_pattern1 = r"like%s['\"]?#\{%s\}?['\"]?" % (r"\s+", param_escaped)
+    # Pattern 2: like '%' || #{param} (PostgreSQL/MySQL concatenation)
+    like_pattern2 = r"like%s['\"]?%%['\"]?\s*\|\|\s*#\{%s\}" % (r"\s+", param_escaped)
+    # Pattern 3: like #{param} || '%'
+    like_pattern3 = r"like%s#\{%s\}\s*\|\|\s*['\"]?%%['\"]?" % (r"\s+", param_escaped)
+    # Pattern 4: LIKE CONCAT('%', #{param})
+    like_pattern4 = r"like%sconcat\([^)]*#\{%s\}" % (r"\s+", param_escaped)
+
+    patterns = [like_pattern1, like_pattern2, like_pattern3, like_pattern4]
+
+    # Also check for ilike (PostgreSQL)
+    ilike_pattern = r"ilike%s['\"]?#\{%s\}?['\"]?" % (r"\s+", param_escaped)
+    patterns.append(ilike_pattern)
 
     # Check for LIKE patterns with the parameter
-    if re.search(like_pattern, sql_lower, re.IGNORECASE):
-        return True
-    if re.search(ilike_pattern, sql_lower, re.IGNORECASE):
-        return True
+    for pattern in patterns:
+        if re.search(pattern, sql_lower, re.IGNORECASE):
+            return True
 
     return False
 
