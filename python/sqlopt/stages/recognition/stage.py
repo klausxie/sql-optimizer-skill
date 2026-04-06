@@ -103,14 +103,23 @@ def _resolve_mybatis_params_for_explain(
             if any(t in col_type for t in ["VARCHAR", "CHAR", "TEXT", "NVARCHAR", "CHARACTER"]):
                 return "'test'"
             return "'test'"
-        if any(k in param_lower for k in ["id", "num", "count", "page", "size", "limit", "offset"]):
+        # Smart sample value selection based on parameter name
+        if any(k in param_lower for k in ["limit", "page_size"]):
+            value = "100"
+        elif any(k in param_lower for k in ["offset", "skip"]):
+            value = "0"
+        elif any(k in param_lower for k in ["page", "page_num"]):
             value = "1"
-        elif any(k in param_lower for k in ["status", "type", "mode", "state"]):
+        elif any(k in param_lower for k in ["id", "num", "count", "pk", "key"]):
             value = "1"
-        elif any(k in param_lower for k in ["name", "email", "title", "desc", "keyword"]):
+        elif any(k in param_lower for k in ["status", "type", "mode", "state", "flag"]):
+            value = "1"
+        elif any(k in param_lower for k in ["name", "email", "title", "desc", "keyword", "search", "query"]):
             value = "'test'"
-        elif any(k in param_lower for k in ["date", "time", "start", "end"]):
+        elif any(k in param_lower for k in ["date", "time", "start", "end", "from_date", "to_date"]):
             value = "'2024-01-01'"
+        elif any(k in param_lower for k in ["is_active", "enabled", "deleted", "visible"]):
+            value = "true"
         else:
             value = "1"
 
