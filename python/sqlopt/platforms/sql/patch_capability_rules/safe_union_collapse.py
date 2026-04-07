@@ -18,6 +18,18 @@ class SafeUnionCollapseCapabilityRule:
     def evaluate(self, rewrite_facts: RewriteFacts) -> CapabilityDecision:
         aggregation_reasons = aggregation_blockers(rewrite_facts)
         dynamic_reasons = dynamic_template_blockers(rewrite_facts)
+        aggregation = rewrite_facts.aggregation_query
+        if (
+            semantic_gate_ready(rewrite_facts)
+            and not dynamic_reasons
+            and aggregation.present
+            and aggregation.union_present
+            and not aggregation.group_by_present
+            and not aggregation.having_present
+            and not aggregation.window_present
+            and rewrite_facts.effective_change
+        ):
+            return CapabilityDecision(capability=self.capability, allowed=True, priority=250)
         if semantic_gate_ready(rewrite_facts) and not aggregation_reasons and not dynamic_reasons:
             if rewrite_facts.effective_change:
                 return CapabilityDecision(capability=self.capability, allowed=True, priority=250)

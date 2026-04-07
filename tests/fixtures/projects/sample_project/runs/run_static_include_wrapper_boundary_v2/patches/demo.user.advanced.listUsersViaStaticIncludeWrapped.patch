@@ -1,0 +1,16 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -154,11 +154,8 @@
+     </select>
+ 
+     <select id="listUsersViaStaticIncludeWrapped" resultType="map">
+-        SELECT id, name, email, status, created_at, updated_at
+-        FROM (
+-            SELECT <include refid="AdvancedUserColumns" />
+-            FROM users
+-        ) u
++        SELECT <include refid="AdvancedUserColumns" />
++        FROM users
+         ORDER BY created_at DESC
+     </select>
+ 

@@ -1,0 +1,17 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -230,10 +230,10 @@
+     </select>
+ 
+     <select id="listUsersProjectedQualifiedAliases" resultType="map">
+-        SELECT u.id AS id, u.name AS name, u.email AS email, u.status AS status, u.created_at AS created_at, u.updated_at AS updated_at
+-        FROM users u
+-        ORDER BY u.created_at DESC
+-    </select>
++    SELECT u.id, u.name, u.email, u.status, u.created_at, u.updated_at
++    FROM users u
++    ORDER BY u.created_at DESC
++  </select>
+ 
+     <select id="listUsersFilteredQualifiedAliases" resultType="map">
+         SELECT users.id AS id, users.name AS name, users.email AS email, users.status AS status, users.created_at AS created_at, users.updated_at AS updated_at

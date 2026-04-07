@@ -1,0 +1,19 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -277,11 +277,11 @@
+     </select>
+ 
+     <select id="listUsersEmailNullComparison" resultType="map">
+-        SELECT id, name, email, status, created_at, updated_at
+-        FROM users
+-        WHERE email = NULL
+-        ORDER BY created_at DESC
+-    </select>
++    SELECT id, name, email, status, created_at, updated_at
++    FROM users
++    WHERE email IS NULL
++    ORDER BY created_at DESC
++  </select>
+ 
+     <select id="listUsersDistinctOnStatus" resultType="map">
+         SELECT DISTINCT ON (status) status

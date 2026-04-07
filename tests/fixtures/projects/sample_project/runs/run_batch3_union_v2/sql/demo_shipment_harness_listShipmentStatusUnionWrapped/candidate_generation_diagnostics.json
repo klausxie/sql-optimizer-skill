@@ -1,0 +1,25 @@
+{
+  "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "SAFE_UNION_COLLAPSE",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_REPLACED_LOW_VALUE",
+  "rawCandidateCount": 1,
+  "validatedCandidateCount": 1,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 1,
+  "lowValueCandidateCount": 1,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [
+    "UNION-to-IN-with-table-scan-reduction"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "c1",
+      "rule_id": "UNION_SIMPLIFICATION",
+      "category": "UNION_SIMPLIFICATION",
+      "reason": "candidate simplifies UNION without safe template-preserving baseline"
+    }
+  ]
+}

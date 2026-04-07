@@ -25,8 +25,6 @@ def _contains_non_trivial_projection_alias(select_list: str) -> bool:
         alias = normalize_sql_text(match.group("alias"))
         if expr.rsplit(".", 1)[-1].lower() != alias.lower():
             return True
-        if "." in expr:
-            return True
     return False
 
 
@@ -61,26 +59,26 @@ class DynamicFilterSelectListCleanupIntentRule(DynamicCandidateIntentRule):
                 details={"shapeFamily": profile.shape_family, "baselineFamily": profile.baseline_family},
             )
 
-        rebuilt_template, changed = render_select_alias_cleanup_template(str(sql_unit.get("templateSql") or ""))
-        if not rebuilt_template or not changed:
-            return DynamicCandidateIntentMatch(
-                rule_id=self.rule_id,
-                matched=True,
-                intent="UNSAFE_DYNAMIC_REWRITE",
-                blocking_reason="NO_TEMPLATE_PRESERVING_INTENT",
-                details={"shapeFamily": profile.shape_family, "baselineFamily": profile.baseline_family},
-            )
-
         xml_path = Path(str(sql_unit.get("xmlPath") or ""))
         namespace = str(sql_unit.get("namespace") or "").strip()
-        replayed = replay_template_sql(rebuilt_template, namespace, xml_path)
-        if replayed is None or normalize_sql_text(replayed) != normalize_sql_text(rewritten_sql):
+        rebuilt_template = None
+        for strip_qualifiers in (False, True):
+            candidate_template, changed = render_select_alias_cleanup_template(
+                str(sql_unit.get("templateSql") or ""),
+                strip_single_table_qualifiers=strip_qualifiers,
+            )
+            if not candidate_template or not changed:
+                continue
+            replayed = replay_template_sql(candidate_template, namespace, xml_path)
+            if replayed is not None and normalize_sql_text(replayed) == normalize_sql_text(rewritten_sql):
+                rebuilt_template = candidate_template
+                break
+        if rebuilt_template is None:
             return DynamicCandidateIntentMatch(
                 rule_id=self.rule_id,
                 matched=True,
                 intent="UNSAFE_DYNAMIC_REWRITE",
                 blocking_reason="NO_TEMPLATE_PRESERVING_INTENT",
-                rebuilt_template=rebuilt_template,
                 details={"shapeFamily": profile.shape_family, "baselineFamily": profile.baseline_family},
             )
 

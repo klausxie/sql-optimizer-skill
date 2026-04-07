@@ -1,0 +1,25 @@
+{
+  "run_id": "run_b9923b713264",
+  "checked_at": "2026-04-07T09:28:52.647117+00:00",
+  "ok": false,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": false,
+      "error": "connection to server at \"127.0.0.1\", port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\n",
+      "reason_code": "PREFLIGHT_DB_UNREACHABLE"
+    },
+    {
+      "name": "llm",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

@@ -92,7 +92,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         )
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredQualifiedAliases"]["dynamic_delivery_class"],
-            "SAFE_BASELINE_BLOCKED",
+            "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose"]["dynamic_shape_family"],
@@ -100,7 +100,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         )
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredAliasedChoose"]["dynamic_delivery_class"],
-            "REVIEW_ONLY",
+            "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredTableAliased"]["dynamic_shape_family"],
@@ -124,7 +124,7 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         )
         self.assertEqual(
             sql_rows["demo.user.advanced.listUsersFilteredPredicateAliased"]["dynamic_delivery_class"],
-            "SAFE_BASELINE_BLOCKED",
+            "READY_DYNAMIC_PATCH",
         )
         self.assertEqual(sql_rows["demo.order.harness.findOrdersByNos"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
         self.assertEqual(

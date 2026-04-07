@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+from sqlopt.platforms.sql.candidate_generation_support import dynamic_filter_from_alias_cleanup_sql
 from sqlopt.platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
 
 
@@ -62,6 +63,20 @@ class OptimizeProposalTest(unittest.TestCase):
             proposal = generate_proposal(sql_unit, config={})
 
         self.assertEqual(proposal["actionability"]["autoPatchLikelihood"], "LOW")
+
+    def test_dynamic_filter_from_alias_cleanup_restores_predicate_qualified_single_table_sql(self) -> None:
+        original_sql = (
+            "SELECT id, name, email, status, created_at, updated_at "
+            "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY u.created_at DESC"
+        )
+
+        self.assertEqual(
+            dynamic_filter_from_alias_cleanup_sql(original_sql),
+            (
+                "SELECT id, name, email, status, created_at, updated_at "
+                "FROM users WHERE status = #{status} AND created_at >= #{createdAfter} ORDER BY created_at DESC"
+            ),
+        )
 
 
 if __name__ == "__main__":

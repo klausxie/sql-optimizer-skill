@@ -8,6 +8,63 @@ from sqlopt.platforms.sql.patch_strategy_planner import plan_patch_strategy
 
 
 class PatchStrategyPlannerTest(unittest.TestCase):
+    def test_exact_template_edit_is_selected_for_static_qualified_alias_cleanup(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
+            "sql": (
+                "SELECT u.id AS id, u.name AS name, u.email AS email, u.status AS status, "
+                "u.created_at AS created_at, u.updated_at AS updated_at "
+                "FROM users u ORDER BY u.created_at DESC"
+            ),
+            "xmlPath": str(Path(__file__).resolve()),
+            "namespace": "demo.user.advanced",
+            "statementId": "listUsersProjectedQualifiedAliases",
+            "templateSql": (
+                "SELECT u.id AS id, u.name AS name, u.email AS email, u.status AS status, "
+                "u.created_at AS created_at, u.updated_at AS updated_at "
+                "FROM users u ORDER BY u.created_at DESC"
+            ),
+            "dynamicFeatures": [],
+        }
+        equivalence = {
+            "checked": True,
+            "method": "sql_semantic_compare_v2",
+            "rowCount": {"status": "MATCH"},
+            "keySetHash": {"status": "MATCH"},
+            "rowSampleHash": {"status": "MATCH"},
+            "evidenceRefs": [],
+            "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+        }
+        semantic_equivalence = {
+            "status": "PASS",
+            "confidence": "HIGH",
+            "evidenceLevel": "DB_FINGERPRINT",
+            "hardConflicts": [],
+            "evidence": {"fingerprintStrength": "EXACT"},
+        }
+
+        rewrite_facts, dynamic_intent, patchability, selected, candidates, materialization, ops = plan_patch_strategy(
+            sql_unit,
+            "SELECT u.id, u.name, u.email, u.status, u.created_at, u.updated_at FROM users u ORDER BY u.created_at DESC",
+            {},
+            equivalence,
+            semantic_equivalence,
+            enable_fragment_materialization=False,
+        )
+
+        self.assertFalse(rewrite_facts["dynamicTemplate"]["present"])
+        self.assertIsNone(dynamic_intent)
+        self.assertEqual(patchability.get("blockingReasons"), [])
+        self.assertEqual(selected["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(candidates[0]["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(materialization["mode"], "STATEMENT_SQL")
+        self.assertEqual(materialization["targetType"], "STATEMENT")
+        self.assertEqual(
+            materialization["replayContract"]["expectedRenderedSqlNormalized"],
+            "SELECT u.id, u.name, u.email, u.status, u.created_at, u.updated_at FROM users u ORDER BY u.created_at DESC",
+        )
+        self.assertEqual(ops, [])
+
     def test_wrapper_collapse_strategy_is_selected_for_static_count_wrapper(self) -> None:
         with tempfile.TemporaryDirectory(prefix="patch_strategy_wrapper_") as td:
             xml_path = Path(td) / "demo_mapper.xml"

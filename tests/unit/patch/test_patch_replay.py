@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+import re
 
 from sqlopt.stages.patching_render import build_range_patch
 from sqlopt.verification.patch_replay import replay_patch_target
@@ -338,6 +339,183 @@ def test_replay_patch_target_uses_fragment_artifact_output_for_fragment_ops() ->
                     "templateSql": fragment_body,
                 }
             },
+            patch_text=patch_text,
+        )
+
+    assert result.matches_target is True
+    assert result.drift_reason is None
+
+
+def test_replay_patch_target_tolerates_operator_spacing_drift_in_choose_filters() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user.advanced">
+  <select id="listUsersFilteredAliasedChoose">
+    SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
+    FROM users
+    <where>
+      <choose>
+        <when test="status != null and status != ''">status = #{status}</when>
+        <otherwise>status != 'DELETED'</otherwise>
+      </choose>
+    </where>
+    ORDER BY created_at DESC
+  </select>
+</mapper>"""
+    ) as xml_path:
+        original = xml_path.read_text(encoding="utf-8")
+        match = re.search(
+            r'(<select id="listUsersFilteredAliasedChoose">)([\s\S]*?)(</select>)',
+            original,
+        )
+        assert match is not None
+        after = (
+            "SELECT id, name, email, status, created_at, updated_at "
+            "FROM users\n"
+            "    <where>\n"
+            "      <choose>\n"
+            "        <when test=\"status != null and status != ''\">status = #{status}</when>\n"
+            "        <otherwise>status != 'DELETED'</otherwise>\n"
+            "      </choose>\n"
+            "    </where>\n"
+            "    ORDER BY created_at DESC"
+        )
+        start, end = match.span(2)
+        patch_text, changed_lines = build_range_patch(
+            xml_path,
+            {"startOffset": start, "endOffset": end},
+            after,
+        )
+        assert patch_text is not None
+        assert changed_lines > 0
+
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "listUsersFilteredAliasedChoose",
+            },
+            patch_target={
+                "targetSql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC"
+                ),
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_statement_body",
+                        "afterTemplate": after,
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_statement_body"],
+                    "expectedRenderedSql": (
+                        "SELECT id, name, email, status, created_at, updated_at FROM users "
+                        "WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC"
+                    ),
+                    "expectedRenderedSqlNormalized": (
+                        "SELECT id, name, email, status, created_at, updated_at FROM users "
+                        "WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC"
+                    ),
+                    "expectedFingerprint": {
+                        "kind": "normalized_sql",
+                        "value": (
+                            "SELECT id, name, email, status, created_at, updated_at FROM users "
+                            "WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC"
+                        ),
+                    },
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{status}"],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            fragment_catalog={},
+            patch_text=patch_text,
+        )
+
+    assert result.matches_target is True
+    assert result.drift_reason is None
+
+
+def test_replay_patch_target_tolerates_union_keyword_spacing_drift() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.shipment.harness">
+  <select id="listShipmentStatusUnionWrapped">
+    SELECT id, status, shipped_at FROM (
+      SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED'
+      UNION
+      SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED'
+    ) su ORDER BY status, id
+  </select>
+</mapper>"""
+    ) as xml_path:
+        original = xml_path.read_text(encoding="utf-8")
+        match = re.search(
+            r'(<select id="listShipmentStatusUnionWrapped">)([\s\S]*?)(</select>)',
+            original,
+        )
+        assert match is not None
+        after = (
+            "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED'\n"
+            "    UNION\n"
+            "    SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED'\n"
+            "    ORDER BY status, id"
+        )
+        start, end = match.span(2)
+        patch_text, changed_lines = build_range_patch(
+            xml_path,
+            {"startOffset": start, "endOffset": end},
+            after,
+        )
+        assert patch_text is not None
+        assert changed_lines > 0
+
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.shipment.harness",
+                "statementId": "listShipmentStatusUnionWrapped",
+            },
+            patch_target={
+                "targetSql": (
+                    "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
+                    "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' "
+                    "ORDER BY status, id"
+                ),
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_statement_body",
+                        "afterTemplate": after,
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "STATEMENT_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_statement_body"],
+                    "expectedRenderedSql": (
+                        "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
+                        "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' "
+                        "ORDER BY status, id"
+                    ),
+                    "expectedRenderedSqlNormalized": (
+                        "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
+                        "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' "
+                        "ORDER BY status, id"
+                    ),
+                    "expectedFingerprint": {
+                        "kind": "normalized_sql",
+                        "value": (
+                            "SELECT id, status, shipped_at FROM shipments WHERE status = 'SHIPPED' "
+                            "UNION SELECT id, status, shipped_at FROM shipments WHERE status = 'DELIVERED' "
+                            "ORDER BY status, id"
+                        ),
+                    },
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": [],
+                    "dialectSyntaxCheckRequired": True,
+                },
+            },
+            fragment_catalog={},
             patch_text=patch_text,
         )
 

@@ -1,0 +1,23 @@
+{
+  "run_id": "run_static_wrapper_family_v2",
+  "checked_at": "2026-04-07T07:17:47.978742+00:00",
+  "ok": true,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "llm",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

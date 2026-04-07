@@ -1,0 +1,15 @@
+{
+  "run_id": "run_static_wrapper_family_v2",
+  "generated_at": "2026-04-07T07:18:06.682556+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "inspect",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  }
+}

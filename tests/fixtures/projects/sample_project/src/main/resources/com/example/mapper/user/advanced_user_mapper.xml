@@ -223,6 +223,79 @@
         ORDER BY u.status
     </select>
 
+    <select id="listUsersOrderByConstant" resultType="map">
+        SELECT id, name, email
+        FROM users
+        ORDER BY NULL
+    </select>
+
+    <select id="listUsersBooleanTautology" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        WHERE 1 = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersStatusInSingle" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        WHERE status IN ('ACTIVE')
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersStatusOrPair" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        WHERE status = 'ACTIVE' OR status = 'PENDING'
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersCaseWhenTrue" resultType="map">
+        SELECT id, CASE WHEN TRUE THEN status ELSE status END AS status
+        FROM users
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersCoalesceIdentity" resultType="map">
+        SELECT id, COALESCE(status, status) AS status
+        FROM users
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersFoldedExpression" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        WHERE id = 1 + 1
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersLargeLimit" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT 1000000
+    </select>
+
+    <select id="listUsersEmailNullComparison" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users
+        WHERE email = NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="listUsersDistinctOnStatus" resultType="map">
+        SELECT DISTINCT ON (status) status
+        FROM users
+        ORDER BY status
+    </select>
+
+    <select id="listUsersExistsSelfIdentity" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users u
+        WHERE EXISTS (SELECT 1 FROM users u2 WHERE u2.id = u.id)
+        ORDER BY created_at DESC
+    </select>
+
     <select id="listUsersProjectedAliases" resultType="map">
         SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at
         FROM users
@@ -265,9 +338,43 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="listUsersFilteredAliasedChooseContractBlocked" resultType="map">
+        SELECT id, name, email, status, created_at, updated_at
+        FROM users u
+        <where>
+            <choose>
+                <when test="status != null and status != ''">
+                    u.status = #{status}
+                </when>
+                <otherwise>
+                    u.status != 'DELETED'
+                </otherwise>
+            </choose>
+            <if test="createdAfter != null">
+                AND u.created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY u.created_at DESC
+    </select>
+
     <select id="listUsersFilteredPredicateAliased" resultType="map">
         SELECT id, name, email, status, created_at, updated_at
         FROM users u
+        <where>
+            <if test="status != null and status != ''">
+                AND u.status = #{status}
+            </if>
+            <if test="createdAfter != null">
+                AND u.created_at &gt;= #{createdAfter}
+            </if>
+        </where>
+        ORDER BY u.created_at DESC
+    </select>
+
+    <select id="listUsersFilteredPredicateAliasedContractBlocked" resultType="map">
+        SELECT u.id, u.name, u.email, u.status, u.created_at, o.order_no
+        FROM users u
+        JOIN orders o ON o.user_id = u.id
         <where>
             <if test="status != null and status != ''">
                 AND u.status = #{status}

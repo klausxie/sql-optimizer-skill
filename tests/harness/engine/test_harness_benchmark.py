@@ -56,6 +56,10 @@ class HarnessBenchmarkTest(unittest.TestCase):
             self.assertGreaterEqual(snapshot.blocked_total, 0)
             self.assertIsInstance(snapshot.blocker_family_counts, dict)
             self.assertIsInstance(snapshot.top_reason_codes, list)
+            self.assertIsInstance(snapshot.convergence_decision_counts, dict)
+            self.assertIsInstance(snapshot.convergence_conflict_reason_counts, dict)
+            self.assertIsInstance(snapshot.convergence_shape_family_counts, dict)
+            self.assertGreaterEqual(snapshot.patch_convergence_blocked_count, 0)
 
     def test_compare_snapshots_returns_numeric_deltas_and_top_reason_changes(self) -> None:
         baseline = BenchmarkSnapshot(
@@ -103,6 +107,7 @@ class HarnessBenchmarkTest(unittest.TestCase):
         self.assertEqual(delta.blocked_total_delta, -4)
         self.assertEqual(delta.blocker_family_count_deltas["READY"], 2)
         self.assertEqual(delta.blocker_family_count_deltas["SECURITY"], -2)
+        self.assertEqual(delta.patch_convergence_blocked_count_delta, 0)
         self.assertEqual(delta.top_reason_code_deltas["A"], -2)
         self.assertEqual(delta.top_reason_code_deltas["B"], -1)
         self.assertEqual(delta.top_reason_code_deltas["C"], 2)

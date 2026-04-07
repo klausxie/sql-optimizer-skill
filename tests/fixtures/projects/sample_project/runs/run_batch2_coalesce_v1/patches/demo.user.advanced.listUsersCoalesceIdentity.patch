@@ -1,0 +1,17 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -257,10 +257,10 @@
+     </select>
+ 
+     <select id="listUsersCoalesceIdentity" resultType="map">
+-        SELECT id, COALESCE(status, status) AS status
+-        FROM users
+-        ORDER BY created_at DESC
+-    </select>
++    SELECT id, status AS status
++    FROM users
++    ORDER BY created_at DESC
++  </select>
+ 
+     <select id="listUsersFoldedExpression" resultType="map">
+         SELECT id, name, email, status, created_at, updated_at

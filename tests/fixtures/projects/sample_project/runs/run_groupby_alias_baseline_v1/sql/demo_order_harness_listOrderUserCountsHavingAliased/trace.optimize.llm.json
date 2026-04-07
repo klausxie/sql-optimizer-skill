@@ -1,0 +1,145 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.order.harness.listOrderUserCountsHavingAliased",
+  "task_id": "demo.order.harness.listOrderUserCountsHavingAliased:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T08:14:01.055754+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.order.harness.listOrderUserCountsHavingAliased",
+    "requiredContext": {
+      "sql": "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1 ORDER BY o.user_id",
+      "templateSql": "SELECT o.user_id AS user_id, COUNT(*) AS total\n        FROM orders o\n        GROUP BY o.user_id\n        HAVING COUNT(*) > 1\n        ORDER BY o.user_id",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "idx_orders_status",
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_created",
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_order_no_key",
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_pkey",
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "numeric",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Sort  (cost=18.58..18.75 rows=67 width=16)",
+        "lineCount": 6
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "demo.order.harness.listOrderUserCountsHavingAliased:llm:recovered_groupby_from_alias_cleanup",
+        "source": "llm",
+        "rewrittenSql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+        "rewriteStrategy": "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 32289,
+  "input_hash": "7520f617f87f71d2a93b474263ce8aaebf951e52cda751f5354286ff140864e6",
+  "output_hash": "67a45685a3c17a01c960f43354f8e9351be439bf1e1cd6f700512eb0a4eb391e",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "opt-001",
+        "source": "llm",
+        "rewriteStrategy": "Remove redundant ORDER BY clause - GROUP BY on user_id already produces ordered results; existing idx_orders_user_created can be used for index-optimized grouping scan",
+        "semanticRisk": "low",
+        "confidence": "0.85",
+        "sql_preview": "SELECT o.user_id AS user_id, COUNT(*) AS total FROM orders o GROUP BY o.user_id HAVING COUNT(*) > 1"
+      }
+    ]
+  }
+}

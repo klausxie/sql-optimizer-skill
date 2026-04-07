@@ -1,0 +1,50 @@
+{
+  "run_id": "run_static_include_wrapper_baseline_v1",
+  "status": "COMPLETED",
+  "contract_version": "v1.0.0",
+  "skill_version": "v1.0.0",
+  "config_version": "v1",
+  "current_phase": "report",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  },
+  "statements": {
+    "demo.user.listUsers": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.user.advanced.listUsersRecentPaged": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.user.advanced.listUsersViaStaticIncludeWrapped": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.user.advanced.listUsersRecentPagedWrapped": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 4,
+    "validate": 4,
+    "patch_generate": 4,
+    "report": 1
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-04-07T03:54:50.762546+00:00"
+}

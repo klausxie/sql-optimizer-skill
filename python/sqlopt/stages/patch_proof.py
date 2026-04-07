@@ -12,6 +12,8 @@ from ..verification.patch_syntax import verify_patch_syntax
 from .patch_build import PatchBuildResult
 from .patch_select import PatchSelectionContext
 
+_COUNT_WRAPPER_PATCH_FAMILY = "DYNAMIC_COUNT_WRAPPER_COLLAPSE"
+
 
 @dataclass(frozen=True)
 class PatchProofResult:
@@ -58,9 +60,13 @@ def _build_patch_target(
             "confidence": semantic_confidence,
         }
 
+    target_sql = selection.rewritten_sql
+    if build.family == _COUNT_WRAPPER_PATCH_FAMILY:
+        target_sql = str(replay_contract.get("expectedRenderedSql") or target_sql)
+
     return build_patch_target_contract(
         sql_key=str(sql_unit.get("sqlKey") or ""),
-        target_sql=selection.rewritten_sql,
+        target_sql=target_sql,
         selected_candidate_id=selection.selected_candidate_id,
         selected_patch_strategy=build.selected_patch_strategy,
         family=build.family or "",

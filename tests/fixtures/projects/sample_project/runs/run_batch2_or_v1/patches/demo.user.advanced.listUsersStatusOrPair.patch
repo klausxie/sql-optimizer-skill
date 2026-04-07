@@ -1,0 +1,19 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -244,11 +244,11 @@
+     </select>
+ 
+     <select id="listUsersStatusOrPair" resultType="map">
+-        SELECT id, name, email, status, created_at, updated_at
+-        FROM users
+-        WHERE status = 'ACTIVE' OR status = 'PENDING'
+-        ORDER BY created_at DESC
+-    </select>
++    SELECT id, name, email, status, created_at, updated_at
++    FROM users
++    WHERE status IN ('ACTIVE','PENDING')
++    ORDER BY created_at DESC
++  </select>
+ 
+     <select id="listUsersCaseWhenTrue" resultType="map">
+         SELECT id, CASE WHEN TRUE THEN status ELSE status END AS status

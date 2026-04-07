@@ -1,0 +1,27 @@
+--- a/src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml
++++ b/src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml
+@@ -89,16 +89,12 @@
+     </select>
+ 
+     <select id="listShipmentStatusUnionWrapped" resultType="map">
+-        SELECT id, status, shipped_at
+-        FROM (
+-            SELECT id, status, shipped_at
+-            FROM shipments
+-            WHERE status = 'SHIPPED'
+-            UNION
+-            SELECT id, status, shipped_at
+-            FROM shipments
+-            WHERE status = 'DELIVERED'
+-        ) su
+-        ORDER BY status, id
+-    </select>
++    SELECT id, status, shipped_at
++    FROM shipments
++    WHERE status = 'SHIPPED'UNION
++    SELECT id, status, shipped_at
++    FROM shipments
++    WHERE status = 'DELIVERED'
++    ORDER BY status, id
++  </select>
+ </mapper>

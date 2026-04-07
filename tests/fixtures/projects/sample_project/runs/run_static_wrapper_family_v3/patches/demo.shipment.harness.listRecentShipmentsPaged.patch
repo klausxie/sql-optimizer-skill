@@ -1,0 +1,22 @@
+--- a/src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml
++++ b/src/main/resources/com/example/mapper/shipment/shipment_harness_mapper.xml
+@@ -59,14 +59,11 @@
+     </select>
+ 
+     <select id="listRecentShipmentsPaged" resultType="map">
+-        SELECT id, order_id, carrier, tracking_no, status, shipped_at
+-        FROM (
+-            SELECT id, order_id, carrier, tracking_no, status, shipped_at
+-            FROM shipments
+-        ) s
+-        ORDER BY shipped_at DESC
+-        LIMIT 50
+-    </select>
++    SELECT id, order_id, carrier, tracking_no, status, shipped_at
++    FROM shipments
++    ORDER BY shipped_at DESC
++    LIMIT 50
++  </select>
+ 
+     <update id="markShipmentsDeleted">
+         UPDATE shipments

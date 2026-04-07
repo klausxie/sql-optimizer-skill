@@ -219,6 +219,80 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertEqual(assessment.dynamic_patch_surface, "STATEMENT_BODY")
         self.assertIsNone(assessment.dynamic_blocking_reason)
 
+    def test_distinct_on_allows_exact_template_edit(self) -> None:
+        assessment = assess_patch_safety_model(
+            RewriteFacts(
+                effective_change=True,
+                template_anchor_stable=True,
+                semantic=SemanticRewriteFacts(
+                    status="PASS",
+                    confidence="HIGH",
+                    evidence_level="DB_FINGERPRINT",
+                    fingerprint_strength="EXACT",
+                    hard_conflicts=[],
+                ),
+                aggregation_query=AggregationQueryRewriteFacts(
+                    present=True,
+                    distinct_present=True,
+                    group_by_present=False,
+                    having_present=False,
+                    window_present=False,
+                    union_present=False,
+                    distinct_relaxation_candidate=False,
+                    blockers=["DISTINCT_PRESENT"],
+                    capability_profile=AggregationCapabilityProfile(
+                        shape_family="DISTINCT",
+                        capability_tier="REVIEW_REQUIRED",
+                        constraint_family="DISTINCT_AGGREGATION",
+                        safe_baseline_family=None,
+                        review_only_family="DISTINCT_REVIEW_ONLY",
+                        wrapper_flatten_candidate=False,
+                        direct_relaxation_candidate=False,
+                        blockers=["DISTINCT_PRESENT"],
+                    ),
+                ),
+            )
+        )
+
+        self.assertIn("EXACT_TEMPLATE_EDIT", assessment.allowed_capabilities)
+
+    def test_union_allows_safe_union_collapse(self) -> None:
+        assessment = assess_patch_safety_model(
+            RewriteFacts(
+                effective_change=True,
+                template_anchor_stable=True,
+                semantic=SemanticRewriteFacts(
+                    status="PASS",
+                    confidence="HIGH",
+                    evidence_level="DB_FINGERPRINT",
+                    fingerprint_strength="EXACT",
+                    hard_conflicts=[],
+                ),
+                aggregation_query=AggregationQueryRewriteFacts(
+                    present=True,
+                    distinct_present=False,
+                    group_by_present=False,
+                    having_present=False,
+                    window_present=False,
+                    union_present=True,
+                    distinct_relaxation_candidate=False,
+                    blockers=["UNION_PRESENT"],
+                    capability_profile=AggregationCapabilityProfile(
+                        shape_family="UNION",
+                        capability_tier="REVIEW_REQUIRED",
+                        constraint_family="UNION_AGGREGATION",
+                        safe_baseline_family=None,
+                        review_only_family="UNION_REVIEW_ONLY",
+                        wrapper_flatten_candidate=False,
+                        direct_relaxation_candidate=False,
+                        blockers=["UNION_PRESENT"],
+                    ),
+                ),
+            )
+        )
+
+        self.assertIn("SAFE_UNION_COLLAPSE", assessment.allowed_capabilities)
+
     def test_dynamic_foreach_shape_blocks_exact_template_edit(self) -> None:
         assessment = assess_patch_safety_model(
             RewriteFacts(

@@ -1,0 +1,40 @@
+{
+  "degradationKind": null,
+  "recoveryAttempted": false,
+  "recoveryStrategy": null,
+  "recoverySucceeded": false,
+  "recoveryReason": "NONE",
+  "rawCandidateCount": 4,
+  "validatedCandidateCount": 4,
+  "acceptedCandidateCount": 1,
+  "prunedLowValueCount": 3,
+  "lowValueCandidateCount": 3,
+  "recoveredCandidateCount": 0,
+  "rawRewriteStrategies": [
+    "limit_reduction",
+    "index_optimization_with_filter",
+    "cursor_pagination",
+    "column_reduction"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "opt-001",
+      "rule_id": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate introduces speculative pagination on a static statement without a safe baseline"
+    },
+    {
+      "candidate_id": "opt-002",
+      "rule_id": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate introduces a speculative predicate rewrite on a static statement without a safe baseline"
+    },
+    {
+      "candidate_id": "opt-003",
+      "rule_id": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate introduces a speculative predicate rewrite on a static statement without a safe baseline"
+    }
+  ]
+}

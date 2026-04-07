@@ -19,6 +19,8 @@ from ..platforms.sql.template_rendering import (
 from .patch_artifact import PatchArtifactResult, materialize_patch_artifact
 
 _PLACEHOLDER_RE = re.compile(r"(?:#|\$)\{[^}]+\}")
+_COMPARISON_OPERATOR_RE = re.compile(r"\s*(>=|<=|!=|<>|=)\s*")
+_UNION_KEYWORD_RE = re.compile(r"\s*\b(UNION(?:\s+ALL)?)\b\s*", flags=re.IGNORECASE)
 _STATEMENT_REPLAY_MODES = {
     "STATEMENT_SQL",
     "STATEMENT_TEMPLATE_SAFE",
@@ -36,6 +38,15 @@ class ReplayResult:
     rendered_sql: str | None
     normalized_rendered_sql: str | None
     drift_reason: str | None = None
+
+
+def _normalize_replay_sql(sql: str) -> str:
+    normalized = normalize_sql_text(sql)
+    if not normalized:
+        return normalized
+    normalized = _COMPARISON_OPERATOR_RE.sub(r" \1 ", normalized)
+    normalized = _UNION_KEYWORD_RE.sub(r" \1 ", normalized)
+    return normalize_sql_text(normalized)
 
 
 def _extract_placeholder_shape(template: str) -> list[str]:
@@ -270,8 +281,8 @@ def replay_patch_target(
     else:
         rendered_sql = _render_statement_sql(template_after, sql_unit, fragment_catalog)
 
-    normalized_rendered_sql = normalize_sql_text(rendered_sql or "")
-    normalized_target_sql = normalize_sql_text(str(patch_target.get("targetSql") or ""))
+    normalized_rendered_sql = _normalize_replay_sql(rendered_sql or "")
+    normalized_target_sql = _normalize_replay_sql(str(patch_target.get("targetSql") or ""))
     if normalized_rendered_sql != normalized_target_sql:
         return ReplayResult(False, rendered_sql, normalized_rendered_sql, "PATCH_TARGET_DRIFT")
     return ReplayResult(True, rendered_sql, normalized_rendered_sql, None)

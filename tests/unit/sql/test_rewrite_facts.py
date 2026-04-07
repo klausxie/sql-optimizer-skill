@@ -323,6 +323,39 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "STATEMENT_BODY")
         self.assertEqual(model.dynamic_template.capability_profile.baseline_family, "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
 
+    def test_build_rewrite_facts_model_allows_choose_based_select_list_cleanup_as_safe_baseline(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.listUsersFilteredAliasedChoose",
+            "sql": (
+                "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
+                "FROM users WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC"
+            ),
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "listUsersFilteredAliasedChoose",
+            "templateSql": (
+                "SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at "
+                "FROM users <where><choose><when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise></choose></where> ORDER BY created_at DESC"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "IF_GUARDED_FILTER_STATEMENT")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "STATEMENT_BODY")
+        self.assertEqual(model.dynamic_template.capability_profile.baseline_family, "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
+
     def test_build_rewrite_facts_model_marks_dynamic_filter_from_alias_cleanup_as_safe_baseline(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listUsersFilteredTableAliased",

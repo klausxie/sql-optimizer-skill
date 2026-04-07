@@ -1,0 +1,51 @@
+{
+  "checked": true,
+  "method": "sql_semantic_compare_v2",
+  "driver": "psycopg2",
+  "rowCount": {
+    "status": "MATCH",
+    "before": 3,
+    "after": 3
+  },
+  "keySetHash": {
+    "status": "MATCH",
+    "before": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+    "after": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+    "sampleSize": 3
+  },
+  "rowSampleHash": {
+    "status": "MATCH",
+    "before": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+    "after": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+    "sampleSize": 3
+  },
+  "evidenceRefObjects": [
+    {
+      "source": "DB_FINGERPRINT",
+      "fingerprint_key": "key_set_hash",
+      "observed": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+      "expected": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+      "match_strength": "EXACT",
+      "evidence_level": "DB_FINGERPRINT",
+      "notes": "full row-set fingerprint"
+    },
+    {
+      "source": "DB_FINGERPRINT",
+      "fingerprint_key": "row_sample_hash",
+      "observed": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+      "expected": "11ea62cfd296357b2097cd95226f3cb8f6d8b4e92091b2bc045c886d8e5ff7d4",
+      "match_strength": "EXACT",
+      "evidence_level": "DB_FINGERPRINT",
+      "notes": "derived from full row-set fingerprint"
+    },
+    {
+      "source": "DB_COUNT",
+      "fingerprint_key": "row_count",
+      "observed": 3,
+      "expected": 3,
+      "match_strength": "EXACT",
+      "evidence_level": "DB_COUNT",
+      "notes": "row count comparison"
+    }
+  ]
+}

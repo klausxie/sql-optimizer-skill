@@ -1,0 +1,15 @@
+{
+  "run_id": "run_0861efb906fc",
+  "generated_at": "2026-04-07T09:37:10.578043+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "apply",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "degradationKind": "EMPTY_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "SIMPLIFY_DISTINCT_ON_RECOVERED",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_SHAPE_RECOVERY",
+  "rawCandidateCount": 0,
+  "validatedCandidateCount": 0,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 0,
+  "lowValueCandidateCount": 0,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": []
+}

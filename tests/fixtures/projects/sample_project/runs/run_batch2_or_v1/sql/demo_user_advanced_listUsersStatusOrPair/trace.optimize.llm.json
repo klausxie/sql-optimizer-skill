@@ -1,0 +1,145 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.user.advanced.listUsersStatusOrPair",
+  "task_id": "demo.user.advanced.listUsersStatusOrPair:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T12:07:12.944743+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.user.advanced.listUsersStatusOrPair",
+    "requiredContext": {
+      "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = 'ACTIVE' OR status = 'PENDING' ORDER BY created_at DESC",
+      "templateSql": "SELECT id, name, email, status, created_at, updated_at\n        FROM users\n        WHERE status = 'ACTIVE' OR status = 'PENDING'\n        ORDER BY created_at DESC",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "idx_users_name",
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)"
+        },
+        {
+          "table": "users",
+          "index": "idx_users_status_created",
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)"
+        },
+        {
+          "table": "users",
+          "index": "users_email_key",
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+        },
+        {
+          "table": "users",
+          "index": "users_pkey",
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "character varying",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Sort  (cost=11.21..11.21 rows=2 width=896)",
+        "lineCount": 4
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "opt-1",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status IN ('ACTIVE', 'PENDING') ORDER BY created_at DESC",
+        "rewriteStrategy": "or_to_in_transformation",
+        "semanticRisk": "none",
+        "confidence": "0.92"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 23686,
+  "input_hash": "49195326103ff0e72b903204b4bebd768e9e55e416a3487afb8415268745de27",
+  "output_hash": "6d70d48e7babf5dda32416c6eac0f7d29f4f0f8132a0b9303261e455347a98f6",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "opt-1",
+        "source": "llm",
+        "rewriteStrategy": "or_to_in_transformation",
+        "semanticRisk": "none",
+        "confidence": "0.92",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status IN ('ACTIVE', 'PENDIN"
+      }
+    ]
+  }
+}

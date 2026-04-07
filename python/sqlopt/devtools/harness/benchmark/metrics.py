@@ -16,6 +16,25 @@ def _counts_from_rows(rows: list[dict], field: str) -> dict[str, int]:
     return counts
 
 
+def _convergence_counts(artifacts: HarnessArtifacts, field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in artifacts.statement_convergence_rows:
+        value = str(row.get(field) or "").strip()
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _patch_convergence_blocked_count(artifacts: HarnessArtifacts) -> int:
+    total = 0
+    for row in artifacts.patch_rows:
+        code = str(((row.get("selectionReason") or {}).get("code") or "")).strip()
+        if code.startswith("PATCH_CONVERGENCE_"):
+            total += 1
+    return total
+
+
 def _top_reason_codes(artifacts: HarnessArtifacts) -> list[dict[str, int | str]]:
     counts: dict[str, int] = {}
     for row in artifacts.acceptance_rows:
@@ -92,5 +111,9 @@ def snapshot_from_artifacts(artifacts: HarnessArtifacts) -> BenchmarkSnapshot:
         blocker_family_counts=blocker_family_counts,
         patch_strategy_counts=_counts_from_rows(artifacts.patch_rows, "strategyType"),
         dynamic_delivery_class_counts=_counts_from_rows(artifacts.sql_catalog_rows, "dynamic_delivery_class"),
+        convergence_decision_counts=_convergence_counts(artifacts, "convergenceDecision"),
+        convergence_conflict_reason_counts=_convergence_counts(artifacts, "conflictReason"),
+        convergence_shape_family_counts=_convergence_counts(artifacts, "shapeFamily"),
+        patch_convergence_blocked_count=_patch_convergence_blocked_count(artifacts),
         top_reason_codes=_top_reason_codes(artifacts),
     )

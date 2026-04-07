@@ -30,6 +30,7 @@ def load_run_artifacts(run_dir: Path) -> HarnessArtifacts:
         proposals_path=paths.proposals_path,
         acceptance_path=paths.acceptance_path,
         patches_path=paths.patches_path,
+        statement_convergence_path=paths.statement_convergence_path,
         sql_catalog_path=paths.sql_catalog_path,
         report=report,
         state=state,
@@ -40,6 +41,6 @@ def load_run_artifacts(run_dir: Path) -> HarnessArtifacts:
         proposal_rows=read_jsonl(paths.proposals_path),
         acceptance_rows=read_jsonl(paths.acceptance_path),
         patch_rows=read_jsonl(paths.patches_path),
+        statement_convergence_rows=read_jsonl(paths.statement_convergence_path),
         sql_catalog_rows=read_jsonl(paths.sql_catalog_path),
     )
-

@@ -1,77 +1,22 @@
 {
-  "run_611923880c2d": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_611923880c2d",
+  "run_batch3_distinct_on_v3": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_batch3_distinct_on_v3",
     "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T02:16:02.756773+00:00"
+    "updated_at": "2026-04-07T13:21:16.808250+00:00"
   },
-  "run_e095b03cd57f": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_e095b03cd57f",
+  "run_batch3_exists_v3": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_batch3_exists_v3",
     "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T02:16:45.252272+00:00"
+    "updated_at": "2026-04-07T13:21:16.809562+00:00"
   },
-  "run_5f4670f649f8": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_5f4670f649f8",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/configs/sample_project/mysql.smoke.yml",
-    "updated_at": "2026-04-03T02:19:33.445933+00:00"
-  },
-  "run_32cef2132027": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_32cef2132027",
-    "config_path": "/private/tmp/sample_project.preview.yml",
-    "updated_at": "2026-04-03T02:20:05.591854+00:00"
-  },
-  "run_62be8c3a87dc": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_62be8c3a87dc",
+  "run_batch3_union_v4": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_batch3_union_v4",
     "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T02:47:13.879706+00:00"
+    "updated_at": "2026-04-07T13:30:58.031998+00:00"
   },
-  "run_836216d3215b": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_836216d3215b",
+  "run_batch3_distinct_on_v4": {
+    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_batch3_distinct_on_v4",
     "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T02:58:46.368575+00:00"
-  },
-  "run_658af74ed7d0": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_658af74ed7d0",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:29:35.548980+00:00"
-  },
-  "run_1a59c9ef65fd": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_1a59c9ef65fd",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:30:11.052562+00:00"
-  },
-  "run_60da10bb86fd": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_60da10bb86fd",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:30:34.966154+00:00"
-  },
-  "run_f10a9e0e8fca": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_f10a9e0e8fca",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:32:13.443831+00:00"
-  },
-  "run_a610df947d04": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_a610df947d04",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:33:34.809721+00:00"
-  },
-  "run_6b5ad7ff4a00": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_6b5ad7ff4a00",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:34:21.350760+00:00"
-  },
-  "run_5edecc35293f": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_5edecc35293f",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T03:50:29.185115+00:00"
-  },
-  "run_5ab018bb1d18": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_5ab018bb1d18",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T05:17:16.331993+00:00"
-  },
-  "run_dfbcc98c64c9": {
-    "run_dir": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/runs/run_dfbcc98c64c9",
-    "config_path": "/Users/klaus/Desktop/sql-optimizer-skill/tests/fixtures/projects/sample_project/sqlopt.yml",
-    "updated_at": "2026-04-03T05:18:22.557033+00:00"
+    "updated_at": "2026-04-07T13:30:59.639694+00:00"
   }
 }

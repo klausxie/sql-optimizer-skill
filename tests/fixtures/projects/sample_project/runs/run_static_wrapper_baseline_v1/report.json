@@ -1,0 +1,15 @@
+{
+  "run_id": "run_static_wrapper_baseline_v1",
+  "generated_at": "2026-04-07T07:16:05.081429+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "apply",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  }
+}

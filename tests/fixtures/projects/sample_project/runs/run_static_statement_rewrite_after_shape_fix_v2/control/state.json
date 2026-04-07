@@ -1,0 +1,45 @@
+{
+  "run_id": "run_static_statement_rewrite_after_shape_fix_v2",
+  "status": "COMPLETED",
+  "contract_version": "v1.0.0",
+  "skill_version": "v1.0.0",
+  "config_version": "v1",
+  "current_phase": "report",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  },
+  "statements": {
+    "demo.user.advanced.listUsersProjected": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.user.advanced.listUsersProjectedAliases": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.user.advanced.listUsersProjectedQualifiedAliases": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 3,
+    "validate": 3,
+    "patch_generate": 3,
+    "report": 1
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-04-07T05:13:33.515744+00:00"
+}

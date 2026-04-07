@@ -34,5 +34,20 @@ def compare_snapshots(baseline: BenchmarkSnapshot, candidate: BenchmarkSnapshot)
             baseline.dynamic_delivery_class_counts,
             candidate.dynamic_delivery_class_counts,
         ),
+        convergence_decision_count_deltas=_diff_counts(
+            baseline.convergence_decision_counts,
+            candidate.convergence_decision_counts,
+        ),
+        convergence_conflict_reason_count_deltas=_diff_counts(
+            baseline.convergence_conflict_reason_counts,
+            candidate.convergence_conflict_reason_counts,
+        ),
+        convergence_shape_family_count_deltas=_diff_counts(
+            baseline.convergence_shape_family_counts,
+            candidate.convergence_shape_family_counts,
+        ),
+        patch_convergence_blocked_count_delta=(
+            candidate.patch_convergence_blocked_count - baseline.patch_convergence_blocked_count
+        ),
         top_reason_code_deltas=_diff_counts(_reason_code_counts(baseline.top_reason_codes), _reason_code_counts(candidate.top_reason_codes)),
     )

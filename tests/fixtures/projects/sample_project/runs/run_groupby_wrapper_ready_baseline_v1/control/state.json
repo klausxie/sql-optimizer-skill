@@ -1,0 +1,35 @@
+{
+  "run_id": "run_groupby_wrapper_ready_baseline_v1",
+  "status": "COMPLETED",
+  "contract_version": "v1.0.0",
+  "skill_version": "v1.0.0",
+  "config_version": "v1",
+  "current_phase": "report",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  },
+  "statements": {
+    "demo.order.harness.aggregateOrdersByStatusWrapped": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 1,
+    "validate": 1,
+    "patch_generate": 1,
+    "report": 1
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-04-07T07:45:53.253502+00:00"
+}

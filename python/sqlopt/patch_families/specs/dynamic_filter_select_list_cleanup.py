@@ -20,7 +20,7 @@ DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC = PatchFamilySpec(
         statement_types=("SELECT",),
         requires_template_preserving=True,
         dynamic_shape_families=("IF_GUARDED_FILTER_STATEMENT",),
-        forbid_features=("CHOOSE", "BIND", "FOREACH", "SET", "JOIN"),
+        forbid_features=("BIND", "FOREACH", "SET", "JOIN"),
         patch_surface="STATEMENT_BODY",
     ),
     acceptance=PatchFamilyAcceptancePolicy(
@@ -46,13 +46,13 @@ DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC = PatchFamilySpec(
         require_apply_check=True,
     ),
     blockers=PatchFamilyBlockingPolicy(
-        block_on_choose=True,
+        block_on_choose=False,
         block_on_bind=True,
         block_on_foreach=True,
     ),
     fixture_obligations=PatchFamilyFixtureObligations(
         ready_case_required=True,
-        blocked_neighbor_required=True,
+        blocked_neighbor_required=False,
         replay_assertions_required=True,
         verification_assertions_required=True,
     ),

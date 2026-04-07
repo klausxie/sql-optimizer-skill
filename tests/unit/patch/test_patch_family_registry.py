@@ -33,7 +33,7 @@ def test_static_alias_projection_cleanup_spec_carries_mvp_contract_sections() ->
     assert spec.blockers.block_on_expression_alias is True
     assert spec.verification.require_replay_match is True
     assert spec.fixture_obligations.ready_case_required is True
-    assert spec.fixture_obligations.blocked_neighbor_required is True
+    assert spec.fixture_obligations.blocked_neighbor_required is False
 
 
 def test_static_include_wrapper_collapse_spec_exposes_acceptance_policy() -> None:
@@ -74,7 +74,9 @@ def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
     assert from_spec.replay.required_template_ops == ("replace_statement_body",)
     assert select_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
     assert from_spec.replay.render_mode == "STATEMENT_TEMPLATE_SAFE"
-    assert select_spec.fixture_obligations.blocked_neighbor_required is True
+    assert "CHOOSE" not in select_spec.scope.forbid_features
+    assert select_spec.blockers.block_on_choose is False
+    assert select_spec.fixture_obligations.blocked_neighbor_required is False
     assert from_spec.fixture_obligations.blocked_neighbor_required is True
 
 

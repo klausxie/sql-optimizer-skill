@@ -64,6 +64,8 @@
     "fallbackApplied": {"type": ["boolean", "null"]},
     "dynamicTemplateStrategy": {"type": ["string", "null"]},
     "dynamicTemplateBlockingReason": {"type": ["string", "null"]},
+    "convergenceDecision": {"type": ["string", "null"]},
+    "convergenceConflictReason": {"type": ["string", "null"]},
     "gates": {
       "type": ["object", "null"],
       "required": [

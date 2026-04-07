@@ -1,0 +1,19 @@
+{
+  "degradationKind": null,
+  "recoveryAttempted": false,
+  "recoveryStrategy": null,
+  "recoverySucceeded": false,
+  "recoveryReason": "NONE",
+  "rawCandidateCount": 2,
+  "validatedCandidateCount": 2,
+  "acceptedCandidateCount": 2,
+  "prunedLowValueCount": 0,
+  "lowValueCandidateCount": 0,
+  "recoveredCandidateCount": 0,
+  "rawRewriteStrategies": [
+    "REMOVE_TAUTOLOGY",
+    "INDEX_HINT_POTENTIAL"
+  ],
+  "finalCandidateCount": 2,
+  "lowValueAssessments": []
+}

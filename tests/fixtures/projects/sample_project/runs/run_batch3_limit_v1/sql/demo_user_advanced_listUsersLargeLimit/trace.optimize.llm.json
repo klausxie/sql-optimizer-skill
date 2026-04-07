@@ -1,0 +1,169 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.user.advanced.listUsersLargeLimit",
+  "task_id": "demo.user.advanced.listUsersLargeLimit:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T13:07:49.244747+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.user.advanced.listUsersLargeLimit",
+    "requiredContext": {
+      "sql": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 1000000",
+      "templateSql": "SELECT id, name, email, status, created_at, updated_at\n        FROM users\n        ORDER BY created_at DESC\n        LIMIT 1000000",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "idx_users_name",
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)"
+        },
+        {
+          "table": "users",
+          "index": "idx_users_status_created",
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)"
+        },
+        {
+          "table": "users",
+          "index": "users_email_key",
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+        },
+        {
+          "table": "users",
+          "index": "users_pkey",
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "character varying",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Limit  (cost=13.33..13.53 rows=80 width=896)",
+        "lineCount": 4
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "opt-004",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email FROM users ORDER BY created_at DESC LIMIT 100",
+        "rewriteStrategy": "column_reduction",
+        "semanticRisk": "medium",
+        "confidence": "0.75"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 30385,
+  "input_hash": "f2c0532744aa1aa66e27ade04df21ab4af2e6321026ca8462e41799294f1a3f4",
+  "output_hash": "576fcf5c32fd5f2c36f94554a0e701d9ca4b6a9b100257261c859b33eafbda8e",
+  "candidate_summary": {
+    "count": 4,
+    "candidates": [
+      {
+        "id": "opt-001",
+        "source": "llm",
+        "rewriteStrategy": "limit_reduction",
+        "semanticRisk": "low",
+        "confidence": "0.95",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 100"
+      },
+      {
+        "id": "opt-002",
+        "source": "llm",
+        "rewriteStrategy": "index_optimization_with_filter",
+        "semanticRisk": "medium",
+        "confidence": "0.85",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = $1 ORDER BY created"
+      },
+      {
+        "id": "opt-003",
+        "source": "llm",
+        "rewriteStrategy": "cursor_pagination",
+        "semanticRisk": "low",
+        "confidence": "0.9",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE created_at < $1 ORDER BY cre"
+      },
+      {
+        "id": "opt-004",
+        "source": "llm",
+        "rewriteStrategy": "column_reduction",
+        "semanticRisk": "medium",
+        "confidence": "0.75",
+        "sql_preview": "SELECT id, name, email FROM users ORDER BY created_at DESC LIMIT 100"
+      }
+    ]
+  }
+}

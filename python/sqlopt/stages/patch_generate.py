@@ -39,6 +39,71 @@ from .patch_generate_llm import (
 from .patch_verification import append_patch_verification as _append_patch_verification
 
 
+def _cleanup_generated_patch_files(file_paths: list[str]) -> None:
+    for raw in file_paths:
+        path = Path(str(raw))
+        try:
+            if path.exists() and path.is_file():
+                path.unlink()
+        except Exception:
+            # Best-effort cleanup only; patch result remains authoritative.
+            continue
+
+
+def _convergence_gate_reason_code(decision: str) -> str:
+    normalized = str(decision or "").strip().upper()
+    if normalized == "MANUAL_REVIEW":
+        return "PATCH_CONVERGENCE_REVIEW_REQUIRED"
+    if normalized == "NOT_PATCHABLE":
+        return "PATCH_CONVERGENCE_NOT_PATCHABLE"
+    return "PATCH_CONVERGENCE_BLOCKED"
+
+
+def _find_statement_convergence_row(paths: Any, statement_key: str) -> dict[str, Any] | None:
+    rows = read_jsonl(paths.statement_convergence_path)
+    for row in rows:
+        if str(row.get("statementKey") or "").strip() == statement_key:
+            return row
+    return None
+
+
+def _apply_statement_convergence_gate(
+    *,
+    patch: dict[str, Any],
+    decision_ctx: Any,
+    selection: Any,
+    convergence_row: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if convergence_row is None:
+        return patch
+    decision = str(convergence_row.get("convergenceDecision") or "").strip().upper()
+    conflict_reason = str(convergence_row.get("conflictReason") or "").strip() or None
+    consensus = convergence_row.get("consensus") or {}
+    consensus_patch_family = str((consensus or {}).get("patchFamily") or "").strip() or None
+    if decision and decision != "AUTO_PATCHABLE":
+        patch = _skip_patch_result(
+            sql_key=decision_ctx.sql_key,
+            statement_key=decision_ctx.statement_key,
+            reason_code=_convergence_gate_reason_code(decision),
+            reason_message=(
+                f"statement convergence decision={decision} blocks auto patch"
+                + (f" ({conflict_reason})" if conflict_reason else "")
+            ),
+            candidates_evaluated=decision_ctx.candidates_evaluated,
+            selected_candidate_id=selection.selected_candidate_id,
+            applicable=False,
+            apply_check_error=None,
+            artifact_kind=str(patch.get("artifactKind") or "").strip() or None,
+            delivery_stage="CONVERGENCE_BLOCKED",
+            failure_class="CONVERGENCE_BLOCKED",
+        )
+    elif consensus_patch_family:
+        patch["patchFamily"] = consensus_patch_family
+    patch["convergenceDecision"] = decision or None
+    patch["convergenceConflictReason"] = conflict_reason
+    return patch
+
+
 def _check_patch_applicable(patch_file: Path, workdir: Path) -> tuple[bool, str | None]:
     try:
         proc = subprocess.run(
@@ -99,6 +164,7 @@ def _finalize_generated_patch(
 def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: ContractValidator, config: dict[str, Any] | None = None) -> dict:
     paths = canonical_paths(run_dir)
     acceptance_rows = read_jsonl(paths.acceptance_path)
+    convergence_row = _find_statement_convergence_row(paths, _statement_key(str(sql_unit.get("sqlKey") or "")))
     fragment_rows = read_jsonl(paths.scan_fragments_path) if paths.scan_fragments_path.exists() else []
     fragment_catalog = {str(row.get("fragmentKey") or ""): row for row in fragment_rows if str(row.get("fragmentKey") or "").strip()}
 
@@ -146,6 +212,19 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
             base_dir=project_root,
         ),
     )
+    generated_patch_files_before_gate = [str(path) for path in (patch.get("patchFiles") or []) if str(path).strip()]
+    patch = _apply_statement_convergence_gate(
+        patch=patch,
+        decision_ctx=decision_ctx,
+        selection=selection,
+        convergence_row=convergence_row,
+    )
+    if (
+        generated_patch_files_before_gate
+        and not patch.get("patchFiles")
+        and str(((patch.get("selectionReason") or {}).get("code") or "")).startswith("PATCH_CONVERGENCE_")
+    ):
+        _cleanup_generated_patch_files(generated_patch_files_before_gate)
     sql_key = decision_ctx.sql_key
 
     proof = None
@@ -231,7 +310,16 @@ def execute_one(sql_unit: dict, acceptance: dict, run_dir: Path, validator: Cont
                     failure_class=delivery_verdict.get("failureClass"),
                 )
 
+    if generated_patch_files_before_gate and not patch.get("patchFiles"):
+        _cleanup_generated_patch_files(generated_patch_files_before_gate)
+
     patch = _attach_patch_diagnostics(patch, sql_unit, selection, build)
+    if convergence_row is not None:
+        consensus = convergence_row.get("consensus") or {}
+        consensus_patch_family = str((consensus or {}).get("patchFamily") or "").strip() or None
+        convergence_decision = str(convergence_row.get("convergenceDecision") or "").strip().upper()
+        if convergence_decision == "AUTO_PATCHABLE" and consensus_patch_family:
+            patch["patchFamily"] = consensus_patch_family
 
     # Phase 5: LLM 模板辅助（可选）
     patch_cfg = (config or {}).get("patch", {}) or {}

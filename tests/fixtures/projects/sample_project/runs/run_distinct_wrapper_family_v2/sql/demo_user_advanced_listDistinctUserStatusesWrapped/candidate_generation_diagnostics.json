@@ -1,0 +1,18 @@
+{
+  "degradationKind": null,
+  "recoveryAttempted": false,
+  "recoveryStrategy": null,
+  "recoverySucceeded": false,
+  "recoveryReason": "NONE",
+  "rawCandidateCount": 1,
+  "validatedCandidateCount": 1,
+  "acceptedCandidateCount": 1,
+  "prunedLowValueCount": 0,
+  "lowValueCandidateCount": 0,
+  "recoveredCandidateCount": 0,
+  "rawRewriteStrategies": [
+    "REDUNDANT_SUBQUERY_REMOVAL"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": []
+}

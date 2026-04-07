@@ -1,0 +1,40 @@
+{
+  "run_id": "run_having_wrapper_family_v3",
+  "status": "COMPLETED",
+  "contract_version": "v1.0.0",
+  "skill_version": "v1.0.0",
+  "config_version": "v1",
+  "current_phase": "report",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  },
+  "statements": {
+    "demo.order.harness.listOrderUserCountsHaving": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    },
+    "demo.order.harness.listOrderUserCountsHavingWrapped": {
+      "optimize": "DONE",
+      "validate": "DONE",
+      "patch_generate": "DONE"
+    }
+  },
+  "attempts_by_phase": {
+    "preflight": 1,
+    "scan": 1,
+    "optimize": 2,
+    "validate": 2,
+    "patch_generate": 2,
+    "report": 1
+  },
+  "report_rebuild_required": false,
+  "last_error": null,
+  "last_reason_code": null,
+  "updated_at": "2026-04-07T08:01:42.602855+00:00"
+}

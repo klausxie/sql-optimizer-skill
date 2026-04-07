@@ -1,0 +1,25 @@
+{
+  "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "REMOVE_REDUNDANT_DISTINCT_FROM_ALIAS_RECOVERED",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_REPLACED_LOW_VALUE",
+  "rawCandidateCount": 1,
+  "validatedCandidateCount": 1,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 1,
+  "lowValueCandidateCount": 1,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [
+    "alias_removal"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "1",
+      "rule_id": "STATIC_STATEMENT_QUALIFIER_ONLY_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate only changes single-table qualifiers or aliases on a static statement; prefer safe baseline cleanup"
+    }
+  ]
+}

@@ -87,4 +87,18 @@
         WHERE status = 'DELIVERED'
         ORDER BY status, id
     </select>
+
+    <select id="listShipmentStatusUnionWrapped" resultType="map">
+        SELECT id, status, shipped_at
+        FROM (
+            SELECT id, status, shipped_at
+            FROM shipments
+            WHERE status = 'SHIPPED'
+            UNION
+            SELECT id, status, shipped_at
+            FROM shipments
+            WHERE status = 'DELIVERED'
+        ) su
+        ORDER BY status, id
+    </select>
 </mapper>

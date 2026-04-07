@@ -20,7 +20,7 @@ STATIC_ORDER_BY_SIMPLIFICATION_SPEC = PatchFamilySpec(
     ),
     acceptance=PatchFamilyAcceptancePolicy(
         semantic_required_status="PASS",
-        semantic_min_confidence="HIGH",
+        semantic_min_confidence="MEDIUM",
     ),
     patch_target_policy=PatchFamilyPatchTargetPolicy(
         selected_patch_strategy="EXACT_TEMPLATE_EDIT",

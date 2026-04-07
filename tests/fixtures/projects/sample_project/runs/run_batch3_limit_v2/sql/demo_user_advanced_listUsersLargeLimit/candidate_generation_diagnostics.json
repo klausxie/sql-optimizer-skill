@@ -1,0 +1,39 @@
+{
+  "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "REMOVE_LARGE_LIMIT_RECOVERED",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_REPLACED_LOW_VALUE",
+  "rawCandidateCount": 3,
+  "validatedCandidateCount": 3,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 3,
+  "lowValueCandidateCount": 3,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [
+    "LIMIT_REDUCTION",
+    "KEYSET_PAGINATION",
+    "FILTER_ADDITION"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "opt-001",
+      "rule_id": "STATIC_LIMIT_LARGE_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate changes a large-LIMIT statement without using the safe baseline limit removal"
+    },
+    {
+      "candidate_id": "opt-002",
+      "rule_id": "STATIC_LIMIT_LARGE_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate changes a large-LIMIT statement without using the safe baseline limit removal"
+    },
+    {
+      "candidate_id": "opt-003",
+      "rule_id": "STATIC_LIMIT_LARGE_SPECULATIVE_REWRITE",
+      "category": "STATIC_STATEMENT_SPECULATIVE_REWRITE",
+      "reason": "candidate changes a large-LIMIT statement without using the safe baseline limit removal"
+    }
+  ]
+}

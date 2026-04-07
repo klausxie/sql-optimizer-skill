@@ -23,6 +23,12 @@ class PatchFormattingTest(unittest.TestCase):
         self.assertIn("\n  AND active = 1", formatted)
         self.assertIn("\nORDER BY created_at DESC", formatted)
 
+    def test_format_sql_for_patch_preserves_spaces_around_quoted_literals(self) -> None:
+        sql = "SELECT id FROM users WHERE status = 'ACTIVE' ORDER BY created_at DESC"
+        formatted = format_sql_for_patch(sql)
+        self.assertIn("\nWHERE status = 'ACTIVE'", formatted)
+        self.assertIn("\nORDER BY created_at DESC", formatted)
+
     def test_detect_duplicate_clause_in_template_ops(self) -> None:
         acceptance = {
             "templateRewriteOps": [

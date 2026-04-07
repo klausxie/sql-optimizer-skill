@@ -39,6 +39,68 @@ _COUNT_WRAPPER_BLOCKERS = (
     r"\boffset\b",
     r"\bfetch\b",
 )
+_BOOLEAN_TAUTOLOGY_RE = re.compile(r"^(1\s*=\s*1|0\s*=\s*0|true)$", flags=re.IGNORECASE)
+_IN_SINGLE_VALUE_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s+in\s*\(\s*(?P<value>[^,\)]+)\s*\)$",
+    flags=re.IGNORECASE,
+)
+_NOT_IN_SINGLE_VALUE_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s+not\s+in\s*\(\s*(?P<value>[^,\)]+)\s*\)$",
+    flags=re.IGNORECASE,
+)
+_EQ_VALUE_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s*=\s*(?P<value>.+)$",
+    flags=re.IGNORECASE,
+)
+_NEQ_VALUE_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s*(?:<>|!=)\s*(?P<value>.+)$",
+    flags=re.IGNORECASE,
+)
+_ORDER_BY_CONSTANT_ONLY_RE = re.compile(
+    r"^(\d+|null|'[^']*'|\"[^\"]*\"|[\d\.]+)(\s*,\s*(\d+|null|'[^']*'|\"[^\"]*\"|[\d\.]+))*$",
+    flags=re.IGNORECASE,
+)
+_OR_SAME_COLUMN_PREDICATE_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s*=\s*(?P<left>'[^']*'|[^'\s\)]+)\s+or\s+(?P=column)\s*=\s*(?P<right>'[^']*'|[^'\s\)]+)$",
+    flags=re.IGNORECASE,
+)
+_CASE_WHEN_TRUE_RE = re.compile(
+    r"\bcase\s+when\s+true\s+then\s+(?P<expr>.+?)\s+else\s+(?P=expr)\s+end\b",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_COALESCE_IDENTITY_RE = re.compile(
+    r"\bcoalesce\s*\(\s*(?P<expr>[a-z_][a-z0-9_\.]*)\s*,\s*(?P<arg2>(?P=expr)|null)\s*\)",
+    flags=re.IGNORECASE,
+)
+_ARITH_LITERAL_RE = re.compile(
+    r"\b(?P<left>\d+)\s*(?P<op>[+\-*/])\s*(?P<right>\d+)\b",
+    flags=re.IGNORECASE,
+)
+_LIMIT_LARGE_ONLY_RE = re.compile(r"^limit\s+(?P<value>\d+)$", flags=re.IGNORECASE)
+_NULL_COMPARISON_ONLY_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s*(?P<op>=|!=|<>)\s*null$",
+    flags=re.IGNORECASE,
+)
+_NULL_IS_COMPARISON_RE = re.compile(
+    r"^(?P<column>[a-z_][a-z0-9_\.]*)\s+is\s+(?P<neg>not\s+)?null$",
+    flags=re.IGNORECASE,
+)
+_DISTINCT_ON_EQUIVALENT_RE = re.compile(
+    r"^distinct\s+on\s*\((?P<on>[^)]+)\)\s+(?P<select>.+)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_DISTINCT_EQUIVALENT_RE = re.compile(
+    r"^distinct\s+(?P<select>.+)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_EXISTS_SELF_RE = re.compile(
+    r"^exists\s*\(\s*select\s+1\s+from\s+(?P<table>[a-z_][a-z0-9_]*)\s+(?P<inner_alias>[a-z_][a-z0-9_]*)\s+where\s+(?P<inner_alias_2>[a-z_][a-z0-9_]*)\.id\s*=\s*(?P<outer_alias>[a-z_][a-z0-9_]*)\.id\s*\)$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_UNION_WRAPPER_RE = re.compile(
+    r"^\s*select\s+(?P<outer_select>.+?)\s+from\s*\(\s*(?P<inner>select\b.+\bunion(?:\s+all)?\b.+)\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)\s*(?P<suffix>(?:order\s+by\b.+|limit\b.+|offset\b.+|fetch\b.+)?)\s*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
 
 
 def _normalize_sql(text: str) -> str:
@@ -95,6 +157,22 @@ def _inline_simple_select_wrapper(sql: str) -> str | None:
     return render_flattened_select_template(inner_select, flattened_from)
 
 
+def _inline_union_wrapper(sql: str) -> str | None:
+    normalized = strip_sql_comments(str(sql or "")).strip()
+    match = _UNION_WRAPPER_RE.match(normalized)
+    if not match:
+        return None
+    inner_sql = str(match.group("inner") or "").strip()
+    outer_select = _normalize_sql(match.group("outer_select") or "")
+    first_select = re.match(r"^\s*select\s+(?P<select>.+?)\s+from\b", inner_sql, flags=re.IGNORECASE | re.DOTALL)
+    if first_select is None:
+        return None
+    if _normalize_sql(first_select.group("select") or "") != outer_select:
+        return None
+    suffix = str(match.group("suffix") or "").strip()
+    return f"{inner_sql} {suffix}".strip()
+
+
 def _normalize_groupby_from_alias_cleanup(sql: str) -> str | None:
     direct_match = SELECT_DIRECT_RE.match(str(sql or "").strip())
     if direct_match is None:
@@ -131,6 +209,9 @@ def _semantic_subject_sql(sql: str) -> str:
     collapsed_count = _inline_simple_count_wrapper(normalized)
     if collapsed_count:
         return collapsed_count
+    collapsed_union_wrapper = _inline_union_wrapper(normalized)
+    if collapsed_union_wrapper:
+        return collapsed_union_wrapper
     distinct_alias_cleanup = _normalize_distinct_from_alias_cleanup(normalized)
     if distinct_alias_cleanup:
         return distinct_alias_cleanup
@@ -154,6 +235,10 @@ def _normalize_projection_alias(expr: str) -> str:
     return _normalize_sql(value)
 
 
+def _strip_identifier_qualifiers(expr: str) -> str:
+    return re.sub(r"\b[a-z_][a-z0-9_]*\.", "", str(expr or ""), flags=re.IGNORECASE)
+
+
 def _is_count_star_one_equivalent(before: str | None, after: str | None) -> bool:
     if before is None or after is None:
         return False
@@ -169,6 +254,26 @@ def _is_projection_alias_only_equivalent(before: str | None, after: str | None) 
     return before_signature is not None and before_signature == after_signature
 
 
+def _projection_signature_without_qualifiers(select_list: str | None) -> tuple[str, ...] | None:
+    if select_list is None:
+        return None
+    cleaned_select_list, _ = cleanup_redundant_select_aliases(select_list)
+    parts = split_select_list(cleaned_select_list)
+    return tuple(_normalize_sql(_strip_identifier_qualifiers(strip_redundant_projection_alias(part))) for part in parts)
+
+
+def _is_projection_qualifier_only_equivalent(before: str | None, after: str | None) -> bool:
+    before_signature = _projection_signature_without_qualifiers(before)
+    after_signature = _projection_signature_without_qualifiers(after)
+    return before_signature is not None and before_signature == after_signature
+
+
+def _is_clause_qualifier_only_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    return _normalize_sql(_strip_identifier_qualifiers(before)) == _normalize_sql(_strip_identifier_qualifiers(after))
+
+
 def _extract_where_clause(sql: str) -> str | None:
     match = re.search(
         r"\bwhere\b(.*?)(\border\s+by\b|\blimit\b|\boffset\b|\bfetch\b|$)",
@@ -179,6 +284,190 @@ def _extract_where_clause(sql: str) -> str | None:
         return None
     where_text = _normalize_sql(match.group(1))
     return where_text or None
+
+
+def _is_boolean_tautology_only_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is not None:
+        return False
+    return _BOOLEAN_TAUTOLOGY_RE.match(str(before).strip()) is not None
+
+
+def _is_single_value_in_list_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    before_text = _normalize_sql(before)
+    after_text = _normalize_sql(after)
+    in_match = _IN_SINGLE_VALUE_RE.match(before_text)
+    eq_match = _EQ_VALUE_RE.match(after_text)
+    if in_match is not None and eq_match is not None:
+        return (
+            _normalize_sql(in_match.group("column")) == _normalize_sql(eq_match.group("column"))
+            and _normalize_sql(in_match.group("value")) == _normalize_sql(eq_match.group("value"))
+        )
+    not_in_match = _NOT_IN_SINGLE_VALUE_RE.match(before_text)
+    neq_match = _NEQ_VALUE_RE.match(after_text)
+    if not_in_match is not None and neq_match is not None:
+        return (
+            _normalize_sql(not_in_match.group("column")) == _normalize_sql(neq_match.group("column"))
+            and _normalize_sql(not_in_match.group("value")) == _normalize_sql(neq_match.group("value"))
+        )
+    return False
+
+
+def _is_constant_order_by_removed_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is not None:
+        return False
+    return _ORDER_BY_CONSTANT_ONLY_RE.match(str(before).strip()) is not None
+
+
+def _is_same_column_or_to_in_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    before_match = _OR_SAME_COLUMN_PREDICATE_RE.match(_normalize_sql(before))
+    in_pattern = re.match(
+        r"^(?P<column>[a-z_][a-z0-9_\.]*)\s+in\s*\(\s*(?P<left>'[^']*'|[^,\)]+)\s*,\s*(?P<right>'[^']*'|[^,\)]+)\s*\)$",
+        _normalize_sql(after),
+        flags=re.IGNORECASE,
+    )
+    if before_match is None or in_pattern is None:
+        return False
+    return (
+        _normalize_sql(before_match.group("column")) == _normalize_sql(in_pattern.group("column"))
+        and {
+            _normalize_sql(before_match.group("left")),
+            _normalize_sql(before_match.group("right")),
+        }
+        == {
+            _normalize_sql(in_pattern.group("left")),
+            _normalize_sql(in_pattern.group("right")),
+        }
+    )
+
+
+def _normalized_projection_signature_with_transform(
+    select_list: str | None,
+    transform: callable[[str], str],
+) -> tuple[str, ...] | None:
+    if select_list is None:
+        return None
+    transformed = transform(select_list)
+    cleaned_select_list, _ = cleanup_redundant_select_aliases(transformed)
+    parts = split_select_list(cleaned_select_list)
+    return tuple(_normalize_sql(strip_redundant_projection_alias(part)) for part in parts)
+
+
+def _normalize_case_when_true_projection(select_list: str | None) -> tuple[str, ...] | None:
+    if select_list is None:
+        return None
+    return _normalized_projection_signature_with_transform(
+        select_list,
+        lambda text: _CASE_WHEN_TRUE_RE.sub(lambda match: _normalize_sql(match.group("expr")), text),
+    )
+
+
+def _normalize_coalesce_identity_projection(select_list: str | None) -> tuple[str, ...] | None:
+    if select_list is None:
+        return None
+    return _normalized_projection_signature_with_transform(
+        select_list,
+        lambda text: _COALESCE_IDENTITY_RE.sub(lambda match: _normalize_sql(match.group("expr")), text),
+    )
+
+
+def _fold_constant_arithmetic(text: str | None) -> str | None:
+    if text is None:
+        return None
+
+    def _replace(match: re.Match[str]) -> str:
+        left = int(match.group("left"))
+        right = int(match.group("right"))
+        op = match.group("op")
+        if op == "+":
+            value = left + right
+        elif op == "-":
+            value = left - right
+        elif op == "*":
+            value = left * right
+        elif op == "/":
+            if right == 0 or left % right != 0:
+                return match.group(0)
+            value = left // right
+        else:
+            return match.group(0)
+        return str(value)
+
+    return _normalize_sql(_ARITH_LITERAL_RE.sub(_replace, text))
+
+
+def _is_case_when_true_projection_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    return _normalize_case_when_true_projection(before) == _projection_signature(after)
+
+
+def _is_coalesce_identity_projection_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    return _normalize_coalesce_identity_projection(before) == _projection_signature(after)
+
+
+def _is_constant_expression_folding_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    return _fold_constant_arithmetic(before) == _normalize_sql(after)
+
+
+def _is_large_limit_removed_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is not None:
+        return False
+    match = _LIMIT_LARGE_ONLY_RE.match(_normalize_sql(before))
+    if match is None:
+        return False
+    try:
+        return int(match.group("value")) >= 1000000
+    except ValueError:
+        return False
+
+
+def _is_null_comparison_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    before_match = _NULL_COMPARISON_ONLY_RE.match(_normalize_sql(before))
+    after_match = _NULL_IS_COMPARISON_RE.match(_normalize_sql(after))
+    if before_match is None or after_match is None:
+        return False
+    if _normalize_sql(before_match.group("column")) != _normalize_sql(after_match.group("column")):
+        return False
+    before_op = str(before_match.group("op") or "").strip()
+    after_is_not = bool(str(after_match.group("neg") or "").strip())
+    return (before_op == "=" and not after_is_not) or (before_op in {"!=", "<>"} and after_is_not)
+
+
+def _is_distinct_on_equivalent(before: str | None, after: str | None, ordering_before: str | None, ordering_after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    before_match = _DISTINCT_ON_EQUIVALENT_RE.match(_normalize_sql(before))
+    after_match = _DISTINCT_EQUIVALENT_RE.match(_normalize_sql(after))
+    if before_match is None or after_match is None:
+        return False
+    distinct_on_expr = _normalize_sql(before_match.group("on"))
+    before_select = _normalize_sql(before_match.group("select"))
+    after_select = _normalize_sql(after_match.group("select"))
+    if before_select != distinct_on_expr or after_select != distinct_on_expr:
+        return False
+    if ordering_before is None:
+        return False
+    normalized_ordering_before = _normalize_sql(ordering_before)
+    normalized_ordering_after = _normalize_sql(ordering_after or "")
+    if not normalized_ordering_before.startswith(distinct_on_expr):
+        return False
+    return normalized_ordering_after == normalized_ordering_before
+
+
+def _is_exists_self_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is not None:
+        return False
+    return _EXISTS_SELF_RE.match(_normalize_sql(before)) is not None
 
 
 def _extract_order_by_clause(sql: str) -> str | None:
@@ -433,11 +722,20 @@ def build_semantic_equivalence(
     fingerprint_strength = _extract_fingerprint_strength(equivalence, fingerprint_status)
     checked = equivalence.get("checked")
     is_dml_comparison = _is_update_statement(original_subject_sql) and _is_update_statement(rewritten_subject_sql)
+    predicate_before: str | None = None
+    predicate_after: str | None = None
+    predicate_check: dict[str, Any] = {"status": "PASS", "reasonCode": None}
+    ordering_before: str | None = None
+    ordering_after: str | None = None
+    ordering_check: dict[str, Any] = {"status": "PASS", "reasonCode": None}
+    pagination_before: str | None = None
+    pagination_after: str | None = None
 
     projection_before = _extract_select_list(original_subject_sql)
     projection_after = _extract_select_list(rewritten_subject_sql)
     count_projection_equivalent = _is_count_star_one_equivalent(projection_before, projection_after)
     alias_only_projection_equivalent = _is_projection_alias_only_equivalent(projection_before, projection_after)
+    qualifier_only_projection_equivalent = _is_projection_qualifier_only_equivalent(projection_before, projection_after)
     if is_dml_comparison:
         checks = _build_dml_checks(original_subject_sql, rewritten_subject_sql) or {}
         projection_check = dict(checks.get("projection") or {})
@@ -475,17 +773,21 @@ def build_semantic_equivalence(
                 after=projection_after,
             )
 
+        predicate_before = _extract_where_clause(original_subject_sql)
+        predicate_after = _extract_where_clause(rewritten_subject_sql)
         predicate_check = _compare_text_clause(
-            before=_extract_where_clause(original_subject_sql),
-            after=_extract_where_clause(rewritten_subject_sql),
+            before=predicate_before,
+            after=predicate_after,
             same_reason_code="SEMANTIC_PREDICATE_STABLE",
             change_reason_code="SEMANTIC_PREDICATE_CHANGED",
             missing_reason_code="SEMANTIC_PREDICATE_ADDED_OR_REMOVED",
             missing_detail="where clause added or removed",
         )
+        ordering_before = _extract_order_by_clause(original_subject_sql)
+        ordering_after = _extract_order_by_clause(rewritten_subject_sql)
         ordering_check = _compare_text_clause(
-            before=_extract_order_by_clause(original_subject_sql),
-            after=_extract_order_by_clause(rewritten_subject_sql),
+            before=ordering_before,
+            after=ordering_after,
             same_reason_code="SEMANTIC_ORDERING_STABLE",
             change_reason_code="SEMANTIC_ORDERING_CHANGED",
             missing_reason_code="SEMANTIC_ORDERING_ADDED_OR_REMOVED",
@@ -493,9 +795,11 @@ def build_semantic_equivalence(
             missing_status="UNCERTAIN",
             changed_status="UNCERTAIN",
         )
+        pagination_before = _extract_pagination_clause(original_subject_sql)
+        pagination_after = _extract_pagination_clause(rewritten_subject_sql)
         pagination_check = _compare_text_clause(
-            before=_extract_pagination_clause(original_subject_sql),
-            after=_extract_pagination_clause(rewritten_subject_sql),
+            before=pagination_before,
+            after=pagination_after,
             same_reason_code="SEMANTIC_PAGINATION_STABLE",
             change_reason_code="SEMANTIC_PAGINATION_CHANGED",
             missing_reason_code="SEMANTIC_PAGINATION_ADDED_OR_REMOVED",
@@ -563,6 +867,32 @@ def build_semantic_equivalence(
             if name != "projection"
         )
     )
+    only_predicate_uncertain = (
+        str(predicate_check.get("status") or "").upper() == "UNCERTAIN"
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    )
+    only_ordering_uncertain = (
+        str(ordering_check.get("status") or "").upper() == "UNCERTAIN"
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "ordering"
+        )
+    )
+    qualifier_only_uncertain_checks = {
+        name
+        for name, check in checks.items()
+        if str((check or {}).get("status") or "").upper() == "UNCERTAIN"
+        and (
+            (name == "projection" and qualifier_only_projection_equivalent)
+            or (name == "predicate" and _is_clause_qualifier_only_equivalent(predicate_before, predicate_after))
+            or (name == "ordering" and _is_clause_qualifier_only_equivalent(ordering_before, ordering_after))
+        )
+    }
     if (
         status == "UNCERTAIN"
         and count_projection_equivalent
@@ -582,6 +912,487 @@ def build_semantic_equivalence(
             after=projection_after,
         )
         reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and qualifier_only_projection_equivalent
+        and only_projection_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_PROJECTION_QUALIFIER_ONLY"
+        status = "PASS"
+        checks["projection"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_QUALIFIER_ONLY_EQUIVALENT",
+            detail="projection change only removes single-table qualifiers with exact DB fingerprint evidence",
+            before=projection_before,
+            after=projection_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and _is_clause_qualifier_only_equivalent(predicate_before, predicate_after)
+        and only_predicate_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_PREDICATE_QUALIFIER_ONLY"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_QUALIFIER_ONLY_EQUIVALENT",
+            detail="predicate change only removes single-table qualifiers with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PREDICATE_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and _is_clause_qualifier_only_equivalent(ordering_before, ordering_after)
+        and only_ordering_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_ORDERING_QUALIFIER_ONLY"
+        status = "PASS"
+        checks["ordering"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_ORDERING_QUALIFIER_ONLY_EQUIVALENT",
+            detail="ordering change only removes single-table qualifiers with exact DB fingerprint evidence",
+            before=ordering_before,
+            after=ordering_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_ORDERING_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and qualifier_only_uncertain_checks
+        and {
+            name
+            for name, check in checks.items()
+            if str((check or {}).get("status") or "").upper() == "UNCERTAIN"
+        }
+        == qualifier_only_uncertain_checks
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_SINGLE_TABLE_QUALIFIER_ONLY"
+        status = "PASS"
+        if "predicate" in qualifier_only_uncertain_checks:
+            checks["predicate"] = _build_check(
+                status="PASS",
+                reason_code="SEMANTIC_PREDICATE_QUALIFIER_ONLY_EQUIVALENT",
+                detail="predicate change only removes single-table qualifiers with exact DB fingerprint evidence",
+                before=predicate_before,
+                after=predicate_after,
+            )
+            reasons = [code for code in reasons if code != "SEMANTIC_PREDICATE_CHANGED"]
+        if "projection" in qualifier_only_uncertain_checks:
+            checks["projection"] = _build_check(
+                status="PASS",
+                reason_code="SEMANTIC_PROJECTION_QUALIFIER_ONLY_EQUIVALENT",
+                detail="projection change only removes single-table qualifiers with exact DB fingerprint evidence",
+                before=projection_before,
+                after=projection_after,
+            )
+            reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        if "ordering" in qualifier_only_uncertain_checks:
+            checks["ordering"] = _build_check(
+                status="PASS",
+                reason_code="SEMANTIC_ORDERING_QUALIFIER_ONLY_EQUIVALENT",
+                detail="ordering change only removes single-table qualifiers with exact DB fingerprint evidence",
+                before=ordering_before,
+                after=ordering_after,
+            )
+            reasons = [code for code in reasons if code != "SEMANTIC_ORDERING_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "FAIL"
+        and _is_boolean_tautology_only_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_BOOLEAN_TAUTOLOGY_REMOVAL"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_BOOLEAN_TAUTOLOGY_EQUIVALENT",
+            detail="predicate only removes a tautology with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"]
+        hard_conflicts = [code for code in hard_conflicts if code != "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_single_value_in_list_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_SINGLE_VALUE_IN_LIST"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_SINGLE_VALUE_IN_LIST_EQUIVALENT",
+            detail="predicate only simplifies a single-value IN/NOT IN with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_constant_order_by_removed_equivalent(ordering_before, ordering_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_ORDERING_ADDED_OR_REMOVED", "SEMANTIC_ORDERING_CHANGED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "ordering"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_CONSTANT_ORDER_BY_REMOVAL"
+        status = "PASS"
+        checks["ordering"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_ORDERING_CONSTANT_ORDER_BY_EQUIVALENT",
+            detail="ordering only removes a constant ORDER BY with exact DB fingerprint evidence",
+            before=ordering_before,
+            after=ordering_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_ORDERING_ADDED_OR_REMOVED", "SEMANTIC_ORDERING_CHANGED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_ORDERING_ADDED_OR_REMOVED", "SEMANTIC_ORDERING_CHANGED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and _is_constant_order_by_removed_equivalent(ordering_before, ordering_after)
+        and row_count_status in {"", "SKIPPED", "ERROR"}
+        and fingerprint_status in {"", "SKIPPED", "ERROR"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "ordering"
+        )
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_SAFE_BASELINE_CONSTANT_ORDER_BY_REMOVAL"
+        status = "PASS"
+        checks["ordering"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_ORDERING_CONSTANT_ORDER_BY_EQUIVALENT",
+            detail="ordering only removes a constant ORDER BY and is treated as a safe structural baseline",
+            before=ordering_before,
+            after=ordering_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_ORDERING_ADDED_OR_REMOVED", "SEMANTIC_ORDERING_CHANGED", "SEMANTIC_ROW_COUNT_ERROR", "SEMANTIC_ROW_COUNT_UNVERIFIED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_same_column_or_to_in_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_OR_TO_IN"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_OR_TO_IN_EQUIVALENT",
+            detail="predicate only rewrites same-column OR equality into IN with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and _is_case_when_true_projection_equivalent(projection_before, projection_after)
+        and only_projection_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_CASE_WHEN_TRUE"
+        status = "PASS"
+        checks["projection"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_CASE_WHEN_TRUE_EQUIVALENT",
+            detail="projection only simplifies CASE WHEN TRUE identity expression with exact DB fingerprint evidence",
+            before=projection_before,
+            after=projection_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status == "UNCERTAIN"
+        and _is_coalesce_identity_projection_equivalent(projection_before, projection_after)
+        and only_projection_uncertain
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_COALESCE_IDENTITY"
+        status = "PASS"
+        checks["projection"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_COALESCE_IDENTITY_EQUIVALENT",
+            detail="projection only simplifies COALESCE identity expression with exact DB fingerprint evidence",
+            before=projection_before,
+            after=projection_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PROJECTION_CHANGED"]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_constant_expression_folding_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_CONSTANT_EXPRESSION_FOLDING"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_CONSTANT_EXPRESSION_EQUIVALENT",
+            detail="predicate only folds constant arithmetic expression with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_large_limit_removed_equivalent(pagination_before, pagination_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PAGINATION_ADDED_OR_REMOVED", "SEMANTIC_PAGINATION_CHANGED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "pagination"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_DB_EQUIVALENCE_LARGE_LIMIT_REMOVAL"
+        status = "PASS"
+        checks["pagination"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PAGINATION_LARGE_LIMIT_EQUIVALENT",
+            detail="pagination only removes a large LIMIT with exact DB fingerprint evidence",
+            before=pagination_before,
+            after=pagination_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PAGINATION_ADDED_OR_REMOVED", "SEMANTIC_PAGINATION_CHANGED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PAGINATION_ADDED_OR_REMOVED", "SEMANTIC_PAGINATION_CHANGED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_null_comparison_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_DB_EQUIVALENCE_NULL_COMPARISON_NORMALIZATION"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_NULL_COMPARISON_EQUIVALENT",
+            detail="predicate only normalizes NULL comparison with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_distinct_on_equivalent(projection_before, projection_after, ordering_before, ordering_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PROJECTION_CHANGED", "SEMANTIC_ORDERING_CHANGED", "SEMANTIC_ORDERING_ADDED_OR_REMOVED"}
+        and str((checks["predicate"] or {}).get("status") or "").upper() == "PASS"
+        and str((checks["pagination"] or {}).get("status") or "").upper() == "PASS"
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_DISTINCT_ON_SIMPLIFICATION"
+        status = "PASS"
+        checks["projection"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PROJECTION_DISTINCT_ON_EQUIVALENT",
+            detail="projection only simplifies DISTINCT ON to DISTINCT on the same key with exact DB fingerprint evidence",
+            before=projection_before,
+            after=projection_after,
+        )
+        checks["ordering"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_ORDERING_DISTINCT_ON_EQUIVALENT",
+            detail="ordering remains compatible with DISTINCT ON simplification",
+            before=ordering_before,
+            after=ordering_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PROJECTION_CHANGED", "SEMANTIC_ORDERING_CHANGED", "SEMANTIC_ORDERING_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PROJECTION_CHANGED", "SEMANTIC_ORDERING_CHANGED", "SEMANTIC_ORDERING_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_exists_self_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_ADDED_OR_REMOVED", "SEMANTIC_PREDICATE_CHANGED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_KNOWN_EQUIVALENCE_EXISTS_SELF_REWRITE"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_EXISTS_SELF_EQUIVALENT",
+            detail="predicate only removes a self-correlated EXISTS identity filter with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_ADDED_OR_REMOVED", "SEMANTIC_PREDICATE_CHANGED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_ADDED_OR_REMOVED", "SEMANTIC_PREDICATE_CHANGED"}
+        ]
         reasons.append(equivalence_override_rule)
 
     if (
@@ -650,6 +1461,15 @@ def build_semantic_equivalence(
         confidence = "MEDIUM"
         confidence_upgrade_applied = True
         confidence_upgrade_reasons.append("SEMANTIC_CONFIDENCE_UPGRADE_AGGREGATION_SAFE_BASELINE")
+        confidence_upgrade_sources.append("STRUCTURE")
+    if (
+        equivalence_override_rule == "SEMANTIC_SAFE_BASELINE_CONSTANT_ORDER_BY_REMOVAL"
+        and status == "PASS"
+        and _confidence_rank("MEDIUM") > _confidence_rank(confidence)
+    ):
+        confidence = "MEDIUM"
+        confidence_upgrade_applied = True
+        confidence_upgrade_reasons.append("SEMANTIC_CONFIDENCE_UPGRADE_CONSTANT_ORDER_BY_SAFE_BASELINE")
         confidence_upgrade_sources.append("STRUCTURE")
 
     evidence = {

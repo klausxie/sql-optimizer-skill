@@ -253,11 +253,23 @@ def _build_dynamic_template_facts(
             blockers = []
             template_preserving_candidate = True
             baseline_family = "DYNAMIC_FILTER_WRAPPER_COLLAPSE"
-        elif direct_select is not None and direct_from is not None and not (feature_set & {"CHOOSE", "TRIM", "BIND"}):
+        elif direct_select is not None and direct_from is not None and not (feature_set & {"TRIM", "BIND"}):
             _cleaned_select, aliases_changed = cleanup_redundant_select_aliases(direct_select)
             _cleaned_from, from_alias_changed = cleanup_redundant_from_alias(direct_from, select_text=direct_select)
             from_alias_candidate = _has_single_table_from_alias_candidate(direct_from)
-            if aliases_changed and (from_alias_changed or from_alias_candidate):
+            if "CHOOSE" in feature_set:
+                if aliases_changed and not (from_alias_changed or from_alias_candidate):
+                    patch_surface = "STATEMENT_BODY"
+                    capability_tier = "SAFE_BASELINE"
+                    blocker_family = None
+                    blockers = []
+                    template_preserving_candidate = True
+                    baseline_family = "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
+                else:
+                    patch_surface = "WHERE_CLAUSE"
+                    blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                    blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+            elif aliases_changed and (from_alias_changed or from_alias_candidate):
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "REVIEW_REQUIRED"
                 blocker_family = _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH

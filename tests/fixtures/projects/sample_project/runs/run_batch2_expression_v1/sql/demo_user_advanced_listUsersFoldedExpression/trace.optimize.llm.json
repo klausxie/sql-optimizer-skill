@@ -1,0 +1,145 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.user.advanced.listUsersFoldedExpression",
+  "task_id": "demo.user.advanced.listUsersFoldedExpression:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T12:07:15.111013+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.user.advanced.listUsersFoldedExpression",
+    "requiredContext": {
+      "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE id = 1 + 1 ORDER BY created_at DESC",
+      "templateSql": "SELECT id, name, email, status, created_at, updated_at\n        FROM users\n        WHERE id = 1 + 1\n        ORDER BY created_at DESC",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "idx_users_name",
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)"
+        },
+        {
+          "table": "users",
+          "index": "idx_users_status_created",
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)"
+        },
+        {
+          "table": "users",
+          "index": "users_email_key",
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+        },
+        {
+          "table": "users",
+          "index": "users_pkey",
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "character varying",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Sort  (cost=8.17..8.18 rows=1 width=896)",
+        "lineCount": 4
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "fold-constant-expr-001",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE id = 2 ORDER BY created_at DESC",
+        "rewriteStrategy": "constant_folding",
+        "semanticRisk": "low",
+        "confidence": "0.95"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 25853,
+  "input_hash": "9a4bfd4c1511fec04e57741ca81441b2758ae3d24a982534d1ace326f9d5b851",
+  "output_hash": "90de6a062d037c630c3c0650a657e6857aff69023f20e991ecce421be712e98d",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "fold-constant-expr-001",
+        "source": "llm",
+        "rewriteStrategy": "constant_folding",
+        "semanticRisk": "low",
+        "confidence": "0.95",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE id = 2 ORDER BY created_at D"
+      }
+    ]
+  }
+}

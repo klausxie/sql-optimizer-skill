@@ -187,6 +187,72 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         unified_mock.assert_not_called()
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_LOCATOR_AMBIGUOUS")
 
+    def test_statement_convergence_gate_blocks_patch_generation(self) -> None:
+        acceptance = self._thin_acceptance()
+        run_dir = self._prepare_run_dir(acceptance)
+        (run_dir / "artifacts" / "statement_convergence.jsonl").write_text(
+            json.dumps(
+                {
+                    "statementKey": "demo.user.find",
+                    "shapeFamily": "IF_GUARDED_FILTER_STATEMENT",
+                    "coverageLevel": "representative",
+                    "sqlKeys": ["demo.user.find"],
+                    "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                    "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
+                    "convergenceDecision": "MANUAL_REVIEW",
+                    "consensus": None,
+                    "conflictReason": "PATCH_FAMILY_CONFLICT_OR_MISSING",
+                    "evidenceRefs": [],
+                    "generatedAt": "2026-04-06T00:00:00+00:00",
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        unit = {"sqlKey": "demo.user.find", "statementType": "SELECT", "sql": "SELECT * FROM users", "locators": {}}
+
+        patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_CONVERGENCE_REVIEW_REQUIRED")
+        self.assertEqual(patch_row["convergenceDecision"], "MANUAL_REVIEW")
+        self.assertEqual(patch_row["convergenceConflictReason"], "PATCH_FAMILY_CONFLICT_OR_MISSING")
+        patch_dir = run_dir / "patches"
+        if patch_dir.exists():
+            self.assertEqual(list(patch_dir.glob("*.patch")), [])
+
+    def test_statement_convergence_auto_patchable_overrides_generic_patch_family(self) -> None:
+        patch_row = patch_generate._apply_statement_convergence_gate(
+            patch={
+                "sqlKey": "demo.user.find",
+                "statementKey": "demo.user.find",
+                "patchFiles": [],
+                "patchFamily": "STATIC_STATEMENT_REWRITE",
+            },
+            decision_ctx=SimpleNamespace(sql_key="demo.user.find", statement_key="demo.user.find", candidates_evaluated=1),
+            selection=SimpleNamespace(selected_candidate_id="opt-001"),
+            convergence_row={
+                "statementKey": "demo.user.find",
+                "shapeFamily": "IN_LIST_SINGLE_VALUE",
+                "coverageLevel": "representative",
+                "sqlKeys": ["demo.user.find"],
+                "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
+                "convergenceDecision": "AUTO_PATCHABLE",
+                "consensus": {
+                    "patchFamily": "STATIC_IN_LIST_SIMPLIFICATION",
+                    "patchSurface": None,
+                    "rewriteOpsFingerprint": None,
+                },
+                "conflictReason": None,
+                "evidenceRefs": [],
+                "generatedAt": "2026-04-07T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(patch_row["convergenceDecision"], "AUTO_PATCHABLE")
+        self.assertEqual(patch_row["patchFamily"], "STATIC_IN_LIST_SIMPLIFICATION")
+
     def test_patch_generate_runs_applicability_before_proof(self) -> None:
         acceptance = self._thin_acceptance()
         run_dir = self._prepare_run_dir(acceptance)
@@ -324,6 +390,9 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_TARGET_DRIFT")
         self.assertEqual(patch_row.get("deliveryStage"), "PROOF_FAILED")
         self.assertEqual(patch_row.get("failureClass"), "PROOF_FAILURE")
+        patch_dir = run_dir / "patches"
+        if patch_dir.exists():
+            self.assertEqual(list(patch_dir.glob("*.patch")), [])
 
     def test_non_pass_acceptance_short_circuits_generation(self) -> None:
         acceptance = {

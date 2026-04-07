@@ -1,0 +1,15 @@
+{
+  "run_id": "run_distinct_alias_family_v2",
+  "generated_at": "2026-04-07T09:15:57.726061+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "inspect",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "FAILED",
+    "patch_generate": "PENDING",
+    "report": "DONE"
+  }
+}

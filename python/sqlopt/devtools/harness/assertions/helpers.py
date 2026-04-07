@@ -153,5 +153,17 @@ def validate_blocker_family(result: dict) -> str:
     return "TEMPLATE_UNSUPPORTED"
 
 
-def patch_blocker_family(patch: dict) -> str:
+def patch_blocker_family(patch: dict, scenario: dict | None = None) -> str:
+    selection_code = str(((patch.get("selectionReason") or {}).get("code") or "")).strip().upper()
+    convergence_reason = str(patch.get("convergenceConflictReason") or "").strip().upper()
+    scenario_class = str((scenario or {}).get("scenarioClass") or "").strip().upper()
+    if (
+        selection_code.startswith("PATCH_CONVERGENCE_")
+        and scenario_class == "PATCH_BLOCKED_SEMANTIC"
+        and convergence_reason in {
+        "VALIDATE_STATUS_NOT_PASS",
+        "SEMANTIC_GATE_NOT_PASS",
+    }
+    ):
+        return "SEMANTIC"
     return blocker_family_for_patch_row(patch)

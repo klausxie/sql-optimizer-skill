@@ -1,0 +1,15 @@
+{
+  "run_id": "run_groupby_having_alias_family_after_abstraction",
+  "generated_at": "2026-04-07T08:30:27.674034+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "apply",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  }
+}

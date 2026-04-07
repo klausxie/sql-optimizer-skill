@@ -51,15 +51,15 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
 
         scenarios = ready_only_scenarios + [
             {
-                "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",
+                "sqlKey": "demo.user.advanced.listUsersFilteredPredicateAliasedContractBlocked",
                 "scenarioClass": "PATCH_BLOCKED_TEMPLATE_OR_UNSUPPORTED",
                 "targetPatchStrategy": None,
-                "targetRegisteredFamily": "STATIC_ALIAS_PROJECTION_CLEANUP",
+                "targetRegisteredFamily": "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
             },
         ]
 
         blocked_neighbor_families = fixture_registered_blocked_neighbor_families(scenarios)
-        self.assertEqual(blocked_neighbor_families, {"STATIC_ALIAS_PROJECTION_CLEANUP"})
+        self.assertEqual(blocked_neighbor_families, {"DYNAMIC_FILTER_FROM_ALIAS_CLEANUP"})
 
     def test_fixture_ready_dynamic_baselines_stay_within_frozen_scope(self) -> None:
         scenarios = load_fixture_scenarios()

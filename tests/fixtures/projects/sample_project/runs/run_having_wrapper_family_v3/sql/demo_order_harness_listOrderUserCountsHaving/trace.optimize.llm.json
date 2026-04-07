@@ -1,0 +1,128 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.order.harness.listOrderUserCountsHaving",
+  "task_id": "demo.order.harness.listOrderUserCountsHaving:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T08:01:22.044874+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.order.harness.listOrderUserCountsHaving",
+    "requiredContext": {
+      "sql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+      "templateSql": "SELECT user_id, COUNT(*) AS total\n        FROM orders\n        GROUP BY user_id\n        HAVING COUNT(*) > 1\n        ORDER BY user_id",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "idx_orders_status",
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_created",
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_order_no_key",
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_pkey",
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "numeric",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Sort  (cost=18.58..18.75 rows=67 width=16)",
+        "lineCount": 6
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "empty_candidates": true,
+    "candidates": []
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 38198,
+  "input_hash": "25c7cac3bdd6608ca2c6d3bb7ff6f4ec7650b10a94fe92aa553f60143e9d7270",
+  "output_hash": "2dcfac8486ebe9fded63f6461cf1dd2630ed7be976bd4e96ec257d1b53cc1906",
+  "candidate_summary": {
+    "count": 0,
+    "candidates": []
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.order.harness.aggregateOrdersByStatusWrapped",
+  "task_id": "demo.order.harness.aggregateOrdersByStatusWrapped:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T08:28:31.590789+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.order.harness.aggregateOrdersByStatusWrapped",
+    "requiredContext": {
+      "sql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM ( SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ) og ORDER BY status",
+      "templateSql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount\n        FROM (\n            SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount\n            FROM orders\n            GROUP BY status\n        ) og\n        ORDER BY status",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "orders"
+      ],
+      "indexes": [
+        {
+          "table": "orders",
+          "index": "idx_orders_status",
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)"
+        },
+        {
+          "table": "orders",
+          "index": "idx_orders_user_created",
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_order_no_key",
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)"
+        },
+        {
+          "table": "orders",
+          "index": "orders_pkey",
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "orders",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "user_id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "order_no",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "amount",
+          "dataType": "numeric",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "orders",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "orders",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "EXPLAIN failed",
+        "error": "column \"amount\" does not exist\nLINE 1: ...ORMAT TEXT) SELECT status, COUNT(*) AS total, SUM(amount) AS...\n                                                             ^\n"
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "opt-1",
+        "source": "llm",
+        "rewrittenSql": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY status",
+        "rewriteStrategy": "REMOVE_REDUNDANT_SUBQUERY",
+        "semanticRisk": "low",
+        "confidence": "0.95"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 23673,
+  "input_hash": "18b25e562338cf6a327444396bc0afeae23c98215711660c13c8718907fc22d0",
+  "output_hash": "39f328aac011c1e90a27672857a92e7d80a62d0912d0b61ccde98721ebc69175",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "opt-1",
+        "source": "llm",
+        "rewriteStrategy": "REMOVE_REDUNDANT_SUBQUERY",
+        "semanticRisk": "low",
+        "confidence": "0.95",
+        "sql_preview": "SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount FROM orders GROUP BY status ORDER BY s"
+      }
+    ]
+  }
+}

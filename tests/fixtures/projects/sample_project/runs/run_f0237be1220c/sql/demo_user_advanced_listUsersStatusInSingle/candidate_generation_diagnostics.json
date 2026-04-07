@@ -1,0 +1,25 @@
+{
+  "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_REPLACED_LOW_VALUE",
+  "rawCandidateCount": 1,
+  "validatedCandidateCount": 1,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 1,
+  "lowValueCandidateCount": 1,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [
+    "simplify_in_clause"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "1",
+      "rule_id": "CONDITION_PLACEHOLDER_FIX",
+      "category": "CONDITION_PLACEHOLDER_FIX",
+      "reason": "candidate applies condition or placeholder fix without safe baseline"
+    }
+  ]
+}

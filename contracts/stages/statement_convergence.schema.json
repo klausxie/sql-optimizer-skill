@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StatementConvergence",
+  "type": "object",
+  "required": [
+    "statementKey",
+    "shapeFamily",
+    "coverageLevel",
+    "sqlKeys",
+    "validateStatuses",
+    "semanticGate",
+    "convergenceDecision",
+    "consensus",
+    "conflictReason",
+    "evidenceRefs",
+    "generatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "statementKey": {"type": "string"},
+    "shapeFamily": {"type": "string"},
+    "coverageLevel": {"type": "string"},
+    "sqlKeys": {"type": "array", "items": {"type": "string"}},
+    "validateStatuses": {
+      "type": "object",
+      "required": ["pass", "partial", "fail"],
+      "additionalProperties": false,
+      "properties": {
+        "pass": {"type": "integer"},
+        "partial": {"type": "integer"},
+        "fail": {"type": "integer"}
+      }
+    },
+    "semanticGate": {
+      "type": "object",
+      "required": ["passCount", "blockedCount", "uncertainCount"],
+      "additionalProperties": false,
+      "properties": {
+        "passCount": {"type": "integer"},
+        "blockedCount": {"type": "integer"},
+        "uncertainCount": {"type": "integer"}
+      }
+    },
+    "convergenceDecision": {
+      "type": "string",
+      "enum": ["AUTO_PATCHABLE", "MANUAL_REVIEW", "NOT_PATCHABLE"]
+    },
+    "consensus": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "patchFamily": {"type": ["string", "null"]},
+        "patchSurface": {"type": ["string", "null"]},
+        "rewriteOpsFingerprint": {"type": ["string", "null"]}
+      }
+    },
+    "conflictReason": {"type": ["string", "null"]},
+    "evidenceRefs": {"type": "array", "items": {"type": "string"}},
+    "generatedAt": {"type": "string"}
+  }
+}

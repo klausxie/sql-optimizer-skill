@@ -1,0 +1,21 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.order.harness.listOrderUserCountsHavingAliased",
+  "task_id": "demo.order.harness.listOrderUserCountsHavingAliased:opt",
+  "executor": "opencode_run",
+  "error": "stage execution timed out",
+  "response": {
+    "candidates": [
+      {
+        "id": "demo.order.harness.listOrderUserCountsHavingAliased:llm:recovered_groupby_from_alias_cleanup",
+        "source": "llm",
+        "rewrittenSql": "SELECT user_id, COUNT(*) AS total FROM orders GROUP BY user_id HAVING COUNT(*) > 1 ORDER BY user_id",
+        "rewriteStrategy": "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "created_at": "2026-04-07T08:30:26.807059+00:00"
+}

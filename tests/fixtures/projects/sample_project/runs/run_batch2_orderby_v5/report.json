@@ -1,0 +1,15 @@
+{
+  "run_id": "run_batch2_orderby_v5",
+  "generated_at": "2026-04-07T12:17:41.958671+00:00",
+  "status": "DONE",
+  "verdict": "PASS",
+  "next_action": "apply",
+  "phase_status": {
+    "preflight": "DONE",
+    "scan": "DONE",
+    "optimize": "DONE",
+    "validate": "DONE",
+    "patch_generate": "DONE",
+    "report": "DONE"
+  }
+}

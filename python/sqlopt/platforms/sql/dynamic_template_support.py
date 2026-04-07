@@ -4,7 +4,12 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .canonicalization_support import cleanup_redundant_from_alias, cleanup_redundant_select_aliases
+from .canonicalization_support import (
+    cleanup_redundant_from_alias,
+    cleanup_redundant_select_aliases,
+    cleanup_single_table_alias_references,
+    split_select_list,
+)
 from .template_rendering import collect_fragments, normalize_sql_text, render_template_body_sql
 
 _OUTER_WRAPPER_PREFIX_RE = re.compile(
@@ -17,6 +22,14 @@ _INNER_SELECT_RE = re.compile(
 )
 _OUTER_ALIAS_SUFFIX_RE = re.compile(
     r"^\s*(?P<alias>[a-z_][a-z0-9_]*)?\s*(?P<outer_suffix>(?:where\b|order\s+by\b|limit\b|offset\b|fetch\b).*)?$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_SINGLE_TABLE_FROM_RE = re.compile(
+    r"^\s*from\s+(?P<table>[a-z_][a-z0-9_\.]*)\s*(?P<suffix>(?:where\b|order\s+by\b|limit\b|offset\b|fetch\b|<).*)?$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_QUALIFIED_COLUMN_RE = re.compile(
+    r"^(?P<qualifier>[a-z_][a-z0-9_]*)\.(?P<column>[a-z_][a-z0-9_]*)$",
     flags=re.IGNORECASE | re.DOTALL,
 )
 
@@ -74,11 +87,37 @@ def render_direct_select_template(select_list: str, from_suffix: str) -> str:
     return normalize_sql_text(f"SELECT {normalize_sql_text(select_list)} {normalize_sql_text(from_suffix)}")
 
 
-def render_select_alias_cleanup_template(template_sql: str) -> tuple[str | None, bool]:
+def _strip_single_table_projection_qualifiers(select_list: str, from_suffix: str) -> tuple[str, bool]:
+    from_match = _SINGLE_TABLE_FROM_RE.match(normalize_sql_text(from_suffix))
+    if from_match is None:
+        return normalize_sql_text(select_list), False
+    table_name = normalize_sql_text(from_match.group("table")).rsplit(".", 1)[-1].lower()
+    cleaned_parts: list[str] = []
+    changed = False
+    for part in split_select_list(cleanup_redundant_select_aliases(select_list)[0]):
+        normalized_part = normalize_sql_text(part)
+        match = _QUALIFIED_COLUMN_RE.match(normalized_part)
+        if match is None or match.group("qualifier").lower() != table_name:
+            return normalize_sql_text(select_list), False
+        cleaned_parts.append(normalize_sql_text(match.group("column")))
+        changed = True
+    return ", ".join(cleaned_parts), changed
+
+
+def render_select_alias_cleanup_template(
+    template_sql: str,
+    *,
+    strip_single_table_qualifiers: bool = False,
+) -> tuple[str | None, bool]:
     select_list, from_suffix = parse_direct_select_template(template_sql)
     if select_list is None or from_suffix is None:
         return None, False
     cleaned_select_list, changed = cleanup_redundant_select_aliases(select_list)
+    if strip_single_table_qualifiers:
+        stripped_select_list, stripped_changed = _strip_single_table_projection_qualifiers(cleaned_select_list, from_suffix)
+        if stripped_changed:
+            cleaned_select_list = stripped_select_list
+            changed = True
     if not changed:
         return None, False
     return render_direct_select_template(cleaned_select_list, from_suffix), True
@@ -88,10 +127,13 @@ def render_from_alias_cleanup_template(template_sql: str) -> tuple[str | None, b
     select_list, from_suffix = parse_direct_select_template(template_sql)
     if select_list is None or from_suffix is None:
         return None, False
-    cleaned_from_suffix, changed = cleanup_redundant_from_alias(from_suffix, select_text=select_list)
+    cleaned_select_list, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_list, from_suffix)
+    if not changed:
+        cleaned_from_suffix, changed = cleanup_redundant_from_alias(from_suffix, select_text=select_list)
+        cleaned_select_list = select_list
     if not changed:
         return None, False
-    return render_direct_select_template(select_list, cleaned_from_suffix), True
+    return render_direct_select_template(cleaned_select_list, cleaned_from_suffix), True
 
 
 def replay_template_sql(rebuilt_template: str, namespace: str, xml_path: Path) -> str | None:

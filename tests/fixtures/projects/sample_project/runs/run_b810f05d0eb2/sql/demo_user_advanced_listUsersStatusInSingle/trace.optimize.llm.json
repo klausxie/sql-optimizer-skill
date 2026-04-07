@@ -1,0 +1,145 @@
+{
+  "stage": "optimize",
+  "mode": "candidate_generation",
+  "sql_key": "demo.user.advanced.listUsersStatusInSingle",
+  "task_id": "demo.user.advanced.listUsersStatusInSingle:opt",
+  "executor": "opencode_run",
+  "task": "rewrite_sql",
+  "provider": "opencode_run",
+  "created_at": "2026-04-07T09:41:38.770944+00:00",
+  "prompt": {
+    "task": "sql_optimize_candidate_generation",
+    "sqlKey": "demo.user.advanced.listUsersStatusInSingle",
+    "requiredContext": {
+      "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status IN ('ACTIVE') ORDER BY created_at DESC",
+      "templateSql": "SELECT id, name, email, status, created_at, updated_at\n        FROM users\n        WHERE status IN ('ACTIVE')\n        ORDER BY created_at DESC",
+      "dynamicFeatures": [],
+      "riskFlags": [],
+      "issues": [],
+      "tables": [
+        "users"
+      ],
+      "indexes": [
+        {
+          "table": "users",
+          "index": "idx_users_name",
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)"
+        },
+        {
+          "table": "users",
+          "index": "idx_users_status_created",
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)"
+        },
+        {
+          "table": "users",
+          "index": "users_email_key",
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+        },
+        {
+          "table": "users",
+          "index": "users_pkey",
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+        }
+      ]
+    },
+    "optionalContext": {
+      "includeTrace": [],
+      "dynamicTrace": {},
+      "columns": [
+        {
+          "table": "users",
+          "column": "id",
+          "dataType": "bigint",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "name",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "email",
+          "dataType": "character varying",
+          "isNullable": true
+        },
+        {
+          "table": "users",
+          "column": "status",
+          "dataType": "character varying",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "created_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        },
+        {
+          "table": "users",
+          "column": "updated_at",
+          "dataType": "timestamp with time zone",
+          "isNullable": false
+        }
+      ],
+      "tableStats": [
+        {
+          "table": "users",
+          "estimatedRows": -1
+        }
+      ],
+      "planSummary": {
+        "summary": "Index Scan using idx_users_status_created on users  (cost=0.14..8.16 rows=1 width=896)",
+        "lineCount": 2
+      }
+    },
+    "rewriteConstraints": {
+      "forbidMultiStatement": true,
+      "preserveParameterSemantics": true,
+      "dynamicTemplateRequiresTemplateAwarePatch": false,
+      "mustProduceCandidateTypes": [
+        "SECURITY_FIX",
+        "PLAN_IMPROVE",
+        "CONSERVATIVE_NOOP_PLUS"
+      ]
+    }
+  },
+  "config_snapshot": {
+    "provider": "opencode_run",
+    "timeout_ms": 80000,
+    "opencode_model": null,
+    "api_model": null
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run",
+    "candidates": [
+      {
+        "id": "demo.user.advanced.listUsersStatusInSingle:llm:recovered_in_list_single_cleanup",
+        "source": "llm",
+        "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = 'ACTIVE' ORDER BY created_at DESC",
+        "rewriteStrategy": "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED",
+        "semanticRisk": "low",
+        "confidence": "medium"
+      }
+    ]
+  },
+  "degrade_reason": null,
+  "elapsed_ms": 14476,
+  "input_hash": "75272666b71aa87eb97ae932f4dc23238a175ba42d716eb9b8aacc1ed564a690",
+  "output_hash": "33ee41804d709c9204b639c4a4e09f1dbdc09b971e87fe700112e8d2d2a75eef",
+  "candidate_summary": {
+    "count": 1,
+    "candidates": [
+      {
+        "id": "1",
+        "source": "llm",
+        "rewriteStrategy": "simplify_single_value_in_clause",
+        "semanticRisk": "low",
+        "confidence": "0.95",
+        "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = 'ACTIVE' ORDER BY c"
+      }
+    ]
+  }
+}

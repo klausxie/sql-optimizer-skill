@@ -16,6 +16,7 @@ SCHEMA_MAP = {
     "fragment_record": "stages/fragment_record.schema.json",
     "optimization_proposal": "stages/optimization_proposal.schema.json",
     "acceptance_result": "stages/acceptance_result.schema.json",
+    "statement_convergence": "stages/statement_convergence.schema.json",
     "patch_result": "stages/patch_result.schema.json",
     "run_report": "run/run_report.schema.json",
     "run_index": "run/run_index.schema.json",

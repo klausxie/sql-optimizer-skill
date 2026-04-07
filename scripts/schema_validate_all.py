@@ -23,6 +23,7 @@ validate_jsonl(p / "artifacts" / "scan.jsonl", "sqlunit")
 validate_jsonl(p / "artifacts" / "fragments.jsonl", "fragment_record")
 validate_jsonl(p / "artifacts" / "proposals.jsonl", "optimization_proposal")
 validate_jsonl(p / "artifacts" / "acceptance.jsonl", "acceptance_result")
+validate_jsonl(p / "artifacts" / "statement_convergence.jsonl", "statement_convergence")
 validate_jsonl(p / "artifacts" / "patches.jsonl", "patch_result")
 
 report_path = p / "report.json"

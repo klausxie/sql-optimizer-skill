@@ -13,6 +13,7 @@ _EXPORTS = {
     "assert_report_rebuild_cleared": (".run", "assert_report_rebuild_cleared"),
     "assert_run_completed": (".run", "assert_run_completed"),
     "assert_validate_matrix_matches_scenarios": (".validate", "assert_validate_matrix_matches_scenarios"),
+    "assert_if_guarded_statement_convergence": (".validate", "assert_if_guarded_statement_convergence"),
     "dynamic_blocked_neighbor_families": (".helpers", "dynamic_blocked_neighbor_families"),
     "fixture_dynamic_registered_families": (".helpers", "fixture_dynamic_registered_families"),
     "fixture_registered_blocked_neighbor_families": (".helpers", "fixture_registered_blocked_neighbor_families"),

@@ -64,6 +64,14 @@ class TestCanonicalRunLayout(unittest.TestCase):
         paths = canonical_paths(Path("/tmp/run_demo"))
         self.assertEqual(paths.patches_path, Path("/tmp/run_demo/artifacts/patches.jsonl"))
 
+    def test_artifacts_statement_convergence_path(self) -> None:
+        """statement_convergence.jsonl should be in artifacts/."""
+        paths = canonical_paths(Path("/tmp/run_demo"))
+        self.assertEqual(
+            paths.statement_convergence_path,
+            Path("/tmp/run_demo/artifacts/statement_convergence.jsonl"),
+        )
+
     def test_sql_dir_exists(self) -> None:
         """sql/ directory should still exist."""
         paths = canonical_paths(Path("/tmp/run_demo"))

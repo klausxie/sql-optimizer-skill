@@ -19,6 +19,7 @@ REL_ARTIFACTS_FRAGMENTS = "artifacts/fragments.jsonl"
 REL_ARTIFACTS_PROPOSALS = "artifacts/proposals.jsonl"
 REL_ARTIFACTS_ACCEPTANCE = "artifacts/acceptance.jsonl"
 REL_ARTIFACTS_PATCHES = "artifacts/patches.jsonl"
+REL_ARTIFACTS_STATEMENT_CONVERGENCE = "artifacts/statement_convergence.jsonl"
 
 REL_SQL_DIR = "sql"
 REL_SQL_CATALOG = "sql/catalog.jsonl"
@@ -87,6 +88,10 @@ class RunPaths:
     @property
     def patches_path(self) -> Path:
         return self.run_dir / REL_ARTIFACTS_PATCHES
+
+    @property
+    def statement_convergence_path(self) -> Path:
+        return self.run_dir / REL_ARTIFACTS_STATEMENT_CONVERGENCE
 
     @property
     def sql_dir(self) -> Path:

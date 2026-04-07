@@ -4,11 +4,28 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from ....platforms.sql.candidate_generation_support import recover_candidates_from_shape
+from ....platforms.sql.canonicalization_support import normalize_sql
 from ....platforms.sql.patch_strategy_planner import plan_patch_strategy
 from ....platforms.sql.validator_sql import validate_proposal
 from ....utils import statement_key
 from ..scenarios.loader import load_scenarios
 from .scan_fixture import scan_fixture_project
+
+_FIXTURE_RECOVERY_STRATEGY_BY_FAMILY = {
+    "STATIC_ORDER_BY_SIMPLIFICATION": "REMOVE_CONSTANT_ORDER_BY_RECOVERED",
+    "STATIC_BOOLEAN_SIMPLIFICATION": "REMOVE_BOOLEAN_TAUTOLOGY_RECOVERED",
+    "STATIC_IN_LIST_SIMPLIFICATION": "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED",
+    "STATIC_OR_SIMPLIFICATION": "SIMPLIFY_OR_TO_IN_RECOVERED",
+    "STATIC_CASE_SIMPLIFICATION": "SIMPLIFY_CASE_WHEN_TRUE_RECOVERED",
+    "STATIC_COALESCE_SIMPLIFICATION": "SIMPLIFY_COALESCE_IDENTITY_RECOVERED",
+    "STATIC_EXPRESSION_FOLDING": "FOLD_CONSTANT_EXPRESSION_RECOVERED",
+    "STATIC_LIMIT_OPTIMIZATION": "REMOVE_LARGE_LIMIT_RECOVERED",
+    "STATIC_NULL_COMPARISON": "SIMPLIFY_NULL_COMPARISON_RECOVERED",
+    "STATIC_DISTINCT_ON_SIMPLIFICATION": "SIMPLIFY_DISTINCT_ON_RECOVERED",
+    "STATIC_EXISTS_REWRITE": "SAFE_EXISTS_REWRITE",
+    "STATIC_UNION_COLLAPSE": "SAFE_UNION_COLLAPSE",
+}
 
 
 def embedded_verification_rows(*collections: list[dict]) -> list[dict]:
@@ -21,15 +38,32 @@ def embedded_verification_rows(*collections: list[dict]) -> list[dict]:
     return rows
 
 
-def _proposal_for_candidate(candidate_sql: str) -> dict:
+def _infer_fixture_rewrite_strategy(sql_key: str, original_sql: str, candidate_sql: str, scenario: dict) -> str:
+    normalized_candidate = normalize_sql(candidate_sql).lower()
+    for candidate in recover_candidates_from_shape(sql_key, original_sql):
+        rewritten_sql = normalize_sql(str(candidate.get("rewrittenSql") or "")).lower()
+        if rewritten_sql == normalized_candidate:
+            strategy = str(candidate.get("rewriteStrategy") or "").strip()
+            if strategy:
+                return strategy
+    target_family = str(scenario.get("targetRegisteredFamily") or "").strip()
+    mapped = _FIXTURE_RECOVERY_STRATEGY_BY_FAMILY.get(target_family)
+    if mapped:
+        return mapped
+    return "fixture_harness"
+
+
+def _proposal_for_candidate(sql_key: str, original_sql: str, candidate_sql: str, scenario: dict) -> dict:
+    rewrite_strategy = _infer_fixture_rewrite_strategy(sql_key, original_sql, candidate_sql, scenario)
     return {
         "llmCandidates": [
             {
                 "id": "fixture:validate",
                 "rewrittenSql": candidate_sql,
-                "rewriteStrategy": "fixture_harness",
+                "rewriteStrategy": rewrite_strategy,
             }
         ],
+        "candidateGenerationDiagnostics": {"recoveryStrategy": rewrite_strategy},
         "suggestions": [],
     }
 
@@ -110,7 +144,7 @@ def validate_fixture_scenario(
 ) -> tuple[dict, dict]:
     sql_key = str(scenario["sqlKey"])
     unit = resolve_fixture_unit(sql_key, units_by_key)
-    proposal = _proposal_for_candidate(str(scenario["validateCandidateSql"]))
+    proposal = _proposal_for_candidate(sql_key, str(unit.get("sql") or ""), str(scenario["validateCandidateSql"]), scenario)
     mode = str(scenario["validateEvidenceMode"])
     config = _config_for_validate()
 

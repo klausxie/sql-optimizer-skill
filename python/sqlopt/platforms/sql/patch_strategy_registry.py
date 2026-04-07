@@ -6,11 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from .materialization_constants import (
+    REASON_EXISTS_REWRITE_SAFE,
     REASON_STATEMENT_INCLUDE_SAFE,
     REASON_WRAPPER_QUERY_COLLAPSE_SAFE,
+    STATEMENT_TEMPLATE_SAFE_EXISTS_REWRITE,
     STATEMENT_TEMPLATE_SAFE,
     STATEMENT_TEMPLATE_SAFE_WRAPPER_COLLAPSE,
 )
+from .candidate_generation_support import exists_self_cleanup_sql
 from .patchability_models import PlannedPatchStrategy, RegisteredPatchStrategy
 from .template_materializer import build_rewrite_materialization
 from .template_rendering import collect_fragments, normalize_sql_text, render_template_body_sql
@@ -93,6 +96,77 @@ class SafeWrapperCollapseStrategy:
             strategy_type=self.strategy_type,
             mode=str(materialization.get("mode") or ""),
             reason_code=str(materialization.get("reasonCode") or REASON_WRAPPER_QUERY_COLLAPSE_SAFE),
+            replay_verified=materialization.get("replayVerified"),
+            fallback_from=fallback_from,
+            materialization=materialization,
+            ops=ops,
+        )
+
+
+class SafeExistsRewriteStrategy:
+    strategy_type = "SAFE_EXISTS_REWRITE"
+    required_capability = "SAFE_EXISTS_REWRITE"
+
+    def plan(
+        self,
+        sql_unit: dict[str, Any],
+        rewritten_sql: str,
+        fragment_catalog: dict[str, dict[str, Any]],
+        *,
+        enable_fragment_materialization: bool,
+        fallback_from: str | None,
+        dynamic_candidate_intent: dict[str, Any] | None = None,
+    ) -> PlannedPatchStrategy | None:
+        _ = fragment_catalog
+        _ = enable_fragment_materialization
+        _ = dynamic_candidate_intent
+        original_sql = str(sql_unit.get("sql") or "")
+        expected_rewrite = exists_self_cleanup_sql(original_sql)
+        if not expected_rewrite:
+            return None
+        if normalize_sql_text(expected_rewrite) != normalize_sql_text(rewritten_sql):
+            return None
+        xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+        namespace = str(sql_unit.get("namespace") or "").strip()
+        statement_key = str(sql_unit.get("sqlKey") or "").split("#", 1)[0]
+        template_sql = str(sql_unit.get("templateSql") or "")
+        if not xml_path.exists() or not template_sql or not rewritten_sql.strip():
+            return None
+        try:
+            root = ET.parse(xml_path).getroot()
+        except Exception:
+            return None
+        replayed = render_template_body_sql(
+            rewritten_sql,
+            namespace,
+            xml_path,
+            collect_fragments(root, namespace, xml_path),
+        )
+        if normalize_sql_text(replayed or "") != normalize_sql_text(rewritten_sql):
+            return None
+        materialization = {
+            "mode": STATEMENT_TEMPLATE_SAFE_EXISTS_REWRITE,
+            "targetType": "STATEMENT",
+            "targetRef": statement_key,
+            "reasonCode": REASON_EXISTS_REWRITE_SAFE,
+            "reasonMessage": "simple EXISTS identity filter can be safely removed",
+            "replayVerified": True,
+            "featureFlagApplied": False,
+        }
+        ops = [
+            {
+                "op": "replace_statement_body",
+                "targetRef": statement_key,
+                "beforeTemplate": template_sql,
+                "afterTemplate": rewritten_sql,
+                "preservedAnchors": [],
+                "safetyChecks": {"existsRewrite": True},
+            }
+        ]
+        return PlannedPatchStrategy(
+            strategy_type=self.strategy_type,
+            mode=str(materialization.get("mode") or ""),
+            reason_code=str(materialization.get("reasonCode") or REASON_EXISTS_REWRITE_SAFE),
             replay_verified=materialization.get("replayVerified"),
             fallback_from=fallback_from,
             materialization=materialization,
@@ -195,6 +269,12 @@ class DynamicStatementTemplateEditStrategy:
 
 def iter_patch_strategies() -> tuple[RegisteredPatchStrategy, ...]:
     return (
+        RegisteredPatchStrategy(
+            strategy_type=SafeExistsRewriteStrategy.strategy_type,
+            priority=255,
+            required_capability=SafeExistsRewriteStrategy.required_capability,
+            implementation=SafeExistsRewriteStrategy(),
+        ),
         RegisteredPatchStrategy(
             strategy_type=SafeUnionCollapseStrategy.strategy_type,
             priority=250,

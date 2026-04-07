@@ -27,7 +27,16 @@ WHERE_RE = re.compile(r"\bwhere\b", flags=re.IGNORECASE)
 LIMIT_RE = re.compile(r"\blimit\b", flags=re.IGNORECASE)
 WINDOW_RE = re.compile(r"\bover\s*\(", flags=re.IGNORECASE)
 DISTINCT_RE = re.compile(r"\bselect\s+distinct\b", flags=re.IGNORECASE)
+DISTINCT_ON_RE = re.compile(r"\bselect\s+distinct\s+on\s*\((?P<on>[^)]+)\)\s+(?P<select>.+?)\s+from\s+(?P<from>.+?)(?:\s+order\s+by\s+(?P<order>.+))?$", flags=re.IGNORECASE | re.DOTALL)
 PAGED_RE = re.compile(r"\border\s+by\b.*\blimit\b", flags=re.IGNORECASE | re.DOTALL)
+IN_SINGLE_VALUE_RE = re.compile(
+    r"\b(?P<column>[a-z_][a-z0-9_\.]*)\s+IN\s*\(\s*(?P<value>[^,\)]+)\s*\)",
+    flags=re.IGNORECASE,
+)
+NOT_IN_SINGLE_VALUE_RE = re.compile(
+    r"\b(?P<column>[a-z_][a-z0-9_\.]*)\s+NOT\s+IN\s*\(\s*(?P<value>[^,\)]+)\s*\)",
+    flags=re.IGNORECASE,
+)
 SIMPLE_WHERE_SQL_RE = re.compile(
     r"^\s*(?P<prefix>select\b.+?\bfrom\b.+?)\s+where\s+(?P<predicate>.+?)(?:\s+(?P<suffix>order\s+by\b.+|limit\b.+|offset\b.+|fetch\b.+))?\s*$",
     flags=re.IGNORECASE | re.DOTALL,
@@ -68,6 +77,46 @@ COUNT_DIRECT_RE = re.compile(
 )
 COUNT_WRAPPER_BLOCKERS = re.compile(
     r"\bdistinct\b|\bgroup\s+by\b|\bhaving\b|\bunion\b|\bover\s*\(|\blimit\b|\boffset\b|\bfetch\b",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+ORDER_BY_CONSTANT_SUFFIX_RE = re.compile(
+    r"^(?P<prefix>select\b.+?\bfrom\b.+?)\s+order\s+by\s+(?P<expr>null|\d+|'[^']*'|\"[^\"]*\"|[\d\.]+)\s*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+BOOLEAN_TAUTOLOGY_SQL_RE = re.compile(
+    r"^(?P<prefix>select\b.+?\bfrom\b.+?)\s+where\s+(?P<tautology>1\s*=\s*1|0\s*=\s*0|true)\s*(?:and\s+(?P<rest>.+?))?(?P<suffix>\s+order\s+by\b.+|\s+limit\b.+|\s+offset\b.+|\s+fetch\b.+)?\s*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+OR_SAME_COLUMN_SQL_RE = re.compile(
+    r"\b(?P<column>[a-z_][a-z0-9_\.]*)\s*=\s*(?P<left>'[^']*'|[^'\s\)]+)\s+OR\s+(?P=column)\s*=\s*(?P<right>'[^']*'|[^'\s\)]+)",
+    flags=re.IGNORECASE,
+)
+CASE_WHEN_TRUE_SQL_RE = re.compile(
+    r"\bCASE\s+WHEN\s+TRUE\s+THEN\s+(?P<expr>.+?)\s+ELSE\s+(?P=expr)\s+END\b",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+COALESCE_IDENTITY_SQL_RE = re.compile(
+    r"\bCOALESCE\s*\(\s*(?P<expr>[a-z_][a-z0-9_\.]*)\s*,\s*(?P<arg2>(?P=expr)|NULL)\s*\)",
+    flags=re.IGNORECASE,
+)
+ARITH_LITERAL_RE = re.compile(
+    r"\b(?P<left>\d+)\s*(?P<op>[+\-*/])\s*(?P<right>\d+)\b",
+    flags=re.IGNORECASE,
+)
+LIMIT_LARGE_SUFFIX_RE = re.compile(
+    r"^(?P<prefix>select\b.+?\bfrom\b.+?)\s+limit\s+(?P<value>\d+)\s*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+NULL_COMPARISON_RE = re.compile(
+    r"\b(?P<column>[a-z_][a-z0-9_\.]*)\s*(?P<op>=|!=|<>)\s*null\b",
+    flags=re.IGNORECASE,
+)
+EXISTS_SELF_IDENTITY_SQL_RE = re.compile(
+    r"^(?P<prefix>select\b.+?\bfrom\s+(?P<table>[a-z_][a-z0-9_]*)(?:\s+(?P<outer_alias>[a-z_][a-z0-9_]*))?)\s+where\s+exists\s*\(\s*select\s+1\s+from\s+(?P=table)\s+(?P<inner_alias>[a-z_][a-z0-9_]*)\s+where\s+(?P<inner_alias_2>[a-z_][a-z0-9_]*)\.id\s*=\s*(?P<outer_alias_2>[a-z_][a-z0-9_]*)\.id\s*\)\s*(?P<suffix>order\s+by\b.+)?$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+UNION_WRAPPER_SQL_RE = re.compile(
+    r"^\s*select\s+(?P<outer_select>.+?)\s+from\s*\(\s*(?P<inner>select\b.+\bunion(?:\s+all)?\b.+)\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)\s*(?P<suffix>(?:order\s+by\b.+|limit\b.+|offset\b.+|fetch\b.+)?)\s*$",
     flags=re.IGNORECASE | re.DOTALL,
 )
 
@@ -134,7 +183,7 @@ def render_flattened_wrapper_sql(prefix: str, select_list: str, from_suffix: str
 def dynamic_filter_select_cleanup_sql(original_sql: str) -> str | None:
     normalized = normalize_sql(original_sql)
     direct_match = SELECT_DIRECT_RE.match(normalized)
-    if direct_match is None or not WHERE_RE.search(normalized):
+    if direct_match is None:
         return None
     cleaned_select, aliases_changed = cleanup_redundant_select_aliases(str(direct_match.group("select") or ""))
     if not aliases_changed:
@@ -145,14 +194,17 @@ def dynamic_filter_select_cleanup_sql(original_sql: str) -> str | None:
 def dynamic_filter_from_alias_cleanup_sql(original_sql: str) -> str | None:
     normalized = normalize_sql(original_sql)
     direct_match = SELECT_DIRECT_RE.match(normalized)
-    if direct_match is None or not WHERE_RE.search(normalized):
+    if direct_match is None:
         return None
     select_text = str(direct_match.group("select") or "")
     from_suffix = str(direct_match.group("from") or "")
-    cleaned_from_suffix, changed = cleanup_redundant_from_alias(from_suffix, select_text=select_text)
+    cleaned_select_text, cleaned_from_suffix, changed = cleanup_single_table_alias_references(select_text, from_suffix)
+    if not changed:
+        cleaned_from_suffix, changed = cleanup_redundant_from_alias(from_suffix, select_text=select_text)
+        cleaned_select_text = select_text
     if not changed:
         return None
-    return normalize_sql(f"SELECT {select_text} {cleaned_from_suffix}")
+    return normalize_sql(f"SELECT {cleaned_select_text} {cleaned_from_suffix}")
 
 
 def groupby_from_alias_cleanup_sql(original_sql: str) -> str | None:
@@ -184,6 +236,174 @@ def distinct_from_alias_cleanup_sql(original_sql: str) -> str | None:
     if not changed:
         return None
     return normalize_sql(f"SELECT {cleaned_select} {cleaned_from_suffix}")
+
+
+def order_by_constant_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = ORDER_BY_CONSTANT_SUFFIX_RE.match(normalized_original)
+    if match is None:
+        return None
+    return normalize_sql(match.group("prefix"))
+
+
+def boolean_tautology_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = BOOLEAN_TAUTOLOGY_SQL_RE.match(normalized_original)
+    if match is None:
+        return None
+    prefix = normalize_sql(match.group("prefix"))
+    rest = normalize_sql(match.group("rest") or "")
+    suffix = normalize_sql(match.group("suffix") or "")
+    if rest:
+        return normalize_sql(f"{prefix} WHERE {rest} {suffix}")
+    return normalize_sql(f"{prefix} {suffix}")
+
+
+def in_list_single_value_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    not_in_match = NOT_IN_SINGLE_VALUE_RE.search(normalized_original)
+    if not_in_match is not None:
+        column = normalize_sql(not_in_match.group("column"))
+        value = normalize_sql(not_in_match.group("value"))
+        return normalize_sql(NOT_IN_SINGLE_VALUE_RE.sub(f"{column} != {value}", normalized_original, count=1))
+    in_match = IN_SINGLE_VALUE_RE.search(normalized_original)
+    if in_match is not None:
+        column = normalize_sql(in_match.group("column"))
+        value = normalize_sql(in_match.group("value"))
+        return normalize_sql(IN_SINGLE_VALUE_RE.sub(f"{column} = {value}", normalized_original, count=1))
+    return None
+
+
+def or_same_column_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = OR_SAME_COLUMN_SQL_RE.search(normalized_original)
+    if match is None:
+        return None
+    column = normalize_sql(match.group("column"))
+    left = normalize_sql(match.group("left"))
+    right = normalize_sql(match.group("right"))
+    replacement = f"{column} IN ({left}, {right})"
+    return normalize_sql(OR_SAME_COLUMN_SQL_RE.sub(replacement, normalized_original, count=1))
+
+
+def case_when_true_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    if CASE_WHEN_TRUE_SQL_RE.search(normalized_original) is None:
+        return None
+    return normalize_sql(CASE_WHEN_TRUE_SQL_RE.sub(lambda match: normalize_sql(match.group("expr")), normalized_original))
+
+
+def coalesce_identity_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    if COALESCE_IDENTITY_SQL_RE.search(normalized_original) is None:
+        return None
+    return normalize_sql(COALESCE_IDENTITY_SQL_RE.sub(lambda match: normalize_sql(match.group("expr")), normalized_original))
+
+
+def _fold_arithmetic_literals(text: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        left = int(match.group("left"))
+        right = int(match.group("right"))
+        op = match.group("op")
+        if op == "+":
+            value = left + right
+        elif op == "-":
+            value = left - right
+        elif op == "*":
+            value = left * right
+        elif op == "/":
+            if right == 0 or left % right != 0:
+                return match.group(0)
+            value = left // right
+        else:
+            return match.group(0)
+        return str(value)
+
+    return ARITH_LITERAL_RE.sub(_replace, text)
+
+
+def expression_folding_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    folded = normalize_sql(_fold_arithmetic_literals(normalized_original))
+    if folded == normalized_original:
+        return None
+    return folded
+
+
+def limit_large_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = LIMIT_LARGE_SUFFIX_RE.match(normalized_original)
+    if match is None:
+        return None
+    try:
+        limit_value = int(match.group("value"))
+    except ValueError:
+        return None
+    if limit_value < 1000000:
+        return None
+    return normalize_sql(match.group("prefix"))
+
+
+def null_comparison_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+
+    def _replace(match: re.Match[str]) -> str:
+        column = normalize_sql(match.group("column"))
+        op = str(match.group("op") or "").strip()
+        return f"{column} IS NOT NULL" if op in {"!=", "<>"} else f"{column} IS NULL"
+
+    rewritten = NULL_COMPARISON_RE.sub(_replace, normalized_original, count=1)
+    if rewritten == normalized_original:
+        return None
+    return normalize_sql(rewritten)
+
+
+def distinct_on_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = DISTINCT_ON_RE.match(normalized_original)
+    if match is None:
+        return None
+    distinct_on_expr = normalize_sql(match.group("on"))
+    select_list = normalize_sql(match.group("select"))
+    from_suffix = normalize_sql(match.group("from"))
+    order_by = normalize_sql(match.group("order") or "")
+    if select_list != distinct_on_expr:
+        return None
+    if order_by and not order_by.startswith(distinct_on_expr):
+        return None
+    suffix = f" ORDER BY {order_by}" if order_by else ""
+    return normalize_sql(f"SELECT DISTINCT {select_list} FROM {from_suffix}{suffix}")
+
+
+def exists_self_cleanup_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = EXISTS_SELF_IDENTITY_SQL_RE.match(normalized_original)
+    if match is None:
+        return None
+    outer_alias = normalize_sql(match.group("outer_alias") or match.group("table") or "")
+    outer_alias_2 = normalize_sql(match.group("outer_alias_2") or "")
+    inner_alias = normalize_sql(match.group("inner_alias") or "")
+    inner_alias_2 = normalize_sql(match.group("inner_alias_2") or "")
+    if not outer_alias or outer_alias_2 != outer_alias or inner_alias_2 != inner_alias:
+        return None
+    suffix = normalize_sql(match.group("suffix") or "")
+    return normalize_sql(f"{match.group('prefix')} {suffix}")
+
+
+def union_wrapper_collapse_sql(original_sql: str) -> str | None:
+    normalized_original = normalize_sql(original_sql)
+    match = UNION_WRAPPER_SQL_RE.match(normalized_original)
+    if match is None:
+        return None
+    outer_select = normalize_sql(match.group("outer_select"))
+    inner_sql = normalize_sql(match.group("inner"))
+    suffix = normalize_sql(match.group("suffix") or "")
+    first_select = re.match(r"^\s*select\s+(?P<select>.+?)\s+from\b", inner_sql, flags=re.IGNORECASE | re.DOTALL)
+    if first_select is None:
+        return None
+    if normalize_sql(first_select.group("select")) != outer_select:
+        return None
+    return normalize_sql(f"{inner_sql} {suffix}")
 
 
 def find_matching_paren(text: str, start_idx: int) -> int:
@@ -371,6 +591,162 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
             }
         ]
 
+    order_by_constant = order_by_constant_cleanup_sql(normalized_original)
+    if order_by_constant is not None:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_order_by_constant_cleanup",
+                "source": "llm",
+                "rewrittenSql": order_by_constant,
+                "rewriteStrategy": "REMOVE_CONSTANT_ORDER_BY_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    limit_large = limit_large_cleanup_sql(normalized_original)
+    if limit_large is not None and normalize_sql(limit_large) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_large_limit_cleanup",
+                "source": "llm",
+                "rewrittenSql": limit_large,
+                "rewriteStrategy": "REMOVE_LARGE_LIMIT_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    boolean_tautology = boolean_tautology_cleanup_sql(normalized_original)
+    if boolean_tautology is not None and normalize_sql(boolean_tautology) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_boolean_tautology_cleanup",
+                "source": "llm",
+                "rewrittenSql": boolean_tautology,
+                "rewriteStrategy": "REMOVE_BOOLEAN_TAUTOLOGY_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    null_comparison = null_comparison_cleanup_sql(normalized_original)
+    if null_comparison is not None and normalize_sql(null_comparison) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_null_comparison_cleanup",
+                "source": "llm",
+                "rewrittenSql": null_comparison,
+                "rewriteStrategy": "SIMPLIFY_NULL_COMPARISON_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    in_list_single = in_list_single_value_cleanup_sql(normalized_original)
+    if in_list_single is not None and normalize_sql(in_list_single) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_in_list_single_cleanup",
+                "source": "llm",
+                "rewrittenSql": in_list_single,
+                "rewriteStrategy": "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    distinct_on = distinct_on_cleanup_sql(normalized_original)
+    if distinct_on is not None and normalize_sql(distinct_on) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_distinct_on_cleanup",
+                "source": "llm",
+                "rewrittenSql": distinct_on,
+                "rewriteStrategy": "SIMPLIFY_DISTINCT_ON_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    or_same_column = or_same_column_cleanup_sql(normalized_original)
+    if or_same_column is not None and normalize_sql(or_same_column) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_or_same_column_cleanup",
+                "source": "llm",
+                "rewrittenSql": or_same_column,
+                "rewriteStrategy": "SIMPLIFY_OR_TO_IN_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    exists_self = exists_self_cleanup_sql(normalized_original)
+    if exists_self is not None and normalize_sql(exists_self) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_exists_self_cleanup",
+                "source": "llm",
+                "rewrittenSql": exists_self,
+                "rewriteStrategy": "SAFE_EXISTS_REWRITE",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    case_when_true = case_when_true_cleanup_sql(normalized_original)
+    if case_when_true is not None and normalize_sql(case_when_true) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_case_when_true_cleanup",
+                "source": "llm",
+                "rewrittenSql": case_when_true,
+                "rewriteStrategy": "SIMPLIFY_CASE_WHEN_TRUE_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    coalesce_identity = coalesce_identity_cleanup_sql(normalized_original)
+    if coalesce_identity is not None and normalize_sql(coalesce_identity) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_coalesce_identity_cleanup",
+                "source": "llm",
+                "rewrittenSql": coalesce_identity,
+                "rewriteStrategy": "SIMPLIFY_COALESCE_IDENTITY_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    union_wrapper = union_wrapper_collapse_sql(normalized_original)
+    if union_wrapper is not None and normalize_sql(union_wrapper) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_union_wrapper_collapse",
+                "source": "llm",
+                "rewrittenSql": union_wrapper,
+                "rewriteStrategy": "SAFE_UNION_COLLAPSE",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
+    expression_folding = expression_folding_cleanup_sql(normalized_original)
+    if expression_folding is not None and normalize_sql(expression_folding) != normalized_original:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_expression_folding_cleanup",
+                "source": "llm",
+                "rewrittenSql": expression_folding,
+                "rewriteStrategy": "FOLD_CONSTANT_EXPRESSION_RECOVERED",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
     parsed_outer_select, parsed_inner_select, parsed_inner_from, parsed_outer_suffix = parse_simple_select_wrapper_parts(
         normalized_original
     )
@@ -413,6 +789,22 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                 }
             ]
 
+    groupby_alias_cleanup = groupby_from_alias_cleanup_sql(normalized_original)
+    if groupby_alias_cleanup:
+        rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED"
+        if re.search(r"\bhaving\b", normalized_original, flags=re.IGNORECASE):
+            rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED"
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_groupby_from_alias_cleanup",
+                "source": "llm",
+                "rewrittenSql": groupby_alias_cleanup,
+                "rewriteStrategy": rewrite_strategy,
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
+
     cleanup_sql = dynamic_filter_select_cleanup_sql(normalized_original)
     if cleanup_sql:
         return [
@@ -434,22 +826,6 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                 "source": "llm",
                 "rewrittenSql": cleanup_from_alias_sql,
                 "rewriteStrategy": "REMOVE_REDUNDANT_FROM_ALIAS_RECOVERED",
-                "semanticRisk": "low",
-                "confidence": "medium",
-            }
-        ]
-
-    groupby_alias_cleanup = groupby_from_alias_cleanup_sql(normalized_original)
-    if groupby_alias_cleanup:
-        rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED"
-        if re.search(r"\bhaving\b", normalized_original, flags=re.IGNORECASE):
-            rewrite_strategy = "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED"
-        return [
-            {
-                "id": f"{sql_key}:llm:recovered_groupby_from_alias_cleanup",
-                "source": "llm",
-                "rewrittenSql": groupby_alias_cleanup,
-                "rewriteStrategy": rewrite_strategy,
                 "semanticRisk": "low",
                 "confidence": "medium",
             }

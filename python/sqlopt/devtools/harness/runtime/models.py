@@ -47,6 +47,7 @@ class HarnessArtifacts:
     proposals_path: Path
     acceptance_path: Path
     patches_path: Path
+    statement_convergence_path: Path
     sql_catalog_path: Path
     report: dict[str, Any]
     state: dict[str, Any]
@@ -57,5 +58,5 @@ class HarnessArtifacts:
     proposal_rows: list[dict[str, Any]]
     acceptance_rows: list[dict[str, Any]]
     patch_rows: list[dict[str, Any]]
+    statement_convergence_rows: list[dict[str, Any]]
     sql_catalog_rows: list[dict[str, Any]]
-

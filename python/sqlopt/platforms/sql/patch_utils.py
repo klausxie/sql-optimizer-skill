@@ -116,6 +116,12 @@ def derive_patch_target_family(
     classify_patch_family: callable | None = None,
 ) -> str | None:
     """Derive the patch target family based on rewrite facts and strategy."""
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type == "SAFE_EXISTS_REWRITE":
+        return "STATIC_EXISTS_REWRITE"
+    if strategy_type == "SAFE_UNION_COLLAPSE":
+        return "STATIC_UNION_COLLAPSE"
+
     dynamic_profile = dict(((rewrite_facts or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {})
     dynamic_family = str(dynamic_profile.get("baselineFamily") or "").strip()
     if dynamic_family:
@@ -126,7 +132,6 @@ def derive_patch_target_family(
     if aggregation_family:
         return aggregation_family
 
-    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
     if strategy_type == "SAFE_WRAPPER_COLLAPSE":
         return "STATIC_WRAPPER_COLLAPSE"
 
@@ -225,6 +230,20 @@ def derive_patch_target_family(
     ):
         return "STATIC_EXPRESSION_FOLDING"
 
+    if classify_static_exists_rewrite(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_EXISTS_REWRITE"
+
+    if classify_static_union_collapse(
+        original_sql=original_sql,
+        rewritten_sql=rewritten_sql,
+        selected_patch_strategy=selected_patch_strategy,
+    ):
+        return "STATIC_UNION_COLLAPSE"
+
     if classify_static_null_comparison(
         original_sql=original_sql,
         rewritten_sql=rewritten_sql,
@@ -269,6 +288,9 @@ def classify_static_alias_projection_cleanup(
     cleaned_select, aliases_changed = cleanup_redundant_select_aliases(original_select)
     if not aliases_changed:
         return False, None
+
+    if rewritten_from == original_from and normalize_sql(cleaned_select) == rewritten_select:
+        return True, "STATIC_ALIAS_PROJECTION_CLEANUP"
 
     if uses_single_table_alias_qualifier(
         original_select=original_select,
@@ -599,6 +621,30 @@ def classify_static_expression_folding(
             return True
 
     return False
+
+
+def classify_static_exists_rewrite(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "SAFE_EXISTS_REWRITE":
+        return False
+    return bool(original_sql and rewritten_sql)
+
+
+def classify_static_union_collapse(
+    *,
+    original_sql: str,
+    rewritten_sql: str | None,
+    selected_patch_strategy: dict[str, Any] | None,
+) -> bool:
+    strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+    if strategy_type != "SAFE_UNION_COLLAPSE":
+        return False
+    return bool(original_sql and rewritten_sql)
 
 
 def classify_static_null_comparison(

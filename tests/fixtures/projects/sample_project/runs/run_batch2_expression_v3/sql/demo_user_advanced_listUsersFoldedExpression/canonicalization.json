@@ -1,0 +1,15 @@
+{
+  "preferred": true,
+  "score": 6,
+  "ruleId": "ALIAS_ONLY_CANONICAL_FORM",
+  "reason": "projection avoids redundant aliases",
+  "matchedRules": [
+    {
+      "ruleId": "ALIAS_ONLY_CANONICAL_FORM",
+      "matched": true,
+      "preferredDirection": "MINIMIZE_REDUNDANT_ALIAS",
+      "scoreDelta": 6,
+      "reason": "projection avoids redundant aliases"
+    }
+  ]
+}

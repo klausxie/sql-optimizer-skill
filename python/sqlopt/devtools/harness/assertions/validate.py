@@ -54,9 +54,9 @@ _FIXTURE_REWRITE_EXPECTATIONS: dict[str, dict[tuple[str, ...], object]] = {
     "demo.user.advanced.listUsersFilteredAliasedChoose": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
         ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "shapeFamily"): "IF_GUARDED_FILTER_STATEMENT",
-        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "REVIEW_REQUIRED",
-        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "WHERE_CLAUSE",
-        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): None,
+        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "capabilityTier"): "SAFE_BASELINE",
+        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "patchSurface"): "STATEMENT_BODY",
+        ("rewriteFacts", "dynamicTemplate", "capabilityProfile", "baselineFamily"): "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
     },
     "demo.user.advanced.listUsersFilteredTableAliased": {
         ("rewriteFacts", "dynamicTemplate", "present"): True,
@@ -177,3 +177,39 @@ def assert_validate_matrix_matches_scenarios(
                 raise AssertionError(
                     f"{sql_key}: expected {dotted_path}={expected_value!r}, got {actual_value!r}"
                 )
+
+
+def assert_if_guarded_statement_convergence(
+    convergence_rows: list[dict],
+    acceptance_by_key: dict[str, dict],
+) -> None:
+    convergence_by_statement = {
+        str(row.get("statementKey") or ""): row
+        for row in convergence_rows
+        if str(row.get("statementKey") or "").strip()
+    }
+    for sql_key, acceptance in acceptance_by_key.items():
+        if not isinstance(acceptance, dict):
+            continue
+        rewrite_facts = acceptance.get("rewriteFacts") or {}
+        dynamic_template = (rewrite_facts.get("dynamicTemplate") or {}) if isinstance(rewrite_facts, dict) else {}
+        profile = (dynamic_template.get("capabilityProfile") or {}) if isinstance(dynamic_template, dict) else {}
+        shape_family = str(profile.get("shapeFamily") or "").strip().upper()
+        if shape_family != "IF_GUARDED_FILTER_STATEMENT":
+            continue
+        statement_key = str(acceptance.get("statementKey") or sql_key)
+        convergence = convergence_by_statement.get(statement_key)
+        if convergence is None:
+            raise AssertionError(f"{statement_key}: missing statement convergence row")
+        decision = str(convergence.get("convergenceDecision") or "").strip().upper()
+        if decision not in {"AUTO_PATCHABLE", "MANUAL_REVIEW", "NOT_PATCHABLE"}:
+            raise AssertionError(f"{statement_key}: invalid convergenceDecision {decision!r}")
+        if decision == "AUTO_PATCHABLE":
+            consensus = convergence.get("consensus") or {}
+            patch_family = str((consensus or {}).get("patchFamily") or "").strip()
+            if not patch_family:
+                raise AssertionError(f"{statement_key}: AUTO_PATCHABLE requires consensus.patchFamily")
+        else:
+            conflict_reason = str(convergence.get("conflictReason") or "").strip()
+            if not conflict_reason:
+                raise AssertionError(f"{statement_key}: blocked convergence requires conflictReason")

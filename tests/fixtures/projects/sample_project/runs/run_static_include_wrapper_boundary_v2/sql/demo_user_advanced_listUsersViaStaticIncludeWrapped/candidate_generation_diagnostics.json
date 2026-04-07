@@ -1,0 +1,25 @@
+{
+  "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+  "recoveryAttempted": true,
+  "recoveryStrategy": "REMOVE_REDUNDANT_SUBQUERY_RECOVERED",
+  "recoverySucceeded": true,
+  "recoveryReason": "SAFE_BASELINE_REPLACED_LOW_VALUE",
+  "rawCandidateCount": 1,
+  "validatedCandidateCount": 1,
+  "acceptedCandidateCount": 0,
+  "prunedLowValueCount": 1,
+  "lowValueCandidateCount": 1,
+  "recoveredCandidateCount": 1,
+  "rawRewriteStrategies": [
+    "Remove redundant subquery wrapper that adds no filtering, transformation, or semantic value"
+  ],
+  "finalCandidateCount": 1,
+  "lowValueAssessments": [
+    {
+      "candidate_id": "remove_redundant_subquery",
+      "rule_id": "STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+      "category": "STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+      "reason": "candidate adds speculative filter/index to static include without safe template-preserving baseline"
+    }
+  ]
+}

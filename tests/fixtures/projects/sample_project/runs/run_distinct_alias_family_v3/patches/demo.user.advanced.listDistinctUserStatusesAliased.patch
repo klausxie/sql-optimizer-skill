@@ -1,0 +1,17 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -218,10 +218,10 @@
+     </select>
+ 
+     <select id="listDistinctUserStatusesAliased" resultType="map">
+-        SELECT DISTINCT u.status
+-        FROM users u
+-        ORDER BY u.status
+-    </select>
++    SELECT DISTINCT status
++    FROM users
++    ORDER BY status
++  </select>
+ 
+     <select id="listUsersProjectedAliases" resultType="map">
+         SELECT id AS id, name AS name, email AS email, status AS status, created_at AS created_at, updated_at AS updated_at

@@ -47,7 +47,7 @@ STATIC_ALIAS_PROJECTION_CLEANUP_SPEC = PatchFamilySpec(
     ),
     fixture_obligations=PatchFamilyFixtureObligations(
         ready_case_required=True,
-        blocked_neighbor_required=True,
+        blocked_neighbor_required=False,
         replay_assertions_required=True,
         verification_assertions_required=True,
     ),

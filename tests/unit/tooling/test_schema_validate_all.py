@@ -22,6 +22,7 @@ class SchemaValidateAllScriptTest(unittest.TestCase):
                 "artifacts/fragments.jsonl",
                 "artifacts/proposals.jsonl",
                 "artifacts/acceptance.jsonl",
+                "artifacts/statement_convergence.jsonl",
                 "artifacts/patches.jsonl",
             ):
                 (run_dir / rel).write_text("", encoding="utf-8")

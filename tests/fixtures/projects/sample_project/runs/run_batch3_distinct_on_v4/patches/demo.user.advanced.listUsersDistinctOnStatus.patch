@@ -1,0 +1,17 @@
+--- a/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
++++ b/src/main/resources/com/example/mapper/user/advanced_user_mapper.xml
+@@ -284,10 +284,10 @@
+     </select>
+ 
+     <select id="listUsersDistinctOnStatus" resultType="map">
+-        SELECT DISTINCT ON (status) status
+-        FROM users
+-        ORDER BY status
+-    </select>
++    SELECT DISTINCT status
++    FROM users
++    ORDER BY status
++  </select>
+ 
+     <select id="listUsersExistsSelfIdentity" resultType="map">
+         SELECT id, name, email, status, created_at, updated_at

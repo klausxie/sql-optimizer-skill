@@ -1,0 +1,23 @@
+{
+  "run_id": "run_groupby_wrapper_ready_baseline_v1",
+  "checked_at": "2026-04-07T07:45:34.969063+00:00",
+  "ok": true,
+  "checks": [
+    {
+      "name": "db",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "llm",
+      "enabled": true,
+      "ok": true
+    },
+    {
+      "name": "scanner",
+      "enabled": false,
+      "ok": true,
+      "reason": "scanner preflight check disabled (python fallback scanner is default)"
+    }
+  ]
+}

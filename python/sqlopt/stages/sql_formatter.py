@@ -110,6 +110,20 @@ def format_sql_for_patch(sql: str) -> str:
         else:
             out_parts.append(_format_unquoted_sql_segment(segment))
     formatted = "".join(out_parts)
+    # Restore spacing that can be lost at quote boundaries after segment-wise formatting.
+    formatted = re.sub(r"([=<>!])('(?:[^']|'')*')", r"\1 \2", formatted)
+    formatted = re.sub(
+        r"('(?:[^']|'')*')\s*(ORDER\s+BY|GROUP\s+BY|HAVING|LIMIT|OFFSET|FETCH)\b",
+        r"\1\n\2",
+        formatted,
+        flags=re.IGNORECASE,
+    )
+    formatted = re.sub(
+        r"('(?:[^']|'')*')\s*(AND|OR)\b",
+        r"\1\n  \2",
+        formatted,
+        flags=re.IGNORECASE,
+    )
     formatted = re.sub(r"[ \t]+\n", "\n", formatted)
     formatted = re.sub(r"\n{3,}", "\n\n", formatted)
     lines = [line.rstrip() for line in formatted.splitlines()]

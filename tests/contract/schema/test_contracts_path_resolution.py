@@ -36,6 +36,7 @@ class ContractsPathResolutionTest(unittest.TestCase):
                 "fragment_record",
                 "optimization_proposal",
                 "acceptance_result",
+                "statement_convergence",
                 "patch_result",
                 "run_report",
                 "run_index",
@@ -46,6 +47,7 @@ class ContractsPathResolutionTest(unittest.TestCase):
         self.assertEqual(SCHEMA_MAP["sqlunit"], "stages/sqlunit.schema.json")
         self.assertEqual(SCHEMA_MAP["run_report"], "run/run_report.schema.json")
         self.assertEqual(SCHEMA_MAP["sql_artifact_index_row"], "sql/sql_artifact_index_row.schema.json")
+        self.assertEqual(SCHEMA_MAP["statement_convergence"], "stages/statement_convergence.schema.json")
 
     def test_removed_contract_names_are_unknown(self) -> None:
         validator = ContractValidator(Path(__file__).resolve().parents[3])

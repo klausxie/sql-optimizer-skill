@@ -2,15 +2,30 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ..contracts import ContractValidator
-from ..io_utils import append_jsonl, write_json
+from ..io_utils import append_jsonl, read_jsonl, write_json, write_jsonl
 from ..manifest import log_event
 from ..platforms.sql.validator_sql import validate_proposal
 from ..run_paths import canonical_paths
 from ..utils import statement_key, statement_key_from_row
+from .validate_convergence import (
+    build_statement_convergence_row,
+    statement_key_for_row,
+)
 from ..verification.models import VerificationCheck, VerificationRecord
 from ..verification.writer import append_verification_record
+
+
+def _upsert_statement_convergence_row(run_dir: Path, row: dict[str, Any]) -> None:
+    paths = canonical_paths(run_dir)
+    existing_rows = read_jsonl(paths.statement_convergence_path)
+    statement_key_value = str(row.get("statementKey") or "")
+    retained = [item for item in existing_rows if str(item.get("statementKey") or "") != statement_key_value]
+    retained.append(row)
+    write_jsonl(paths.statement_convergence_path, retained)
+
 
 def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: ContractValidator, db_reachable: bool, config: dict) -> dict:
     paths = canonical_paths(run_dir)
@@ -145,6 +160,20 @@ def execute_one(sql_unit: dict, proposal: dict, run_dir: Path, validator: Contra
     )
     validator.validate("acceptance_result", payload)
     append_jsonl(acceptance_path, payload)
+    statement_key_value = statement_key(sql_key, statement_key_from_row(sql_unit))
+    all_acceptance_rows = read_jsonl(acceptance_path)
+    same_statement_rows = [row for row in all_acceptance_rows if statement_key_for_row(row) == statement_key_value]
+    convergence_row = build_statement_convergence_row(
+        statement_key_value=statement_key_value,
+        rows=same_statement_rows,
+        sql_key=sql_key,
+        acceptance_path=acceptance_path,
+        sql_index_path=paths.sql_index_path(sql_key),
+        sql_unit=sql_unit,
+        proposal=proposal,
+    )
+    validator.validate("statement_convergence", convergence_row)
+    _upsert_statement_convergence_row(run_dir, convergence_row)
     log_event(
         paths.manifest_path,
         "validate",

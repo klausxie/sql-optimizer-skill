@@ -229,6 +229,7 @@ def cleanup_single_table_alias_references(select_text: str, from_suffix: str) ->
         or suffix.lower().startswith("fetch ")
         or suffix.lower().startswith("group by ")
         or suffix.lower().startswith("having ")
+        or suffix.startswith("<")
     ):
         return normalized_select, normalized_from, False
 

@@ -1,0 +1,22 @@
+--- a/src/main/resources/com/example/mapper/order/order_harness_mapper.xml
++++ b/src/main/resources/com/example/mapper/order/order_harness_mapper.xml
+@@ -96,14 +96,11 @@
+     </select>
+ 
+     <select id="aggregateOrdersByStatusWrapped" resultType="map">
+-        SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
+-        FROM (
+-            SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
+-            FROM orders
+-            GROUP BY status
+-        ) og
+-        ORDER BY status
+-    </select>
++    SELECT status, COUNT(*) AS total, SUM(amount) AS total_amount
++    FROM orders
++    GROUP BY status
++    ORDER BY status
++  </select>
+ 
+     <select id="listOrderUserCountsHavingWrapped" resultType="map">
+         SELECT user_id, COUNT(*) AS total
