@@ -40,8 +40,10 @@ SUPPORTED_SHAPE_FAMILIES = {
 # 需人工审查的类型（不支持自动生成）
 REVIEW_REQUIRED_BLOCKING_REASONS = {
     "FOREACH_COLLECTION_PREDICATE",  # FOREACH 集合谓词
+    "FOREACH_COLLECTION_GUARDED_PREDICATE",  # FOREACH 集合谓词（带标量保护）
     "FOREACH_INCLUDE_PREDICATE",  # FOREACH 包含谓词
     "DYNAMIC_SET_CLAUSE",  # 动态 SET 子句
+    "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",  # choose 分支级 review-only
     # 新增：需要人工审查的类型
     "DYNAMIC_FILTER_SELECT_LIST_NON_TRIVIAL_ALIAS",  # 非平凡别名
     "DYNAMIC_FILTER_FROM_ALIAS_REQUIRES_PREDICATE_REWRITE",  # 需要谓词重写
@@ -214,17 +216,9 @@ class DynamicTemplateGate(Gate[dict]):
         Returns:
             (is_supported: bool, reason_code: str | None, reason_message: str | None)
         """
-        # 已支持
-        if blocking_reason in SUPPORTED_BLOCKING_REASONS:
-            return True, None, None
-        if shape_family in SUPPORTED_SHAPE_FAMILIES:
-            return True, None, None
-        if not blocking_reason and not shape_family:  # 无动态特征也算支持
-            return True, None, None
-
-        # 需人工审查的类型 - 返回对应的审查原因码
+        # 显式 review-only blocker 优先于 shape-level 支持，避免 review-only 动态模板误走到补丁构造。
         if blocking_reason in REVIEW_REQUIRED_BLOCKING_REASONS:
-            if blocking_reason.startswith("FOREACH_") or shape_family == "FOREACH_IN_PREDICATE":
+            if blocking_reason.startswith("FOREACH_") or shape_family in {"FOREACH_IN_PREDICATE", "FOREACH_COLLECTION_PREDICATE"}:
                 return False, ReasonCode.PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED, \
                     "dynamic foreach predicate requires template-aware rewrite before patch generation"
 
@@ -244,9 +238,16 @@ class DynamicTemplateGate(Gate[dict]):
                 return False, ReasonCode.PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED, \
                     "dynamic alias cleanup requires template-aware rewrite"
 
-            # 默认返回需要审查
             return False, ReasonCode.PATCH_TARGET_CONTRACT_MISSING, \
                 "dynamic template type requires manual review before patch generation"
+
+        # 已支持
+        if blocking_reason in SUPPORTED_BLOCKING_REASONS:
+            return True, None, None
+        if shape_family in SUPPORTED_SHAPE_FAMILIES:
+            return True, None, None
+        if not blocking_reason and not shape_family:  # 无动态特征也算支持
+            return True, None, None
 
         # 未知类型 - 返回默认不支持
         return False, ReasonCode.PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE, \

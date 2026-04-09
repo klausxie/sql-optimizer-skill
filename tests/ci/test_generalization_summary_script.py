@@ -27,6 +27,9 @@ from sqlopt.devtools.generalization_blocker_inventory import (
     SEMANTIC_VALIDATION_PRIMARY_SENTINELS,
     SEMANTIC_PREDICATE_CHANGED_CLUSTER,
     SEMANTIC_ERROR_CLUSTER,
+    TEMPLATE_PRESERVING_DYNAMIC_GUARDRAIL_SENTINELS,
+    TEMPLATE_PRESERVING_DYNAMIC_PRIMARY_SENTINELS,
+    TEMPLATE_PRESERVING_DYNAMIC_SECOND_WAVE_SENTINELS,
     UNSUPPORTED_STRATEGY_GUARDRAIL_SENTINELS,
     UNSUPPORTED_STRATEGY_PRIMARY_SENTINELS,
     UNSUPPORTED_STRATEGY_CLUSTER,
@@ -105,6 +108,29 @@ def _write_complete_batch_run(
 
 class GeneralizationSummaryScriptTest(unittest.TestCase):
     def test_blocker_inventory_matches_fresh_baseline(self) -> None:
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_PRIMARY_SENTINELS,
+            ("demo.user.advanced.findUsersByKeyword",),
+        )
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_SECOND_WAVE_SENTINELS,
+            ("demo.order.harness.findOrdersByUserIdsAndStatus",),
+        )
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_GUARDRAIL_SENTINELS,
+            (
+                "demo.test.complex.chooseBasic",
+                "demo.test.complex.chooseMultipleWhen",
+                "demo.test.complex.chooseWithLimit",
+                "demo.test.complex.selectWithFragmentChoose",
+                "demo.shipment.harness.findShipmentsByOrderIds",
+                "demo.test.complex.multiFragmentLevel1",
+                "demo.shipment.harness.findShipments",
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.includeNested",
+                "demo.user.findUsers",
+            ),
+        )
         self.assertEqual(COLLECTION_PREDICATE_PRIMARY_SENTINELS, ("demo.order.harness.findOrdersByUserIdsAndStatus",))
         self.assertEqual(
             COLLECTION_PREDICATE_GUARDRAIL_SENTINELS,

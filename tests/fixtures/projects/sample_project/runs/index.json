@@ -1013,5 +1013,10 @@
     "run_dir": "/private/tmp/sqlopt-post-batch7/tests/fixtures/projects/sample_project/runs/run_66ed44a3a958",
     "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config__inmr3in/config.resolved.json",
     "updated_at": "2026-04-09T11:48:52.820350+00:00"
+  },
+  "run_9c261f3eb3eb": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_9c261f3eb3eb",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_lxozjsep/config.resolved.json",
+    "updated_at": "2026-04-09T12:31:12.977636+00:00"
   }
 }

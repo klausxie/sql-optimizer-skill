@@ -1694,7 +1694,7 @@ def test_build_statement_convergence_row_keeps_collection_predicate_review_only_
                             "shapeFamily": "FOREACH_COLLECTION_PREDICATE",
                             "capabilityTier": "REVIEW_REQUIRED",
                             "baselineFamily": "STATIC_STATEMENT_REWRITE",
-                            "patchSurface": "WHERE_CLAUSE",
+                            "patchSurface": "COLLECTION_PREDICATE_BODY",
                             "blockerFamily": "FOREACH_COLLECTION_GUARDED_PREDICATE",
                         }
                     }

@@ -368,7 +368,7 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertTrue(model.dynamic_template.present)
         self.assertEqual(model.dynamic_template.capability_profile.shape_family, "FOREACH_COLLECTION_PREDICATE")
         self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
-        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "WHERE_CLAUSE")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "COLLECTION_PREDICATE_BODY")
         self.assertEqual(
             model.dynamic_template.capability_profile.blocker_family,
             "FOREACH_COLLECTION_GUARDED_PREDICATE",

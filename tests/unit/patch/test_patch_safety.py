@@ -335,6 +335,52 @@ class PatchSafetyTest(unittest.TestCase):
         self.assertEqual(assessment.dynamic_capability_tier, "REVIEW_REQUIRED")
         self.assertEqual(assessment.dynamic_blocking_reason, "FOREACH_INCLUDE_PREDICATE")
 
+    def test_collection_predicate_review_only_surface_is_preserved_in_assessment(self) -> None:
+        assessment = assess_patch_safety_model(
+            RewriteFacts(
+                effective_change=True,
+                dynamic_features=["INCLUDE", "WHERE", "FOREACH", "IF"],
+                template_anchor_stable=False,
+                semantic=SemanticRewriteFacts(
+                    status="PASS",
+                    confidence="HIGH",
+                    evidence_level="DB_FINGERPRINT",
+                    fingerprint_strength="EXACT",
+                    hard_conflicts=[],
+                ),
+                dynamic_template=DynamicTemplateRewriteFacts(
+                    present=True,
+                    statement_features=["INCLUDE", "WHERE", "FOREACH", "IF"],
+                    include_fragment_refs=["demo.order.OrderColumns"],
+                    include_dynamic_subtree=False,
+                    include_property_bindings=False,
+                    capability_profile=DynamicTemplateCapabilityProfile(
+                        shape_family="FOREACH_COLLECTION_PREDICATE",
+                        capability_tier="REVIEW_REQUIRED",
+                        patch_surface="COLLECTION_PREDICATE_BODY",
+                        blocker_family="FOREACH_COLLECTION_GUARDED_PREDICATE",
+                        template_preserving_candidate=False,
+                        blockers=[
+                            "FOREACH_COLLECTION_GUARDED_PREDICATE",
+                            "FOREACH_INCLUDE_PREDICATE",
+                            "FOREACH_SCALAR_GUARD_PREDICATE",
+                        ],
+                    ),
+                ),
+            ),
+            {
+                "intent": "UNSAFE_DYNAMIC_REWRITE",
+                "templatePreserving": False,
+                "blockingReason": "FOREACH_COLLECTION_GUARDED_PREDICATE",
+            },
+        )
+
+        self.assertFalse(assessment.is_eligible())
+        self.assertEqual(assessment.dynamic_shape_family, "FOREACH_COLLECTION_PREDICATE")
+        self.assertEqual(assessment.dynamic_capability_tier, "REVIEW_REQUIRED")
+        self.assertEqual(assessment.dynamic_patch_surface, "COLLECTION_PREDICATE_BODY")
+        self.assertEqual(assessment.dynamic_blocking_reason, "FOREACH_COLLECTION_GUARDED_PREDICATE")
+
     def test_static_alias_projection_cleanup_keeps_exact_template_edit_available(self) -> None:
         assessment = assess_patch_safety_model(
             RewriteFacts(

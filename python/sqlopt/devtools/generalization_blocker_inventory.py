@@ -6,6 +6,27 @@ READY_SENTINEL_SQL_KEYS = (
     "demo.test.complex.wrapperCount",
 )
 
+TEMPLATE_PRESERVING_DYNAMIC_PRIMARY_SENTINELS = (
+    "demo.user.advanced.findUsersByKeyword",
+)
+
+TEMPLATE_PRESERVING_DYNAMIC_SECOND_WAVE_SENTINELS = (
+    "demo.order.harness.findOrdersByUserIdsAndStatus",
+)
+
+TEMPLATE_PRESERVING_DYNAMIC_GUARDRAIL_SENTINELS = (
+    "demo.test.complex.chooseBasic",
+    "demo.test.complex.chooseMultipleWhen",
+    "demo.test.complex.chooseWithLimit",
+    "demo.test.complex.selectWithFragmentChoose",
+    "demo.shipment.harness.findShipmentsByOrderIds",
+    "demo.test.complex.multiFragmentLevel1",
+    "demo.shipment.harness.findShipments",
+    "demo.order.harness.listOrdersWithUsersPaged",
+    "demo.test.complex.includeNested",
+    "demo.user.findUsers",
+)
+
 CHOOSE_AWARE_PRIMARY_SENTINELS = (
     "demo.user.advanced.findUsersByKeyword",
 )

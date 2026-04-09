@@ -549,6 +549,86 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
 
+    def test_choose_branch_body_review_only_short_circuits_generation(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = 'ACTIVE'",
+            "patchTarget": self._patch_target(),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+            "dynamicTemplate": {
+                "present": True,
+                "shapeFamily": "IF_GUARDED_FILTER_STATEMENT",
+                "capabilityTier": "REVIEW_REQUIRED",
+                "patchSurface": "CHOOSE_BRANCH_BODY",
+                "blockingReason": "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",
+            },
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "statementType": "SELECT",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
+            "templateSql": (
+                "SELECT id, name, email, status, created_at, updated_at FROM users "
+                "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                "name ILIKE #{keyword}</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
+            "locators": {"statementId": "findUsersByKeyword"},
+            "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+        }
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(None, 0, None)) as template_mock:
+            with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        template_mock.assert_not_called()
+        unified_mock.assert_not_called()
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED")
+        self.assertTrue(patch_row["diffSummary"]["skipped"])
+
+    def test_collection_predicate_body_review_only_short_circuits_generation(self) -> None:
+        acceptance = {
+            "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id, order_no, user_id, status FROM orders WHERE user_id IN (#{id}) AND status = #{status}",
+            "patchTarget": self._patch_target(),
+            "equivalence": {},
+            "perfComparison": {},
+            "securityChecks": {},
+            "semanticEquivalence": {"status": "PASS", "confidence": "HIGH"},
+            "dynamicTemplate": {
+                "present": True,
+                "shapeFamily": "FOREACH_COLLECTION_PREDICATE",
+                "capabilityTier": "REVIEW_REQUIRED",
+                "patchSurface": "COLLECTION_PREDICATE_BODY",
+                "blockingReason": "FOREACH_COLLECTION_GUARDED_PREDICATE",
+            },
+        }
+        run_dir = self._prepare_run_dir(acceptance)
+        unit = {
+            "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+            "statementType": "SELECT",
+            "sql": "SELECT id, order_no, user_id, status FROM orders WHERE user_id IN (#{id}) AND status = #{status}",
+            "dynamicFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "order" / "order_harness_mapper.xml"),
+            "locators": {"statementId": "findOrdersByUserIdsAndStatus"},
+        }
+
+        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(None, 0, None)) as template_mock:
+            with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
+                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+
+        template_mock.assert_not_called()
+        unified_mock.assert_not_called()
+        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_FOREACH_TEMPLATE_REVIEW_REQUIRED")
+        self.assertTrue(patch_row["diffSummary"]["skipped"])
+
     def test_semantic_low_confidence_short_circuits_generation(self) -> None:
         acceptance = {
             "sqlKey": "demo.user.find",

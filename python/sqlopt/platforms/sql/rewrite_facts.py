@@ -280,6 +280,7 @@ def _build_dynamic_template_facts(
         if "INCLUDE" in feature_set:
             if feature_set & {"IF", "CHOOSE", "TRIM", "BIND"}:
                 shape_family = "FOREACH_COLLECTION_PREDICATE"
+                patch_surface = "COLLECTION_PREDICATE_BODY"
                 blocker_family = "FOREACH_COLLECTION_GUARDED_PREDICATE"
                 blockers = [blocker_family, "FOREACH_INCLUDE_PREDICATE", "FOREACH_SCALAR_GUARD_PREDICATE"]
             else:
