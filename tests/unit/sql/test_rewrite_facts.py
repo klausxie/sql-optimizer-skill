@@ -229,6 +229,43 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.blocker_family, "STATIC_INCLUDE_FRAGMENT_DEPENDENT")
         self.assertEqual(model.dynamic_template.capability_profile.blockers, ["STATIC_INCLUDE_FRAGMENT_DEPENDENT"])
 
+    def test_build_rewrite_facts_model_marks_multi_fragment_include_as_review_only_capability(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.test.complex.multiFragmentLevel1",
+            "sql": "SELECT id, name, email, status FROM users",
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.test.complex",
+            "statementId": "multiFragmentLevel1",
+            "templateSql": 'SELECT <include refid="Frag_Cols_Basic" />, <include refid="Frag_Cols_Contact" /> FROM users',
+            "dynamicFeatures": ["INCLUDE"],
+            "dynamicTrace": {
+                "statementFeatures": ["INCLUDE"],
+                "includeFragments": [
+                    {"ref": "demo.test.complex.Frag_Cols_Basic", "dynamicFeatures": []},
+                    {"ref": "demo.test.complex.Frag_Cols_Contact", "dynamicFeatures": []},
+                ],
+            },
+            "includeBindings": [
+                {"ref": "demo.test.complex.Frag_Cols_Basic", "properties": [], "bindingHash": "basic"},
+                {"ref": "demo.test.complex.Frag_Cols_Contact", "properties": [], "bindingHash": "contact"},
+            ],
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            "SELECT id, name, email, status FROM users",
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "DB_FINGERPRINT", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "MULTI_FRAGMENT_INCLUDE")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "STATEMENT_BODY")
+        self.assertEqual(model.dynamic_template.capability_profile.blocker_family, "MULTI_FRAGMENT_INCLUDE_REVIEW_ONLY")
+        self.assertEqual(model.dynamic_template.capability_profile.blockers, ["MULTI_FRAGMENT_INCLUDE_REVIEW_ONLY"])
+
     def test_safe_baseline_recovery_family_recognizes_plain_static_statement(self) -> None:
         sql_unit = {
             "sqlKey": "demo.test.complex.staticSimpleSelect",
@@ -291,6 +328,59 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
         self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "WHERE_CLAUSE")
         self.assertEqual(model.dynamic_template.capability_profile.blocker_family, "FOREACH_INCLUDE_PREDICATE")
+        self.assertNotIn(
+            "FOREACH_SCALAR_GUARD_PREDICATE",
+            model.dynamic_template.capability_profile.blockers,
+        )
+
+    def test_build_rewrite_facts_model_marks_mixed_collection_predicate_as_collection_capability_candidate(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+            "sql": (
+                "SELECT id, user_id, order_no, amount, status, created_at "
+                "FROM orders WHERE user_id IN (#{userId}) AND status = #{status}"
+            ),
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.order.harness",
+            "statementId": "findOrdersByUserIdsAndStatus",
+            "templateSql": (
+                'SELECT <include refid="OrderColumns" /> FROM orders <where>'
+                '<foreach collection="userIds" item="userId" open="user_id IN (" separator="," close=")">'
+                "#{userId}</foreach>"
+                '<if test="status != null and status != \'\'">AND status = #{status}</if>'
+                "</where>"
+            ),
+            "dynamicFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
+            "dynamicTrace": {
+                "statementFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
+                "includeFragments": [{"ref": "demo.order.harness.OrderColumns", "dynamicFeatures": []}],
+            },
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            str(sql_unit["sql"]),
+            {},
+            {},
+            {"status": "PASS", "confidence": "HIGH", "evidenceLevel": "STRUCTURE", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "FOREACH_COLLECTION_PREDICATE")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "WHERE_CLAUSE")
+        self.assertEqual(
+            model.dynamic_template.capability_profile.blocker_family,
+            "FOREACH_COLLECTION_GUARDED_PREDICATE",
+        )
+        self.assertIn(
+            "FOREACH_INCLUDE_PREDICATE",
+            model.dynamic_template.capability_profile.blockers,
+        )
+        self.assertIn(
+            "FOREACH_SCALAR_GUARD_PREDICATE",
+            model.dynamic_template.capability_profile.blockers,
+        )
 
     def test_build_rewrite_facts_model_marks_complex_dynamic_filter_as_unsafe_statement_rewrite(self) -> None:
         sql_unit = {
@@ -319,7 +409,18 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertTrue(model.dynamic_template.present)
         self.assertEqual(model.dynamic_template.capability_profile.shape_family, "IF_GUARDED_FILTER_STATEMENT")
         self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
-        self.assertEqual(model.dynamic_template.capability_profile.blocker_family, "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "CHOOSE_BRANCH_BODY")
+        self.assertEqual(
+            model.dynamic_template.capability_profile.blocker_family,
+            "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",
+        )
+        self.assertEqual(
+            model.dynamic_template.capability_profile.blockers,
+            [
+                "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",
+                "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH",
+            ],
+        )
 
     def test_build_rewrite_facts_model_marks_dynamic_filter_select_list_cleanup_as_safe_baseline(self) -> None:
         sql_unit = {

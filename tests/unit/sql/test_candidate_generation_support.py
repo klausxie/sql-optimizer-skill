@@ -131,6 +131,8 @@ def test_normalize_strategy_text_collapses_observed_wording_variants() -> None:
 def test_is_observed_in_subquery_rewrite_strategy_matches_only_known_variants() -> None:
     assert is_observed_in_subquery_rewrite_strategy("in-to-exists") is True
     assert is_observed_in_subquery_rewrite_strategy("in_subquery_to_join") is True
+    assert is_observed_in_subquery_rewrite_strategy("subquery_to_exists") is True
+    assert is_observed_in_subquery_rewrite_strategy("subquery_to_join") is True
     assert is_observed_in_subquery_rewrite_strategy("exists_transform") is True
     assert is_observed_in_subquery_rewrite_strategy("index_optimization") is False
 
@@ -298,6 +300,30 @@ def test_safe_baseline_recovery_family_recognizes_existing_if_guarded_filter_ali
     assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) == "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
 
 
+def test_safe_baseline_recovery_family_keeps_choose_guarded_filter_unmapped() -> None:
+    sql_unit = {
+        "sqlKey": "demo.user.advanced.findUsersByKeyword",
+        "statementKey": "demo.user.advanced.findUsersByKeyword",
+        "sql": (
+            "SELECT id, name, email, status, created_at, updated_at FROM users "
+            "WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+            "ORDER BY created_at DESC"
+        ),
+        "templateSql": (
+            "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+            "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users "
+            "<where><choose>"
+            "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+            "<when test=\"status != null and status != ''\">status = #{status}</when>"
+            "<otherwise>status != 'DELETED'</otherwise>"
+            "</choose></where> ORDER BY created_at DESC"
+        ),
+        "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+    }
+
+    assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) is None
+
+
 def test_safe_baseline_recovery_family_keeps_find_shipments_as_no_safe_baseline_sentinel() -> None:
     sql_unit = {
         "sqlKey": "demo.shipment.harness.findShipments",
@@ -327,6 +353,26 @@ def test_safe_baseline_recovery_family_keeps_plain_foreach_include_boundaries_un
             "#{orderId}</foreach></where>"
         ),
         "dynamicFeatures": ["INCLUDE", "WHERE", "FOREACH"],
+    }
+
+    assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) is None
+
+
+def test_safe_baseline_recovery_family_keeps_mixed_collection_predicate_unmapped() -> None:
+    sql_unit = {
+        "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+        "sql": (
+            "SELECT id, user_id, order_no, amount, status, created_at "
+            "FROM orders WHERE user_id IN (#{userId}) AND status = #{status}"
+        ),
+        "templateSql": (
+            "SELECT <include refid=\"OrderColumns\" /> FROM orders <where>"
+            "<foreach collection=\"userIds\" item=\"userId\" open=\"user_id IN (\" separator=\",\" close=\")\">"
+            "#{userId}</foreach>"
+            "<if test=\"status != null and status != ''\">AND status = #{status}</if>"
+            "</where>"
+        ),
+        "dynamicFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
     }
 
     assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) is None

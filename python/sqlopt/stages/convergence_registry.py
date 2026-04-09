@@ -2,6 +2,7 @@ from __future__ import annotations
 
 TARGET_SHAPE_FAMILY = "IF_GUARDED_FILTER_STATEMENT"
 STATIC_INCLUDE_SHAPE_FAMILY = "STATIC_INCLUDE_ONLY"
+MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY = "MULTI_FRAGMENT_INCLUDE"
 STATIC_STATEMENT_SHAPE_FAMILY = "STATIC_STATEMENT"
 STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY = "STATIC_SUBQUERY_WRAPPER"
 STATIC_ALIAS_PROJECTION_SHAPE_FAMILY = "STATIC_ALIAS_PROJECTION"
@@ -62,6 +63,33 @@ NOT_TARGET_BOUNDARY_POLICIES: dict[str, dict[str, str]] = {
     },
 }
 
+SAFE_BASELINE_SUBTYPE_POLICIES: dict[str, dict[str, str]] = {
+    "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER": {
+        "disposition": "defer",
+        "description": "supported choose-guarded filters stay blocked until a choose-aware template-preserving patch capability exists",
+    },
+    "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE": {
+        "disposition": "defer",
+        "description": "collection predicates with scalar guards stay blocked until a collection-aware template-preserving capability exists",
+    },
+    "NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY": {
+        "disposition": "freeze",
+        "description": "speculative pagination and limit rewrites remain explicit non-goals for auto-patch",
+    },
+    "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE": {
+        "disposition": "freeze",
+        "description": "multi-fragment include chains stay blocked until fragment-chain preservation becomes a first-class capability",
+    },
+    "NO_SAFE_BASELINE_FOREACH_INCLUDE_PREDICATE": {
+        "disposition": "defer",
+        "description": "foreach/include predicates move to a future collection-predicate capability track instead of this recovery lane",
+    },
+    "NO_SAFE_BASELINE_GROUP_BY": {
+        "disposition": "freeze",
+        "description": "group-by safe-baseline gaps stay blocked until a dedicated aggregate capability stage exists",
+    },
+}
+
 GENERALIZATION_NOT_TARGET_PATTERN_BY_STATEMENT: dict[str, str] = {
     "demo.order.harness.findOrdersByNos": "PLAIN_FOREACH_INCLUDE_PREDICATE",
     "demo.shipment.harness.findShipmentsByOrderIds": "PLAIN_FOREACH_INCLUDE_PREDICATE",
@@ -100,6 +128,7 @@ RECOVERED_PATCH_FAMILY_BY_STRATEGY = {
 
 SUPPORTED_STATIC_SHAPE_FAMILIES = {
     STATIC_INCLUDE_SHAPE_FAMILY,
+    MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY,
     STATIC_STATEMENT_SHAPE_FAMILY,
     STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY,
     STATIC_ALIAS_PROJECTION_SHAPE_FAMILY,

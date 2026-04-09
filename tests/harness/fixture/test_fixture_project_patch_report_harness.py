@@ -35,11 +35,13 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         scenarios, _proposals, acceptance_rows, patches, report_artifacts = run_fixture_patch_and_report_harness()
         scenario_by_key = {str(row["sqlKey"]): row for row in scenarios}
         expected_batch6_blockers = {
-            "demo.order.harness.listOrdersWithUsersPaged": "VALIDATE_SEMANTIC_ERROR",
-            "demo.shipment.harness.findShipments": "VALIDATE_SEMANTIC_ERROR",
+            "demo.order.harness.listOrdersWithUsersPaged": "SEMANTIC_PREDICATE_CHANGED",
+            "demo.shipment.harness.findShipments": "NO_SAFE_BASELINE_RECOVERY",
             "demo.test.complex.staticSimpleSelect": "NO_SAFE_BASELINE_RECOVERY",
-            "demo.test.complex.inSubquery": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+            "demo.test.complex.inSubquery": "SEMANTIC_PREDICATE_CHANGED",
             "demo.test.complex.includeSimple": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+            "demo.user.advanced.findUsersByKeyword": "NO_SAFE_BASELINE_RECOVERY",
+            "demo.test.complex.multiFragmentLevel1": "NO_SAFE_BASELINE_RECOVERY",
         }
         for sql_key, expected_blocker in expected_batch6_blockers.items():
             self.assertEqual(scenario_by_key[sql_key]["targetPrimaryBlocker"], expected_blocker)

@@ -104,6 +104,48 @@ class GeneralizationRefreshScriptTest(unittest.TestCase):
 
         self.assertEqual(selected, ["generalization-batch6"])
 
+    def test_selected_batches_preserve_batch8_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch8"])
+
+        self.assertEqual(selected, ["generalization-batch8"])
+
+    def test_selected_batches_preserve_batch9_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch9"])
+
+        self.assertEqual(selected, ["generalization-batch9"])
+
+    def test_selected_batches_preserve_batch10_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch10"])
+
+        self.assertEqual(selected, ["generalization-batch10"])
+
+    def test_selected_batches_preserve_batch11_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch11"])
+
+        self.assertEqual(selected, ["generalization-batch11"])
+
+    def test_selected_batches_preserve_batch12_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch12"])
+
+        self.assertEqual(selected, ["generalization-batch12"])
+
+    def test_selected_batches_preserve_batch13_when_requested_explicitly(self) -> None:
+        mod = _load_module()
+
+        selected = mod._selected_batches(["generalization-batch13"])
+
+        self.assertEqual(selected, ["generalization-batch13"])
+
     def test_main_emits_requested_batch_run_ids(self) -> None:
         mod = _load_module()
         calls: list[list[str]] = []

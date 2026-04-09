@@ -36,6 +36,7 @@ from .convergence_registry import (
     HAVING_WRAPPER_SHAPE_FAMILY,
     IN_LIST_SINGLE_VALUE_SHAPE_FAMILY,
     LIMIT_LARGE_SHAPE_FAMILY,
+    MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY,
     NULL_COMPARISON_SHAPE_FAMILY,
     OR_SAME_COLUMN_SHAPE_FAMILY,
     ORDER_BY_CONSTANT_SHAPE_FAMILY,
@@ -178,6 +179,16 @@ def shape_family_for_row(row: dict[str, Any]) -> str:
     return str(profile.get("shapeFamily") or "").strip().upper()
 
 
+def blocker_family_for_row(row: dict[str, Any]) -> str:
+    profile = dynamic_template_profile(row)
+    return str(profile.get("blockerFamily") or "").strip().upper()
+
+
+def capability_tier_for_row(row: dict[str, Any]) -> str:
+    profile = dynamic_template_profile(row)
+    return str(profile.get("capabilityTier") or "").strip().upper()
+
+
 def patch_family_for_row(row: dict[str, Any]) -> str | None:
     profile = dynamic_template_profile(row)
     value = str(profile.get("baselineFamily") or "").strip()
@@ -247,6 +258,14 @@ def validate_status_conflict_reason(rows: list[dict[str, Any]]) -> str:
         feedback = row.get("feedback") or {}
         if isinstance(feedback, dict):
             reason_code = str(feedback.get("reason_code") or "").strip()
+            if reason_code == "VALIDATE_SEMANTIC_ERROR":
+                semantic = row.get("semanticEquivalence") or {}
+                if isinstance(semantic, dict):
+                    semantic_reasons = {
+                        str(code).strip().upper() for code in (semantic.get("reasons") or []) if str(code).strip()
+                    }
+                    if "SEMANTIC_ROW_COUNT_ERROR" in semantic_reasons:
+                        return "VALIDATE_SEMANTIC_ROW_COUNT_ERROR"
             if reason_code:
                 return reason_code
         perf = row.get("perfComparison") or row.get("perf_comparison") or {}
@@ -271,6 +290,7 @@ def statement_key_for_row(row: dict[str, Any]) -> str:
 
 def infer_shape_family_from_sql_unit(sql_unit: dict[str, Any]) -> str:
     dynamic_features = {str(item).strip().upper() for item in (sql_unit.get("dynamicFeatures") or []) if str(item).strip()}
+    include_bindings = [row for row in (sql_unit.get("includeBindings") or []) if isinstance(row, dict)]
     raw_template_sql = str(sql_unit.get("templateSql") or "")
     template_sql = raw_template_sql.lower()
     statement_sql = str(sql_unit.get("sql") or "").strip().upper()
@@ -278,6 +298,10 @@ def infer_shape_family_from_sql_unit(sql_unit: dict[str, Any]) -> str:
     within_where = "WHERE" in dynamic_features or "<where" in template_sql
     conditional_filter = "IF" in dynamic_features or "<if" in template_sql
     choose_filter = is_supported_choose_guarded_filter(sql_unit)
+    if {"FOREACH", "INCLUDE", "WHERE"} <= dynamic_features and dynamic_features & {"IF", "CHOOSE", "TRIM", "BIND"}:
+        return "FOREACH_COLLECTION_PREDICATE"
+    if dynamic_features and dynamic_features <= {"INCLUDE"} and len(include_bindings) > 1:
+        return MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY
     if within_where and conditional_filter:
         if (statement_sql.startswith("SELECT COUNT(") or "COUNT(" in statement_sql) and DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE.match(raw_template_sql.strip()):
             return "IF_GUARDED_COUNT_WRAPPER"
@@ -412,6 +436,8 @@ def target_shape_supported(sql_unit: dict[str, Any], shape_family: str, patch_fa
         return normalized_patch_families == {COUNT_WRAPPER_PATCH_FAMILY}
     if shape_family in SUPPORTED_STATIC_SHAPE_FAMILIES:
         return True
+    if shape_family == "FOREACH_COLLECTION_PREDICATE":
+        return True
     if shape_family == "UNION":
         return False
     if shape_family != TARGET_SHAPE_FAMILY:
@@ -444,7 +470,7 @@ def not_target_boundary_pattern(
     ):
         return "CHOOSE_GUARDED_FILTER_EXTENSION"
 
-    if {"FOREACH", "INCLUDE", "WHERE"} <= dynamic_features:
+    if {"FOREACH", "INCLUDE", "WHERE"} <= dynamic_features and normalized_shape_family != "FOREACH_COLLECTION_PREDICATE":
         return "PLAIN_FOREACH_INCLUDE_PREDICATE"
 
     if normalized_shape_family == "UNKNOWN" and {"INCLUDE", "WHERE"} <= dynamic_features:
@@ -503,8 +529,7 @@ def no_candidate_conflict_reason(proposal: dict[str, Any] | None) -> str:
     final_candidate_count = int(diagnostics.get("finalCandidateCount") or 0)
 
     if (
-        recovery_reason == "NO_SAFE_BASELINE_SHAPE_MATCH"
-        and raw_candidate_count == 0
+        recovery_reason.startswith("NO_SAFE_BASELINE_")
         and accepted_candidate_count == 0
         and final_candidate_count == 0
     ):
@@ -537,8 +562,7 @@ def prefer_no_safe_baseline_recovery_reason(
 ) -> str:
     if current_reason != "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY":
         return current_reason
-    if str(shape_family or "").strip().upper() != TARGET_SHAPE_FAMILY:
-        return current_reason
+    normalized_shape_family = str(shape_family or "").strip().upper()
     diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
     low_value_assessments = diagnostics.get("lowValueAssessments") or []
     assessment_categories = {
@@ -546,6 +570,16 @@ def prefer_no_safe_baseline_recovery_reason(
         for assessment in low_value_assessments
         if isinstance(assessment, dict)
     }
+    if normalized_shape_family == "FOREACH_COLLECTION_PREDICATE":
+        original_sql = str(sql_unit.get("sql") or "").strip()
+        if not original_sql:
+            return current_reason
+        baseline_family = safe_baseline_recovery_family(sql_unit, original_sql)
+        if baseline_family:
+            return current_reason
+        return "NO_SAFE_BASELINE_RECOVERY"
+    if normalized_shape_family != TARGET_SHAPE_FAMILY:
+        return current_reason
     if is_supported_choose_guarded_filter(sql_unit):
         original_sql = str(sql_unit.get("sql") or "").strip()
         if not original_sql:
@@ -563,6 +597,157 @@ def prefer_no_safe_baseline_recovery_reason(
     if baseline_family:
         return current_reason
     return "NO_SAFE_BASELINE_RECOVERY"
+
+
+def clarify_no_safe_baseline_conflict_reason(
+    *,
+    sql_unit: dict[str, Any],
+    shape_family: str | None = None,
+    rows: list[dict[str, Any]] | None = None,
+    proposal: dict[str, Any] | None = None,
+    current_reason: str,
+) -> str:
+    normalized_reason = str(current_reason or "").strip().upper()
+    if normalized_reason == "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER":
+        return "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+    if normalized_reason != "NO_SAFE_BASELINE_RECOVERY":
+        return current_reason
+    dynamic_features = {
+        str(item).strip().upper() for item in (sql_unit.get("dynamicFeatures") or []) if str(item).strip()
+    }
+    diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
+    low_value_assessments = diagnostics.get("lowValueAssessments") or []
+    assessment_categories = {
+        str(assessment.get("category") or "").strip().upper()
+        for assessment in low_value_assessments
+        if isinstance(assessment, dict)
+    }
+    dynamic_shape_families = {shape_family_for_row(row) for row in (rows or [])}
+    dynamic_shape_families.discard("")
+    dynamic_blocker_families = {blocker_family_for_row(row) for row in (rows or [])}
+    dynamic_blocker_families.discard("")
+    normalized_shape_family = str(shape_family or "").strip().upper()
+    raw_rewrite_strategies = {
+        normalize_strategy_name(value)
+        for value in (diagnostics.get("rawRewriteStrategies") or [])
+        if str(value).strip()
+    }
+    if (
+        "FOREACH_COLLECTION_GUARDED_PREDICATE" in dynamic_blocker_families
+        or normalized_shape_family == "FOREACH_COLLECTION_PREDICATE"
+        or "FOREACH_COLLECTION_PREDICATE" in dynamic_shape_families
+    ):
+        return "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE"
+    if {"FOREACH", "INCLUDE", "WHERE"} <= dynamic_features:
+        return "NO_SAFE_BASELINE_FOREACH_INCLUDE_PREDICATE"
+    if str(diagnostics.get("recoveryReason") or "").strip().upper() == "NO_SAFE_BASELINE_GROUP_BY":
+        return "NO_SAFE_BASELINE_GROUP_BY"
+    explicit_recovery_reason = str(diagnostics.get("recoveryReason") or "").strip().upper()
+    if explicit_recovery_reason == "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER":
+        return "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+    if is_supported_choose_guarded_filter(sql_unit) and assessment_categories == {"NO_SAFE_BASELINE_MATCH"}:
+        return "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+    if dynamic_features == {"INCLUDE"} and len(sql_unit.get("includeBindings") or []) > 1:
+        return "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE"
+    if {"INCLUDE", "WHERE", "IF"} <= dynamic_features and raw_rewrite_strategies == {"ADD_LIMIT"}:
+        return "NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY"
+    return current_reason
+
+
+def clarify_unsupported_strategy_conflict_reason(
+    *,
+    proposal: dict[str, Any] | None = None,
+    current_reason: str,
+) -> str:
+    normalized_reason = str(current_reason or "").strip().upper()
+    if normalized_reason != "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY":
+        return current_reason
+
+    diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
+    raw_rewrite_strategies = {
+        normalize_strategy_name(value)
+        for value in (diagnostics.get("rawRewriteStrategies") or [])
+        if str(value).strip()
+    }
+    if not raw_rewrite_strategies:
+        raw_rewrite_strategies = {
+            normalize_strategy_name(
+                str(
+                    ((candidate.get("rewriteFacts") or {}).get("rewriteStrategy"))
+                    or candidate.get("rewriteStrategy")
+                    or candidate.get("strategyType")
+                    or ""
+                )
+            )
+            for candidate in ((proposal or {}).get("llmCandidates") or [])
+            if isinstance(candidate, dict)
+        }
+        raw_rewrite_strategies.discard("")
+
+    in_subquery_strategies = {
+        "IN_TO_EXISTS",
+        "IN_TO_JOIN",
+        "IN_SUBQUERY_TO_EXISTS",
+        "IN_SUBQUERY_TO_JOIN",
+        "SUBQUERY_TO_EXISTS",
+        "SUBQUERY_TO_JOIN",
+        "EXISTS_TRANSFORM",
+        "JOIN_TRANSFORM",
+    }
+    if raw_rewrite_strategies and raw_rewrite_strategies <= in_subquery_strategies:
+        return "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_IN_SUBQUERY_REWRITE"
+    if raw_rewrite_strategies and raw_rewrite_strategies <= {"JOIN_TYPE_CHANGE", "JOIN_TYPE_CONVERSION"}:
+        return "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_JOIN_TYPE_CHANGE"
+    if raw_rewrite_strategies and raw_rewrite_strategies <= {"EXISTS_TO_JOIN", "NULL_CHECK"} and "EXISTS_TO_JOIN" in raw_rewrite_strategies:
+        return "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_EXISTS_NULL_CHECK"
+    return current_reason
+
+
+def clarify_low_value_conflict_reason(
+    *,
+    proposal: dict[str, Any] | None = None,
+    current_reason: str,
+) -> str:
+    normalized_reason = str(current_reason or "").strip().upper()
+    if normalized_reason != "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY":
+        return current_reason
+    diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
+    low_value_assessments = diagnostics.get("lowValueAssessments") or []
+    assessment_categories = {
+        str(assessment.get("category") or "").strip().upper()
+        for assessment in low_value_assessments
+        if isinstance(assessment, dict)
+    }
+    if assessment_categories == {"CANONICAL_NOOP_HINT"}:
+        return "NO_PATCHABLE_CANDIDATE_CANONICAL_NOOP_HINT"
+    return current_reason
+
+
+def review_only_conflict_reason(
+    *,
+    sql_unit: dict[str, Any],
+    shape_family: str,
+    rows: list[dict[str, Any]],
+) -> str | None:
+    dynamic_shape_families = {shape_family_for_row(row) for row in rows}
+    dynamic_shape_families.discard("")
+    blocker_families = {blocker_family_for_row(row) for row in rows}
+    blocker_families.discard("")
+    capability_tiers = {capability_tier_for_row(row) for row in rows}
+    capability_tiers.discard("")
+    normalized_shape_family = str(shape_family or "").strip().upper()
+
+    if (
+        normalized_shape_family == MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY
+        or MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY in dynamic_shape_families
+        or "MULTI_FRAGMENT_INCLUDE_REVIEW_ONLY" in blocker_families
+    ):
+        return "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE"
+
+    if "REVIEW_REQUIRED" in capability_tiers and normalized_shape_family == "FOREACH_COLLECTION_PREDICATE":
+        return "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE"
+
+    return None
 
 
 def build_statement_convergence_row(
@@ -647,6 +832,13 @@ def build_statement_convergence_row(
             proposal=proposal,
             current_reason=no_candidate_conflict_reason(proposal),
         )
+        conflict_reason = clarify_no_safe_baseline_conflict_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            rows=rows,
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
     elif not target_shape_supported(sql_unit, shape_family, patch_families):
         decision = "MANUAL_REVIEW"
         conflict_reason = "SHAPE_FAMILY_NOT_TARGET"
@@ -664,6 +856,21 @@ def build_statement_convergence_row(
             proposal=proposal,
             current_reason=no_candidate_conflict_reason(proposal),
         )
+        conflict_reason = clarify_no_safe_baseline_conflict_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            rows=rows,
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
+        conflict_reason = clarify_low_value_conflict_reason(
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
+        conflict_reason = clarify_unsupported_strategy_conflict_reason(
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
         if conflict_reason == "NO_PATCHABLE_CANDIDATE_SELECTED":
             conflict_reason = "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
     elif not selected_candidate_ids and not patch_families:
@@ -674,9 +881,27 @@ def build_statement_convergence_row(
             proposal=proposal,
             current_reason=no_candidate_conflict_reason(proposal),
         )
+        conflict_reason = clarify_no_safe_baseline_conflict_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            rows=rows,
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
+        conflict_reason = clarify_low_value_conflict_reason(
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
+        conflict_reason = clarify_unsupported_strategy_conflict_reason(
+            proposal=proposal,
+            current_reason=conflict_reason,
+        )
     elif selected_candidate_ids and not patch_families:
         decision = "MANUAL_REVIEW"
-        conflict_reason = "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
+        conflict_reason = clarify_unsupported_strategy_conflict_reason(
+            proposal=proposal,
+            current_reason="NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY",
+        )
     elif len(patch_families) != 1:
         decision = "MANUAL_REVIEW"
         conflict_reason = "PATCH_FAMILY_CONFLICT_OR_MISSING"
@@ -689,6 +914,13 @@ def build_statement_convergence_row(
     elif any(statement_sql_key in SEMANTIC_RISK_TAIL_SQL_KEY_SET for statement_sql_key in sql_keys):
         decision = "MANUAL_REVIEW"
         conflict_reason = "SEMANTIC_RISK_TAIL_BLOCKED"
+    elif review_only_reason := review_only_conflict_reason(
+        sql_unit=sql_unit,
+        shape_family=shape_family,
+        rows=rows,
+    ):
+        decision = "MANUAL_REVIEW"
+        conflict_reason = review_only_reason
     else:
         consensus = {
             "patchFamily": next(iter(patch_families), None),

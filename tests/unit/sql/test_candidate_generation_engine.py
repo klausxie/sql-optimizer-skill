@@ -470,7 +470,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
 
     def test_prunes_speculative_limit_addition_for_static_include_statement(self) -> None:
         original_sql = "SELECT id, name, email, status FROM users"
@@ -498,7 +498,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
 
     def test_prunes_in_subquery_wording_drift_variants_without_safe_baseline(self) -> None:
         original_sql = "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')"
@@ -563,6 +563,48 @@ class CandidateGenerationEngineTest(unittest.TestCase):
                     "INNER JOIN orders o ON u.id = o.user_id WHERE o.status = 'active'"
                 ),
                 "rewriteStrategy": "in_subquery_to_join",
+            },
+        ]
+
+        outcome = evaluate_candidate_generation(
+            sql_key="demo.test.complex.inSubquery",
+            original_sql=original_sql,
+            sql_unit={
+                "sqlKey": "demo.test.complex.inSubquery",
+                "sql": original_sql,
+                "dynamicFeatures": [],
+                "dynamicTrace": {"statementFeatures": []},
+            },
+            raw_candidates=candidates,
+            valid_candidates=candidates,
+            trace={},
+        )
+
+        self.assertEqual(len(outcome.accepted_candidates), 0)
+        self.assertEqual(len(outcome.recovery_candidates), 0)
+        self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY")
+
+    def test_prunes_subquery_to_exists_and_join_wording_without_safe_baseline(self) -> None:
+        original_sql = "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')"
+        candidates = [
+            {
+                "id": "opt-001",
+                "source": "llm",
+                "rewrittenSql": (
+                    "SELECT u.id, u.name FROM users u "
+                    "WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.status = 'active')"
+                ),
+                "rewriteStrategy": "subquery_to_exists",
+            },
+            {
+                "id": "opt-002",
+                "source": "llm",
+                "rewrittenSql": (
+                    "SELECT DISTINCT u.id, u.name FROM users u "
+                    "INNER JOIN orders o ON u.id = o.user_id WHERE o.status = 'active'"
+                ),
+                "rewriteStrategy": "subquery_to_join",
             },
         ]
 
@@ -771,7 +813,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
         self.assertEqual(
             [
                 (assessment.candidate_id, assessment.category, assessment.reason)

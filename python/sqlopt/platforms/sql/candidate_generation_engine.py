@@ -916,10 +916,22 @@ def evaluate_candidate_generation(
         pure_unsupported_strategy_pool = bool(low_value_assessments) and all(
             assessment.category == "UNSUPPORTED_STRATEGY" for assessment in low_value_assessments
         )
+        choose_guarded_pool_without_safe_path = (
+            is_supported_choose_guarded_filter(context.sql_unit)
+            and bool(low_value_assessments)
+            and any(
+                assessment.category in {"SEMANTIC_RISK_REWRITE", "NO_SAFE_BASELINE_MATCH"}
+                for assessment in low_value_assessments
+            )
+        )
         diagnostics.recovery_reason = (
             "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
             if pure_unsupported_strategy_pool
-            else "LOW_VALUE_PRUNED_TO_EMPTY"
+            else (
+                "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+                if choose_guarded_pool_without_safe_path
+                else "LOW_VALUE_PRUNED_TO_EMPTY"
+            )
         )
     elif degraded_kind == "EMPTY_CANDIDATES":
         trace_degrade_reason = str(trace.get("degrade_reason") or "").strip().upper()

@@ -17,6 +17,8 @@ from sqlopt.devtools.run_progress_summary import (  # noqa: E402
 )
 from sqlopt.devtools.generalization_blocker_inventory import (  # noqa: E402
     BLOCKED_BOUNDARY_SQL_KEYS,
+    POST_BATCH9_SENTINELS,
+    POST_BATCH8_SENTINELS,
     READY_SENTINEL_SQL_KEYS,
     POST_BATCH7_SENTINELS,
 )
@@ -100,6 +102,7 @@ def _decision_focus(blocker_bucket_counts: dict[str, int]) -> str:
 def _recommended_next_step(decision_focus: str) -> str:
     mapping = {
         "NO_PATCHABLE_CANDIDATE_SELECTED": "fix_shared_candidate_selection_gaps",
+        "NO_SAFE_BASELINE_RECOVERY": "clarify_safe_baseline_recovery_paths",
         "SEMANTIC_GATE_NOT_PASS": "fix_semantic_comparison_weaknesses",
         "VALIDATE_STATUS_NOT_PASS": "fix_validation_status_propagation",
         "SHAPE_FAMILY_NOT_TARGET": "curate_family_boundary_candidates",
@@ -143,6 +146,16 @@ def _batch_observability_payload(batch_name: str, rows, blocker_bucket_counts: d
         payload["post_batch7_sentinels"] = {
             group_name: list(sql_keys)
             for group_name, sql_keys in POST_BATCH7_SENTINELS.items()
+        }
+    if batch_name == "generalization-batch8":
+        payload["post_batch8_sentinels"] = {
+            group_name: list(sql_keys)
+            for group_name, sql_keys in POST_BATCH8_SENTINELS.items()
+        }
+    if batch_name == "generalization-batch9":
+        payload["post_batch9_sentinels"] = {
+            group_name: list(sql_keys)
+            for group_name, sql_keys in POST_BATCH9_SENTINELS.items()
         }
     return payload
 
@@ -225,6 +238,10 @@ def main() -> None:
         print(f"recommended_next_step={batch['recommended_next_step']}")
         if "post_batch7_sentinels" in batch:
             print(f"post_batch7_sentinels={batch['post_batch7_sentinels']}")
+        if "post_batch8_sentinels" in batch:
+            print(f"post_batch8_sentinels={batch['post_batch8_sentinels']}")
+        if "post_batch9_sentinels" in batch:
+            print(f"post_batch9_sentinels={batch['post_batch9_sentinels']}")
         top_conflicts = ",".join(
             f"{reason}:{count}"
             for reason, count in list(batch["conflict_reason_counts"].items())[: max(int(args.top), 0)]

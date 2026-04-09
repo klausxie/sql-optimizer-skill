@@ -274,6 +274,68 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertFalse(result["equivalenceOverrideApplied"])
         self.assertNotEqual(result["checks"]["predicate"].get("reasonCode"), "SEMANTIC_PREDICATE_EXISTS_TO_IN_EQUIVALENT")
 
+    def test_exists_with_redundant_not_null_on_id_is_treated_as_db_equivalent_with_exact_fingerprint(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            """,
+            rewritten_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+                  AND u.id IS NOT NULL
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(
+            result["equivalenceOverrideRule"],
+            "SEMANTIC_DB_EQUIVALENCE_REDUNDANT_ID_NOT_NULL_CONJUNCT",
+        )
+        self.assertEqual(
+            result["checks"]["predicate"]["reasonCode"],
+            "SEMANTIC_PREDICATE_REDUNDANT_ID_NOT_NULL_EQUIVALENT",
+        )
+
+    def test_exists_with_redundant_not_null_on_non_id_column_is_not_auto_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            """,
+            rewritten_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+                  AND u.name IS NOT NULL
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertNotEqual(result["status"], "PASS")
+        self.assertFalse(result["equivalenceOverrideApplied"])
+        self.assertNotEqual(
+            result["checks"]["predicate"].get("reasonCode"),
+            "SEMANTIC_PREDICATE_REDUNDANT_ID_NOT_NULL_EQUIVALENT",
+        )
+
     def test_select_star_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
         result = build_semantic_equivalence(
             original_sql="""
@@ -488,6 +550,32 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertEqual(result["checks"]["dmlSet"]["reasonCode"], "SEMANTIC_DML_SET_STABLE")
         self.assertIn("SEMANTIC_DML_NOOP_STABLE", result["reasons"])
         self.assertEqual(result["confidence"], "MEDIUM")
+
+    def test_top_level_predicate_conjunct_removal_stays_blocked_but_gets_specific_reason(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT o.id, o.order_no, u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) "
+                "AND o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            rewritten_sql=(
+                "SELECT o.id, o.order_no, u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "UNCERTAIN")
+        self.assertEqual(result["checks"]["predicate"]["reasonCode"], "SEMANTIC_PREDICATE_CONJUNCT_REMOVED")
+        self.assertIn("SEMANTIC_PREDICATE_CONJUNCT_REMOVED", result["reasons"])
 
     def test_update_set_change_remains_uncertain(self) -> None:
         result = build_semantic_equivalence(
