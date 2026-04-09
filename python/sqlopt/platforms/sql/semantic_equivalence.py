@@ -85,6 +85,10 @@ _NULL_IS_COMPARISON_RE = re.compile(
     r"^(?P<column>[a-z_][a-z0-9_\.]*)\s+is\s+(?P<neg>not\s+)?null$",
     flags=re.IGNORECASE,
 )
+_REDUNDANT_ID_NOT_NULL_CONJUNCT_RE = re.compile(
+    r"^(?:[a-z_][a-z0-9_]*\.)?id\s+is\s+not\s+null$",
+    flags=re.IGNORECASE,
+)
 _DISTINCT_ON_EQUIVALENT_RE = re.compile(
     r"^distinct\s+on\s*\((?P<on>[^)]+)\)\s+(?P<select>.+)$",
     flags=re.IGNORECASE | re.DOTALL,
@@ -557,6 +561,26 @@ def _is_null_comparison_equivalent(before: str | None, after: str | None) -> boo
     return (before_op == "=" and not after_is_not) or (before_op in {"!=", "<>"} and after_is_not)
 
 
+def _is_redundant_id_not_null_conjunct_equivalent(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    normalized_before = _normalize_sql(before)
+    normalized_after = _normalize_sql(after)
+    if "exists" not in normalized_before or "select" not in normalized_before:
+        return False
+
+    extra_conjunct: str | None = None
+    prefix = f"{normalized_before} and "
+    suffix = f" and {normalized_before}"
+    if normalized_after.startswith(prefix):
+        extra_conjunct = normalized_after[len(prefix) :].strip()
+    elif normalized_after.endswith(suffix):
+        extra_conjunct = normalized_after[: -len(suffix)].strip()
+    if not extra_conjunct:
+        return False
+    return _REDUNDANT_ID_NOT_NULL_CONJUNCT_RE.fullmatch(extra_conjunct) is not None
+
+
 def _is_distinct_on_equivalent(before: str | None, after: str | None, ordering_before: str | None, ordering_after: str | None) -> bool:
     if before is None or after is None:
         return False
@@ -616,6 +640,28 @@ def _is_top_level_and_order_equivalent(before: str | None, after: str | None) ->
     before_segments = _split_top_level_and_conjuncts(before)
     after_segments = _split_top_level_and_conjuncts(after)
     return before_segments is not None and before_segments == after_segments
+
+
+def _is_top_level_and_conjunct_removed(before: str | None, after: str | None) -> bool:
+    if before is None or after is None:
+        return False
+    before_segments = _split_top_level_and_conjuncts(before)
+    after_segments = _split_top_level_and_conjuncts(after)
+    if before_segments is None:
+        return False
+    if after_segments is None:
+        normalized_after = _normalize_sql(after)
+        if not normalized_after or re.search(r"\b(?:or|exists|select|join)\b", normalized_after, flags=re.IGNORECASE):
+            return False
+        after_segments = (normalized_after,)
+    if len(before_segments) != len(after_segments) + 1:
+        return False
+
+    after_index = 0
+    for segment in before_segments:
+        if after_index < len(after_segments) and segment == after_segments[after_index]:
+            after_index += 1
+    return after_index == len(after_segments)
 
 
 def _extract_order_by_clause(sql: str) -> str | None:
@@ -1145,6 +1191,24 @@ def build_semantic_equivalence(
 
     if (
         status == "UNCERTAIN"
+        and only_predicate_uncertain
+        and _is_top_level_and_conjunct_removed(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and not hard_conflicts
+    ):
+        checks["predicate"] = _build_check(
+            status="UNCERTAIN",
+            reason_code="SEMANTIC_PREDICATE_CONJUNCT_REMOVED",
+            detail="predicate removes one top-level AND conjunct and requires manual review",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [code for code in reasons if code != "SEMANTIC_PREDICATE_CHANGED"]
+        reasons.append("SEMANTIC_PREDICATE_CONJUNCT_REMOVED")
+
+    if (
+        status == "UNCERTAIN"
         and _is_clause_qualifier_only_equivalent(ordering_before, ordering_after)
         and only_ordering_uncertain
         and row_count_status == "MATCH"
@@ -1496,6 +1560,40 @@ def build_semantic_equivalence(
             status="PASS",
             reason_code="SEMANTIC_PREDICATE_NULL_COMPARISON_EQUIVALENT",
             detail="predicate only normalizes NULL comparison with exact DB fingerprint evidence",
+            before=predicate_before,
+            after=predicate_after,
+        )
+        reasons = [
+            code
+            for code in reasons
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        hard_conflicts = [
+            code
+            for code in hard_conflicts
+            if code not in {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        ]
+        reasons.append(equivalence_override_rule)
+
+    if (
+        status in {"FAIL", "UNCERTAIN"}
+        and _is_redundant_id_not_null_conjunct_equivalent(predicate_before, predicate_after)
+        and row_count_status == "MATCH"
+        and fingerprint_strength == "EXACT"
+        and set(code for code in hard_conflicts if code) <= {"SEMANTIC_PREDICATE_CHANGED", "SEMANTIC_PREDICATE_ADDED_OR_REMOVED"}
+        and all(
+            str((check or {}).get("status") or "").upper() == "PASS"
+            for name, check in checks.items()
+            if name != "predicate"
+        )
+    ):
+        equivalence_override_applied = True
+        equivalence_override_rule = "SEMANTIC_DB_EQUIVALENCE_REDUNDANT_ID_NOT_NULL_CONJUNCT"
+        status = "PASS"
+        checks["predicate"] = _build_check(
+            status="PASS",
+            reason_code="SEMANTIC_PREDICATE_REDUNDANT_ID_NOT_NULL_EQUIVALENT",
+            detail="predicate only adds a redundant id IS NOT NULL conjunct with exact DB fingerprint evidence",
             before=predicate_before,
             after=predicate_after,
         )

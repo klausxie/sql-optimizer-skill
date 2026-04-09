@@ -112,6 +112,48 @@ GENERALIZATION_BATCH7_SQL_KEYS = (
     "demo.test.complex.chooseMultipleWhen",
     "demo.user.advanced.findUsersByKeyword",
 )
+GENERALIZATION_BATCH8_SQL_KEYS = (
+    "demo.user.advanced.findUsersByKeyword",
+    "demo.shipment.harness.findShipments",
+    "demo.order.harness.listOrdersWithUsersPaged",
+    "demo.test.complex.inSubquery",
+    "demo.test.complex.multiFragmentLevel1",
+)
+GENERALIZATION_BATCH9_SQL_KEYS = (
+    "demo.user.advanced.findUsersByKeyword",
+    "demo.shipment.harness.findShipments",
+    "demo.test.complex.multiFragmentLevel1",
+    "demo.order.harness.findOrdersByUserIdsAndStatus",
+    "demo.order.harness.listOrdersWithUsersPaged",
+)
+GENERALIZATION_BATCH10_SQL_KEYS = (
+    "demo.order.harness.listOrdersWithUsersPaged",
+    "demo.test.complex.existsSubquery",
+    "demo.test.complex.leftJoinWithNull",
+    "demo.test.complex.staticGroupBy",
+    "demo.test.complex.includeWithWhere",
+)
+GENERALIZATION_BATCH11_SQL_KEYS = (
+    "demo.test.complex.fragmentInJoin",
+    "demo.test.complex.staticSimpleSelect",
+    "demo.test.complex.includeNested",
+    "demo.order.harness.listOrdersWithUsersPaged",
+    "demo.test.complex.existsSubquery",
+)
+GENERALIZATION_BATCH12_SQL_KEYS = (
+    "demo.test.complex.staticSimpleSelect",
+    "demo.test.complex.existsSubquery",
+    "demo.test.complex.inSubquery",
+    "demo.test.complex.leftJoinWithNull",
+    "demo.order.harness.listOrdersWithUsersPaged",
+)
+GENERALIZATION_BATCH13_SQL_KEYS = (
+    "demo.user.advanced.findUsersByKeyword",
+    "demo.shipment.harness.findShipments",
+    "demo.test.complex.multiFragmentLevel1",
+    "demo.test.complex.includeNested",
+    "demo.order.harness.listOrdersWithUsersPaged",
+)
 
 GENERALIZATION_BATCH_SCOPE_SQL_KEYS = {
     "generalization-batch1": GENERALIZATION_BATCH1_SQL_KEYS,
@@ -121,6 +163,12 @@ GENERALIZATION_BATCH_SCOPE_SQL_KEYS = {
     "generalization-batch5": GENERALIZATION_BATCH5_SQL_KEYS,
     "generalization-batch6": GENERALIZATION_BATCH6_SQL_KEYS,
     "generalization-batch7": GENERALIZATION_BATCH7_SQL_KEYS,
+    "generalization-batch8": GENERALIZATION_BATCH8_SQL_KEYS,
+    "generalization-batch9": GENERALIZATION_BATCH9_SQL_KEYS,
+    "generalization-batch10": GENERALIZATION_BATCH10_SQL_KEYS,
+    "generalization-batch11": GENERALIZATION_BATCH11_SQL_KEYS,
+    "generalization-batch12": GENERALIZATION_BATCH12_SQL_KEYS,
+    "generalization-batch13": GENERALIZATION_BATCH13_SQL_KEYS,
 }
 
 FAMILY_SCOPE_SQL_KEYS = {

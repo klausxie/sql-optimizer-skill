@@ -9,6 +9,7 @@ from .harness.runtime import load_run_artifacts
 
 BLOCKER_BUCKETS = (
     "NO_PATCHABLE_CANDIDATE_SELECTED",
+    "NO_SAFE_BASELINE_RECOVERY",
     "SEMANTIC_GATE_NOT_PASS",
     "VALIDATE_STATUS_NOT_PASS",
     "SHAPE_FAMILY_NOT_TARGET",
@@ -42,8 +43,10 @@ def _normalize_statement_keys(statement_keys: Iterable[str] | None) -> set[str]:
 
 def normalize_blocker_bucket(reason: str | None) -> str:
     normalized = str(reason or "").strip().upper()
-    if normalized.startswith("NO_PATCHABLE_CANDIDATE") or normalized == "NO_SAFE_BASELINE_RECOVERY":
+    if normalized.startswith("NO_PATCHABLE_CANDIDATE"):
         return "NO_PATCHABLE_CANDIDATE_SELECTED"
+    if normalized.startswith("NO_SAFE_BASELINE_"):
+        return "NO_SAFE_BASELINE_RECOVERY"
     if normalized.startswith("SEMANTIC_"):
         return "SEMANTIC_GATE_NOT_PASS"
     if normalized.startswith("VALIDATE_"):

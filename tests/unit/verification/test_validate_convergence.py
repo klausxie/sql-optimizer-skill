@@ -7,6 +7,7 @@ from sqlopt.devtools.sample_project_family_scopes import (
     GENERALIZATION_BATCH6_SQL_KEYS,
 )
 from sqlopt.stages.convergence_registry import (
+    SAFE_BASELINE_SUBTYPE_POLICIES,
     SEMANTIC_RISK_TAIL_SQL_KEYS,
     UNSUPPORTED_STRATEGY_TAIL_SQL_KEYS,
 )
@@ -24,6 +25,7 @@ from sqlopt.stages.validate_convergence import (
     GROUP_BY_WRAPPER_PATCH_FAMILY,
     IN_LIST_SINGLE_VALUE_SHAPE_FAMILY,
     LIMIT_LARGE_SHAPE_FAMILY,
+    MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY,
     NULL_COMPARISON_SHAPE_FAMILY,
     OR_SAME_COLUMN_SHAPE_FAMILY,
     ORDER_BY_CONSTANT_SHAPE_FAMILY,
@@ -159,6 +161,23 @@ def test_no_candidate_conflict_reason_distinguishes_missing_safe_baseline() -> N
     )
 
 
+def test_no_candidate_conflict_reason_distinguishes_group_by_safe_baseline() -> None:
+    assert (
+        no_candidate_conflict_reason(
+            {
+                "candidateGenerationDiagnostics": {
+                    "degradationKind": "EMPTY_CANDIDATES",
+                    "recoveryReason": "NO_SAFE_BASELINE_GROUP_BY",
+                    "rawCandidateCount": 0,
+                    "acceptedCandidateCount": 0,
+                    "finalCandidateCount": 0,
+                }
+            }
+        )
+        == "NO_SAFE_BASELINE_RECOVERY"
+    )
+
+
 def test_no_candidate_conflict_reason_distinguishes_low_value_only_candidates() -> None:
     assert (
         no_candidate_conflict_reason(
@@ -193,12 +212,156 @@ def test_no_candidate_conflict_reason_preserves_explicit_unsupported_strategy_ta
     )
 
 
+def test_build_statement_convergence_row_clarifies_canonical_noop_low_value_tail() -> None:
+    sql_unit, rows, proposal = _batch6_row(
+        sql_key="demo.test.complex.staticSimpleSelect",
+        sql="SELECT id, name FROM users",
+        template_sql="SELECT id, name FROM users",
+    )
+    proposal.update(
+        {
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "LOW_VALUE_PRUNED_TO_EMPTY",
+                "rawCandidateCount": 1,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "lowValueAssessments": [
+                    {
+                        "candidateId": "covering_index_1",
+                        "category": "CANONICAL_NOOP_HINT",
+                    }
+                ],
+            }
+        }
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.staticSimpleSelect",
+        rows=rows,
+        sql_key="demo.test.complex.staticSimpleSelect",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_staticSimpleSelect/index.json"),
+        sql_unit=sql_unit,
+        proposal=proposal,
+    )
+
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_CANONICAL_NOOP_HINT"
+
+
 def test_convergence_registry_keeps_semantic_and_unsupported_tails_explicit() -> None:
     assert "demo.test.complex.existsSubquery" in SEMANTIC_RISK_TAIL_SQL_KEYS
     assert "demo.test.complex.leftJoinWithNull" in SEMANTIC_RISK_TAIL_SQL_KEYS
     assert "demo.test.complex.fragmentMultiplePlaces" in SEMANTIC_RISK_TAIL_SQL_KEYS
     assert "demo.test.complex.chooseBasic" in SEMANTIC_RISK_TAIL_SQL_KEYS
     assert "demo.test.complex.chooseWithLimit" in UNSUPPORTED_STRATEGY_TAIL_SQL_KEYS
+
+
+def test_safe_baseline_subtype_policies_freeze_and_defer_current_lanes() -> None:
+    expected_dispositions = {
+        "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER": "defer",
+        "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE": "defer",
+        "NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY": "freeze",
+        "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE": "freeze",
+        "NO_SAFE_BASELINE_FOREACH_INCLUDE_PREDICATE": "defer",
+        "NO_SAFE_BASELINE_GROUP_BY": "freeze",
+    }
+    assert {
+        key: str((policy or {}).get("disposition") or "")
+        for key, policy in SAFE_BASELINE_SUBTYPE_POLICIES.items()
+    } == expected_dispositions
+
+
+def test_choose_capability_guardrail_truth_stays_split_between_primary_and_non_goals() -> None:
+    primary_row = build_statement_convergence_row(
+        statement_key_value="demo.user.advanced.findUsersByKeyword",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.user.advanced.findUsersByKeyword",
+                statementKey="demo.user.advanced.findUsersByKeyword",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.user.advanced.findUsersByKeyword",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_user_advanced_findUsersByKeyword/index.json"),
+        sql_unit=_sql_unit(
+            sqlKey="demo.user.advanced.findUsersByKeyword",
+            statementKey="demo.user.advanced.findUsersByKeyword",
+            sql="SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY created_at DESC",
+            templateSql=(
+                "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+                "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users <where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+                "<when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where> ORDER BY created_at DESC"
+            ),
+            dynamicFeatures=["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+        ),
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER",
+                "rawCandidateCount": 3,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "lowValueAssessments": [
+                    {"candidateId": "opt-001", "category": "SEMANTIC_RISK_REWRITE"},
+                    {"candidateId": "opt-002", "category": "NO_SAFE_BASELINE_MATCH"},
+                    {"candidateId": "opt-003", "category": "UNSUPPORTED_STRATEGY"},
+                ],
+            },
+        },
+    )
+
+    choose_basic_sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.chooseBasic",
+        statementKey="demo.test.complex.chooseBasic",
+        sql="SELECT id, name, status FROM users WHERE status = 'active'",
+        templateSql=(
+            "SELECT id, name, status FROM users <choose>"
+            "<when test=\"type == 'active'\">WHERE status = 'active'</when>"
+            "<when test=\"type == 'inactive'\">WHERE status = 'inactive'</when>"
+            "<otherwise>WHERE 1=1</otherwise>"
+            "</choose>"
+        ),
+        dynamicFeatures=["CHOOSE"],
+    )
+
+    choose_limit_sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.chooseWithLimit",
+        statementKey="demo.test.complex.chooseWithLimit",
+        sql="SELECT id, name FROM users WHERE status = 'active' LIMIT #{limit}",
+        templateSql=(
+            "SELECT id, name FROM users <choose>"
+            "<when test=\"statusFilter == 'active'\">WHERE status = 'active'</when>"
+            "<when test=\"statusFilter == 'pending'\">WHERE status = 'pending'</when>"
+            "<otherwise>WHERE 1=1</otherwise>"
+            "</choose> <if test=\"limit != null\">LIMIT #{limit}</if>"
+        ),
+        dynamicFeatures=["CHOOSE", "IF"],
+    )
+
+    assert primary_row["conflictReason"] == "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+    assert (
+        not_target_boundary_pattern(
+            "demo.test.complex.chooseBasic",
+            choose_basic_sql_unit,
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        == "CHOOSE_GUARDED_FILTER_EXTENSION"
+    )
+    assert (
+        not_target_boundary_pattern(
+            "demo.test.complex.chooseWithLimit",
+            choose_limit_sql_unit,
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        == "CHOOSE_GUARDED_FILTER_EXTENSION"
+    )
 
 
 def test_build_statement_convergence_row_labels_selected_but_unsupported_strategy_as_no_candidate() -> None:
@@ -230,7 +393,74 @@ def test_build_statement_convergence_row_labels_selected_but_unsupported_strateg
 
     assert row["shapeFamily"] == "STATIC_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
-    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_JOIN_TYPE_CHANGE"
+
+
+def test_build_statement_convergence_row_clarifies_unsupported_in_subquery_rewrite() -> None:
+    sql_unit, rows, proposal = _batch6_row(
+        sql_key="demo.test.complex.inSubquery",
+        sql="SELECT u.id FROM users u WHERE u.id IN (SELECT o.user_id FROM orders o WHERE o.status = 'active')",
+        template_sql="SELECT u.id FROM users u WHERE u.id IN (SELECT o.user_id FROM orders o WHERE o.status = 'active')",
+    )
+    proposal.update(
+        {
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY",
+                "rawCandidateCount": 2,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "rawRewriteStrategies": ["subquery_to_exists", "subquery_to_join"],
+            }
+        }
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.inSubquery",
+        rows=rows,
+        sql_key="demo.test.complex.inSubquery",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_inSubquery/index.json"),
+        sql_unit=sql_unit,
+        proposal=proposal,
+    )
+
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_IN_SUBQUERY_REWRITE"
+
+
+def test_build_statement_convergence_row_clarifies_exists_null_check_tail() -> None:
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.existsSubquery",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.test.complex.existsSubquery",
+                statementKey="demo.test.complex.existsSubquery",
+                selectedCandidateId="opt-2",
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.test.complex.existsSubquery",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_existsSubquery/index.json"),
+        sql_unit=_sql_unit(
+            sqlKey="demo.test.complex.existsSubquery",
+            statementKey="demo.test.complex.existsSubquery",
+            sql="SELECT id, name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+            templateSql="SELECT id, name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+        ),
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "rawRewriteStrategies": ["EXISTS_TO_JOIN", "NULL_CHECK"],
+            },
+            "llmCandidates": [
+                {"id": "opt-1", "rewriteStrategy": "EXISTS_TO_JOIN"},
+                {"id": "opt-2", "rewriteStrategy": "NULL_CHECK"},
+            ],
+        },
+    )
+
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_EXISTS_NULL_CHECK"
 
 
 def test_validate_status_conflict_reason_prefers_specific_validate_feedback_reason() -> None:
@@ -245,6 +475,27 @@ def test_validate_status_conflict_reason_prefers_specific_validate_feedback_reas
     )
 
     assert reason == "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION"
+
+
+def test_validate_status_conflict_reason_clarifies_row_count_semantic_error() -> None:
+    reason = validate_status_conflict_reason(
+        [
+            {
+                "status": "NEED_MORE_PARAMS",
+                "feedback": {"reason_code": "VALIDATE_SEMANTIC_ERROR"},
+                "semanticEquivalence": {
+                    "status": "UNCERTAIN",
+                    "reasons": [
+                        "SEMANTIC_PREDICATE_STABLE",
+                        "SEMANTIC_PROJECTION_STABLE",
+                        "SEMANTIC_ROW_COUNT_ERROR",
+                    ],
+                },
+            }
+        ]
+    )
+
+    assert reason == "VALIDATE_SEMANTIC_ROW_COUNT_ERROR"
 
 
 def test_semantic_conflict_reason_prefers_specific_semantic_check_reason() -> None:
@@ -265,6 +516,26 @@ def test_semantic_conflict_reason_prefers_specific_semantic_check_reason() -> No
     )
 
     assert reason == "SEMANTIC_PREDICATE_CHANGED"
+
+
+def test_semantic_conflict_reason_prefers_predicate_conjunct_removed_reason() -> None:
+    reason = semantic_conflict_reason(
+        [
+            {
+                "semanticEquivalence": {
+                    "status": "UNCERTAIN",
+                    "checks": {
+                        "predicate": {"status": "UNCERTAIN", "reasonCode": "SEMANTIC_PREDICATE_CONJUNCT_REMOVED"},
+                        "projection": {"status": "PASS", "reasonCode": "SEMANTIC_PROJECTION_STABLE"},
+                    },
+                    "reasons": ["SEMANTIC_PREDICATE_CONJUNCT_REMOVED", "SEMANTIC_PROJECTION_STABLE"],
+                    "hardConflicts": [],
+                }
+            }
+        ]
+    )
+
+    assert reason == "SEMANTIC_PREDICATE_CONJUNCT_REMOVED"
 
 
 def test_semantic_conflict_reason_preserves_and_order_equivalent_reason() -> None:
@@ -1081,7 +1352,7 @@ def test_build_statement_convergence_row_reports_low_value_only_for_supported_ch
         },
     )
 
-    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
+    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
     assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
 
@@ -1138,7 +1409,7 @@ def test_build_statement_convergence_row_keeps_low_value_blocker_for_mixed_choos
         },
     )
 
-    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
+    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
     assert row["conflictReason"] == "NO_SAFE_BASELINE_RECOVERY"
 
@@ -1192,6 +1463,344 @@ def test_build_statement_convergence_row_keeps_choose_filter_low_value_only_with
     assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
     assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
+
+
+def test_build_statement_convergence_row_clarifies_foreach_include_safe_baseline_gap() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+        statementKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+        sql=(
+            "SELECT id, user_id, order_no, amount, status, created_at "
+            "FROM orders WHERE user_id IN (#{userId}) AND status = #{status}"
+        ),
+        templateSql=(
+            "SELECT <include refid=\"OrderColumns\" /> FROM orders <where>"
+            "<foreach collection=\"userIds\" item=\"userId\" open=\"user_id IN (\" separator=\",\" close=\")\">"
+            "#{userId}</foreach>"
+            "<if test=\"status != null and status != ''\">AND status = #{status}</if>"
+            "</where>"
+        ),
+        dynamicFeatures=["INCLUDE", "WHERE", "FOREACH", "IF"],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.order.harness.findOrdersByUserIdsAndStatus",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+                statementKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.order.harness.findOrdersByUserIdsAndStatus",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_order_harness_findOrdersByUserIdsAndStatus/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "LOW_VALUE_PRUNED_TO_EMPTY",
+                "rawCandidateCount": 2,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "lowValueAssessments": [
+                    {"candidateId": "opt-001", "category": "NO_SAFE_BASELINE_MATCH"},
+                    {"candidateId": "opt-002", "category": "SEMANTIC_RISK_REWRITE"},
+                ],
+            },
+        },
+    )
+
+    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE"
+
+
+def test_build_statement_convergence_row_clarifies_choose_guarded_safe_baseline_gap() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.user.advanced.findUsersByKeyword",
+        statementKey="demo.user.advanced.findUsersByKeyword",
+        sql="SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY created_at DESC",
+        templateSql=(
+            "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+            "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users <where><choose>"
+            "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+            "<when test=\"status != null and status != ''\">status = #{status}</when>"
+            "<otherwise>status != 'DELETED'</otherwise>"
+            "</choose></where> ORDER BY created_at DESC"
+        ),
+        dynamicFeatures=["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.user.advanced.findUsersByKeyword",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.user.advanced.findUsersByKeyword",
+                statementKey="demo.user.advanced.findUsersByKeyword",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.user.advanced.findUsersByKeyword",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_user_advanced_findUsersByKeyword/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "LOW_VALUE_PRUNED_TO_EMPTY",
+                "rawCandidateCount": 3,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "lowValueAssessments": [
+                    {"candidateId": "opt-001", "category": "NO_SAFE_BASELINE_MATCH"},
+                    {"candidateId": "opt-002", "category": "NO_SAFE_BASELINE_MATCH"},
+                    {"candidateId": "opt-003", "category": "NO_SAFE_BASELINE_MATCH"},
+                ],
+            },
+        },
+    )
+
+    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+
+
+def test_build_statement_convergence_row_clarifies_multi_fragment_include_safe_baseline_gap() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.multiFragmentLevel1",
+        statementKey="demo.test.complex.multiFragmentLevel1",
+        sql="SELECT id, name, email, status FROM users",
+        templateSql='SELECT <include refid="Frag_Cols_Basic" />, <include refid="Frag_Cols_Contact" /> FROM users',
+        dynamicFeatures=["INCLUDE"],
+        includeBindings=[
+            {"ref": "demo.test.complex.Frag_Cols_Basic", "properties": [], "bindingHash": "basic"},
+            {"ref": "demo.test.complex.Frag_Cols_Contact", "properties": [], "bindingHash": "contact"},
+        ],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.multiFragmentLevel1",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.test.complex.multiFragmentLevel1",
+                statementKey="demo.test.complex.multiFragmentLevel1",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.test.complex.multiFragmentLevel1",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_multiFragmentLevel1/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "EMPTY_CANDIDATES",
+                "recoveryReason": "NO_SAFE_BASELINE_SHAPE_MATCH",
+                "rawCandidateCount": 0,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+            },
+        },
+    )
+
+    assert row["shapeFamily"] == MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE"
+
+
+def test_build_statement_convergence_row_keeps_multi_fragment_include_review_only_even_with_candidate_and_family() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.multiFragmentLevel1",
+        statementKey="demo.test.complex.multiFragmentLevel1",
+        sql="SELECT id, name, email, mobile, phone FROM users WHERE status = 'ACTIVE'",
+        templateSql=(
+            'SELECT <include refid="demo.test.complex.Frag_Cols_Basic" />,'
+            ' <include refid="demo.test.complex.Frag_Cols_Contact" /> FROM users'
+            ' <where><if test="activeOnly">status = \'ACTIVE\'</if></where>'
+        ),
+        dynamicFeatures=["INCLUDE", "WHERE", "IF"],
+        includeBindings=[
+            {"ref": "demo.test.complex.Frag_Cols_Basic", "properties": [], "bindingHash": "basic"},
+            {"ref": "demo.test.complex.Frag_Cols_Contact", "properties": [], "bindingHash": "contact"},
+        ],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.multiFragmentLevel1",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.test.complex.multiFragmentLevel1",
+                statementKey="demo.test.complex.multiFragmentLevel1",
+                selectedCandidateId="opt-1",
+                rewriteFacts={
+                    "dynamicTemplate": {
+                        "capabilityProfile": {
+                            "shapeFamily": MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY,
+                            "capabilityTier": "REVIEW_REQUIRED",
+                            "baselineFamily": "STATIC_INCLUDE_WRAPPER_COLLAPSE",
+                            "patchSurface": "STATEMENT_BODY",
+                            "blockerFamily": "MULTI_FRAGMENT_INCLUDE_REVIEW_ONLY",
+                        }
+                    }
+                },
+                templateRewriteOps=[{"op": "replace_statement_body", "targetRef": "statement"}],
+            )
+        ],
+        sql_key="demo.test.complex.multiFragmentLevel1",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_multiFragmentLevel1/index.json"),
+        sql_unit=sql_unit,
+        proposal={"llmCandidates": [{"id": "opt-1", "rewriteStrategy": "REMOVE_REDUNDANT_SUBQUERY"}]},
+    )
+
+    assert row["shapeFamily"] == MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["consensus"] is None
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE"
+
+
+def test_build_statement_convergence_row_keeps_collection_predicate_review_only_even_with_candidate_and_family() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+        statementKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+        sql="SELECT id, order_no, user_id, status FROM orders WHERE user_id IN (1, 2, 3) AND status = 'PAID'",
+        templateSql=(
+            'SELECT <include refid="OrderHarnessColumns" /> FROM orders'
+            ' <where><include refid="OrderHarnessStatusFilter" />'
+            ' <if test="userIds != null and userIds.size() > 0">AND user_id IN'
+            ' <foreach item="id" collection="userIds" open="(" separator="," close=")">#{id}</foreach>'
+            " </if></where>"
+        ),
+        dynamicFeatures=["INCLUDE", "WHERE", "IF", "FOREACH"],
+        includeBindings=[{"ref": "OrderHarnessStatusFilter", "properties": [], "bindingHash": "status"}],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.order.harness.findOrdersByUserIdsAndStatus",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+                statementKey="demo.order.harness.findOrdersByUserIdsAndStatus",
+                selectedCandidateId="opt-2",
+                rewriteFacts={
+                    "dynamicTemplate": {
+                        "capabilityProfile": {
+                            "shapeFamily": "FOREACH_COLLECTION_PREDICATE",
+                            "capabilityTier": "REVIEW_REQUIRED",
+                            "baselineFamily": "STATIC_STATEMENT_REWRITE",
+                            "patchSurface": "WHERE_CLAUSE",
+                            "blockerFamily": "FOREACH_COLLECTION_GUARDED_PREDICATE",
+                        }
+                    }
+                },
+                templateRewriteOps=[{"op": "replace_where_clause", "targetRef": "statement"}],
+            )
+        ],
+        sql_key="demo.order.harness.findOrdersByUserIdsAndStatus",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_order_harness_findOrdersByUserIdsAndStatus/index.json"),
+        sql_unit=sql_unit,
+        proposal={"llmCandidates": [{"id": "opt-2", "rewriteStrategy": "SIMPLIFY_BOOLEAN_TAUTOLOGY"}]},
+    )
+
+    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["consensus"] is None
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE"
+
+
+def test_build_statement_convergence_row_clarifies_speculative_limit_only_safe_baseline_gap() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.shipment.harness.findShipments",
+        statementKey="demo.shipment.harness.findShipments",
+        sql="SELECT id, order_id, carrier, status, shipped_at FROM shipments WHERE status = #{status} ORDER BY shipped_at DESC",
+        templateSql=(
+            'SELECT <include refid="ShipmentHarnessColumns" /> FROM shipments <where>'
+            '<if test="status != null and status != \'\'">AND status = #{status}</if>'
+            '<if test="carrier != null and carrier != \'\'">AND carrier = #{carrier}</if>'
+            '</where> ORDER BY shipped_at DESC'
+        ),
+        dynamicFeatures=["INCLUDE", "WHERE", "IF"],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.shipment.harness.findShipments",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.shipment.harness.findShipments",
+                statementKey="demo.shipment.harness.findShipments",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.shipment.harness.findShipments",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_shipment_harness_findShipments/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "ONLY_LOW_VALUE_CANDIDATES",
+                "recoveryReason": "LOW_VALUE_PRUNED_TO_EMPTY",
+                "rawCandidateCount": 1,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+                "rawRewriteStrategies": ["add_limit"],
+                "lowValueAssessments": [
+                    {"candidateId": "opt-001", "category": "DYNAMIC_FILTER_SPECULATIVE_REWRITE"},
+                ],
+            },
+        },
+    )
+
+    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY"
+
+
+def test_build_statement_convergence_row_clarifies_group_by_safe_baseline_gap() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.staticGroupBy",
+        statementKey="demo.test.complex.staticGroupBy",
+        sql="SELECT status, COUNT(*) as cnt FROM users GROUP BY status",
+        dynamicFeatures=[],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.staticGroupBy",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.test.complex.staticGroupBy",
+                statementKey="demo.test.complex.staticGroupBy",
+                selectedCandidateId=None,
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "UNKNOWN"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.test.complex.staticGroupBy",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_staticGroupBy/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": "EMPTY_CANDIDATES",
+                "recoveryReason": "NO_SAFE_BASELINE_GROUP_BY",
+                "rawCandidateCount": 0,
+                "acceptedCandidateCount": 0,
+                "finalCandidateCount": 0,
+            },
+        },
+    )
+
+    assert row["shapeFamily"] == "STATIC_STATEMENT"
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "NO_SAFE_BASELINE_GROUP_BY"
 
 
 def test_supported_choose_filter_drops_unsupported_patch_family_hint_before_reporting_validate_error() -> None:
@@ -1298,6 +1907,60 @@ def test_build_statement_convergence_row_prefers_validate_error_for_unsupported_
     assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
     assert row["conflictReason"] == "VALIDATE_SEMANTIC_ERROR"
+
+
+def test_build_statement_convergence_row_clarifies_nested_include_row_count_error() -> None:
+    sql_unit = _sql_unit(
+        sqlKey="demo.test.complex.includeNested",
+        statementKey="demo.test.complex.includeNested",
+        sql="SELECT id FROM users",
+        templateSql='SELECT <include refid="demo.test.complex.NestedColumns" /> FROM users',
+        dynamicFeatures=["INCLUDE"],
+        includeBindings=[
+            {"ref": "demo.test.complex.NestedColumns", "properties": [], "bindingHash": "nested"},
+        ],
+    )
+
+    row = build_statement_convergence_row(
+        statement_key_value="demo.test.complex.includeNested",
+        rows=[
+            _acceptance_row(
+                sqlKey="demo.test.complex.includeNested",
+                statementKey="demo.test.complex.includeNested",
+                status="NEED_MORE_PARAMS",
+                selectedCandidateId="demo.test.complex.includeNested:llm:recovered_safe_baseline_static_include_wrapper_collapse",
+                feedback={"reason_code": "VALIDATE_SEMANTIC_ERROR"},
+                semanticEquivalence={
+                    "status": "UNCERTAIN",
+                    "reasons": [
+                        "SEMANTIC_PREDICATE_STABLE",
+                        "SEMANTIC_PROJECTION_STABLE",
+                        "SEMANTIC_ORDERING_STABLE",
+                        "SEMANTIC_PAGINATION_STABLE",
+                        "SEMANTIC_ROW_COUNT_ERROR",
+                    ],
+                },
+                rewriteFacts={"dynamicTemplate": {"capabilityProfile": {"shapeFamily": "STATIC_INCLUDE_ONLY"}}},
+                templateRewriteOps=[],
+            )
+        ],
+        sql_key="demo.test.complex.includeNested",
+        acceptance_path=Path("artifacts/acceptance.jsonl"),
+        sql_index_path=Path("sql/demo_test_complex_includeNested/index.json"),
+        sql_unit=sql_unit,
+        proposal={
+            "candidateGenerationDiagnostics": {
+                "degradationKind": None,
+                "recoveryReason": "STATIC_INCLUDE_WRAPPER_COLLAPSE",
+                "rawCandidateCount": 1,
+                "acceptedCandidateCount": 1,
+                "finalCandidateCount": 1,
+            },
+        },
+    )
+
+    assert row["convergenceDecision"] == "MANUAL_REVIEW"
+    assert row["conflictReason"] == "VALIDATE_SEMANTIC_ROW_COUNT_ERROR"
 
 
 def test_build_statement_convergence_row_accepts_subquery_elimination_for_static_include_wrapper() -> None:
@@ -2124,6 +2787,7 @@ def test_build_statement_convergence_row_uses_expression_folding_shape_for_clean
 
 def test_static_family_registries_cover_current_convergence_abstractions() -> None:
     assert "STATIC_INCLUDE_ONLY" in SUPPORTED_STATIC_SHAPE_FAMILIES
+    assert MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY in SUPPORTED_STATIC_SHAPE_FAMILIES
     assert "STATIC_SUBQUERY_WRAPPER" in SUPPORTED_STATIC_SHAPE_FAMILIES
     assert DISTINCT_WRAPPER_SHAPE_FAMILY in SUPPORTED_STATIC_SHAPE_FAMILIES
     assert DISTINCT_ALIAS_SHAPE_FAMILY in SUPPORTED_STATIC_SHAPE_FAMILIES
@@ -2154,6 +2818,16 @@ def test_infer_shape_family_and_strategy_mapping_cover_current_small_abstraction
             templateSql="<include refid=\"BaseColumns\"/>",
         )
     ) == "STATIC_INCLUDE_ONLY"
+    assert infer_shape_family_from_sql_unit(
+        _sql_unit(
+            dynamicFeatures=["INCLUDE"],
+            templateSql='SELECT <include refid="Frag_Cols_Basic" />, <include refid="Frag_Cols_Contact" /> FROM users',
+            includeBindings=[
+                {"ref": "demo.test.complex.Frag_Cols_Basic", "properties": [], "bindingHash": "basic"},
+                {"ref": "demo.test.complex.Frag_Cols_Contact", "properties": [], "bindingHash": "contact"},
+            ],
+        )
+    ) == MULTI_FRAGMENT_INCLUDE_SHAPE_FAMILY
     assert infer_shape_family_from_sql_unit(
         _sql_unit(
             sql="SELECT order_no, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn FROM orders",

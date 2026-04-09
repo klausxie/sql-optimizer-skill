@@ -137,6 +137,8 @@ _OBSERVED_IN_SUBQUERY_STRATEGY_VARIANTS = {
     "in_to_join",
     "in_subquery_to_exists",
     "in_subquery_to_join",
+    "subquery_to_exists",
+    "subquery_to_join",
     "exists_transform",
     "join_transform",
 }

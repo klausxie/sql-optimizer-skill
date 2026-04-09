@@ -23,15 +23,15 @@ This plan explicitly avoids:
 
 Fresh `batch7` run as of 2026-04-08:
 
-- `generalization-batch7`: `run_c1e7c13a64b4`
+- `generalization-batch7`: `run_915a2c2d0004`
 
 Current `batch7` decision view:
 
 - `AUTO_PATCHABLE = 0`
 - `MANUAL_REVIEW = 5`
 - `patch_convergence_blocked_count = 5`
-- `decision_focus = NO_PATCHABLE_CANDIDATE_SELECTED`
-- `recommended_next_step = fix_shared_candidate_selection_gaps`
+- `decision_focus = NO_SAFE_BASELINE_RECOVERY`
+- `recommended_next_step = clarify_safe_baseline_recovery_paths`
 
 Per-statement state:
 
@@ -39,13 +39,13 @@ Per-statement state:
 - `demo.shipment.harness.findShipments` -> `NO_SAFE_BASELINE_RECOVERY`
 - `demo.test.complex.chooseBasic` -> `VALIDATE_SEMANTIC_ERROR`
 - `demo.test.complex.chooseMultipleWhen` -> `VALIDATE_SEMANTIC_ERROR`
-- `demo.user.advanced.findUsersByKeyword` -> `NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
+- `demo.user.advanced.findUsersByKeyword` -> `NO_SAFE_BASELINE_RECOVERY`
 
 Interpretation:
 
 - `chooseBasic` and `chooseMultipleWhen` are no longer candidate-selection targets. They are now semantic-risk canaries and must stay blocked.
 - `findShipments` is no longer a generic low-value case. It is a clean `NO_SAFE_BASELINE_RECOVERY` sentinel.
-- `findUsersByKeyword` remains the strongest live candidate-selection target inside `batch7`.
+- `findUsersByKeyword` has also moved out of the low-value lane and should now be treated as a safe-baseline sentinel, not a candidate-selection target.
 - `listOrdersWithUsersPaged` has moved out of the low-value bucket and into semantic comparison weakness (`SEMANTIC_PREDICATE_CHANGED`).
 
 ---
@@ -54,17 +54,19 @@ Interpretation:
 
 The next stage should not be called “open batch8 family work.” It should be treated as a **post-batch7 blocker program** with three lanes:
 
-1. **Lane A: candidate-selection precision**
-   - focus on `NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
-   - current prime target: `demo.user.advanced.findUsersByKeyword`
-
-2. **Lane B: safe-baseline recovery clarity**
+1. **Lane A: safe-baseline recovery clarity**
    - focus on `NO_SAFE_BASELINE_RECOVERY`
-   - current prime target: `demo.shipment.harness.findShipments`
+   - current prime targets:
+     - `demo.shipment.harness.findShipments`
+     - `demo.user.advanced.findUsersByKeyword`
 
-3. **Lane C: semantic comparison weakness**
+2. **Lane B: semantic comparison weakness**
    - focus on statements that surfaced `SEMANTIC_PREDICATE_CHANGED`
    - current prime target: `demo.order.harness.listOrdersWithUsersPaged`
+
+3. **Lane C: semantic-risk canaries**
+   - keep `chooseBasic` / `chooseMultipleWhen` blocked under `VALIDATE_SEMANTIC_ERROR`
+   - do not reclassify them back into candidate buckets
 
 This stage is successful if it does **one** of the following safely:
 - reduces ambiguity inside one of these lanes
@@ -110,7 +112,7 @@ This stage is **not** successful if it:
 
 ---
 
-## Task 2: Program A — Candidate-Selection Precision for `findUsersByKeyword`
+## Task 2: Program A — Safe-Baseline Recovery Clarity for `findUsersByKeyword`
 
 **Files:**
 - Modify: `/Users/klaus/Desktop/sql-optimizer-skill/python/sqlopt/platforms/sql/candidate_generation_engine.py`
@@ -122,11 +124,7 @@ This stage is **not** successful if it:
 
 - [ ] Lock the current blocker for `demo.user.advanced.findUsersByKeyword` in unit tests and fixture/harness expectations.
 
-- [ ] Inspect the exact remaining candidate pool for this statement and classify each candidate as one of:
-  - low-value but structurally safe
-  - unsupported strategy
-  - semantic-risk rewrite
-  - no safe baseline match
+- [ ] Inspect the exact remaining candidate pool for this statement and prove whether any candidate already matches an existing supported safe baseline.
 
 - [ ] Only promote the statement if it already fits an existing supported path.
   - No new choose patch family.
@@ -135,8 +133,7 @@ This stage is **not** successful if it:
 - [ ] If no safe path exists, make the blocker more honest rather than greener.
 
 **Success standard:** `findUsersByKeyword` ends in one of these states:
-- stays `NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`, but with cleaner diagnostics
-- becomes `NO_SAFE_BASELINE_RECOVERY`
+- stays `NO_SAFE_BASELINE_RECOVERY`
 - or becomes ready through an already-supported safe path
 
 Forbidden:
@@ -231,7 +228,7 @@ Forbidden:
 
 **Files:**
 - Modify: `/Users/klaus/Desktop/sql-optimizer-skill/docs/superpowers/plans/2026-04-08-post-batch7-generalization-program.md`
-- Create: `/Users/klaus/Desktop/sql-optimizer-skill/docs/superpowers/plans/2026-04-08-generalization-batch8-intake.md`
+- Create: `/Users/klaus/Desktop/sql-optimizer-skill/docs/superpowers/plans/2026-04-09-generalization-batch8-intake.md`
 
 - [ ] Fresh rerun:
   - `generalization-batch1`

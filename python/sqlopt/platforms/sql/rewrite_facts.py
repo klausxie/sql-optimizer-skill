@@ -77,6 +77,18 @@ _SAFE_BASELINE_PLAIN_STATIC_SUBQUERY_RE = re.compile(
     r"\b(?:in|exists|from|join)\s*\(\s*select\b",
     flags=re.IGNORECASE | re.DOTALL,
 )
+_CHOOSE_BRANCH_RE = re.compile(
+    r"<(?:when|otherwise)\b[^>]*>(?P<body>.*?)</(?:when|otherwise)>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_CHOOSE_UNSUPPORTED_CLAUSE_RE = re.compile(
+    r"\$\{|\border\s+by\b|\bgroup\s+by\b|\bhaving\b|\bjoin\b|\bunion\b|\blimit\b|\boffset\b|\bfetch\b",
+    flags=re.IGNORECASE,
+)
+_CHOOSE_OUTER_UNSUPPORTED_RE = re.compile(
+    r"<\s*(?:if|foreach|trim)\b",
+    flags=re.IGNORECASE,
+)
 
 
 def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
@@ -101,6 +113,41 @@ def _wrapper_template_match(template_sql: str) -> re.Match[str] | None:
 
 def _dynamic_count_wrapper_template_match(template_sql: str) -> re.Match[str] | None:
     return _DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE.match(str(template_sql or "").strip())
+
+
+def _supported_choose_guarded_filter_shape(sql_unit: dict[str, Any], template_sql: str) -> bool:
+    dynamic_features = {str(item).strip().upper() for item in _dynamic_statement_features(sql_unit) if str(item).strip()}
+    lowered_template = str(template_sql or "").lower()
+    if "CHOOSE" not in dynamic_features and "<choose" not in lowered_template:
+        return False
+    if not template_sql.strip():
+        return "WHERE" in dynamic_features
+    if lowered_template.count("<choose") != 1:
+        return False
+
+    start = lowered_template.find("<choose")
+    end = lowered_template.find("</choose>", start)
+    if start < 0 or end < 0:
+        return False
+    choose_block = template_sql[start : end + len("</choose>")]
+    if "<include" in choose_block.lower():
+        return False
+    if _CHOOSE_UNSUPPORTED_CLAUSE_RE.search(choose_block):
+        return False
+
+    outer_template = template_sql[:start] + template_sql[end + len("</choose>") :]
+    if _CHOOSE_OUTER_UNSUPPORTED_RE.search(outer_template):
+        return False
+
+    branch_bodies = [
+        normalize_sql_text(match.group("body") or "")
+        for match in _CHOOSE_BRANCH_RE.finditer(choose_block)
+        if normalize_sql_text(match.group("body") or "")
+    ]
+    if not branch_bodies:
+        return False
+
+    return "WHERE" in dynamic_features or "<where" in lowered_template
 
 
 def _has_single_table_from_alias_candidate(from_suffix: str) -> bool:
@@ -229,15 +276,25 @@ def _build_dynamic_template_facts(
         blocker_family = "DYNAMIC_SET_CLAUSE"
         blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
     elif "FOREACH" in feature_set:
-        shape_family = "FOREACH_IN_PREDICATE"
         patch_surface = "WHERE_CLAUSE"
         if "INCLUDE" in feature_set:
-            blocker_family = "FOREACH_INCLUDE_PREDICATE"
+            if feature_set & {"IF", "CHOOSE", "TRIM", "BIND"}:
+                shape_family = "FOREACH_COLLECTION_PREDICATE"
+                blocker_family = "FOREACH_COLLECTION_GUARDED_PREDICATE"
+                blockers = [blocker_family, "FOREACH_INCLUDE_PREDICATE", "FOREACH_SCALAR_GUARD_PREDICATE"]
+            else:
+                shape_family = "FOREACH_IN_PREDICATE"
+                blocker_family = "FOREACH_INCLUDE_PREDICATE"
+                blockers = [blocker_family]
         elif feature_set & {"IF", "CHOOSE", "TRIM", "BIND"}:
+            shape_family = "FOREACH_IN_PREDICATE"
             blocker_family = "FOREACH_COMPLEX_PREDICATE"
+            blockers = [blocker_family]
         else:
+            shape_family = "FOREACH_IN_PREDICATE"
             blocker_family = "FOREACH_COLLECTION_PREDICATE"
-        blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+            blockers = [blocker_family]
+        blockers.append(_DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH)
     elif feature_set <= {"IF", "WHERE"} and dynamic_count_wrapper_match is not None:
         shape_family = "IF_GUARDED_COUNT_WRAPPER"
         patch_surface = "STATEMENT_BODY"
@@ -275,8 +332,13 @@ def _build_dynamic_template_facts(
                     template_preserving_candidate = True
                     baseline_family = "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
                 else:
-                    patch_surface = "WHERE_CLAUSE"
-                    blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                    choose_supported_shape = _supported_choose_guarded_filter_shape(sql_unit, template_sql)
+                    patch_surface = "CHOOSE_BRANCH_BODY" if choose_supported_shape else "WHERE_CLAUSE"
+                    blocker_family = (
+                        "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
+                        if choose_supported_shape
+                        else "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                    )
                     blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
             elif aliases_changed and (from_alias_changed or from_alias_candidate):
                 patch_surface = "STATEMENT_BODY"
@@ -308,7 +370,13 @@ def _build_dynamic_template_facts(
         else:
             patch_surface = "WHERE_CLAUSE"
             if feature_set & {"CHOOSE", "TRIM", "BIND"}:
-                blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                choose_supported_shape = "CHOOSE" in feature_set and _supported_choose_guarded_filter_shape(sql_unit, template_sql)
+                patch_surface = "CHOOSE_BRANCH_BODY" if choose_supported_shape else "WHERE_CLAUSE"
+                blocker_family = (
+                    "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
+                    if choose_supported_shape
+                    else "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                )
                 blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
             else:
                 blocker_family = "DYNAMIC_FILTER_SUBTREE"
@@ -318,6 +386,11 @@ def _build_dynamic_template_facts(
         if include_dynamic_subtree:
             shape_family = "DYNAMIC_INCLUDE_TREE"
             blocker_family = "INCLUDE_DYNAMIC_SUBTREE"
+            blockers = [blocker_family]
+        elif len(include_bindings) > 1:
+            shape_family = "MULTI_FRAGMENT_INCLUDE"
+            capability_tier = "REVIEW_REQUIRED"
+            blocker_family = "MULTI_FRAGMENT_INCLUDE_REVIEW_ONLY"
             blockers = [blocker_family]
         elif include_property_bindings:
             shape_family = "STATIC_INCLUDE_ONLY"

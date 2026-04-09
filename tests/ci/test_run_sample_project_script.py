@@ -74,6 +74,13 @@ class RunSampleProjectScriptTest(unittest.TestCase):
         self.assertIn("generalization-batch4", mod.FAMILY_SCOPE_SQL_KEYS)
         self.assertIn("generalization-batch5", mod.FAMILY_SCOPE_SQL_KEYS)
         self.assertIn("generalization-batch6", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch7", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch8", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch9", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch10", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch11", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch12", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch13", mod.FAMILY_SCOPE_SQL_KEYS)
         self.assertEqual(mod.FAMILY_SCOPE_SQL_KEYS["exists-family"], mod.EXISTS_SAMPLE_SQL_KEYS)
         self.assertEqual(mod.FAMILY_SCOPE_SQL_KEYS["exists-family"], ("demo.user.advanced.listUsersExistsSelfIdentity",))
         self.assertEqual(
@@ -476,6 +483,164 @@ class RunSampleProjectScriptTest(unittest.TestCase):
         self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch7"]))
         self.assertIn("--run-id", args)
         self.assertIn("run_generalization_batch7", args)
+
+    def test_generalization_batch8_scope_expands_safe_baseline_and_semantic_sentinels(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch8",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch8",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch8"]))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.user.advanced.findUsersByKeyword",
+                "demo.shipment.harness.findShipments",
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.inSubquery",
+                "demo.test.complex.multiFragmentLevel1",
+            ],
+        )
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch8", args)
+
+    def test_generalization_batch9_scope_expands_safe_baseline_lane_with_semantic_canary(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch9",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch9",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch9"]))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.user.advanced.findUsersByKeyword",
+                "demo.shipment.harness.findShipments",
+                "demo.test.complex.multiFragmentLevel1",
+                "demo.order.harness.findOrdersByUserIdsAndStatus",
+                "demo.order.harness.listOrdersWithUsersPaged",
+            ],
+        )
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch9", args)
+
+    def test_generalization_batch10_scope_expands_semantic_lane(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch10",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch10",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch10"]))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.existsSubquery",
+                "demo.test.complex.leftJoinWithNull",
+                "demo.test.complex.staticGroupBy",
+                "demo.test.complex.includeWithWhere",
+            ],
+        )
+
+    def test_generalization_batch11_scope_expands_next_semantic_lane(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch11",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch11",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.test.complex.fragmentInJoin",
+                "demo.test.complex.staticSimpleSelect",
+                "demo.test.complex.includeNested",
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.existsSubquery",
+            ],
+        )
+
+    def test_generalization_batch12_scope_expands_candidate_selection_lane(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch12",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch12",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.test.complex.staticSimpleSelect",
+                "demo.test.complex.existsSubquery",
+                "demo.test.complex.inSubquery",
+                "demo.test.complex.leftJoinWithNull",
+                "demo.order.harness.listOrdersWithUsersPaged",
+            ],
+        )
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch12", args)
+
+    def test_generalization_batch13_scope_expands_boundary_revisit_lane(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch13",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch13",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.user.advanced.findUsersByKeyword",
+                "demo.shipment.harness.findShipments",
+                "demo.test.complex.multiFragmentLevel1",
+                "demo.test.complex.includeNested",
+                "demo.order.harness.listOrdersWithUsersPaged",
+            ],
+        )
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch13", args)
 
     def test_include_family_scope_expands_static_include_sql_keys(self) -> None:
         mod = _load_module()
