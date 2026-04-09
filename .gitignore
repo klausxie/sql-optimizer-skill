@@ -23,3 +23,5 @@ java/**/target/
 *.tmp
 tmp/
 backup/
+
+tests/fixtures/projects/sample_project/runs/

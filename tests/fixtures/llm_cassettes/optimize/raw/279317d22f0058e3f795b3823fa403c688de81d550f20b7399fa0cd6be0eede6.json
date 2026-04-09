@@ -1,0 +1,73 @@
+{
+  "createdAt": "2026-04-09T02:39:24.088670+00:00",
+  "fingerprint": "279317d22f0058e3f795b3823fa403c688de81d550f20b7399fa0cd6be0eede6",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')",
+    "sqlKey": "demo.test.complex.inSubquery",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+          "index": "idx_orders_status",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+          "index": "idx_orders_user_created",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+          "index": "orders_order_no_key",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+          "index": "orders_pkey",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 7,
+        "summary": "Nested Loop  (cost=8.31..16.54 rows=1 width=282)"
+      },
+      "tables": [
+        "users",
+        "orders"
+      ]
+    },
+    "templateSql": "SELECT id, name FROM users\n        WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.inSubquery"
+}

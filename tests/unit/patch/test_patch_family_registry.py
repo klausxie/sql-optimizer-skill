@@ -10,6 +10,7 @@ import sqlopt.patch_families.registry as registry_module
 import sqlopt.patch_families.specs as specs_package
 from sqlopt.patch_families.registry import (
     _build_patch_family_registry,
+    build_strategy_type_to_family_map,
     list_registered_patch_families,
     lookup_patch_family_spec,
 )
@@ -254,3 +255,14 @@ def test_registry_imports_concrete_spec_modules_directly() -> None:
     assert "from .frozen_baselines import FROZEN_BASELINE_SPECS" not in specs_source
     assert "from .static_alias_projection_cleanup import STATIC_ALIAS_PROJECTION_CLEANUP_SPEC" not in specs_source
     assert "from .static_include_wrapper_collapse import STATIC_INCLUDE_WRAPPER_COLLAPSE_SPEC" not in specs_source
+
+
+def test_strategy_type_to_family_map_keeps_generic_wrapper_strategy_out_of_registry() -> None:
+    strategy_map = build_strategy_type_to_family_map()
+
+    assert strategy_map["SAFE_EXISTS_REWRITE"] == "STATIC_EXISTS_REWRITE"
+    assert "SAFE_WRAPPER_COLLAPSE" not in strategy_map
+
+
+def test_registry_does_not_expose_misleading_shape_family_helper() -> None:
+    assert not hasattr(registry_module, "build_shape_family_to_patch_family_map")

@@ -1,0 +1,52 @@
+{
+  "createdAt": "2026-04-09T02:38:19.544802+00:00",
+  "fingerprint": "90962887c50c5d82120171d9709a5f4058cabd6e0e28512f24b24fc2c7495e69",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT COUNT(*) FROM ( SELECT id FROM users WHERE status = 'active' ) active_users",
+    "sqlKey": "demo.test.complex.wrapperCount",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 3,
+        "summary": "Aggregate  (cost=8.16..8.17 rows=1 width=8)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT COUNT(*) FROM (\n            SELECT id FROM users WHERE status = 'active'\n        ) active_users"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.wrapperCount"
+}

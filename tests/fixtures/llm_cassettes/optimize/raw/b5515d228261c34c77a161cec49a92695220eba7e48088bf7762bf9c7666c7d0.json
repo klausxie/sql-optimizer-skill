@@ -1,0 +1,56 @@
+{
+  "createdAt": "2026-04-09T02:42:32.203124+00:00",
+  "fingerprint": "b5515d228261c34c77a161cec49a92695220eba7e48088bf7762bf9c7666c7d0",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE",
+      "FOREACH"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{orderNo}",
+    "sqlKey": "demo.order.harness.findOrdersByNos",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+          "index": "idx_orders_status",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+          "index": "idx_orders_user_created",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+          "index": "orders_order_no_key",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+          "index": "orders_pkey",
+          "table": "orders"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 2,
+        "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+      },
+      "tables": [
+        "orders"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"OrderHarnessColumns\" />\n        FROM orders\n        <where>\n            <foreach collection=\"orderNos\" item=\"orderNo\" open=\"order_no IN (\" separator=\",\" close=\")\">\n                #{orderNo}\n            </foreach>\n        </where>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.order.harness.findOrdersByNos"
+}

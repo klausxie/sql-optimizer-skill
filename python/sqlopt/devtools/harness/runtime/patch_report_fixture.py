@@ -33,6 +33,8 @@ def _scenario_requires_fixture_convergence(scenario: dict, convergence_row: dict
     expected_reason = str(scenario.get("targetPatchReasonCode") or "").strip().upper()
     if expected_reason.startswith("PATCH_CONVERGENCE_"):
         return True
+    if str(convergence_row.get("convergenceDecision") or "").strip().upper() == "AUTO_PATCHABLE":
+        return True
     tracked_family = str(scenario.get("targetRegisteredFamily") or "").strip()
     if tracked_family in _FIXTURE_CONVERGENCE_REGISTERED_FAMILIES:
         return True

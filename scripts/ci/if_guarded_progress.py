@@ -7,71 +7,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "python"))
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        payload = json.loads(line)
-        if isinstance(payload, dict):
-            rows.append(payload)
-    return rows
+from sqlopt.devtools.run_progress_summary import summarize_run_progress  # noqa: E402
 
 
 def _compute_if_guarded_progress(run_dir: Path, *, shape_family: str) -> dict[str, Any]:
-    convergence_rows = _read_jsonl(run_dir / "artifacts" / "statement_convergence.jsonl")
-    patch_rows = _read_jsonl(run_dir / "artifacts" / "patches.jsonl")
-    normalized_family = shape_family.strip().upper()
-
-    by_statement: dict[str, dict[str, Any]] = {}
-    family_rows: list[dict[str, Any]] = []
-    for row in convergence_rows:
-        family = str(row.get("shapeFamily") or "").strip().upper()
-        if family != normalized_family:
-            continue
-        statement_key = str(row.get("statementKey") or "").strip()
-        if not statement_key:
-            continue
-        by_statement[statement_key] = row
-        family_rows.append(row)
-
-    decision_counts = {
-        "AUTO_PATCHABLE": 0,
-        "MANUAL_REVIEW": 0,
-        "NOT_PATCHABLE": 0,
-    }
-    conflict_reason_counts: dict[str, int] = {}
-    for row in family_rows:
-        decision = str(row.get("convergenceDecision") or "").strip().upper()
-        if decision in decision_counts:
-            decision_counts[decision] += 1
-        reason = str(row.get("conflictReason") or "").strip()
-        if reason:
-            conflict_reason_counts[reason] = conflict_reason_counts.get(reason, 0) + 1
-
-    patch_convergence_blocked = 0
-    for row in patch_rows:
-        statement_key = str(row.get("statementKey") or "").strip() or str(row.get("sqlKey") or "").split("#", 1)[0]
-        if statement_key not in by_statement:
-            continue
-        code = str(((row.get("selectionReason") or {}).get("code") or "")).strip()
-        if code.startswith("PATCH_CONVERGENCE_"):
-            patch_convergence_blocked += 1
-
-    total = len(family_rows)
-    auto = decision_counts["AUTO_PATCHABLE"]
+    summary = summarize_run_progress(run_dir, shape_family=shape_family)
+    total = summary.total_statements
+    auto = summary.decision_counts["AUTO_PATCHABLE"]
     auto_rate = (auto / total) if total else 0.0
     return {
-        "shape_family": normalized_family,
+        "shape_family": shape_family.strip().upper(),
         "total_statements": total,
-        "decision_counts": decision_counts,
+        "decision_counts": summary.decision_counts,
         "auto_patchable_rate": auto_rate,
-        "conflict_reason_counts": dict(sorted(conflict_reason_counts.items(), key=lambda item: (-item[1], item[0]))),
-        "patch_convergence_blocked_count": patch_convergence_blocked,
+        "conflict_reason_counts": summary.conflict_reason_counts,
+        "patch_convergence_blocked_count": summary.patch_convergence_blocked_count,
     }
 
 

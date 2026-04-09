@@ -1,0 +1,52 @@
+{
+  "createdAt": "2026-04-09T02:39:07.247797+00:00",
+  "fingerprint": "184df3e223de3f7b4ba01d02e478eb1ca29ac3cc9bd44bbaa275301690d69c37",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email FROM users WHERE id = #{id}",
+    "sqlKey": "demo.test.complex.staticSimpleSelect",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 2,
+        "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT id, name, email FROM users WHERE id = #{id}"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.staticSimpleSelect"
+}

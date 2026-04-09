@@ -1,0 +1,55 @@
+{
+  "createdAt": "2026-04-09T02:44:23.546585+00:00",
+  "fingerprint": "1bd6b13fff57d8fac7626b65574c6d8be6cd80d84f6e98189653a4894c1152a1",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email, status, created_at FROM users WHERE WHERE status = 'active'",
+    "sqlKey": "demo.test.complex.multiFragmentSeparate",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "error": "syntax error at or near \"WHERE\"\nLINE 1: ... name, email, status, created_at FROM users WHERE WHERE stat...\n                                                             ^\n",
+        "summary": "EXPLAIN failed"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"BaseColumns\" /> FROM users\n        <where>\n            <include refid=\"Frag_Where_Active\" />\n        </where>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.multiFragmentSeparate"
+}

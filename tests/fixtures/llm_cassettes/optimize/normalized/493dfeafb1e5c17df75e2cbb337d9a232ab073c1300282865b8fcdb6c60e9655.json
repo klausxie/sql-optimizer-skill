@@ -1,0 +1,236 @@
+{
+  "fingerprint": "493dfeafb1e5c17df75e2cbb337d9a232ab073c1300282865b8fcdb6c60e9655",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.order.harness.listOrdersWithUsersPaged",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.85",
+          "id": "opt-1",
+          "rewriteStrategy": "predicate_reorder",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
+        },
+        {
+          "confidence": "0.3",
+          "id": "opt-2",
+          "rewriteStrategy": "predicate_pushdown",
+          "semanticRisk": "high",
+          "source": "llm",
+          "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:46:30.245040+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 15330,
+    "executor": "opencode_run",
+    "input_hash": "0f75940f9455f3ee4d34bd5aa8aa57a8d93fe3ce49f2b71b519c7cbd2a36c748",
+    "mode": "candidate_generation",
+    "output_hash": "d83de7a21aa13c776327ed2f09df668d97eb3e91975ca353e28323cbf176fb9d",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "user_id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "order_no",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "amount",
+            "dataType": "numeric",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [],
+          "statementFeatures": [
+            "WHERE",
+            "IF"
+          ]
+        },
+        "includeTrace": [],
+        "planSummary": {
+          "lineCount": 4,
+          "summary": "Sort  (cost=0.01..0.02 rows=0 width=1058)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "orders"
+          },
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "WHERE",
+          "IF"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+            "index": "idx_orders_status",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+            "index": "idx_orders_user_created",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+            "index": "orders_order_no_key",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+            "index": "orders_pkey",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+        "tables": [
+          "orders",
+          "users"
+        ],
+        "templateSql": "SELECT\n            o.id,\n            o.order_no,\n            o.user_id,\n            o.amount,\n            o.status,\n            o.created_at,\n            u.name AS user_name,\n            u.email AS user_email\n        FROM orders o\n        JOIN users u ON u.id = o.user_id\n        <where>\n            <if test=\"keyword != null and keyword != ''\">\n                AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%'))\n            </if>\n            <if test=\"status != null and status != ''\">\n                AND o.status = #{status}\n            </if>\n        </where>\n        ORDER BY o.created_at DESC\n        LIMIT #{limit}\n        OFFSET #{offset}"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.order.harness.listOrdersWithUsersPaged",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.order.harness.listOrdersWithUsersPaged",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.order.harness.listOrdersWithUsersPaged:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.85",
+      "id": "opt-1",
+      "rewriteStrategy": "predicate_reorder",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.status = #{status} AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.3",
+      "id": "opt-2",
+      "rewriteStrategy": "predicate_pushdown",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+      "semanticRisk": "high",
+      "source": "llm"
+    }
+  ]
+}

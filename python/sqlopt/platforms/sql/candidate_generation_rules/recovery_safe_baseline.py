@@ -3,6 +3,7 @@ from __future__ import annotations
 from .base import CandidateGenerationContext
 from ..candidate_generation_models import RecoveryAssessment
 from ..candidate_generation_support import recover_candidates_from_shape, recover_candidates_from_text
+from ..rewrite_facts import safe_baseline_recovery_family
 
 
 class SafeBaselineRecoveryRule:
@@ -28,6 +29,9 @@ class SafeBaselineRecoveryRule:
                 rule_id=self.rule_id,
             )
         if degraded_kind in {"EMPTY_CANDIDATES", "ONLY_LOW_VALUE_CANDIDATES"}:
+            explicit_family = safe_baseline_recovery_family(context.sql_unit, context.original_sql)
+            if explicit_family not in {"STATIC_STATEMENT_REWRITE", "STATIC_INCLUDE_WRAPPER_COLLAPSE"}:
+                return RecoveryAssessment(rule_id=self.rule_id)
             candidates = recover_candidates_from_shape(context.sql_key, context.original_sql)
             return RecoveryAssessment(
                 strategy=(str((candidates[0] or {}).get("rewriteStrategy") or "") or None) if candidates else None,

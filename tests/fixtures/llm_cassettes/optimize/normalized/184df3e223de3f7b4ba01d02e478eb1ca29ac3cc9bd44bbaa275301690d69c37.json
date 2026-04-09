@@ -1,0 +1,150 @@
+{
+  "fingerprint": "184df3e223de3f7b4ba01d02e478eb1ca29ac3cc9bd44bbaa275301690d69c37",
+  "rawCandidateCount": 1,
+  "sqlKey": "demo.test.complex.staticSimpleSelect",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.65",
+          "id": "covering_index_1",
+          "rewriteStrategy": "COVERING_INDEX",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email FROM users WHERE id = #{id}"
+        }
+      ],
+      "count": 1
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:38:42.666777+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 24580,
+    "executor": "opencode_run",
+    "input_hash": "2e1fc1e89fa17324ed64230a9d8d97edaf3ba7b0f12c9f9d79ee0e5c9d6c777f",
+    "mode": "candidate_generation",
+    "output_hash": "f44ff8ea5add9c6712b7ddf6c9c4152044c15ccafcaa651f33b5e30bbc87d5d2",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {},
+        "includeTrace": [],
+        "planSummary": {
+          "lineCount": 2,
+          "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email FROM users WHERE id = #{id}",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT id, name, email FROM users WHERE id = #{id}"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": false,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.staticSimpleSelect",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.staticSimpleSelect",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.staticSimpleSelect:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.65",
+      "id": "covering_index_1",
+      "rewriteStrategy": "COVERING_INDEX",
+      "rewrittenSql": "SELECT id, name, email FROM users WHERE id = #{id}",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

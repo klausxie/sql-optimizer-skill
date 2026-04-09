@@ -1,0 +1,55 @@
+{
+  "createdAt": "2026-04-09T02:46:28.252927+00:00",
+  "fingerprint": "a5ec15fb0c975635cdafe9204b5701c625819aaa5aaa65265d7383c106640cb7",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "CHOOSE",
+      "INCLUDE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email FROM users (ORDER BY name ASC OR ORDER BY name DESC OR ORDER BY id ASC)",
+    "sqlKey": "demo.test.complex.selectWithFragmentChoose",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "error": "syntax error at or near \"ORDER\"\nLINE 1: ... (FORMAT TEXT) SELECT id, name, email FROM users (ORDER BY n...\n                                                             ^\n",
+        "summary": "EXPLAIN failed"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT id, name, email FROM users\n        <choose>\n            <when test=\"sort == 'asc'\">\n                <include refid=\"Frag_Order_ASC\" />\n            </when>\n            <when test=\"sort == 'desc'\">\n                <include refid=\"Frag_Order_DESC\" />\n            </when>\n            <otherwise>\n                <include refid=\"Frag_Order_Default\" />\n            </otherwise>\n        </choose>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.selectWithFragmentChoose"
+}

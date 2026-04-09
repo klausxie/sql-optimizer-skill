@@ -18,6 +18,7 @@ from .canonicalization_support import (
     redundant_subquery_blockers,
 )
 from .cte_analysis import analyze_simple_inline_cte
+from .rewrite_facts import safe_baseline_recovery_family
 
 AGGREGATIONISH_SQL_RE = re.compile(
     r"\bgroup\s+by\b|\bhaving\b|\bover\s*\(|\bunion\b|^\s*with\b|\bselect\s+distinct\b|\bselect\b.+\bfrom\s*\(\s*select\b",
@@ -119,10 +120,125 @@ UNION_WRAPPER_SQL_RE = re.compile(
     r"^\s*select\s+(?P<outer_select>.+?)\s+from\s*\(\s*(?P<inner>select\b.+\bunion(?:\s+all)?\b.+)\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)\s*(?P<suffix>(?:order\s+by\b.+|limit\b.+|offset\b.+|fetch\b.+)?)\s*$",
     flags=re.IGNORECASE | re.DOTALL,
 )
+CHOOSE_BRANCH_RE = re.compile(
+    r"<(?:when|otherwise)\b[^>]*>(?P<body>.*?)</(?:when|otherwise)>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+CHOOSE_UNSUPPORTED_CLAUSE_RE = re.compile(
+    r"\$\{|\border\s+by\b|\bgroup\s+by\b|\bhaving\b|\bjoin\b|\bunion\b|\blimit\b|\boffset\b|\bfetch\b",
+    flags=re.IGNORECASE,
+)
+CHOOSE_OUTER_UNSUPPORTED_RE = re.compile(
+    r"<\s*(?:if|foreach|trim)\b",
+    flags=re.IGNORECASE,
+)
+_OBSERVED_IN_SUBQUERY_STRATEGY_VARIANTS = {
+    "in_to_exists",
+    "in_to_join",
+    "in_subquery_to_exists",
+    "in_subquery_to_join",
+    "exists_transform",
+    "join_transform",
+}
 
 
 def normalized_sql_eq(left: str | None, right: str | None) -> bool:
     return normalize_sql(left or "").lower() == normalize_sql(right or "").lower()
+
+
+def normalize_strategy_text(value: str | None) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
+
+def is_observed_in_subquery_rewrite_strategy(value: str | None) -> bool:
+    return normalize_strategy_text(value) in _OBSERVED_IN_SUBQUERY_STRATEGY_VARIANTS
+
+
+def _choose_block(template_sql: str) -> str | None:
+    raw_template = str(template_sql or "")
+    lowered = raw_template.lower()
+    start = lowered.find("<choose")
+    if start < 0:
+        return None
+    end = lowered.find("</choose>", start)
+    if end < 0:
+        return None
+    return raw_template[start : end + len("</choose>")]
+
+
+def is_supported_choose_guarded_filter(sql_unit: dict[str, Any]) -> bool:
+    dynamic_features = {
+        str(item).strip().upper()
+        for item in (sql_unit.get("dynamicFeatures") or [])
+        if str(item).strip()
+    }
+    template_sql = str(sql_unit.get("templateSql") or "")
+    lowered_template = template_sql.lower()
+    if "CHOOSE" not in dynamic_features and "<choose" not in lowered_template:
+        return False
+    if not template_sql.strip():
+        return "WHERE" in dynamic_features
+    if lowered_template.count("<choose") != 1:
+        return False
+
+    choose_block = _choose_block(template_sql)
+    if not choose_block:
+        return False
+    lowered_choose_block = choose_block.lower()
+    if "<include" in lowered_choose_block:
+        return False
+    if CHOOSE_UNSUPPORTED_CLAUSE_RE.search(choose_block):
+        return False
+
+    start = template_sql.lower().find("<choose")
+    end = template_sql.lower().find("</choose>", start)
+    if start < 0 or end < 0:
+        return False
+    outer_template = template_sql[:start] + template_sql[end + len("</choose>") :]
+    if CHOOSE_OUTER_UNSUPPORTED_RE.search(outer_template):
+        return False
+
+    branch_bodies = [
+        normalize_sql(match.group("body") or "")
+        for match in CHOOSE_BRANCH_RE.finditer(choose_block)
+        if normalize_sql(match.group("body") or "")
+    ]
+    if not branch_bodies:
+        return False
+
+    within_where = "WHERE" in dynamic_features or "<where" in lowered_template
+    return within_where
+
+
+def classify_supported_choose_guarded_filter_candidate(
+    *,
+    original_sql: str,
+    sql_unit: dict[str, Any],
+    candidate: dict[str, Any],
+) -> tuple[str, str] | None:
+    if not is_supported_choose_guarded_filter(sql_unit):
+        return None
+    rewritten_sql = normalize_sql(str(candidate.get("rewrittenSql") or ""))
+    if not rewritten_sql:
+        return None
+
+    from .candidate_generation_rules.low_value_speculative import classify_supported_choose_guarded_filter_strategy
+
+    classification = classify_supported_choose_guarded_filter_strategy(candidate.get("rewriteStrategy") or "")
+    if classification is not None:
+        return classification
+
+    baseline_family = safe_baseline_recovery_family(sql_unit, original_sql)
+    if baseline_family:
+        return None
+
+    normalized_original = normalize_sql(original_sql)
+    if rewritten_sql != normalized_original:
+        return (
+            "NO_SAFE_BASELINE_MATCH",
+            "candidate rewrites choose-guarded filter predicates but does not match any supported template-preserving baseline",
+        )
+    return None
 
 
 def _split_top_level_and(predicate: str) -> list[str] | None:
@@ -265,11 +381,15 @@ def in_list_single_value_cleanup_sql(original_sql: str) -> str | None:
     if not_in_match is not None:
         column = normalize_sql(not_in_match.group("column"))
         value = normalize_sql(not_in_match.group("value"))
+        if re.search(r"^\s*select\b", value, flags=re.IGNORECASE):
+            return None
         return normalize_sql(NOT_IN_SINGLE_VALUE_RE.sub(f"{column} != {value}", normalized_original, count=1))
     in_match = IN_SINGLE_VALUE_RE.search(normalized_original)
     if in_match is not None:
         column = normalize_sql(in_match.group("column"))
         value = normalize_sql(in_match.group("value"))
+        if re.search(r"^\s*select\b", value, flags=re.IGNORECASE):
+            return None
         return normalize_sql(IN_SINGLE_VALUE_RE.sub(f"{column} = {value}", normalized_original, count=1))
     return None
 
@@ -484,9 +604,37 @@ def classify_blocked_shape(original_sql: str, sql_unit: dict[str, Any]) -> str:
     return "NO_SAFE_BASELINE_SHAPE_MATCH"
 
 
-def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[str, Any]]:
+def recover_candidates_from_shape(
+    sql_key: str,
+    original_sql: str,
+    sql_unit: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     normalized_original = normalize_sql(original_sql)
     recovered: list[dict[str, Any]] = []
+
+    if sql_unit:
+        dynamic_features = {
+            str(feature).upper()
+            for feature in (sql_unit.get("dynamicFeatures") or [])
+            if isinstance(feature, str)
+        }
+        if "CHOOSE" in dynamic_features and not is_supported_choose_guarded_filter(sql_unit):
+            return []
+
+    if sql_unit and is_supported_choose_guarded_filter(sql_unit):
+        cleanup_sql = dynamic_filter_select_cleanup_sql(normalized_original)
+        if cleanup_sql:
+            return [
+                {
+                    "id": f"{sql_key}:llm:recovered_dynamic_filter_select_cleanup",
+                    "source": "llm",
+                    "rewrittenSql": cleanup_sql,
+                    "rewriteStrategy": "REMOVE_REDUNDANT_SELECT_ALIAS_RECOVERED",
+                    "semanticRisk": "low",
+                    "confidence": "medium",
+                }
+            ]
+        return []
 
     count_wrapper_match = COUNT_WRAPPER_RE.match(normalized_original)
     if count_wrapper_match is not None:
@@ -845,6 +993,20 @@ def recover_candidates_from_shape(sql_key: str, original_sql: str) -> list[dict[
                     "confidence": "medium",
                 }
             )
+
+    explicit_family = safe_baseline_recovery_family(sql_unit or {}, original_sql) if sql_unit else None
+    # Only no-op baselines recover here. Dynamic filter families above must emit a real cleanup SQL.
+    if explicit_family in {"STATIC_STATEMENT_REWRITE", "STATIC_INCLUDE_WRAPPER_COLLAPSE"}:
+        return [
+            {
+                "id": f"{sql_key}:llm:recovered_safe_baseline_{explicit_family.lower()}",
+                "source": "llm",
+                "rewrittenSql": normalized_original,
+                "rewriteStrategy": "INLINE_SUBQUERY",
+                "semanticRisk": "low",
+                "confidence": "medium",
+            }
+        ]
     return recovered
 
 

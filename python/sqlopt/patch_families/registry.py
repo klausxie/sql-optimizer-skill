@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+
 from .models import PatchFamilySpec
 from .specs.distinct_from_alias_cleanup import DISTINCT_FROM_ALIAS_CLEANUP_SPEC
 from .specs.dynamic_count_wrapper_collapse import DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC
@@ -99,3 +101,22 @@ def list_registered_patch_families() -> tuple[PatchFamilySpec, ...]:
 
 def lookup_patch_family_spec(family: str) -> PatchFamilySpec | None:
     return _PATCH_FAMILY_REGISTRY.get(_canonicalize_family_id(family))
+
+
+def build_strategy_type_to_family_map() -> dict[str, str]:
+    """Build mapping from one-to-one strategyType identifiers to patch family.
+
+    Shared strategy types are intentionally excluded so runtime resolution keeps
+    explicit fallback logic for generic strategies like SAFE_WRAPPER_COLLAPSE.
+    """
+    strategy_counts = Counter(
+        str(spec.patch_target_policy.selected_patch_strategy or "").strip().upper()
+        for spec in _REGISTERED_PATCH_FAMILY_SPECS
+        if str(spec.patch_target_policy.selected_patch_strategy or "").strip()
+    )
+    strategy_to_family: dict[str, str] = {}
+    for spec in _REGISTERED_PATCH_FAMILY_SPECS:
+        strategy = str(spec.patch_target_policy.selected_patch_strategy or "").strip().upper()
+        if strategy and strategy_counts[strategy] == 1:
+            strategy_to_family[strategy] = spec.family
+    return strategy_to_family

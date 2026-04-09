@@ -59,10 +59,11 @@ class CandidateGenerationDiagnostics:
     recovered_candidate_count: int = 0
     raw_rewrite_strategies: list[str] = field(default_factory=list)
     final_candidate_count: int = 0
+    low_value_assessments: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
-        return {
+        payload = {
             "degradationKind": self.degradation_kind,
             "recoveryAttempted": self.recovery_attempted,
             "recoveryStrategy": self.recovery_strategy,
@@ -77,6 +78,9 @@ class CandidateGenerationDiagnostics:
             "rawRewriteStrategies": self.raw_rewrite_strategies,
             "finalCandidateCount": self.final_candidate_count,
         }
+        if self.low_value_assessments:
+            payload["lowValueAssessments"] = list(self.low_value_assessments)
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CandidateGenerationDiagnostics:
@@ -95,6 +99,7 @@ class CandidateGenerationDiagnostics:
             recovered_candidate_count=data.get("recoveredCandidateCount", 0),
             raw_rewrite_strategies=data.get("rawRewriteStrategies", []),
             final_candidate_count=data.get("finalCandidateCount", 0),
+            low_value_assessments=data.get("lowValueAssessments", []),
         )
 
 

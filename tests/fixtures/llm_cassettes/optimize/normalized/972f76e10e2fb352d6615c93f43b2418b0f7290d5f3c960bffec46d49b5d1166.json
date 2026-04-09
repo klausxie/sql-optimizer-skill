@@ -1,0 +1,173 @@
+{
+  "fingerprint": "972f76e10e2fb352d6615c93f43b2418b0f7290d5f3c960bffec46d49b5d1166",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.test.complex.chooseBasic",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "high",
+          "id": "opt-001",
+          "rewriteStrategy": "syntax_fix_and_simplify",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users WHERE status IN ('active', 'inactive')"
+        },
+        {
+          "confidence": "medium",
+          "id": "opt-002",
+          "rewriteStrategy": "union_rewrite_for_index_usage",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users WHERE status = 'active' UNION ALL SELECT id, name FROM users WHERE status"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:44:52.275786+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 14330,
+    "executor": "opencode_run",
+    "input_hash": "acbbc4319c6bb9ce440b250139d5a4b7ed525331c69f7ab9139a6c9f24596d72",
+    "mode": "candidate_generation",
+    "output_hash": "cdbbc081934edcc5ac65dd3f685e944b7a864361de22a0ba925329653ffeeda7",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [],
+          "statementFeatures": [
+            "CHOOSE"
+          ]
+        },
+        "includeTrace": [],
+        "planSummary": {
+          "error": "syntax error at or near \"WHERE\"\nLINE 1: EXPLAIN (FORMAT TEXT) SELECT id, name FROM users (WHERE stat...\n                                                          ^\n",
+          "summary": "EXPLAIN failed"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "CHOOSE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name FROM users (WHERE status = 'active' OR WHERE status = 'inactive' OR WHERE 1=1)",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT id, name FROM users\n        <choose>\n            <when test=\"type == 'active'\">\n                WHERE status = 'active'\n            </when>\n            <when test=\"type == 'inactive'\">\n                WHERE status = 'inactive'\n            </when>\n            <otherwise>\n                WHERE 1=1\n            </otherwise>\n        </choose>"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.chooseBasic",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.chooseBasic",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.chooseBasic:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "high",
+      "id": "opt-001",
+      "rewriteStrategy": "syntax_fix_and_simplify",
+      "rewrittenSql": "SELECT id, name FROM users WHERE status IN ('active', 'inactive')",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "medium",
+      "id": "opt-002",
+      "rewriteStrategy": "union_rewrite_for_index_usage",
+      "rewrittenSql": "SELECT id, name FROM users WHERE status = 'active' UNION ALL SELECT id, name FROM users WHERE status = 'inactive'",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

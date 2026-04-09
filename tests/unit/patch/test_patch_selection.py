@@ -96,6 +96,34 @@ class PatchSelectionTest(unittest.TestCase):
 
         self.assertEqual(family, "STATIC_UNION_COLLAPSE")
 
+    def test_derive_patch_target_family_uses_one_to_one_registry_mapping_for_join_strategy(self) -> None:
+        family = derive_patch_target_family(
+            original_sql="SELECT * FROM orders o LEFT JOIN users u ON u.id = o.user_id",
+            rewritten_sql="SELECT * FROM orders o INNER JOIN users u ON u.id = o.user_id",
+            rewrite_facts={
+                "dynamicTemplate": {
+                    "capabilityProfile": {
+                        "baselineFamily": "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
+                    }
+                }
+            },
+            rewrite_materialization=None,
+            selected_patch_strategy={"strategyType": "SAFE_JOIN_LEFT_TO_INNER"},
+        )
+
+        self.assertEqual(family, "STATIC_JOIN_LEFT_TO_INNER")
+
+    def test_derive_patch_target_family_keeps_generic_wrapper_collapse_explicit(self) -> None:
+        family = derive_patch_target_family(
+            original_sql="SELECT id FROM (SELECT id FROM users) u",
+            rewritten_sql="SELECT id FROM users",
+            rewrite_facts={},
+            rewrite_materialization=None,
+            selected_patch_strategy={"strategyType": "SAFE_WRAPPER_COLLAPSE"},
+        )
+
+        self.assertEqual(family, "STATIC_WRAPPER_COLLAPSE")
+
 
 if __name__ == "__main__":
     unittest.main()

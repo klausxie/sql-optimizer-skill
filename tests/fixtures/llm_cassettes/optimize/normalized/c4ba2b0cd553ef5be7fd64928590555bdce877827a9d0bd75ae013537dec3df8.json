@@ -1,0 +1,200 @@
+{
+  "fingerprint": "c4ba2b0cd553ef5be7fd64928590555bdce877827a9d0bd75ae013537dec3df8",
+  "rawCandidateCount": 1,
+  "sqlKey": "demo.test.complex.multiFragmentLevel2",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.95",
+          "id": "opt-001",
+          "rewriteStrategy": "no_change",
+          "semanticRisk": "none",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status FROM users"
+        }
+      ],
+      "count": 1
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:40:24.630309+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 22735,
+    "executor": "opencode_run",
+    "input_hash": "5bca86075bee8114909f561b6b5217435c8eb854e26c5f850e71afaf5537c48f",
+    "mode": "candidate_generation",
+    "output_hash": "d78ff77b3d1e9c58eae7fbfa174c85f719135cda58c1c143b7c62d40498f713d",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [
+                "INCLUDE"
+              ],
+              "ref": "demo.test.complex.Frag_UserCore"
+            },
+            {
+              "dynamicFeatures": [
+                "INCLUDE"
+              ],
+              "ref": "demo.test.complex.Frag_Cols_Basic"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Col_Id"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Col_Name"
+            },
+            {
+              "dynamicFeatures": [
+                "INCLUDE"
+              ],
+              "ref": "demo.test.complex.Frag_Cols_Contact"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Col_Email"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Col_Status"
+            }
+          ],
+          "statementFeatures": [
+            "INCLUDE"
+          ]
+        },
+        "includeTrace": [
+          "demo.test.complex.Frag_UserCore",
+          "demo.test.complex.Frag_Cols_Basic",
+          "demo.test.complex.Frag_Col_Id",
+          "demo.test.complex.Frag_Col_Name",
+          "demo.test.complex.Frag_Cols_Contact",
+          "demo.test.complex.Frag_Col_Email",
+          "demo.test.complex.Frag_Col_Status"
+        ],
+        "planSummary": {
+          "lineCount": 1,
+          "summary": "Seq Scan on users  (cost=0.00..10.80 rows=80 width=880)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "INCLUDE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email, status FROM users",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT <include refid=\"Frag_UserCore\" /> FROM users"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.multiFragmentLevel2",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.multiFragmentLevel2",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.multiFragmentLevel2:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.95",
+      "id": "opt-001",
+      "rewriteStrategy": "no_change",
+      "rewrittenSql": "SELECT id, name, email, status FROM users",
+      "semanticRisk": "none",
+      "source": "llm"
+    }
+  ]
+}

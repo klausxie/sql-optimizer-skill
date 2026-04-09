@@ -23,6 +23,7 @@ from .template_rendering import (
     normalize_sql_text,
     render_fragment_body_sql,
 )
+from .canonicalization_support import SELECT_DIRECT_RE
 
 _COUNT_WRAPPER_RE = re.compile(
     r'^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+from\s*\(\s*<include\b[^>]*refid="(?P<refid>[^"]+)"[^>]*/>\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)?\s*$',
@@ -68,6 +69,14 @@ _FROM_ALIAS_RESERVED = {
     "full",
     "cross",
 }
+_SAFE_BASELINE_PLAIN_STATIC_BLOCKERS_RE = re.compile(
+    r"\bwhere\b|\border\s+by\b|\blimit\b|\boffset\b|\bfetch\b|\bgroup\s+by\b|\bhaving\b|\bjoin\b|\bunion\b|\bover\s*\(|\bdistinct\b",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_SAFE_BASELINE_PLAIN_STATIC_SUBQUERY_RE = re.compile(
+    r"\b(?:in|exists|from|join)\s*\(\s*select\b",
+    flags=re.IGNORECASE | re.DOTALL,
+)
 
 
 def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
@@ -465,3 +474,42 @@ def build_rewrite_facts(
         equivalence,
         semantic_equivalence,
     ).to_dict()
+
+
+def safe_baseline_recovery_family(sql_unit: dict[str, Any], original_sql: str) -> str | None:
+    normalized_original = normalize_sql_text(original_sql)
+    dynamic_features = _dynamic_statement_features(sql_unit)
+    if not dynamic_features:
+        direct_match = SELECT_DIRECT_RE.match(normalized_original)
+        if direct_match is not None:
+            select_text = str(direct_match.group("select") or "").strip()
+            from_suffix = str(direct_match.group("from") or "").strip()
+            cleaned_select, alias_changed = cleanup_redundant_select_aliases(select_text)
+            cleaned_from, from_alias_changed = cleanup_redundant_from_alias(
+                from_suffix,
+                select_text=cleaned_select,
+            )
+            if (
+                not alias_changed
+                and not from_alias_changed
+                and not _SAFE_BASELINE_PLAIN_STATIC_BLOCKERS_RE.search(from_suffix)
+                and not _SAFE_BASELINE_PLAIN_STATIC_SUBQUERY_RE.search(normalized_original)
+                and normalize_sql_text(f"SELECT {cleaned_select} {cleaned_from}") == normalized_original
+            ):
+                return "STATIC_STATEMENT_REWRITE"
+
+    if dynamic_features:
+        if set(dynamic_features) <= {"INCLUDE"} and str(sql_unit.get("templateSql") or "").lower().count("<include") != 1:
+            return None
+        facts = build_rewrite_facts_model(
+            sql_unit,
+            normalized_original,
+            {},
+            {},
+            {"status": "UNCERTAIN", "confidence": "LOW", "evidenceLevel": "STRUCTURE", "hardConflicts": []},
+        )
+        profile = facts.dynamic_template.capability_profile
+        if profile.capability_tier == "SAFE_BASELINE":
+            return profile.baseline_family
+
+    return None

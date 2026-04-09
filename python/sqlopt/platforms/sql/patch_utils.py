@@ -8,6 +8,7 @@ depend on patch stage logic.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 from .canonicalization_support import SELECT_DIRECT_RE, cleanup_redundant_select_aliases, normalize_sql
@@ -97,6 +98,19 @@ _NULL_COMPARISON_RE = re.compile(
 )
 
 
+@lru_cache(maxsize=1)
+def _get_strategy_to_family_map() -> dict[str, str]:
+    """Lazily load strategy type to family mapping from registry."""
+    try:
+        from ...patch_families.registry import build_strategy_type_to_family_map
+
+        return build_strategy_type_to_family_map()
+    except ModuleNotFoundError as exc:
+        if exc.name in {"sqlopt.patch_families", "sqlopt.patch_families.registry"}:
+            return {}
+        raise
+
+
 def patch_template_settings(config: dict[str, Any] | None) -> dict[str, bool]:
     """Extract patch template settings from config."""
     patch_cfg = ((config or {}).get("patch", {}) if isinstance(config, dict) else {}) or {}
@@ -117,10 +131,20 @@ def derive_patch_target_family(
 ) -> str | None:
     """Derive the patch target family based on rewrite facts and strategy."""
     strategy_type = str((selected_patch_strategy or {}).get("strategyType") or "").strip().upper()
+
     if strategy_type == "SAFE_EXISTS_REWRITE":
         return "STATIC_EXISTS_REWRITE"
     if strategy_type == "SAFE_UNION_COLLAPSE":
         return "STATIC_UNION_COLLAPSE"
+    # Keep generic strategy types explicit here; the registry map only covers
+    # one-to-one strategy identifiers.
+    if strategy_type == "SAFE_WRAPPER_COLLAPSE":
+        return "STATIC_WRAPPER_COLLAPSE"
+
+    # Use auto-generated mapping from registry for one-to-one cases
+    strategy_map = _get_strategy_to_family_map()
+    if strategy_type in strategy_map:
+        return strategy_map[strategy_type]
 
     dynamic_profile = dict(((rewrite_facts or {}).get("dynamicTemplate") or {}).get("capabilityProfile") or {})
     dynamic_family = str(dynamic_profile.get("baselineFamily") or "").strip()
@@ -131,9 +155,6 @@ def derive_patch_target_family(
     aggregation_family = str(aggregation_profile.get("safeBaselineFamily") or "").strip()
     if aggregation_family:
         return aggregation_family
-
-    if strategy_type == "SAFE_WRAPPER_COLLAPSE":
-        return "STATIC_WRAPPER_COLLAPSE"
 
     cte_query = dict((rewrite_facts or {}).get("cteQuery") or {})
     if cte_query.get("inlineCandidate"):

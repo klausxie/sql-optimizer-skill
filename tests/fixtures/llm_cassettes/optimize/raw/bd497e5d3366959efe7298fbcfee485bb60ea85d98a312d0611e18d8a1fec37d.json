@@ -1,0 +1,46 @@
+{
+  "createdAt": "2026-04-09T02:43:31.911931+00:00",
+  "fingerprint": "bd497e5d3366959efe7298fbcfee485bb60ea85d98a312d0611e18d8a1fec37d",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE",
+      "FOREACH"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments WHERE #{orderId}",
+    "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_shipments_order ON public.shipments USING btree (order_id)",
+          "index": "idx_shipments_order",
+          "table": "shipments"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX shipments_pkey ON public.shipments USING btree (id)",
+          "index": "shipments_pkey",
+          "table": "shipments"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 2,
+        "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+      },
+      "tables": [
+        "shipments"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"ShipmentHarnessColumns\" />\n        FROM shipments\n        <where>\n            <foreach collection=\"orderIds\" item=\"orderId\" open=\"order_id IN (\" separator=\",\" close=\")\">\n                #{orderId}\n            </foreach>\n        </where>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds"
+}

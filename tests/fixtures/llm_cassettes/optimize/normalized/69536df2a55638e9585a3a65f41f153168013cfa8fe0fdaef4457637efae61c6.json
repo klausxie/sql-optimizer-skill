@@ -1,0 +1,186 @@
+{
+  "fingerprint": "69536df2a55638e9585a3a65f41f153168013cfa8fe0fdaef4457637efae61c6",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.95",
+          "id": "opt-001",
+          "rewriteStrategy": "index_recommendation",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{sta"
+        },
+        {
+          "confidence": "0.7",
+          "id": "opt-002",
+          "rewriteStrategy": "leverage_existing_index",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{sta"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:42:32.262754+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 40982,
+    "executor": "opencode_run",
+    "input_hash": "cb7127bc4fd8fc3c55fc7b2e0a920f9ae278520d02f1c74021e45ceadb95c217",
+    "mode": "candidate_generation",
+    "output_hash": "6175a42af4f16370a6474a781f6e684abfae1f092e7c5619091ad1e0517531ed",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "user_id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "order_no",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "amount",
+            "dataType": "numeric",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "orders"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.order.harness.OrderHarnessColumns"
+            }
+          ],
+          "statementFeatures": [
+            "INCLUDE",
+            "WHERE",
+            "FOREACH",
+            "IF"
+          ]
+        },
+        "includeTrace": [
+          "demo.order.harness.OrderHarnessColumns"
+        ],
+        "planSummary": {
+          "lineCount": 4,
+          "summary": "Sort  (cost=0.01..0.02 rows=0 width=268)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "orders"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "INCLUDE",
+          "WHERE",
+          "FOREACH",
+          "IF"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+            "index": "idx_orders_status",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+            "index": "idx_orders_user_created",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+            "index": "orders_order_no_key",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+            "index": "orders_pkey",
+            "table": "orders"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY id DESC",
+        "tables": [
+          "orders"
+        ],
+        "templateSql": "SELECT <include refid=\"OrderHarnessColumns\" />\n        FROM orders\n        <where>\n            <foreach collection=\"userIds\" item=\"uid\" open=\"user_id IN (\" separator=\",\" close=\")\">\n                #{uid}\n            </foreach>\n            <if test=\"status != null and status != ''\">\n                AND status = #{status}\n            </if>\n        </where>\n        ORDER BY id DESC"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.order.harness.findOrdersByUserIdsAndStatus",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.order.harness.findOrdersByUserIdsAndStatus:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.95",
+      "id": "opt-001",
+      "rewriteStrategy": "index_recommendation",
+      "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY id DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.7",
+      "id": "opt-002",
+      "rewriteStrategy": "leverage_existing_index",
+      "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY created_at DESC, id DESC",
+      "semanticRisk": "medium",
+      "source": "llm"
+    }
+  ]
+}

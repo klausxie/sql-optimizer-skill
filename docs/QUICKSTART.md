@@ -122,6 +122,25 @@ cat tests/fixtures/projects/sample_project/runs/<run-id>/sql/catalog.jsonl
 - `run_sample_project.py` 底层直接调用 `sqlopt_cli.py run`
 - `runs/` 会保留在 `tests/fixtures/projects/sample_project/` 下
 - 如果只是想先看目录输出效果，可临时改用 `llm.provider=heuristic`
+- 日常开发默认已切到 optimize replay；测试和录制方式见 [`LLM_REPLAY.md`](LLM_REPLAY.md)
+
+- replay 方式跑 `sample_project` / `generalization`：
+
+```bash
+python3 scripts/run_sample_project.py --scope generalization-batch1 --to-stage optimize
+python3 scripts/ci/generalization_refresh.py --max-seconds 240
+```
+
+- 需要刷新某条 SQL 的 cassette 时，再显式切到 `record`：
+
+```bash
+python3 scripts/run_sample_project.py \
+  --scope sql \
+  --sql-key demo.user.countUser \
+  --to-stage optimize \
+  --llm-mode record \
+  --max-seconds 180
+```
 
 - MySQL 方言边界（例如 `ILIKE`）不会自动兼容；语法问题会在 report 的 warnings 体现。
 
@@ -129,5 +148,6 @@ cat tests/fixtures/projects/sample_project/runs/<run-id>/sql/catalog.jsonl
 
 - 安装细节：[`INSTALL.md`](INSTALL.md)
 - 配置约定：[`CONFIG.md`](CONFIG.md)
+- LLM replay / cassette：[`LLM_REPLAY.md`](LLM_REPLAY.md)
 - 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
 - 当前规格：[`current-spec.md`](current-spec.md)

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from sqlopt.platforms.sql.rewrite_facts import build_rewrite_facts, build_rewrite_facts_model
+from sqlopt.platforms.sql.rewrite_facts import safe_baseline_recovery_family
 
 
 class RewriteFactsTest(unittest.TestCase):
@@ -227,6 +228,36 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
         self.assertEqual(model.dynamic_template.capability_profile.blocker_family, "STATIC_INCLUDE_FRAGMENT_DEPENDENT")
         self.assertEqual(model.dynamic_template.capability_profile.blockers, ["STATIC_INCLUDE_FRAGMENT_DEPENDENT"])
+
+    def test_safe_baseline_recovery_family_recognizes_plain_static_statement(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.test.complex.staticSimpleSelect",
+            "sql": "SELECT id, name, email, status, created_at FROM users",
+            "templateSql": "SELECT id, name, email, status, created_at FROM users",
+            "dynamicFeatures": [],
+        }
+
+        assert safe_baseline_recovery_family(sql_unit, sql_unit["sql"]) == "STATIC_STATEMENT_REWRITE"
+
+    def test_safe_baseline_recovery_family_rejects_plain_static_subquery_statements(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.test.complex.inSubquery",
+            "sql": "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')",
+            "templateSql": "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')",
+            "dynamicFeatures": [],
+        }
+
+        assert safe_baseline_recovery_family(sql_unit, sql_unit["sql"]) is None
+
+    def test_safe_baseline_recovery_family_recognizes_static_include_wrapper_collapse(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.test.complex.includeSimple",
+            "sql": "SELECT id, name, email, status, created_at FROM users",
+            "templateSql": "SELECT <include refid=\"BaseColumns\" /> FROM users",
+            "dynamicFeatures": ["INCLUDE"],
+        }
+
+        assert safe_baseline_recovery_family(sql_unit, sql_unit["sql"]) == "STATIC_INCLUDE_WRAPPER_COLLAPSE"
 
     def test_build_rewrite_facts_model_captures_foreach_dynamic_template_shape(self) -> None:
         sql_unit = {

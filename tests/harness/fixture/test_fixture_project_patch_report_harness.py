@@ -33,6 +33,28 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
 
     def test_fixture_project_report_matches_matrix_aggregates(self) -> None:
         scenarios, _proposals, acceptance_rows, patches, report_artifacts = run_fixture_patch_and_report_harness()
+        scenario_by_key = {str(row["sqlKey"]): row for row in scenarios}
+        expected_batch6_blockers = {
+            "demo.order.harness.listOrdersWithUsersPaged": "VALIDATE_SEMANTIC_ERROR",
+            "demo.shipment.harness.findShipments": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.staticSimpleSelect": "NO_SAFE_BASELINE_RECOVERY",
+            "demo.test.complex.inSubquery": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+            "demo.test.complex.includeSimple": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+        }
+        for sql_key, expected_blocker in expected_batch6_blockers.items():
+            self.assertEqual(scenario_by_key[sql_key]["targetPrimaryBlocker"], expected_blocker)
+
+        expected_boundary_blockers = {
+            "demo.order.harness.findOrdersByNos": "VALIDATE_SEMANTIC_ERROR",
+            "demo.shipment.harness.findShipmentsByOrderIds": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.multiFragmentSeparate": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.selectWithFragmentChoose": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.existsSubquery": "SEMANTIC_GATE_BLOCKED",
+            "demo.test.complex.leftJoinWithNull": "SEMANTIC_GATE_BLOCKED",
+            "demo.test.complex.chooseWithLimit": "VALIDATE_SEMANTIC_ERROR",
+        }
+        for sql_key, expected_blocker in expected_boundary_blockers.items():
+            self.assertEqual(scenario_by_key[sql_key]["targetPrimaryBlocker"], expected_blocker)
         stats = report_artifacts.report.stats
         summary = summarize_fixture_scenarios(scenarios)
         expected_patch_ready = sum(1 for row in scenarios if row["targetPatchStrategy"])
@@ -130,6 +152,39 @@ class FixtureScenarioPatchReportHarnessTest(unittest.TestCase):
         self.assertEqual(
             sql_rows["demo.order.harness.findOrdersByNos"]["dynamic_blocking_reason"],
             "FOREACH_INCLUDE_PREDICATE",
+        )
+        self.assertEqual(sql_rows["demo.shipment.harness.findShipmentsByOrderIds"]["dynamic_shape_family"], "FOREACH_IN_PREDICATE")
+        self.assertEqual(
+            sql_rows["demo.shipment.harness.findShipmentsByOrderIds"]["dynamic_blocking_reason"],
+            "FOREACH_INCLUDE_PREDICATE",
+        )
+        self.assertEqual(
+            sql_rows["demo.test.complex.multiFragmentSeparate"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.test.complex.multiFragmentSeparate"]["dynamic_blocking_reason"],
+            "DYNAMIC_FILTER_SUBTREE",
+        )
+        self.assertEqual(
+            sql_rows["demo.test.complex.selectWithFragmentChoose"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.test.complex.selectWithFragmentChoose"]["dynamic_blocking_reason"],
+            "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE",
+        )
+        self.assertEqual(sql_rows["demo.test.complex.existsSubquery"]["dynamic_shape_family"], "NONE")
+        self.assertIsNone(sql_rows["demo.test.complex.existsSubquery"]["dynamic_blocking_reason"])
+        self.assertEqual(sql_rows["demo.test.complex.leftJoinWithNull"]["dynamic_shape_family"], "NONE")
+        self.assertIsNone(sql_rows["demo.test.complex.leftJoinWithNull"]["dynamic_blocking_reason"])
+        self.assertEqual(
+            sql_rows["demo.test.complex.chooseWithLimit"]["dynamic_shape_family"],
+            "IF_GUARDED_FILTER_STATEMENT",
+        )
+        self.assertEqual(
+            sql_rows["demo.test.complex.chooseWithLimit"]["dynamic_blocking_reason"],
+            "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE",
         )
 
     def test_fixture_patch_harness_uses_temp_project_copy_as_apply_check_root(self) -> None:

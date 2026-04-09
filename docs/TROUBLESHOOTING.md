@@ -86,6 +86,33 @@ PYTHONPATH=python python3 scripts/sqlopt_cli.py resume --run-id <run-id>
 - 先执行 `PYTHONPATH=python python3 scripts/sqlopt_cli.py --help` 确认安装正常
 - 需要离线验证时切换到 `opencode_builtin` 或 `heuristic`
 
+## LLM Replay Miss
+
+可能原因：
+- `llm.mode=replay`，但这条 optimize request 还没有 cassette
+- prompt/version/provider/model 变化导致 fingerprint 改了
+- cassette 目录配置错了
+
+处理方法：
+- 先看报错里的 `sqlKey`、`fingerprint` 和 cassette 路径
+- 确认 `llm.cassette_root` 是否指向 `tests/fixtures/llm_cassettes`
+- 如果这条 statement 本来就应该走 LLM，用 `record` 补录
+- 如果这条 statement 在 optimize 阶段本来是 `skip`/`blocked`，则不需要补 cassette
+
+常用命令：
+
+```bash
+python3 scripts/run_sample_project.py \
+  --scope sql \
+  --sql-key <sql-key> \
+  --to-stage optimize \
+  --llm-mode record
+```
+
+补充：
+- `replay` miss 默认不会 fallback 到 `live`
+- 这是故意的，目的是避免测试悄悄退回真实 LLM
+
 ## Patch Conflicts
 
 可能原因：
