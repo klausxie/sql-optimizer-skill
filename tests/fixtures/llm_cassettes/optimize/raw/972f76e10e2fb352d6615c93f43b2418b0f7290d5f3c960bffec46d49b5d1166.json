@@ -1,0 +1,54 @@
+{
+  "createdAt": "2026-04-09T02:45:06.606134+00:00",
+  "fingerprint": "972f76e10e2fb352d6615c93f43b2418b0f7290d5f3c960bffec46d49b5d1166",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "CHOOSE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name FROM users (WHERE status = 'active' OR WHERE status = 'inactive' OR WHERE 1=1)",
+    "sqlKey": "demo.test.complex.chooseBasic",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "error": "syntax error at or near \"WHERE\"\nLINE 1: EXPLAIN (FORMAT TEXT) SELECT id, name FROM users (WHERE stat...\n                                                          ^\n",
+        "summary": "EXPLAIN failed"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT id, name FROM users\n        <choose>\n            <when test=\"type == 'active'\">\n                WHERE status = 'active'\n            </when>\n            <when test=\"type == 'inactive'\">\n                WHERE status = 'inactive'\n            </when>\n            <otherwise>\n                WHERE 1=1\n            </otherwise>\n        </choose>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.chooseBasic"
+}

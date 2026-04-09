@@ -8,11 +8,11 @@ from typing import Any
 from ..contracts import ContractValidator
 from ..io_utils import append_jsonl, write_json
 from ..llm.output_validator import validate_candidates
-from ..llm.provider import generate_llm_candidates
 from ..llm.retry_context import build_retry_context, should_retry, collect_validation_errors
 from ..manifest import log_event
 from ..platforms.sql.candidate_generation_engine import evaluate_candidate_generation
-from ..platforms.sql.optimizer_sql import build_optimize_prompt, generate_proposal
+from ..platforms.sql.llm_replay_gateway import generate_optimize_candidates_with_replay
+from ..platforms.sql.optimizer_sql import build_optimize_prompt, build_optimize_replay_request, generate_proposal
 from ..run_paths import canonical_paths
 from ..utils import statement_key, statement_key_from_row, is_sql_syntax_error
 from ..verification.models import VerificationCheck, VerificationRecord
@@ -58,6 +58,7 @@ def _execute_llm_with_retry(
         LLM 执行结果
     """
     prompt = build_optimize_prompt(sql_unit, proposal, config)
+    replay_request = build_optimize_replay_request(sql_unit, proposal, llm_cfg)
 
     retry_cfg = llm_cfg.get("retry", {}) or {}
     retry_enabled = bool(retry_cfg.get("enabled", False))
@@ -89,12 +90,13 @@ def _execute_llm_with_retry(
 
         # 调用 LLM
         try:
-            raw_candidates, trace = generate_llm_candidates(
+            raw_candidates, trace = generate_optimize_candidates_with_replay(
                 sql_unit["sqlKey"],
                 sql_unit["sql"],
                 llm_cfg,
                 prompt=prompt,
                 retry_context=retry_context,
+                replay_request=replay_request,
             )
             last_execution_error = None
         except Exception as exc:
@@ -390,7 +392,7 @@ def execute_one(sql_unit: dict[str, Any], run_dir: Path, validator: ContractVali
     )
 
     proposal[LLM_CANDIDATES_KEY] = candidates
-    proposal[CANDIDATE_GENERATION_DIAGNOSTICS_KEY] = candidate_generation_diagnostics
+    proposal[CANDIDATE_GENERATION_DIAGNOSTICS_KEY] = candidate_generation_artifact
     if retry_traces:
         proposal[LLM_RETRY_TRACES_KEY] = retry_traces
         proposal[LLM_RETRY_STATS_KEY] = {

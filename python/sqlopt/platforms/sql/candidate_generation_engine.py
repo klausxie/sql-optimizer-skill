@@ -10,11 +10,15 @@ from .candidate_generation_models import (
     LowValueAssessment,
 )
 from .candidate_generation_support import (
+    classify_supported_choose_guarded_filter_candidate,
     classify_blocked_shape,
     distinct_on_cleanup_sql,
+    is_observed_in_subquery_rewrite_strategy,
+    is_supported_choose_guarded_filter,
     limit_large_cleanup_sql,
     recover_candidates_from_shape,
     recover_candidates_from_text,
+    normalize_strategy_text,
 )
 
 
@@ -100,6 +104,7 @@ _HINT_RE = re.compile(r"/\*\+\s*.+?\*/", flags=re.IGNORECASE | re.DOTALL)
 _HINT_STRATEGY_RE = re.compile(r"index|hint", flags=re.IGNORECASE)
 _ORDER_STRATEGY_RE = re.compile(r"order", flags=re.IGNORECASE)
 _TIME_FILTER_STRATEGY_RE = re.compile(r"time[_ ]?filter", flags=re.IGNORECASE)
+_FULLTEXT_SEARCH_STRATEGY_RE = re.compile(r"full[_ -]?text[_ -]?search", flags=re.IGNORECASE)
 _JOIN_REWRITE_STRATEGY_RE = re.compile(
     r"driving[_ ]?table|join[_ ]?reorder|reorder[_ ]?join|join[_ ]?order|push.*join",
     flags=re.IGNORECASE,
@@ -113,6 +118,11 @@ _WITH_RE = re.compile(r"^\s*with\b", flags=re.IGNORECASE)
 _ORDER_BY_RE = re.compile(r"\border\s+by\b", flags=re.IGNORECASE)
 _UNION_RE = re.compile(r"\bunion(?:\s+all)?\b", flags=re.IGNORECASE)
 _LIMIT_RE = re.compile(r"\blimit\b|\bfetch\s+first\b", flags=re.IGNORECASE)
+_OFFSET_RE = re.compile(r"\boffset\b", flags=re.IGNORECASE)
+_IN_SUBQUERY_REWRITE_STRATEGY_RE = re.compile(
+    r"in[_ ]subquery[_ ]to[_ ](?:exists|join)|in[-_ ]to[-_ ](?:exists|join)|exists[_ ]correlated|join[_ ]expansion|null[_ -]?safe[_ -]?in|exists[_ -]?transform|join[_ -]?transform",
+    flags=re.IGNORECASE,
+)
 _JOIN_SUBQUERY_RE = re.compile(r"\bjoin\s*\(\s*select\b", flags=re.IGNORECASE)
 _FROM_SUBQUERY_RE = re.compile(r"\bfrom\s*\(\s*select\b", flags=re.IGNORECASE)
 _JOIN_CLAUSE_RE = re.compile(r"\bjoin\b.+?\bon\b(?P<on_clause>.+?)(?=\bjoin\b|\bwhere\b|\border\s+by\b|\blimit\b|\boffset\b|$)", flags=re.IGNORECASE | re.DOTALL)
@@ -257,8 +267,8 @@ def _check_comment_only(candidate: dict[str, Any], context: CandidateGenerationC
 def _check_dynamic_filter(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
     """检测动态过滤器的投机重写"""
     rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
-    strategy = str(candidate.get("rewriteStrategy") or "").strip()
-    strategy_lower = strategy.lower()
+    strategy = normalize_strategy_text(candidate.get("rewriteStrategy") or "")
+    strategy_lower = strategy
     original_sql = context.original_sql
 
     features = _dynamic_filter_features(context.sql_unit)
@@ -267,6 +277,20 @@ def _check_dynamic_filter(candidate: dict[str, Any], context: CandidateGeneratio
 
     norm_original = _normalize_sql(original_sql)
     norm_rewritten = _normalize_sql(rewritten_sql)
+
+    choose_guarded_classification = classify_supported_choose_guarded_filter_candidate(
+        original_sql=original_sql,
+        sql_unit=context.sql_unit,
+        candidate=candidate,
+    )
+    if choose_guarded_classification is not None:
+        category, reason = choose_guarded_classification
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id=f"DYNAMIC_FILTER_{category}",
+            category=category,
+            reason=reason,
+        )
 
     # Check hint additions
     if _HINT_RE.search(rewritten_sql) or _HINT_STRATEGY_RE.search(strategy):
@@ -304,6 +328,14 @@ def _check_dynamic_filter(candidate: dict[str, Any], context: CandidateGeneratio
             reason="candidate introduces pagination on a dynamic filter template without a safe template-preserving baseline",
         )
 
+    if (_OFFSET_RE.search(norm_original) and not _OFFSET_RE.search(norm_rewritten)) or "keyset" in strategy_lower:
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate rewrites dynamic filter pagination semantics without a safe template-preserving baseline",
+        )
+
     # Check time filter strategy
     if _TIME_FILTER_STRATEGY_RE.search(strategy):
         return LowValueAssessment(
@@ -311,6 +343,15 @@ def _check_dynamic_filter(candidate: dict[str, Any], context: CandidateGeneratio
             rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
             category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
             reason="candidate introduces a time-based filter on a dynamic filter template without a safe template-preserving rewrite",
+        )
+
+    # Check full-text search strategy
+    if _FULLTEXT_SEARCH_STRATEGY_RE.search(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            category="DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+            reason="candidate introduces full-text search on a dynamic filter template without a safe template-preserving rewrite",
         )
 
     # Check ORDER BY introduction
@@ -491,7 +532,18 @@ def _check_static_include(candidate: dict[str, Any], context: CandidateGeneratio
     if "INCLUDE" not in dynamic_features:
         return None
 
-    if any(x in strategy_lower for x in ["index", "filter", "time_", "paged", "page", "offset"]):
+    rewritten_sql = _normalize_sql(str(candidate.get("rewrittenSql") or ""))
+    original_sql = _normalize_sql(context.original_sql)
+
+    if any(x in strategy_lower for x in ["index", "filter", "time_", "paged", "page", "offset", "limit"]):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+            category="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
+            reason="candidate adds speculative filter/index to static include without safe template-preserving baseline",
+        )
+
+    if _LIMIT_RE.search(rewritten_sql) and not _LIMIT_RE.search(original_sql):
         return LowValueAssessment(
             candidate_id=str(candidate.get("id") or ""),
             rule_id="STATIC_INCLUDE_SPECULATIVE_PAGINATION",
@@ -540,6 +592,14 @@ def _check_static_statement(candidate: dict[str, Any], context: CandidateGenerat
             reason="candidate only changes single-table qualifiers or aliases on a static statement; prefer safe baseline cleanup",
         )
 
+    if normalize_strategy_text(strategy) == "null_safe_in":
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="STATIC_STATEMENT_NULL_SAFE_IN_REWRITE",
+            category="STATIC_STATEMENT_SPECULATIVE_REWRITE",
+            reason="candidate rewrites an IN subquery with a null-safe variant without a proven safe baseline",
+        )
+
     if (
         _PREDICATE_REWRITE_STRATEGY_RE.search(strategy)
         or "filter" in strategy_lower
@@ -561,13 +621,21 @@ def _check_static_statement(candidate: dict[str, Any], context: CandidateGenerat
             reason="candidate introduces speculative pagination on a static statement without a safe baseline",
         )
 
+    if is_observed_in_subquery_rewrite_strategy(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="STATIC_STATEMENT_IN_SUBQUERY_REWRITE",
+            category="UNSUPPORTED_STRATEGY",
+            reason="candidate rewrites an IN subquery using an unsupported strategy wording",
+        )
+
     return None
 
 
 def _check_other_patterns(candidate: dict[str, Any], context: CandidateGenerationContext) -> LowValueAssessment | None:
     """检测其他模式：distinct, union, foreach, parameter 等"""
-    strategy = str(candidate.get("rewriteStrategy") or "").strip()
-    strategy_lower = strategy.lower()
+    strategy = normalize_strategy_text(candidate.get("rewriteStrategy") or "")
+    strategy_lower = strategy
     original_sql = context.original_sql
     rewritten_sql = str(candidate.get("rewrittenSql") or "").strip()
 
@@ -596,6 +664,14 @@ def _check_other_patterns(candidate: dict[str, Any], context: CandidateGeneratio
             rule_id="DISTINCT_TRANSFORM",
             category="DISTINCT_TRANSFORM",
             reason="candidate rewrites DISTINCT without proven performance benefit",
+        )
+
+    if is_observed_in_subquery_rewrite_strategy(strategy):
+        return LowValueAssessment(
+            candidate_id=str(candidate.get("id") or ""),
+            rule_id="IN_SUBQUERY_UNSUPPORTED_STRATEGY",
+            category="UNSUPPORTED_STRATEGY",
+            reason="candidate rewrites an IN subquery using an unsupported strategy wording",
         )
 
     # Check array parameter conversion
@@ -742,7 +818,7 @@ def _recover_candidates(
         return candidates
 
     if degraded_kind in {"EMPTY_CANDIDATES", "ONLY_LOW_VALUE_CANDIDATES"}:
-        candidates = recover_candidates_from_shape(sql_key, original_sql)
+        candidates = recover_candidates_from_shape(sql_key, original_sql, context.sql_unit)
         return candidates
 
     return []
@@ -768,7 +844,9 @@ def _prefer_order_preserving_safe_baseline_recovery(
     if not risky_order_drop:
         return []
 
-    recovered = recover_candidates_from_shape(context.sql_key, original_sql)
+    if is_supported_choose_guarded_filter(context.sql_unit):
+        return []
+    recovered = recover_candidates_from_shape(context.sql_key, original_sql, context.sql_unit)
     if not recovered:
         return []
     first_strategy = str((recovered[0] or {}).get("rewriteStrategy") or "").strip().upper()
@@ -835,7 +913,14 @@ def evaluate_candidate_generation(
 
     diagnostics.recovery_attempted = True
     if degraded_kind == "ONLY_LOW_VALUE_CANDIDATES":
-        diagnostics.recovery_reason = "LOW_VALUE_PRUNED_TO_EMPTY"
+        pure_unsupported_strategy_pool = bool(low_value_assessments) and all(
+            assessment.category == "UNSUPPORTED_STRATEGY" for assessment in low_value_assessments
+        )
+        diagnostics.recovery_reason = (
+            "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
+            if pure_unsupported_strategy_pool
+            else "LOW_VALUE_PRUNED_TO_EMPTY"
+        )
     elif degraded_kind == "EMPTY_CANDIDATES":
         trace_degrade_reason = str(trace.get("degrade_reason") or "").strip().upper()
         if trace_degrade_reason == "EXECUTION_ERROR":

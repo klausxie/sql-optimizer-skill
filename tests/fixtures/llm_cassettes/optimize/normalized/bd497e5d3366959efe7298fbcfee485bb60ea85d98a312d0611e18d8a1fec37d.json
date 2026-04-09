@@ -1,0 +1,158 @@
+{
+  "fingerprint": "bd497e5d3366959efe7298fbcfee485bb60ea85d98a312d0611e18d8a1fec37d",
+  "rawCandidateCount": 1,
+  "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.95",
+          "id": "c1",
+          "rewriteStrategy": "fix_malformed_where",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments WHERE order_id = #{orde"
+        }
+      ],
+      "count": 1
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:43:13.345393+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 18566,
+    "executor": "opencode_run",
+    "input_hash": "b577e6efb0f3bd4d171fc0c74ca020809e68c358942b6ab5cbc2480434b44405",
+    "mode": "candidate_generation",
+    "output_hash": "bff451ffa9c0a13244e5b00d4b6a0d4c05e864605450432ec0125094f433a814",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "shipments"
+          },
+          {
+            "column": "order_id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "shipments"
+          },
+          {
+            "column": "carrier",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "shipments"
+          },
+          {
+            "column": "tracking_no",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "shipments"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "shipments"
+          },
+          {
+            "column": "shipped_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": true,
+            "table": "shipments"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.shipment.harness.ShipmentHarnessColumns"
+            }
+          ],
+          "statementFeatures": [
+            "INCLUDE",
+            "WHERE",
+            "FOREACH"
+          ]
+        },
+        "includeTrace": [
+          "demo.shipment.harness.ShipmentHarnessColumns"
+        ],
+        "planSummary": {
+          "lineCount": 2,
+          "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "shipments"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "INCLUDE",
+          "WHERE",
+          "FOREACH"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_shipments_order ON public.shipments USING btree (order_id)",
+            "index": "idx_shipments_order",
+            "table": "shipments"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX shipments_pkey ON public.shipments USING btree (id)",
+            "index": "shipments_pkey",
+            "table": "shipments"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments WHERE #{orderId}",
+        "tables": [
+          "shipments"
+        ],
+        "templateSql": "SELECT <include refid=\"ShipmentHarnessColumns\" />\n        FROM shipments\n        <where>\n            <foreach collection=\"orderIds\" item=\"orderId\" open=\"order_id IN (\" separator=\",\" close=\")\">\n                #{orderId}\n            </foreach>\n        </where>"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.shipment.harness.findShipmentsByOrderIds",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.shipment.harness.findShipmentsByOrderIds",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.shipment.harness.findShipmentsByOrderIds:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.95",
+      "id": "c1",
+      "rewriteStrategy": "fix_malformed_where",
+      "rewrittenSql": "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments WHERE order_id = #{orderId}",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

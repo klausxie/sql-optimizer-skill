@@ -1,0 +1,57 @@
+{
+  "createdAt": "2026-04-09T02:44:52.201744+00:00",
+  "fingerprint": "75d3054fc321210d70c66ea5be942adc0a7b10ac9fc20444cb41b06a79c18f88",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "BIND",
+      "INCLUDE",
+      "WHERE",
+      "CHOOSE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+    "sqlKey": "demo.user.advanced.findUsersByKeyword",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 4,
+        "summary": "Sort  (cost=13.49..13.69 rows=79 width=896)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" />\n        SELECT <include refid=\"AdvancedUserColumns\" />\n        FROM users\n        <where>\n            <choose>\n                <when test=\"keyword != null and keyword != ''\">\n                    name ILIKE #{keywordPattern}\n                </when>\n                <when test=\"status != null and status != ''\">\n                    status = #{status}\n                </when>\n                <otherwise>\n                    status != 'DELETED'\n                </otherwise>\n            </choose>\n        </where>\n        ORDER BY created_at DESC"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.user.advanced.findUsersByKeyword"
+}

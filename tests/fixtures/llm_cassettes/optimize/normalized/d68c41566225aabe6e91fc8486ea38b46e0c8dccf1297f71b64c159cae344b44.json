@@ -1,0 +1,191 @@
+{
+  "fingerprint": "d68c41566225aabe6e91fc8486ea38b46e0c8dccf1297f71b64c159cae344b44",
+  "rawCandidateCount": 3,
+  "sqlKey": "demo.test.complex.chooseWithLimit",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.95",
+          "id": "llm-001",
+          "rewriteStrategy": "syntax_fix_and_simplify",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users WHERE status IN ('active', 'pending') LIMIT #{limit}"
+        },
+        {
+          "confidence": "0.85",
+          "id": "llm-002",
+          "rewriteStrategy": "index_optimization",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users WHERE status IN ('active', 'pending') ORDER BY created_at DESC LIMIT #{li"
+        },
+        {
+          "confidence": "0.7",
+          "id": "llm-003",
+          "rewriteStrategy": "union_rewrite",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users WHERE status = 'active' UNION ALL SELECT id, name FROM users WHERE status"
+        }
+      ],
+      "count": 3
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:45:29.830867+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 36491,
+    "executor": "opencode_run",
+    "input_hash": "e90cdc3c4ef7998b7642338850388a48485c2c4f460951aa45680491a231ea00",
+    "mode": "candidate_generation",
+    "output_hash": "72a1fc66f564b2c587f4320737ba63e4116f65d2f87a0141173b6356adf61b47",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [],
+          "statementFeatures": [
+            "CHOOSE",
+            "IF"
+          ]
+        },
+        "includeTrace": [],
+        "planSummary": {
+          "error": "syntax error at or near \"WHERE\"\nLINE 1: EXPLAIN (FORMAT TEXT) SELECT id, name FROM users (WHERE stat...\n                                                          ^\n",
+          "summary": "EXPLAIN failed"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "CHOOSE",
+          "IF"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name FROM users (WHERE status = 'active' OR WHERE status = 'pending' OR WHERE 1=1) LIMIT #{limit}",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT id, name FROM users\n        <choose>\n            <when test=\"statusFilter == 'active'\">\n                WHERE status = 'active'\n            </when>\n            <when test=\"statusFilter == 'pending'\">\n                WHERE status = 'pending'\n            </when>\n            <otherwise>\n                WHERE 1=1\n            </otherwise>\n        </choose>\n        <if test=\"limit != null\">\n            LIMIT #{limit}\n        </if>"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.chooseWithLimit",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.chooseWithLimit",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.chooseWithLimit:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.95",
+      "id": "llm-001",
+      "rewriteStrategy": "syntax_fix_and_simplify",
+      "rewrittenSql": "SELECT id, name FROM users WHERE status IN ('active', 'pending') LIMIT #{limit}",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.85",
+      "id": "llm-002",
+      "rewriteStrategy": "index_optimization",
+      "rewrittenSql": "SELECT id, name FROM users WHERE status IN ('active', 'pending') ORDER BY created_at DESC LIMIT #{limit}",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.7",
+      "id": "llm-003",
+      "rewriteStrategy": "union_rewrite",
+      "rewrittenSql": "SELECT id, name FROM users WHERE status = 'active' UNION ALL SELECT id, name FROM users WHERE status = 'pending' LIMIT #{limit}",
+      "semanticRisk": "medium",
+      "source": "llm"
+    }
+  ]
+}

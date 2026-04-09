@@ -1,0 +1,169 @@
+{
+  "fingerprint": "f8711c52c75655b3e9f0c02c1ee6598d30df14fb2b1f69637065e90f2aa68459",
+  "rawCandidateCount": 1,
+  "sqlKey": "demo.test.complex.fragmentMultiplePlaces",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "high",
+          "id": "fix-schema-error-001",
+          "rewriteStrategy": "REMOVE_INVALID_COLUMN",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status FROM users WHERE status = 'active'"
+        }
+      ],
+      "count": 1
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:43:31.973898+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 26884,
+    "executor": "opencode_run",
+    "input_hash": "df959b689e814846cca9a76d94c45c45ec2964cd15945dcdf8775c9cd37f52d2",
+    "mode": "candidate_generation",
+    "output_hash": "5e9526a6e00a63b3c775da7a97581be13b18a3c49f9c4e3c53b4f0cc2d056c95",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_CommonColumns"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_CommonWhere"
+            }
+          ],
+          "statementFeatures": [
+            "INCLUDE"
+          ]
+        },
+        "includeTrace": [
+          "demo.test.complex.Frag_CommonColumns",
+          "demo.test.complex.Frag_CommonWhere"
+        ],
+        "planSummary": {
+          "error": "column \"department\" does not exist\nLINE 1: ...AIN (FORMAT TEXT) SELECT id, name, email, status, department...\n                                                             ^\n",
+          "summary": "EXPLAIN failed"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "INCLUDE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email, status, department FROM users WHERE status = 'active'",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT <include refid=\"Frag_CommonColumns\" />, status, department FROM users\n        <include refid=\"Frag_CommonWhere\" />"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.fragmentMultiplePlaces",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.fragmentMultiplePlaces",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.fragmentMultiplePlaces:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "high",
+      "id": "fix-schema-error-001",
+      "rewriteStrategy": "REMOVE_INVALID_COLUMN",
+      "rewrittenSql": "SELECT id, name, email, status FROM users WHERE status = 'active'",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

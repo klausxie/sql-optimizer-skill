@@ -69,6 +69,9 @@
 | `provider` | string | 是 | `opencode_run` / `direct_openai_compatible` / `opencode_builtin` / `heuristic` |
 | `enabled` | bool | 否 | 默认 `true` |
 | `timeout_ms` | int | 否 | 请求超时（毫秒） |
+| `mode` | string | 否 | `live` / `record` / `replay`，默认 `live` |
+| `cassette_root` | string/null | 否 | replay cassette 根目录 |
+| `replay_strict` | bool | 否 | `replay` miss 时是否直接失败，默认 `true` |
 | `opencode_model` | string/null | 否 | `opencode_run` 可选模型名 |
 | `api_base` | string/null | 条件必填 | 仅 `direct_openai_compatible` |
 | `api_key` | string/null | 条件必填 | 仅 `direct_openai_compatible` |
@@ -80,6 +83,8 @@
 
 - `direct_openai_compatible` 必须配置 `api_base/api_key/api_model`
 - `opencode_run` 与 `direct_openai_compatible` 保持严格失败语义
+- `replay` 不会自动 fallback 到 `live`
+- 当前 cassette/replay 只覆盖 optimize 阶段的 LLM candidate generation
 
 ### 2.5 `report`
 
@@ -137,6 +142,9 @@ db:
 
 llm:
   provider: opencode_run
+  mode: replay
+  cassette_root: tests/fixtures/llm_cassettes
+  replay_strict: true
 
 report:
   enabled: true
@@ -166,5 +174,6 @@ report:
 
 - [快速入门](QUICKSTART.md)
 - [安装指南](INSTALL.md)
+- [LLM Replay 使用说明](LLM_REPLAY.md)
 - [故障排查](TROUBLESHOOTING.md)
 - [当前规格](current-spec.md)

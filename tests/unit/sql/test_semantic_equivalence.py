@@ -219,6 +219,87 @@ class SemanticEquivalenceTest(unittest.TestCase):
         )
         self.assertEqual(result["status"], "PASS")
 
+    def test_exists_to_in_rewrite_is_treated_as_semantically_equivalent_with_exact_fingerprint(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            """,
+            rewritten_sql="""
+                SELECT u.id, u.name
+                FROM users u
+                WHERE u.id IN (SELECT DISTINCT o.user_id FROM orders o)
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_KNOWN_EQUIVALENCE_EXISTS_TO_IN_REWRITE")
+        self.assertEqual(result["checks"]["predicate"]["reasonCode"], "SEMANTIC_PREDICATE_EXISTS_TO_IN_EQUIVALENT")
+
+    def test_exists_to_in_rewrite_does_not_auto_allow_join_based_expansion(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT id, name
+                FROM users u
+                WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)
+            """,
+            rewritten_sql="""
+                SELECT u.id, u.name
+                FROM users u
+                WHERE u.id IN (
+                    SELECT DISTINCT o.user_id
+                    FROM orders o
+                    JOIN shipments s ON s.order_id = o.id
+                )
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertNotEqual(result["status"], "PASS")
+        self.assertFalse(result["equivalenceOverrideApplied"])
+        self.assertNotEqual(result["checks"]["predicate"].get("reasonCode"), "SEMANTIC_PREDICATE_EXISTS_TO_IN_EQUIVALENT")
+
+    def test_select_star_wrapper_collapse_is_treated_as_semantically_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql="""
+                SELECT *
+                FROM (
+                    SELECT id, name, status
+                    FROM users
+                    WHERE status = 'active'
+                ) active_users
+            """,
+            rewritten_sql="""
+                SELECT id, name, status
+                FROM users
+                WHERE status = 'active'
+            """,
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+
     def test_static_alias_projection_cleanup_is_treated_as_semantically_equivalent(self) -> None:
         result = build_semantic_equivalence(
             original_sql="SELECT id AS id, name AS name, email AS email FROM users ORDER BY created_at DESC",
@@ -232,6 +313,32 @@ class SemanticEquivalenceTest(unittest.TestCase):
                 "evidenceRefs": [],
             },
         )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT")
+        self.assertEqual(result["confidence"], "HIGH")
+
+    def test_choose_filter_alias_cleanup_is_treated_as_semantically_equivalent(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT id AS id, name AS name, email AS email "
+                "FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+                "ORDER BY created_at DESC"
+            ),
+            rewritten_sql=(
+                "SELECT id, name, email "
+                "FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+                "ORDER BY created_at DESC"
+            ),
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["checks"]["projection"]["reasonCode"], "SEMANTIC_PROJECTION_ALIAS_ONLY_EQUIVALENT")
         self.assertEqual(result["confidence"], "HIGH")
@@ -285,6 +392,29 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertEqual(result["checks"]["ordering"]["reasonCode"], "SEMANTIC_ORDERING_QUALIFIER_ONLY_EQUIVALENT")
         self.assertEqual(result["confidence"], "HIGH")
 
+    def test_ordering_qualifier_only_cleanup_requires_order_sensitive_exact_evidence(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT id, name, email, status, created_at, updated_at "
+                "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY u.created_at DESC"
+            ),
+            rewritten_sql=(
+                "SELECT id, name, email, status, created_at, updated_at "
+                "FROM users u WHERE u.status = #{status} AND u.created_at >= #{createdAfter} ORDER BY created_at DESC"
+            ),
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+
+        self.assertEqual(result["status"], "UNCERTAIN")
+        self.assertFalse(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["checks"]["ordering"]["reasonCode"], "SEMANTIC_ORDERING_CHANGED")
+
     def test_predicate_and_ordering_qualifier_only_cleanup_is_treated_as_semantically_equivalent_with_exact_fingerprint(self) -> None:
         result = build_semantic_equivalence(
             original_sql=(
@@ -308,6 +438,38 @@ class SemanticEquivalenceTest(unittest.TestCase):
         self.assertTrue(result["equivalenceOverrideApplied"])
         self.assertEqual(result["checks"]["predicate"]["reasonCode"], "SEMANTIC_PREDICATE_QUALIFIER_ONLY_EQUIVALENT")
         self.assertEqual(result["checks"]["ordering"]["reasonCode"], "SEMANTIC_ORDERING_QUALIFIER_ONLY_EQUIVALENT")
+        self.assertEqual(result["confidence"], "HIGH")
+
+    def test_predicate_and_order_reordering_is_treated_as_semantically_equivalent_with_exact_fingerprint(self) -> None:
+        result = build_semantic_equivalence(
+            original_sql=(
+                "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, "
+                "u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) "
+                "AND o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            rewritten_sql=(
+                "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, "
+                "u.name AS user_name, u.email AS user_email "
+                "FROM orders o JOIN users u ON u.id = o.user_id "
+                "WHERE o.status = #{status} "
+                "AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) "
+                "ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}"
+            ),
+            equivalence={
+                "checked": True,
+                "method": "sql_semantic_compare_v2",
+                "rowCount": {"status": "MATCH"},
+                "keySetHash": {"status": "MATCH"},
+                "rowSampleHash": {"status": "MATCH"},
+                "evidenceRefs": [],
+            },
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(result["equivalenceOverrideApplied"])
+        self.assertEqual(result["equivalenceOverrideRule"], "SEMANTIC_KNOWN_EQUIVALENCE_PREDICATE_AND_ORDER")
+        self.assertEqual(result["checks"]["predicate"]["reasonCode"], "SEMANTIC_PREDICATE_AND_ORDER_EQUIVALENT")
         self.assertEqual(result["confidence"], "HIGH")
 
     def test_update_noop_is_treated_as_semantically_stable_even_without_row_count(self) -> None:

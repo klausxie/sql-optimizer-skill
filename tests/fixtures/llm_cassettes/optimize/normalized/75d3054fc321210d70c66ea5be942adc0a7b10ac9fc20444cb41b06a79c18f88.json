@@ -1,0 +1,202 @@
+{
+  "fingerprint": "75d3054fc321210d70c66ea5be942adc0a7b10ac9fc20444cb41b06a79c18f88",
+  "rawCandidateCount": 3,
+  "sqlKey": "demo.user.advanced.findUsersByKeyword",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.85",
+          "id": "opt-001",
+          "rewriteStrategy": "union_split",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern}"
+        },
+        {
+          "confidence": "0.9",
+          "id": "opt-002",
+          "rewriteStrategy": "remove_redundant_condition",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern"
+        },
+        {
+          "confidence": "0.7",
+          "id": "opt-003",
+          "rewriteStrategy": "composite_index_optimization",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND (name"
+        }
+      ],
+      "count": 3
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:44:25.557827+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 26643,
+    "executor": "opencode_run",
+    "input_hash": "592c111ed210cfed6d3fe0ae37d0cbd323a64164cc10dc4d1c71d285b4c41ab0",
+    "mode": "candidate_generation",
+    "output_hash": "9650453e50bfb9d814c2f073cf98dff23ce6e45e8c543a370c70e0f63369fab6",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.user.advanced.AdvancedUserColumns"
+            }
+          ],
+          "statementFeatures": [
+            "BIND",
+            "INCLUDE",
+            "WHERE",
+            "CHOOSE"
+          ]
+        },
+        "includeTrace": [
+          "demo.user.advanced.AdvancedUserColumns"
+        ],
+        "planSummary": {
+          "lineCount": 4,
+          "summary": "Sort  (cost=13.49..13.69 rows=79 width=896)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "BIND",
+          "INCLUDE",
+          "WHERE",
+          "CHOOSE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" />\n        SELECT <include refid=\"AdvancedUserColumns\" />\n        FROM users\n        <where>\n            <choose>\n                <when test=\"keyword != null and keyword != ''\">\n                    name ILIKE #{keywordPattern}\n                </when>\n                <when test=\"status != null and status != ''\">\n                    status = #{status}\n                </when>\n                <otherwise>\n                    status != 'DELETED'\n                </otherwise>\n            </choose>\n        </where>\n        ORDER BY created_at DESC"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.user.advanced.findUsersByKeyword",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.user.advanced.findUsersByKeyword",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.user.advanced.findUsersByKeyword:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.85",
+      "id": "opt-001",
+      "rewriteStrategy": "union_split",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY created_at DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.9",
+      "id": "opt-002",
+      "rewriteStrategy": "remove_redundant_condition",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status}) ORDER BY created_at DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.7",
+      "id": "opt-003",
+      "rewriteStrategy": "composite_index_optimization",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND (name ILIKE #{keywordPattern} OR status != 'DELETED') ORDER BY created_at DESC",
+      "semanticRisk": "medium",
+      "source": "llm"
+    }
+  ]
+}

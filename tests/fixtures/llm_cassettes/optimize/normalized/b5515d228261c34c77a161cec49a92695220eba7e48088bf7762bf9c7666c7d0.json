@@ -1,0 +1,168 @@
+{
+  "fingerprint": "b5515d228261c34c77a161cec49a92695220eba7e48088bf7762bf9c7666c7d0",
+  "rawCandidateCount": 1,
+  "sqlKey": "demo.order.harness.findOrdersByNos",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "high",
+          "id": "opt-001",
+          "rewriteStrategy": "index-driven-lookup",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE order_no = #{orderNo}"
+        }
+      ],
+      "count": 1
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:42:07.986386+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 24216,
+    "executor": "opencode_run",
+    "input_hash": "be6abd8e14d89816ddf7692bcc679c882d2364dcd32a9e5006ae0c6a944b3980",
+    "mode": "candidate_generation",
+    "output_hash": "b34f6cd726a138b82b0d2de4036d35420aa795a6df1413e3a3b383fe507c436c",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "user_id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "order_no",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "amount",
+            "dataType": "numeric",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "orders"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.order.harness.OrderHarnessColumns"
+            }
+          ],
+          "statementFeatures": [
+            "INCLUDE",
+            "WHERE",
+            "FOREACH"
+          ]
+        },
+        "includeTrace": [
+          "demo.order.harness.OrderHarnessColumns"
+        ],
+        "planSummary": {
+          "lineCount": 2,
+          "summary": "Result  (cost=0.00..0.00 rows=0 width=0)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "orders"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "INCLUDE",
+          "WHERE",
+          "FOREACH"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+            "index": "idx_orders_status",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+            "index": "idx_orders_user_created",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+            "index": "orders_order_no_key",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+            "index": "orders_pkey",
+            "table": "orders"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{orderNo}",
+        "tables": [
+          "orders"
+        ],
+        "templateSql": "SELECT <include refid=\"OrderHarnessColumns\" />\n        FROM orders\n        <where>\n            <foreach collection=\"orderNos\" item=\"orderNo\" open=\"order_no IN (\" separator=\",\" close=\")\">\n                #{orderNo}\n            </foreach>\n        </where>"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.order.harness.findOrdersByNos",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.order.harness.findOrdersByNos",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.order.harness.findOrdersByNos:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "high",
+      "id": "opt-001",
+      "rewriteStrategy": "index-driven-lookup",
+      "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE order_no = #{orderNo}",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

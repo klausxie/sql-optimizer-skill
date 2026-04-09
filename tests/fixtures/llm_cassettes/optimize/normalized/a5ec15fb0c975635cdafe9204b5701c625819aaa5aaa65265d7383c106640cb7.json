@@ -1,0 +1,192 @@
+{
+  "fingerprint": "a5ec15fb0c975635cdafe9204b5701c625819aaa5aaa65265d7383c106640cb7",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.test.complex.selectWithFragmentChoose",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.95",
+          "id": "fix-syntax-001",
+          "rewriteStrategy": "syntax_fix",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email FROM users ORDER BY name ASC"
+        },
+        {
+          "confidence": "0.9",
+          "id": "opt-index-002",
+          "rewriteStrategy": "index_optimization",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email FROM users ORDER BY id ASC"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:46:06.390207+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 21862,
+    "executor": "opencode_run",
+    "input_hash": "411f8e3f2d3e22198725deedaa3f5ec68c3dcc80cc34c47f05fad741e2f1dd04",
+    "mode": "candidate_generation",
+    "output_hash": "ec39f1378d5dd37f7936a497fe716f4add01037ba53d757e63bfb01c1d177227",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Order_ASC"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Order_DESC"
+            },
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.test.complex.Frag_Order_Default"
+            }
+          ],
+          "statementFeatures": [
+            "CHOOSE",
+            "INCLUDE"
+          ]
+        },
+        "includeTrace": [
+          "demo.test.complex.Frag_Order_ASC",
+          "demo.test.complex.Frag_Order_DESC",
+          "demo.test.complex.Frag_Order_Default"
+        ],
+        "planSummary": {
+          "error": "syntax error at or near \"ORDER\"\nLINE 1: ... (FORMAT TEXT) SELECT id, name, email FROM users (ORDER BY n...\n                                                             ^\n",
+          "summary": "EXPLAIN failed"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "CHOOSE",
+          "INCLUDE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email FROM users (ORDER BY name ASC OR ORDER BY name DESC OR ORDER BY id ASC)",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT id, name, email FROM users\n        <choose>\n            <when test=\"sort == 'asc'\">\n                <include refid=\"Frag_Order_ASC\" />\n            </when>\n            <when test=\"sort == 'desc'\">\n                <include refid=\"Frag_Order_DESC\" />\n            </when>\n            <otherwise>\n                <include refid=\"Frag_Order_Default\" />\n            </otherwise>\n        </choose>"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.selectWithFragmentChoose",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.selectWithFragmentChoose",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.selectWithFragmentChoose:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.95",
+      "id": "fix-syntax-001",
+      "rewriteStrategy": "syntax_fix",
+      "rewrittenSql": "SELECT id, name, email FROM users ORDER BY name ASC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.9",
+      "id": "opt-index-002",
+      "rewriteStrategy": "index_optimization",
+      "rewrittenSql": "SELECT id, name, email FROM users ORDER BY id ASC",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

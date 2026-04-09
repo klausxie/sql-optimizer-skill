@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
+
+from sqlopt.devtools.sample_project_family_scopes import (
+    FAMILY_SCOPE_SQL_KEYS as EXPORTED_FAMILY_SCOPE_SQL_KEYS,
+    GENERALIZATION_BATCH_SCOPE_SQL_KEYS,
+)
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "run_sample_project.py"
@@ -19,6 +29,25 @@ def _load_module():
 
 
 class RunSampleProjectScriptTest(unittest.TestCase):
+    def test_help_runs_without_pythonpath_bootstrap(self) -> None:
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--help"],
+            cwd=str(SCRIPT_PATH.parents[1]),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Run scope", proc.stdout)
+
+    def test_family_scope_registry_is_loaded_from_shared_module(self) -> None:
+        mod = _load_module()
+
+        self.assertEqual(mod.FAMILY_SCOPE_SQL_KEYS, EXPORTED_FAMILY_SCOPE_SQL_KEYS)
+
     def test_family_scope_registry_contains_stable_sample_project_groups(self) -> None:
         mod = _load_module()
         self.assertEqual(
@@ -39,6 +68,18 @@ class RunSampleProjectScriptTest(unittest.TestCase):
         self.assertIn("distinct-on-family", mod.FAMILY_SCOPE_SQL_KEYS)
         self.assertIn("exists-family", mod.FAMILY_SCOPE_SQL_KEYS)
         self.assertIn("union-collapse-family", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch1", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch2", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch3", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch4", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch5", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertIn("generalization-batch6", mod.FAMILY_SCOPE_SQL_KEYS)
+        self.assertEqual(mod.FAMILY_SCOPE_SQL_KEYS["exists-family"], mod.EXISTS_SAMPLE_SQL_KEYS)
+        self.assertEqual(mod.FAMILY_SCOPE_SQL_KEYS["exists-family"], ("demo.user.advanced.listUsersExistsSelfIdentity",))
+        self.assertEqual(
+            {name: mod.FAMILY_SCOPE_SQL_KEYS[name] for name in GENERALIZATION_BATCH_SCOPE_SQL_KEYS},
+            GENERALIZATION_BATCH_SCOPE_SQL_KEYS,
+        )
 
     def test_project_scope_uses_default_sample_project_config(self) -> None:
         mod = _load_module()
@@ -133,6 +174,73 @@ class RunSampleProjectScriptTest(unittest.TestCase):
         self.assertIn("--to-stage", args)
         self.assertIn("report", args)
 
+    def test_build_resolved_config_overlay_defaults_to_replay(self) -> None:
+        mod = _load_module()
+
+        with TemporaryDirectory(prefix="sqlopt_sample_project_overlay_") as td:
+            workspace = Path(td)
+            resolved_path = mod._write_resolved_config_overlay(
+                mod.DEFAULT_CONFIG_PATH,
+                workspace=workspace,
+                llm_mode="replay",
+                llm_cassette_root=mod.DEFAULT_LLM_CASSETTE_ROOT,
+                llm_replay_strict=True,
+            )
+            payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["llm"]["mode"], "replay")
+        self.assertEqual(payload["llm"]["cassette_root"], str(mod.DEFAULT_LLM_CASSETTE_ROOT.resolve()))
+        self.assertTrue(payload["llm"]["replay_strict"])
+        self.assertEqual(payload["llm"]["provider"], "opencode_run")
+
+    def test_build_resolved_config_overlay_can_override_provider_and_model(self) -> None:
+        mod = _load_module()
+
+        with TemporaryDirectory(prefix="sqlopt_sample_project_overlay_") as td:
+            workspace = Path(td)
+            resolved_path = mod._write_resolved_config_overlay(
+                mod.DEFAULT_CONFIG_PATH,
+                workspace=workspace,
+                llm_mode="record",
+                llm_cassette_root=workspace / "cassettes",
+                llm_replay_strict=False,
+                llm_provider="heuristic",
+                llm_model="fixture-model",
+            )
+            payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["llm"]["mode"], "record")
+        self.assertEqual(payload["llm"]["provider"], "heuristic")
+        self.assertEqual(payload["llm"]["model"], "fixture-model")
+        self.assertFalse(payload["llm"]["replay_strict"])
+
+    def test_main_defaults_developer_runs_to_replay_overlay(self) -> None:
+        mod = _load_module()
+        seen: dict[str, object] = {}
+
+        def fake_run(cmd, **kwargs):
+            seen["cmd"] = list(cmd)
+            seen["cwd"] = kwargs.get("cwd")
+            config_path = Path(cmd[cmd.index("--config") + 1])
+            seen["config_payload"] = json.loads(config_path.read_text(encoding="utf-8"))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        with (
+            mock.patch.object(sys, "argv", [str(SCRIPT_PATH), "--scope", "family", "--max-seconds", "1"]),
+            mock.patch.object(mod.subprocess, "run", side_effect=fake_run),
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                mod.main()
+
+        payload = seen["config_payload"]
+        self.assertEqual(payload["llm"]["mode"], "replay")
+        self.assertTrue(payload["llm"]["replay_strict"])
+        self.assertEqual(payload["llm"]["cassette_root"], str(mod.DEFAULT_LLM_CASSETTE_ROOT.resolve()))
+        self.assertIn("cmd", seen)
+        self.assertIn("--config", seen["cmd"])
+        self.assertEqual(seen["cwd"], str(mod.REPO_ROOT))
+        self.assertEqual(ctx.exception.code, 0)
+
     def test_family_scope_expands_if_guarded_sql_keys(self) -> None:
         mod = _load_module()
         args = mod._build_sqlopt_cli_args(
@@ -220,6 +328,154 @@ class RunSampleProjectScriptTest(unittest.TestCase):
                 )
                 sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
                 self.assertEqual(sql_key_values, expected_sql_keys)
+
+    def test_generalization_batch1_scope_expands_curated_sql_keys(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch1",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch1",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(mod.GENERALIZATION_BATCH1_SQL_KEYS))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.user.findUsers",
+                "demo.user.countUser",
+                "demo.shipment.harness.findShipments",
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.fromClauseSubquery",
+            ],
+        )
+
+    def test_generalization_batch2_scope_expands_curated_sql_keys(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch2",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch2",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(mod.GENERALIZATION_BATCH2_SQL_KEYS))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.test.complex.wrapperCount",
+                "demo.test.complex.multiFragmentLevel1",
+                "demo.test.complex.staticSimpleSelect",
+                "demo.test.complex.inSubquery",
+                "demo.user.advanced.findUsersByKeyword",
+            ],
+        )
+
+    def test_generalization_batch3_scope_expands_curated_sql_keys(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch3",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch3",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(mod.GENERALIZATION_BATCH3_SQL_KEYS))
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.test.complex.includeSimple",
+                "demo.test.complex.multiFragmentLevel2",
+                "demo.test.complex.staticOrderBy",
+                "demo.test.complex.existsSubquery",
+                "demo.test.complex.leftJoinWithNull",
+            ],
+        )
+
+    def test_generalization_batch4_scope_expands_curated_sql_keys(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch4",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch4",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(
+            sql_key_values,
+            [
+                "demo.order.harness.findOrdersByNos",
+                "demo.order.harness.findOrdersByUserIdsAndStatus",
+                "demo.shipment.harness.findShipmentsByOrderIds",
+                "demo.test.complex.fragmentMultiplePlaces",
+                "demo.test.complex.multiFragmentSeparate",
+            ],
+        )
+
+    def test_generalization_batch5_scope_expands_curated_sql_keys(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch5",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch5",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch5"]))
+
+    def test_generalization_batch6_scope_expands_candidate_pool(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch6",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch6",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch6"]))
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch6", args)
+
+    def test_generalization_batch7_scope_expands_candidate_pool(self) -> None:
+        mod = _load_module()
+        args = mod._build_sqlopt_cli_args(
+            scope="generalization-batch7",
+            config=None,
+            to_stage="patch_generate",
+            run_id="run_generalization_batch7",
+            max_steps=0,
+            max_seconds=120,
+            mapper_paths=[],
+            sql_keys=[],
+        )
+        sql_key_values = [args[idx + 1] for idx, value in enumerate(args) if value == "--sql-key"]
+        self.assertEqual(sql_key_values, list(GENERALIZATION_BATCH_SCOPE_SQL_KEYS["generalization-batch7"]))
+        self.assertIn("--run-id", args)
+        self.assertIn("run_generalization_batch7", args)
 
     def test_include_family_scope_expands_static_include_sql_keys(self) -> None:
         mod = _load_module()

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 import re
 from typing import Any
 
+from ..patch_families.registry import build_strategy_type_to_family_map
 from ..platforms.sql.canonicalization_support import (
     DISTINCT_WRAPPER_RE,
     GROUP_BY_WRAPPER_RE,
@@ -14,31 +16,50 @@ from ..platforms.sql.canonicalization_support import (
     cleanup_single_table_alias_references,
     normalize_sql,
 )
+from ..platforms.sql.candidate_generation_support import is_supported_choose_guarded_filter
+from ..platforms.sql.rewrite_facts import safe_baseline_recovery_family
+from .convergence_registry import (
+    BOOLEAN_TAUTOLOGY_SHAPE_FAMILY,
+    CASE_WHEN_TRUE_SHAPE_FAMILY,
+    COALESCE_IDENTITY_SHAPE_FAMILY,
+    COUNT_WRAPPER_PATCH_FAMILY,
+    DISTINCT_ALIAS_SHAPE_FAMILY,
+    DISTINCT_ON_SHAPE_FAMILY,
+    DISTINCT_WRAPPER_SHAPE_FAMILY,
+    EXPRESSION_FOLDING_SHAPE_FAMILY,
+    EXISTS_SELF_SHAPE_FAMILY,
+    GROUP_BY_ALIAS_SHAPE_FAMILY,
+    GROUP_BY_HAVING_ALIAS_SHAPE_FAMILY,
+    GROUP_BY_WRAPPER_PATCH_FAMILY,
+    GROUP_BY_WRAPPER_SHAPE_FAMILY,
+    HAVING_WRAPPER_PATCH_FAMILY,
+    HAVING_WRAPPER_SHAPE_FAMILY,
+    IN_LIST_SINGLE_VALUE_SHAPE_FAMILY,
+    LIMIT_LARGE_SHAPE_FAMILY,
+    NULL_COMPARISON_SHAPE_FAMILY,
+    OR_SAME_COLUMN_SHAPE_FAMILY,
+    ORDER_BY_CONSTANT_SHAPE_FAMILY,
+    RECOVERED_PATCH_FAMILY_BY_STRATEGY,
+    GENERALIZATION_NOT_TARGET_PATTERN_BY_STATEMENT,
+    NOT_TARGET_BOUNDARY_POLICIES,
+    SHAPE_NORMALIZED_PATCH_FAMILY_OVERRIDES,
+    SHAPE_SPECIFIC_STRATEGY_PATCH_FAMILIES,
+    SEMANTIC_RISK_TAIL_SQL_KEY_SET,
+    STATIC_ALIAS_PROJECTION_PATCH_FAMILY,
+    STATIC_ALIAS_PROJECTION_SHAPE_FAMILY,
+    STATIC_CTE_PATCH_FAMILY,
+    STATIC_INCLUDE_PATCH_FAMILY,
+    STATIC_INCLUDE_SHAPE_FAMILY,
+    STATIC_STATEMENT_PATCH_FAMILY,
+    STATIC_STATEMENT_SHAPE_FAMILY,
+    STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY,
+    STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY,
+    SUPPORTED_STATIC_SHAPE_FAMILIES,
+    TARGET_SHAPE_FAMILY,
+    UNION_WRAPPER_SHAPE_FAMILY,
+)
 from ..utils import statement_key
 
-TARGET_SHAPE_FAMILY = "IF_GUARDED_FILTER_STATEMENT"
-STATIC_INCLUDE_SHAPE_FAMILY = "STATIC_INCLUDE_ONLY"
-STATIC_STATEMENT_SHAPE_FAMILY = "STATIC_STATEMENT"
-STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY = "STATIC_SUBQUERY_WRAPPER"
-STATIC_ALIAS_PROJECTION_SHAPE_FAMILY = "STATIC_ALIAS_PROJECTION"
-DISTINCT_WRAPPER_SHAPE_FAMILY = "DISTINCT_WRAPPER"
-DISTINCT_ALIAS_SHAPE_FAMILY = "DISTINCT_ALIAS"
-ORDER_BY_CONSTANT_SHAPE_FAMILY = "ORDER_BY_CONSTANT"
-BOOLEAN_TAUTOLOGY_SHAPE_FAMILY = "BOOLEAN_TAUTOLOGY"
-IN_LIST_SINGLE_VALUE_SHAPE_FAMILY = "IN_LIST_SINGLE_VALUE"
-OR_SAME_COLUMN_SHAPE_FAMILY = "OR_SAME_COLUMN"
-CASE_WHEN_TRUE_SHAPE_FAMILY = "CASE_WHEN_TRUE"
-COALESCE_IDENTITY_SHAPE_FAMILY = "COALESCE_IDENTITY"
-EXPRESSION_FOLDING_SHAPE_FAMILY = "EXPRESSION_FOLDING"
-LIMIT_LARGE_SHAPE_FAMILY = "LIMIT_LARGE"
-NULL_COMPARISON_SHAPE_FAMILY = "NULL_COMPARISON"
-DISTINCT_ON_SHAPE_FAMILY = "DISTINCT_ON"
-EXISTS_SELF_SHAPE_FAMILY = "EXISTS_SELF"
-UNION_WRAPPER_SHAPE_FAMILY = "UNION_WRAPPER"
-GROUP_BY_ALIAS_SHAPE_FAMILY = "GROUP_BY_ALIAS"
-GROUP_BY_HAVING_ALIAS_SHAPE_FAMILY = "GROUP_BY_HAVING_ALIAS"
-GROUP_BY_WRAPPER_SHAPE_FAMILY = "GROUP_BY_WRAPPER"
-HAVING_WRAPPER_SHAPE_FAMILY = "HAVING_WRAPPER"
 NON_ALNUM_RE = re.compile(r"[^A-Z0-9]+")
 DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE = re.compile(
     r"^\s*select\s+count\s*\(\s*(?P<count_expr>[^)]+)\s*\)\s+from\s*\(\s*(?P<inner>.+)\s*\)\s*(?P<alias>[a-z_][a-z0-9_]*)?\s*$",
@@ -48,189 +69,21 @@ STATIC_SUBQUERY_WRAPPER_TEMPLATE_RE = re.compile(
     r"^\s*select\s+.+?\s+from\s*\(\s*select\s+.+?\s+from\b.+?\)\s*[a-z_][a-z0-9_]*?(?:\s+(?:where\b|order\s+by\b|limit\b|offset\b|fetch\b).*)?$",
     flags=re.IGNORECASE | re.DOTALL,
 )
-RECOVERED_PATCH_FAMILY_BY_STRATEGY = {
-    "REMOVE_REDUNDANT_SELECT_ALIAS_RECOVERED": "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
-    "REMOVE_REDUNDANT_ALIASES": "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
-    "REMOVE_UNNECESSARY_ALIASES": "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
-    "REMOVE_REDUNDANT_FROM_ALIAS_RECOVERED": "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP",
-    "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED": "GROUP_BY_FROM_ALIAS_CLEANUP",
-    "REMOVE_REDUNDANT_GROUP_BY_HAVING_FROM_ALIAS_RECOVERED": "GROUP_BY_HAVING_FROM_ALIAS_CLEANUP",
-    "REMOVE_REDUNDANT_DISTINCT_FROM_ALIAS_RECOVERED": "DISTINCT_FROM_ALIAS_CLEANUP",
-    "REMOVE_REDUNDANT_DISTINCT_WRAPPER_RECOVERED": "REDUNDANT_DISTINCT_WRAPPER",
-    "REMOVE_CONSTANT_ORDER_BY_RECOVERED": "STATIC_ORDER_BY_SIMPLIFICATION",
-    "REMOVE_BOOLEAN_TAUTOLOGY_RECOVERED": "STATIC_BOOLEAN_SIMPLIFICATION",
-    "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED": "STATIC_IN_LIST_SIMPLIFICATION",
-    "SIMPLIFY_OR_TO_IN_RECOVERED": "STATIC_OR_SIMPLIFICATION",
-    "SIMPLIFY_CASE_WHEN_TRUE_RECOVERED": "STATIC_CASE_SIMPLIFICATION",
-    "SIMPLIFY_COALESCE_IDENTITY_RECOVERED": "STATIC_COALESCE_SIMPLIFICATION",
-    "FOLD_CONSTANT_EXPRESSION_RECOVERED": "STATIC_EXPRESSION_FOLDING",
-    "REMOVE_LARGE_LIMIT_RECOVERED": "STATIC_LIMIT_OPTIMIZATION",
-    "SIMPLIFY_NULL_COMPARISON_RECOVERED": "STATIC_NULL_COMPARISON",
-    "SIMPLIFY_DISTINCT_ON_RECOVERED": "STATIC_DISTINCT_ON_SIMPLIFICATION",
-    "REMOVE_REDUNDANT_HAVING_WRAPPER_RECOVERED": "REDUNDANT_HAVING_WRAPPER",
-    "REMOVE_REDUNDANT_SUBQUERY": "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-    "REMOVE_REDUNDANT_SUBQUERY_RECOVERED": "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-    "REMOVE_REDUNDANT_SUBQUERY_WRAPPER": "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-    "INLINE_SUBQUERY": "DYNAMIC_FILTER_WRAPPER_COLLAPSE",
-}
-COUNT_WRAPPER_PATCH_FAMILY = "DYNAMIC_COUNT_WRAPPER_COLLAPSE"
-STATIC_INCLUDE_PATCH_FAMILY = "STATIC_INCLUDE_WRAPPER_COLLAPSE"
-STATIC_STATEMENT_PATCH_FAMILY = "STATIC_STATEMENT_REWRITE"
-STATIC_CTE_PATCH_FAMILY = "STATIC_CTE_INLINE"
-STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY = "STATIC_SUBQUERY_WRAPPER_COLLAPSE"
-STATIC_ALIAS_PROJECTION_PATCH_FAMILY = "STATIC_ALIAS_PROJECTION_CLEANUP"
-GROUP_BY_WRAPPER_PATCH_FAMILY = "REDUNDANT_GROUP_BY_WRAPPER"
-HAVING_WRAPPER_PATCH_FAMILY = "REDUNDANT_HAVING_WRAPPER"
-SUPPORTED_STATIC_SHAPE_FAMILIES = {
-    STATIC_INCLUDE_SHAPE_FAMILY,
-    STATIC_STATEMENT_SHAPE_FAMILY,
-    STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY,
-    STATIC_ALIAS_PROJECTION_SHAPE_FAMILY,
-    DISTINCT_WRAPPER_SHAPE_FAMILY,
-    DISTINCT_ALIAS_SHAPE_FAMILY,
-    ORDER_BY_CONSTANT_SHAPE_FAMILY,
-    BOOLEAN_TAUTOLOGY_SHAPE_FAMILY,
-    IN_LIST_SINGLE_VALUE_SHAPE_FAMILY,
-    OR_SAME_COLUMN_SHAPE_FAMILY,
-    CASE_WHEN_TRUE_SHAPE_FAMILY,
-    COALESCE_IDENTITY_SHAPE_FAMILY,
-    EXPRESSION_FOLDING_SHAPE_FAMILY,
-    LIMIT_LARGE_SHAPE_FAMILY,
-    NULL_COMPARISON_SHAPE_FAMILY,
-    DISTINCT_ON_SHAPE_FAMILY,
-    EXISTS_SELF_SHAPE_FAMILY,
-    UNION_WRAPPER_SHAPE_FAMILY,
-    GROUP_BY_ALIAS_SHAPE_FAMILY,
-    GROUP_BY_WRAPPER_SHAPE_FAMILY,
-    HAVING_WRAPPER_SHAPE_FAMILY,
-    GROUP_BY_HAVING_ALIAS_SHAPE_FAMILY,
-}
-SHAPE_NORMALIZED_PATCH_FAMILY_OVERRIDES: dict[tuple[str, str], str] = {
-    ("IF_GUARDED_COUNT_WRAPPER", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): COUNT_WRAPPER_PATCH_FAMILY,
-    (STATIC_INCLUDE_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): STATIC_INCLUDE_PATCH_FAMILY,
-    (STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY,
-    (GROUP_BY_WRAPPER_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): GROUP_BY_WRAPPER_PATCH_FAMILY,
-    (HAVING_WRAPPER_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): HAVING_WRAPPER_PATCH_FAMILY,
-    (STATIC_ALIAS_PROJECTION_SHAPE_FAMILY, "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"): STATIC_ALIAS_PROJECTION_PATCH_FAMILY,
-    (DISTINCT_WRAPPER_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): "REDUNDANT_DISTINCT_WRAPPER",
-    (GROUP_BY_ALIAS_SHAPE_FAMILY, "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"): "GROUP_BY_FROM_ALIAS_CLEANUP",
-    (EXISTS_SELF_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): "STATIC_EXISTS_REWRITE",
-    (UNION_WRAPPER_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): "STATIC_UNION_COLLAPSE",
-    (STATIC_STATEMENT_SHAPE_FAMILY, "DYNAMIC_FILTER_WRAPPER_COLLAPSE"): STATIC_STATEMENT_PATCH_FAMILY,
-    (STATIC_STATEMENT_SHAPE_FAMILY, "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"): STATIC_STATEMENT_PATCH_FAMILY,
-    (STATIC_STATEMENT_SHAPE_FAMILY, "DYNAMIC_FILTER_FROM_ALIAS_CLEANUP"): STATIC_STATEMENT_PATCH_FAMILY,
-}
-SHAPE_SPECIFIC_STRATEGY_PATCH_FAMILIES: dict[str, dict[str, str]] = {
-    "IF_GUARDED_COUNT_WRAPPER": {
-        "STRUCTURE_SIMPLIFICATION": COUNT_WRAPPER_PATCH_FAMILY,
-        "SUBQUERY_REMOVAL": COUNT_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY": COUNT_WRAPPER_PATCH_FAMILY,
-    },
-    DISTINCT_WRAPPER_SHAPE_FAMILY: {
-        "REMOVE_REDUNDANT_DISTINCT_WRAPPER_RECOVERED": "REDUNDANT_DISTINCT_WRAPPER",
-    },
-    DISTINCT_ALIAS_SHAPE_FAMILY: {
-        "REMOVE_REDUNDANT_DISTINCT_FROM_ALIAS_RECOVERED": "DISTINCT_FROM_ALIAS_CLEANUP",
-        "DISTINCT_FROM_ALIAS": "DISTINCT_FROM_ALIAS_CLEANUP",
-    },
-    ORDER_BY_CONSTANT_SHAPE_FAMILY: {
-        "REMOVE_CONSTANT_ORDER_BY_RECOVERED": "STATIC_ORDER_BY_SIMPLIFICATION",
-        "ORDER_BY_REWRITE": "STATIC_ORDER_BY_SIMPLIFICATION",
-        "SORT": "STATIC_ORDER_BY_SIMPLIFICATION",
-    },
-    BOOLEAN_TAUTOLOGY_SHAPE_FAMILY: {
-        "REMOVE_BOOLEAN_TAUTOLOGY_RECOVERED": "STATIC_BOOLEAN_SIMPLIFICATION",
-        "REMOVE_TAUTOLOGY": "STATIC_BOOLEAN_SIMPLIFICATION",
-    },
-    IN_LIST_SINGLE_VALUE_SHAPE_FAMILY: {
-        "SIMPLIFY_SINGLE_VALUE_IN_LIST_RECOVERED": "STATIC_IN_LIST_SIMPLIFICATION",
-        "SIMPLIFY_SINGLE_VALUE_IN_CLAUSE": "STATIC_IN_LIST_SIMPLIFICATION",
-    },
-    OR_SAME_COLUMN_SHAPE_FAMILY: {
-        "SIMPLIFY_OR_TO_IN_RECOVERED": "STATIC_OR_SIMPLIFICATION",
-        "OR_TO_IN": "STATIC_OR_SIMPLIFICATION",
-    },
-    CASE_WHEN_TRUE_SHAPE_FAMILY: {
-        "SIMPLIFY_CASE_WHEN_TRUE_RECOVERED": "STATIC_CASE_SIMPLIFICATION",
-        "CASE_SIMPLIFICATION": "STATIC_CASE_SIMPLIFICATION",
-    },
-    COALESCE_IDENTITY_SHAPE_FAMILY: {
-        "SIMPLIFY_COALESCE_IDENTITY_RECOVERED": "STATIC_COALESCE_SIMPLIFICATION",
-        "COALESCE_SIMPLIFICATION": "STATIC_COALESCE_SIMPLIFICATION",
-    },
-    EXPRESSION_FOLDING_SHAPE_FAMILY: {
-        "FOLD_CONSTANT_EXPRESSION_RECOVERED": "STATIC_EXPRESSION_FOLDING",
-        "EXPRESSION_FOLDING": "STATIC_EXPRESSION_FOLDING",
-    },
-    LIMIT_LARGE_SHAPE_FAMILY: {
-        "REMOVE_LARGE_LIMIT_RECOVERED": "STATIC_LIMIT_OPTIMIZATION",
-        "REMOVE_INVALID_LIMIT": "STATIC_LIMIT_OPTIMIZATION",
-    },
-    NULL_COMPARISON_SHAPE_FAMILY: {
-        "SIMPLIFY_NULL_COMPARISON_RECOVERED": "STATIC_NULL_COMPARISON",
-        "NULL_COMPARISON_FIX": "STATIC_NULL_COMPARISON",
-        "NULL_COMPARISON": "STATIC_NULL_COMPARISON",
-    },
-    DISTINCT_ON_SHAPE_FAMILY: {
-        "SIMPLIFY_DISTINCT_ON_RECOVERED": "STATIC_DISTINCT_ON_SIMPLIFICATION",
-        "SEMANTIC_PRESERVING": "STATIC_DISTINCT_ON_SIMPLIFICATION",
-        "SAFE_DISTINCT_ON_SIMPLIFICATION": "STATIC_DISTINCT_ON_SIMPLIFICATION",
-    },
-    EXISTS_SELF_SHAPE_FAMILY: {
-        "SAFE_EXISTS_REWRITE": "STATIC_EXISTS_REWRITE",
-        "REDUNDANT_SUBQUERY_REMOVAL": "STATIC_EXISTS_REWRITE",
-        "REMOVE_REDUNDANT_EXISTS": "STATIC_EXISTS_REWRITE",
-    },
-    UNION_WRAPPER_SHAPE_FAMILY: {
-        "SAFE_UNION_COLLAPSE": "STATIC_UNION_COLLAPSE",
-        "REMOVE_REDUNDANT_SUBQUERY_WRAPPER": "STATIC_UNION_COLLAPSE",
-    },
-    STATIC_INCLUDE_SHAPE_FAMILY: {
-        "INLINE_SUBQUERY": STATIC_INCLUDE_PATCH_FAMILY,
-        "SUBQUERY_REMOVAL": STATIC_INCLUDE_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY": STATIC_INCLUDE_PATCH_FAMILY,
-    },
-    STATIC_SUBQUERY_WRAPPER_SHAPE_FAMILY: {
-        "INLINE_SUBQUERY": STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY,
-        "SUBQUERY_REMOVAL": STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY": STATIC_SUBQUERY_WRAPPER_PATCH_FAMILY,
-    },
-    GROUP_BY_WRAPPER_SHAPE_FAMILY: {
-        "INLINE_SUBQUERY": GROUP_BY_WRAPPER_PATCH_FAMILY,
-        "SUBQUERY_REMOVAL": GROUP_BY_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY": GROUP_BY_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY_RECOVERED": GROUP_BY_WRAPPER_PATCH_FAMILY,
-    },
-    HAVING_WRAPPER_SHAPE_FAMILY: {
-        "INLINE_SUBQUERY": HAVING_WRAPPER_PATCH_FAMILY,
-        "SUBQUERY_REMOVAL": HAVING_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY": HAVING_WRAPPER_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_SUBQUERY_RECOVERED": HAVING_WRAPPER_PATCH_FAMILY,
-    },
-    STATIC_ALIAS_PROJECTION_SHAPE_FAMILY: {
-        "REMOVE_REDUNDANT_SELECT_ALIAS_RECOVERED": STATIC_ALIAS_PROJECTION_PATCH_FAMILY,
-        "REMOVE_REDUNDANT_ALIASES": STATIC_ALIAS_PROJECTION_PATCH_FAMILY,
-        "REMOVE_UNNECESSARY_ALIASES": STATIC_ALIAS_PROJECTION_PATCH_FAMILY,
-    },
-    GROUP_BY_ALIAS_SHAPE_FAMILY: {
-        "REMOVE_REDUNDANT_GROUP_BY_FROM_ALIAS_RECOVERED": "GROUP_BY_FROM_ALIAS_CLEANUP",
-        "GROUP_BY_FROM_ALIAS": "GROUP_BY_FROM_ALIAS_CLEANUP",
-    },
-    STATIC_STATEMENT_SHAPE_FAMILY: {
-        "REMOVE_REDUNDANT_SUBQUERY": STATIC_STATEMENT_PATCH_FAMILY,
-        "INLINE_SUBQUERY": STATIC_STATEMENT_PATCH_FAMILY,
-        "INLINE_CTE": STATIC_CTE_PATCH_FAMILY,
-        "CTE_INLINE": STATIC_CTE_PATCH_FAMILY,
-    },
-}
-
 
 def normalize_strategy_name(value: str) -> str:
     return NON_ALNUM_RE.sub("_", str(value or "").strip().upper()).strip("_")
 
 
+@lru_cache(maxsize=1)
+def _registered_strategy_to_family_map() -> dict[str, str]:
+    return build_strategy_type_to_family_map()
+
+
 def patch_family_from_strategy_name(value: str) -> str | None:
     strategy = normalize_strategy_name(value)
+    registered_family = _registered_strategy_to_family_map().get(strategy)
+    if registered_family:
+        return registered_family
     if strategy in RECOVERED_PATCH_FAMILY_BY_STRATEGY:
         return RECOVERED_PATCH_FAMILY_BY_STRATEGY[strategy]
 
@@ -268,6 +121,8 @@ def patch_family_from_strategy_name(value: str) -> str | None:
         ("INLINE_CTE", STATIC_CTE_PATCH_FAMILY),
         ("CTE_INLINE", STATIC_CTE_PATCH_FAMILY),
         ("SUBQUERY_REMOVAL", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
+        ("SUBQUERY_ELIMINATION", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
+        ("SUBQUERY_FLATTENING", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
         ("SUBQUERY_UNWRAP", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
         ("REDUNDANT_SUBQUERY", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
         ("SUBQUERY_WRAPPER", "DYNAMIC_FILTER_WRAPPER_COLLAPSE"),
@@ -360,6 +215,49 @@ def semantic_gate_status(row: dict[str, Any]) -> str:
     return str(semantic.get("status") or "UNCERTAIN").strip().upper() or "UNCERTAIN"
 
 
+def semantic_conflict_reason(rows: list[dict[str, Any]]) -> str | None:
+    saw_non_pass_semantic = False
+    for row in rows:
+        semantic = row.get("semanticEquivalence") or {}
+        if not isinstance(semantic, dict):
+            continue
+        if str(semantic.get("status") or "").strip().upper() == "PASS":
+            continue
+        saw_non_pass_semantic = True
+        hard_conflicts = [str(code).strip() for code in (semantic.get("hardConflicts") or []) if str(code).strip()]
+        if hard_conflicts:
+            return hard_conflicts[0]
+        checks = semantic.get("checks") or {}
+        if isinstance(checks, dict):
+            for check_name in ("predicate", "projection", "ordering", "pagination"):
+                check = checks.get(check_name) or {}
+                status = str(check.get("status") or "").strip().upper()
+                reason_code = str(check.get("reasonCode") or "").strip()
+                if status in {"FAIL", "UNCERTAIN"} and reason_code and not reason_code.endswith("_STABLE"):
+                    return reason_code
+        reasons = [str(code).strip() for code in (semantic.get("reasons") or []) if str(code).strip()]
+        for reason_code in reasons:
+            if not reason_code.endswith("_STABLE"):
+                return reason_code
+    return "SEMANTIC_GATE_NOT_PASS" if saw_non_pass_semantic else None
+
+
+def validate_status_conflict_reason(rows: list[dict[str, Any]]) -> str:
+    for row in rows:
+        feedback = row.get("feedback") or {}
+        if isinstance(feedback, dict):
+            reason_code = str(feedback.get("reason_code") or "").strip()
+            if reason_code:
+                return reason_code
+        perf = row.get("perfComparison") or row.get("perf_comparison") or {}
+        if isinstance(perf, dict):
+            for code in perf.get("reasonCodes") or []:
+                reason_code = str(code).strip()
+                if reason_code.startswith("VALIDATE_"):
+                    return reason_code
+    return "VALIDATE_STATUS_NOT_PASS"
+
+
 def selected_candidate_id(row: dict[str, Any]) -> str | None:
     value = str(row.get("selectedCandidateId") or "").strip()
     return value or None
@@ -379,11 +277,15 @@ def infer_shape_family_from_sql_unit(sql_unit: dict[str, Any]) -> str:
     normalized_sql = normalize_sql(raw_template_sql)
     within_where = "WHERE" in dynamic_features or "<where" in template_sql
     conditional_filter = "IF" in dynamic_features or "<if" in template_sql
-    choose_filter = "CHOOSE" in dynamic_features or "<choose" in template_sql
-    if within_where and (conditional_filter or choose_filter):
+    choose_filter = is_supported_choose_guarded_filter(sql_unit)
+    if within_where and conditional_filter:
         if (statement_sql.startswith("SELECT COUNT(") or "COUNT(" in statement_sql) and DYNAMIC_COUNT_WRAPPER_TEMPLATE_RE.match(raw_template_sql.strip()):
             return "IF_GUARDED_COUNT_WRAPPER"
         return "IF_GUARDED_FILTER_STATEMENT"
+    if choose_filter:
+        return "IF_GUARDED_FILTER_STATEMENT"
+    if "CHOOSE" in dynamic_features or "<choose" in template_sql:
+        return TARGET_SHAPE_FAMILY
     if not dynamic_features and "OVER(" in statement_sql.replace(" ", ""):
         return "WINDOW"
     if not dynamic_features and re.search(r"\bORDER\s+BY\s+(NULL|\d+|'[^']*'|\"[^\"]*\"|[\d\.]+)\s*$", normalized_sql, flags=re.IGNORECASE):
@@ -397,7 +299,7 @@ def infer_shape_family_from_sql_unit(sql_unit: dict[str, Any]) -> str:
     ):
         return IN_LIST_SINGLE_VALUE_SHAPE_FAMILY
     if not dynamic_features and re.search(
-        r"\b[a-z_][a-z0-9_\.]*\s*=\s*('[^']*'|[^'\s\)]+)\s+OR\s+[a-z_][a-z0-9_\.]*\s*=\s*('[^']*'|[^'\s\)]+)",
+        r"\b(?P<column>[a-z_][a-z0-9_\.]*)\s*=\s*('[^']*'|[^'\s\)]+)\s+OR\s+(?P=column)\s*=\s*('[^']*'|[^'\s\)]+)",
         normalized_sql,
         flags=re.IGNORECASE,
     ):
@@ -514,12 +416,54 @@ def target_shape_supported(sql_unit: dict[str, Any], shape_family: str, patch_fa
         return False
     if shape_family != TARGET_SHAPE_FAMILY:
         return False
-    dynamic_features = {str(item).strip().upper() for item in (sql_unit.get("dynamicFeatures") or []) if str(item).strip()}
-    template_sql = str(sql_unit.get("templateSql") or "").lower()
-    if "CHOOSE" in dynamic_features or "<choose" in template_sql:
+    if is_supported_choose_guarded_filter(sql_unit):
         normalized_patch_families = {str(value or "").strip().upper() for value in (patch_families or set()) if str(value).strip()}
-        return normalized_patch_families == {"DYNAMIC_FILTER_SELECT_LIST_CLEANUP"}
+        return not normalized_patch_families or normalized_patch_families == {"DYNAMIC_FILTER_SELECT_LIST_CLEANUP"}
     return True
+
+
+def not_target_boundary_pattern(
+    statement_key_value: str,
+    sql_unit: dict[str, Any],
+    shape_family: str,
+) -> str | None:
+    explicit_pattern = GENERALIZATION_NOT_TARGET_PATTERN_BY_STATEMENT.get(str(statement_key_value or "").strip())
+    if explicit_pattern:
+        return explicit_pattern
+
+    normalized_shape_family = str(shape_family or "").strip().upper()
+    dynamic_features = {
+        str(item).strip().upper() for item in (sql_unit.get("dynamicFeatures") or []) if str(item).strip()
+    }
+    template_sql = str(sql_unit.get("templateSql") or "").lower()
+
+    if (
+        normalized_shape_family == TARGET_SHAPE_FAMILY
+        and ("CHOOSE" in dynamic_features or "<choose" in template_sql)
+        and not is_supported_choose_guarded_filter(sql_unit)
+    ):
+        return "CHOOSE_GUARDED_FILTER_EXTENSION"
+
+    if {"FOREACH", "INCLUDE", "WHERE"} <= dynamic_features:
+        return "PLAIN_FOREACH_INCLUDE_PREDICATE"
+
+    if normalized_shape_family == "UNKNOWN" and {"INCLUDE", "WHERE"} <= dynamic_features:
+        return "AMBIGUOUS_FRAGMENT_CHAIN"
+
+    return None
+
+
+def not_target_boundary_bucket(
+    statement_key_value: str,
+    sql_unit: dict[str, Any],
+    shape_family: str,
+) -> str | None:
+    pattern = not_target_boundary_pattern(statement_key_value, sql_unit, shape_family)
+    if not pattern:
+        return None
+    policy = NOT_TARGET_BOUNDARY_POLICIES.get(pattern) or {}
+    bucket = str(policy.get("bucket") or "").strip()
+    return bucket or None
 
 
 def proposal_patch_family_hint(proposal: dict[str, Any], selected_candidate_ids: set[str] | None = None) -> str | None:
@@ -546,6 +490,79 @@ def proposal_patch_family_hint(proposal: dict[str, Any], selected_candidate_ids:
             if family:
                 return family
     return None
+
+
+def no_candidate_conflict_reason(proposal: dict[str, Any] | None) -> str:
+    diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
+    if not isinstance(diagnostics, dict):
+        return "NO_PATCHABLE_CANDIDATE_SELECTED"
+
+    recovery_reason = str(diagnostics.get("recoveryReason") or "").strip().upper()
+    raw_candidate_count = int(diagnostics.get("rawCandidateCount") or 0)
+    accepted_candidate_count = int(diagnostics.get("acceptedCandidateCount") or 0)
+    final_candidate_count = int(diagnostics.get("finalCandidateCount") or 0)
+
+    if (
+        recovery_reason == "NO_SAFE_BASELINE_SHAPE_MATCH"
+        and raw_candidate_count == 0
+        and accepted_candidate_count == 0
+        and final_candidate_count == 0
+    ):
+        return "NO_SAFE_BASELINE_RECOVERY"
+
+    if (
+        recovery_reason == "LOW_VALUE_PRUNED_TO_EMPTY"
+        and raw_candidate_count > 0
+        and accepted_candidate_count == 0
+        and final_candidate_count == 0
+    ):
+        return "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
+
+    if (
+        recovery_reason == "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
+        and accepted_candidate_count == 0
+        and final_candidate_count == 0
+    ):
+        return "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
+
+    return "NO_PATCHABLE_CANDIDATE_SELECTED"
+
+
+def prefer_no_safe_baseline_recovery_reason(
+    *,
+    sql_unit: dict[str, Any],
+    shape_family: str,
+    proposal: dict[str, Any] | None,
+    current_reason: str,
+) -> str:
+    if current_reason != "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY":
+        return current_reason
+    if str(shape_family or "").strip().upper() != TARGET_SHAPE_FAMILY:
+        return current_reason
+    diagnostics = (proposal or {}).get("candidateGenerationDiagnostics") or {}
+    low_value_assessments = diagnostics.get("lowValueAssessments") or []
+    assessment_categories = {
+        str(assessment.get("category") or "").strip().upper()
+        for assessment in low_value_assessments
+        if isinstance(assessment, dict)
+    }
+    if is_supported_choose_guarded_filter(sql_unit):
+        original_sql = str(sql_unit.get("sql") or "").strip()
+        if not original_sql:
+            return current_reason
+        baseline_family = safe_baseline_recovery_family(sql_unit, original_sql)
+        if baseline_family:
+            return current_reason
+        if "NO_SAFE_BASELINE_MATCH" in assessment_categories:
+            return "NO_SAFE_BASELINE_RECOVERY"
+        return current_reason
+    original_sql = str(sql_unit.get("sql") or "").strip()
+    if not original_sql:
+        return current_reason
+    baseline_family = safe_baseline_recovery_family(sql_unit, original_sql)
+    if baseline_family:
+        return current_reason
+    return "NO_SAFE_BASELINE_RECOVERY"
 
 
 def build_statement_convergence_row(
@@ -582,8 +599,15 @@ def build_statement_convergence_row(
         )
         if normalized_family
     }
+    if is_supported_choose_guarded_filter(sql_unit):
+        patch_families = {
+            family
+            for family in patch_families
+            if family == "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
+        }
     patch_surfaces = {surface for surface in (patch_surface_for_row(row) for row in rows) if surface}
     rewrite_ops_fingerprints = {fingerprint for fingerprint in (rewrite_ops_fingerprint(row) for row in rows) if fingerprint}
+    boundary_pattern = not_target_boundary_pattern(statement_key_value, sql_unit, shape_family)
 
     for row in rows:
         status = str(row.get("status") or "").strip().upper()
@@ -605,19 +629,54 @@ def build_statement_convergence_row(
     decision = "AUTO_PATCHABLE"
     conflict_reason: str | None = None
     consensus: dict[str, Any] | None = None
+    unresolved_choose_extension = (
+        is_supported_choose_guarded_filter(sql_unit)
+        and not selected_candidate_ids
+        and not patch_families
+        and status_counts["partial"] == 0
+        and status_counts["fail"] == 0
+        and semantic_counts["blockedCount"] == 0
+        and semantic_counts["uncertainCount"] == 0
+    )
 
-    if not target_shape_supported(sql_unit, shape_family, patch_families):
+    if unresolved_choose_extension:
+        decision = "MANUAL_REVIEW"
+        conflict_reason = prefer_no_safe_baseline_recovery_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            proposal=proposal,
+            current_reason=no_candidate_conflict_reason(proposal),
+        )
+    elif not target_shape_supported(sql_unit, shape_family, patch_families):
         decision = "MANUAL_REVIEW"
         conflict_reason = "SHAPE_FAMILY_NOT_TARGET"
     elif status_counts["partial"] > 0 or status_counts["fail"] > 0:
         decision = "MANUAL_REVIEW"
-        conflict_reason = "VALIDATE_STATUS_NOT_PASS"
+        conflict_reason = validate_status_conflict_reason(rows)
     elif semantic_counts["blockedCount"] > 0 or semantic_counts["uncertainCount"] > 0:
         decision = "MANUAL_REVIEW"
-        conflict_reason = "SEMANTIC_GATE_NOT_PASS"
+        conflict_reason = semantic_conflict_reason(rows)
+    elif boundary_pattern == "CHOOSE_GUARDED_FILTER_EXTENSION" and not selected_candidate_ids and not patch_families:
+        decision = "MANUAL_REVIEW"
+        conflict_reason = prefer_no_safe_baseline_recovery_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            proposal=proposal,
+            current_reason=no_candidate_conflict_reason(proposal),
+        )
+        if conflict_reason == "NO_PATCHABLE_CANDIDATE_SELECTED":
+            conflict_reason = "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
     elif not selected_candidate_ids and not patch_families:
         decision = "MANUAL_REVIEW"
-        conflict_reason = "NO_PATCHABLE_CANDIDATE_SELECTED"
+        conflict_reason = prefer_no_safe_baseline_recovery_reason(
+            sql_unit=sql_unit,
+            shape_family=shape_family,
+            proposal=proposal,
+            current_reason=no_candidate_conflict_reason(proposal),
+        )
+    elif selected_candidate_ids and not patch_families:
+        decision = "MANUAL_REVIEW"
+        conflict_reason = "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY"
     elif len(patch_families) != 1:
         decision = "MANUAL_REVIEW"
         conflict_reason = "PATCH_FAMILY_CONFLICT_OR_MISSING"
@@ -627,6 +686,9 @@ def build_statement_convergence_row(
     elif len(rewrite_ops_fingerprints) > 1:
         decision = "MANUAL_REVIEW"
         conflict_reason = "REWRITE_OPS_CONFLICT"
+    elif any(statement_sql_key in SEMANTIC_RISK_TAIL_SQL_KEY_SET for statement_sql_key in sql_keys):
+        decision = "MANUAL_REVIEW"
+        conflict_reason = "SEMANTIC_RISK_TAIL_BLOCKED"
     else:
         consensus = {
             "patchFamily": next(iter(patch_families), None),

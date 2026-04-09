@@ -1,0 +1,54 @@
+{
+  "createdAt": "2026-04-09T02:40:47.365499+00:00",
+  "fingerprint": "c4ba2b0cd553ef5be7fd64928590555bdce877827a9d0bd75ae013537dec3df8",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email, status FROM users",
+    "sqlKey": "demo.test.complex.multiFragmentLevel2",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 1,
+        "summary": "Seq Scan on users  (cost=0.00..10.80 rows=80 width=880)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"Frag_UserCore\" /> FROM users"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.multiFragmentLevel2"
+}

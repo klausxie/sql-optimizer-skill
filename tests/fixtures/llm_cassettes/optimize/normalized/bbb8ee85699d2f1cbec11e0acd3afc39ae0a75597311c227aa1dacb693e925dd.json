@@ -1,0 +1,227 @@
+{
+  "fingerprint": "bbb8ee85699d2f1cbec11e0acd3afc39ae0a75597311c227aa1dacb693e925dd",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.test.complex.existsSubquery",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.65",
+          "id": "opt-001",
+          "rewriteStrategy": "EXISTS_TO_JOIN",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT DISTINCT u.id, u.name FROM users u INNER JOIN orders o ON o.user_id = u.id"
+        },
+        {
+          "confidence": "0.75",
+          "id": "opt-002",
+          "rewriteStrategy": "NULL_CHECK",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id) AND u.id I"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:41:18.429859+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 22556,
+    "executor": "opencode_run",
+    "input_hash": "1f92332086b0fabccbaa7882a6e6c7982a9fa355726a8ece9403de980d906027",
+    "mode": "candidate_generation",
+    "output_hash": "6c27caefc4b2f067b9f4511693137fdd93abb85dfaa332be70a4e6263bbc8939",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "user_id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "order_no",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "amount",
+            "dataType": "numeric",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "orders"
+          },
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {},
+        "includeTrace": [],
+        "planSummary": {
+          "lineCount": 5,
+          "summary": "Hash Semi Join  (cost=16.07..28.23 rows=40 width=282)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "orders"
+          },
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+            "index": "idx_orders_status",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+            "index": "idx_orders_user_created",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+            "index": "orders_order_no_key",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+            "index": "orders_pkey",
+            "table": "orders"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "templateSql": "SELECT id, name FROM users u\n        WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": false,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.existsSubquery",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.existsSubquery",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.existsSubquery:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.65",
+      "id": "opt-001",
+      "rewriteStrategy": "EXISTS_TO_JOIN",
+      "rewrittenSql": "SELECT DISTINCT u.id, u.name FROM users u INNER JOIN orders o ON o.user_id = u.id",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.75",
+      "id": "opt-002",
+      "rewriteStrategy": "NULL_CHECK",
+      "rewrittenSql": "SELECT id, name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id) AND u.id IS NOT NULL",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}

@@ -107,6 +107,32 @@ def build_optimize_prompt(
     return prompt
 
 
+def build_optimize_replay_request(
+    sql_unit: dict[str, Any],
+    proposal: dict[str, Any],
+    llm_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the stable replay request used for optimize-stage cassette fingerprinting."""
+    db_summary = proposal.get("dbEvidenceSummary", {}) or {}
+    provider = str(llm_cfg.get("provider") or "opencode_builtin").strip()
+    model = str(llm_cfg.get("opencode_model") or llm_cfg.get("api_model") or llm_cfg.get("model") or provider or "").strip()
+
+    return {
+        "sqlKey": sql_unit["sqlKey"],
+        "sql": sql_unit["sql"],
+        "templateSql": sql_unit.get("templateSql", ""),
+        "dynamicFeatures": sql_unit.get("dynamicFeatures", []),
+        "stableDbEvidence": {
+            "tables": db_summary.get("tables", []),
+            "indexes": db_summary.get("indexes", []),
+            "planSummary": proposal.get("planSummary", {}) or {},
+        },
+        "promptVersion": str(llm_cfg.get("prompt_version") or llm_cfg.get("promptVersion") or "v1"),
+        "provider": provider,
+        "model": model,
+    }
+
+
 def generate_proposal(sql_unit: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
     """Generate optimization proposal for a SQL unit.
 

@@ -1,0 +1,166 @@
+{
+  "fingerprint": "1d70c92791fddfa0e1747754ec21f90e7040abbd3e3dedfec54efc2a4c4dd8fd",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.test.complex.staticOrderBy",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.3",
+          "id": "opt_001",
+          "rewriteStrategy": "INDEX_DRIVEN",
+          "semanticRisk": "high",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email FROM users WHERE status = 'active' ORDER BY created_at DESC"
+        },
+        {
+          "confidence": "0.4",
+          "id": "opt_002",
+          "rewriteStrategy": "ROW_LIMIT",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email FROM users ORDER BY created_at DESC LIMIT 100"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-09T02:40:47.420496+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 30930,
+    "executor": "opencode_run",
+    "input_hash": "85de65eea3259a4c945ad2c016820a848360b4b29e2d6787d098fbbd175cc8df",
+    "mode": "candidate_generation",
+    "output_hash": "f3f4405292bfe82e8a2c2eda0c9a4813b29de8af28383443d3ad7f5d8e2432e6",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicTrace": {},
+        "includeTrace": [],
+        "planSummary": {
+          "lineCount": 3,
+          "summary": "Sort  (cost=13.33..13.53 rows=80 width=806)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email FROM users ORDER BY created_at DESC",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "SELECT id, name, email FROM users ORDER BY created_at DESC"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": false,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.test.complex.staticOrderBy",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.test.complex.staticOrderBy",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.test.complex.staticOrderBy:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.3",
+      "id": "opt_001",
+      "rewriteStrategy": "INDEX_DRIVEN",
+      "rewrittenSql": "SELECT id, name, email FROM users WHERE status = 'active' ORDER BY created_at DESC",
+      "semanticRisk": "high",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.4",
+      "id": "opt_002",
+      "rewriteStrategy": "ROW_LIMIT",
+      "rewrittenSql": "SELECT id, name, email FROM users ORDER BY created_at DESC LIMIT 100",
+      "semanticRisk": "medium",
+      "source": "llm"
+    }
+  ]
+}

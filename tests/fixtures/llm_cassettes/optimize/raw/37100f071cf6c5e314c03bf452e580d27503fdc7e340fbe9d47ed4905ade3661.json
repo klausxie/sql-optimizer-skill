@@ -1,0 +1,54 @@
+{
+  "createdAt": "2026-04-09T02:45:29.769304+00:00",
+  "fingerprint": "37100f071cf6c5e314c03bf452e580d27503fdc7e340fbe9d47ed4905ade3661",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "CHOOSE"
+    ],
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, status FROM users (WHERE 1=1 OR WHERE status = 'active' OR WHERE status = 'public' OR WHERE status = 'active')",
+    "sqlKey": "demo.test.complex.chooseMultipleWhen",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "error": "syntax error at or near \"WHERE\"\nLINE 1: ...(FORMAT TEXT) SELECT id, name, status FROM users (WHERE 1=1 ...\n                                                             ^\n",
+        "summary": "EXPLAIN failed"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT id, name, status FROM users\n        <choose>\n            <when test=\"role == 'admin'\">\n                WHERE 1=1\n            </when>\n            <when test=\"role == 'user'\">\n                WHERE status = 'active'\n            </when>\n            <when test=\"role == 'guest'\">\n                WHERE status = 'public'\n            </when>\n            <otherwise>\n                WHERE status = 'active'\n            </otherwise>\n        </choose>"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.chooseMultipleWhen"
+}

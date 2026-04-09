@@ -88,8 +88,29 @@ class FixtureScenarioValidateHarnessTest(unittest.TestCase):
 
     def test_fixture_project_validate_matches_scenario_matrix(self) -> None:
         scenarios, _proposals, _acceptance_rows, _units_by_key, acceptance_by_key, _fragment_catalog = run_fixture_validate_harness()
-        assert_validate_matrix_matches_scenarios(scenarios, acceptance_by_key)
+        scenario_by_key = {str(row["sqlKey"]): row for row in scenarios}
+        expected_batch6_blockers = {
+            "demo.order.harness.listOrdersWithUsersPaged": "VALIDATE_SEMANTIC_ERROR",
+            "demo.shipment.harness.findShipments": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.staticSimpleSelect": "NO_SAFE_BASELINE_RECOVERY",
+            "demo.test.complex.inSubquery": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+            "demo.test.complex.includeSimple": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+        }
+        for sql_key, expected_blocker in expected_batch6_blockers.items():
+            self.assertEqual(scenario_by_key[sql_key]["targetPrimaryBlocker"], expected_blocker)
 
+        expected_boundary_blockers = {
+            "demo.order.harness.findOrdersByNos": "VALIDATE_SEMANTIC_ERROR",
+            "demo.shipment.harness.findShipmentsByOrderIds": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.multiFragmentSeparate": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.selectWithFragmentChoose": "VALIDATE_SEMANTIC_ERROR",
+            "demo.test.complex.existsSubquery": "SEMANTIC_GATE_BLOCKED",
+            "demo.test.complex.leftJoinWithNull": "SEMANTIC_GATE_BLOCKED",
+            "demo.test.complex.chooseWithLimit": "VALIDATE_SEMANTIC_ERROR",
+        }
+        for sql_key, expected_blocker in expected_boundary_blockers.items():
+            self.assertEqual(scenario_by_key[sql_key]["targetPrimaryBlocker"], expected_blocker)
+        assert_validate_matrix_matches_scenarios(scenarios, acceptance_by_key)
 
 if __name__ == "__main__":
     unittest.main()
