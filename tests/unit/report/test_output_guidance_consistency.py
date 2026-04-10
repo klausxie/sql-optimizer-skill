@@ -96,6 +96,9 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
         self.assertEqual(artifacts.report.next_action, "apply")
         self.assertEqual(artifacts.next_actions[0]["action_id"], "apply")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "apply")
+        self.assertEqual(verify_payload["boundary_category"], "SUPPORTED")
+        self.assertEqual(verify_payload["boundary_summary"], "supported")
+        self.assertEqual(verify_payload["recommended_action"], "apply_patch")
 
     def test_security_block_still_surfaces_in_verify_payload(self) -> None:
         sql_key = "demo.user.findUsersSecurity"
@@ -120,6 +123,31 @@ class OutputGuidanceConsistencyTest(unittest.TestCase):
 
         self.assertEqual(verify_payload["blocker_primary_code"], "VALIDATE_SECURITY_DOLLAR_SUBSTITUTION")
         self.assertEqual(verify_payload["recommended_next_step"]["action"], "remove-dollar")
+        self.assertEqual(verify_payload["boundary_category"], "VALIDATE_SECURITY_BOUNDARY")
+        self.assertEqual(verify_payload["boundary_summary"], "blocked by validation/security")
+        self.assertEqual(verify_payload["recommended_action"], "review_candidate")
+
+    def test_provider_limited_lane_surfaces_product_boundary_fields(self) -> None:
+        sql_key = "demo.user.advanced.findUsersByKeyword"
+        _artifacts, verify_payload = _render_outputs(
+            sql_key=sql_key,
+            acceptance_rows=[],
+            patch_rows=[
+                {
+                    "sqlKey": sql_key,
+                    "statementKey": sql_key,
+                    "applicable": False,
+                    "deliveryOutcome": {"tier": "BLOCKED"},
+                    "selectionReason": {"code": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"},
+                }
+            ],
+            verification_rows=[],
+        )
+
+        self.assertEqual(verify_payload["blocker_primary_code"], "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY")
+        self.assertEqual(verify_payload["boundary_category"], "PROVIDER_LIMITED")
+        self.assertEqual(verify_payload["boundary_summary"], "blocked by current provider quality")
+        self.assertEqual(verify_payload["recommended_action"], "consider_provider_investment")
 
 
 if __name__ == "__main__":

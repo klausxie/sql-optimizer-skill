@@ -151,3 +151,4 @@ python3 scripts/run_sample_project.py \
 - LLM replay / cassette：[`LLM_REPLAY.md`](LLM_REPLAY.md)
 - 故障排查：[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
 - 当前规格：[`current-spec.md`](current-spec.md)
+- 当前支持范围与 blocked boundary：[`superpowers/specs/2026-04-10-supported-capability-matrix.md`](superpowers/specs/2026-04-10-supported-capability-matrix.md)

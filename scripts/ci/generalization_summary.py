@@ -15,6 +15,7 @@ from sqlopt.devtools.run_progress_summary import (  # noqa: E402
     summarize_progress_metrics,
     summarize_run_progress,
 )
+from sqlopt.application.boundary_mapping import present_boundary  # noqa: E402
 from sqlopt.devtools.generalization_blocker_inventory import (  # noqa: E402
     BLOCKED_BOUNDARY_SQL_KEYS,
     POST_BATCH9_SENTINELS,
@@ -77,17 +78,27 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _statement_payload(summary) -> list[dict[str, object]]:
-    return [
-        {
-            "statement_key": row.statement_key,
-            "shape_family": row.shape_family,
-            "convergence_decision": row.convergence_decision,
-            "conflict_reason": row.conflict_reason,
-            "patch_reason_code": row.patch_reason_code,
-            "patch_files": list(row.patch_files),
-        }
-        for row in summary.rows
-    ]
+    payload: list[dict[str, object]] = []
+    for row in summary.rows:
+        boundary = present_boundary(
+            statement_key=row.statement_key,
+            blocker_code=row.conflict_reason,
+            delivery_decision=row.convergence_decision,
+        )
+        payload.append(
+            {
+                "statement_key": row.statement_key,
+                "shape_family": row.shape_family,
+                "convergence_decision": row.convergence_decision,
+                "conflict_reason": row.conflict_reason,
+                "patch_reason_code": row.patch_reason_code,
+                "patch_files": list(row.patch_files),
+                "boundaryCategory": boundary.category,
+                "boundarySummary": boundary.summary,
+                "recommendedAction": boundary.recommended_action,
+            }
+        )
+    return payload
 
 
 def _decision_focus(blocker_bucket_counts: dict[str, int]) -> str:

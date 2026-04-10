@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .boundary_mapping import present_boundary
 from ..verification.explain import action_reason, assess_sql_outcome
 
 
@@ -322,6 +323,11 @@ def build_verify_payload(
         semantic_blocked_reason,
         blocker_primary_code,
     )
+    boundary = present_boundary(
+        statement_key=sql_key,
+        blocker_code=blocker_primary_code,
+        delivery_decision=delivery_status,
+    )
     warnings = _verify_warnings(assessment)
     return {
         "run_id": run_id,
@@ -346,6 +352,9 @@ def build_verify_payload(
         "decision_summary": decision_summary,
         "why_now": why_now,
         "recommended_next_step": recommended_next_step,
+        "boundary_category": boundary.category,
+        "boundary_summary": boundary.summary,
+        "recommended_action": boundary.recommended_action,
         "warnings": warnings,
         "semantic_gate_status": semantic_gate.get("status") or "UNKNOWN",
         "semantic_gate_confidence": semantic_gate.get("confidence") or "UNKNOWN",

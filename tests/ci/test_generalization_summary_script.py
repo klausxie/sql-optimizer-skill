@@ -1389,6 +1389,138 @@ class GeneralizationSummaryScriptTest(unittest.TestCase):
         self.assertEqual(payload["overall"]["blocker_bucket_counts"]["VALIDATE_STATUS_NOT_PASS"], 1)
         self.assertEqual(payload["overall"]["blocker_bucket_counts"]["SEMANTIC_GATE_NOT_PASS"], 1)
 
+    def test_statement_payload_exposes_product_boundary_fields(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_generalization_batch13_") as td:
+            run_dir = Path(td)
+            _write_complete_batch_run(
+                run_dir,
+                batch_name="generalization-batch13",
+                rows=[
+                    {
+                        "statementKey": "demo.user.advanced.findUsersByKeyword",
+                        "shapeFamily": "IF_GUARDED_FILTER_STATEMENT",
+                        "coverageLevel": "representative",
+                        "sqlKeys": ["demo.user.advanced.findUsersByKeyword"],
+                        "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                        "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
+                        "convergenceDecision": "MANUAL_REVIEW",
+                        "consensus": None,
+                        "conflictReason": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
+                        "evidenceRefs": [],
+                        "generatedAt": "2026-04-10T00:00:00+00:00",
+                    },
+                    {
+                        "statementKey": "demo.test.complex.multiFragmentLevel1",
+                        "shapeFamily": "MULTI_FRAGMENT_INCLUDE",
+                        "coverageLevel": "representative",
+                        "sqlKeys": ["demo.test.complex.multiFragmentLevel1"],
+                        "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                        "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
+                        "convergenceDecision": "MANUAL_REVIEW",
+                        "consensus": None,
+                        "conflictReason": "NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE",
+                        "evidenceRefs": [],
+                        "generatedAt": "2026-04-10T00:00:00+00:00",
+                    },
+                    {
+                        "statementKey": "demo.test.complex.includeNested",
+                        "shapeFamily": "STATIC_INCLUDE_ONLY",
+                        "coverageLevel": "representative",
+                        "sqlKeys": ["demo.test.complex.includeNested"],
+                        "validateStatuses": {"pass": 0, "partial": 1, "fail": 0},
+                        "semanticGate": {"passCount": 0, "blockedCount": 0, "uncertainCount": 1},
+                        "convergenceDecision": "MANUAL_REVIEW",
+                        "consensus": None,
+                        "conflictReason": "VALIDATE_SEMANTIC_ROW_COUNT_ERROR",
+                        "evidenceRefs": [],
+                        "generatedAt": "2026-04-10T00:00:00+00:00",
+                    },
+                    {
+                        "statementKey": "demo.order.harness.listOrdersWithUsersPaged",
+                        "shapeFamily": "IF_GUARDED_FILTER_STATEMENT",
+                        "coverageLevel": "representative",
+                        "sqlKeys": ["demo.order.harness.listOrdersWithUsersPaged"],
+                        "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                        "semanticGate": {"passCount": 0, "blockedCount": 0, "uncertainCount": 1},
+                        "convergenceDecision": "MANUAL_REVIEW",
+                        "consensus": None,
+                        "conflictReason": "SEMANTIC_PREDICATE_CONJUNCT_REMOVED",
+                        "evidenceRefs": [],
+                        "generatedAt": "2026-04-10T00:00:00+00:00",
+                    },
+                    {
+                        "statementKey": "demo.shipment.harness.findShipments",
+                        "shapeFamily": "IF_GUARDED_FILTER_STATEMENT",
+                        "coverageLevel": "representative",
+                        "sqlKeys": ["demo.shipment.harness.findShipments"],
+                        "validateStatuses": {"pass": 1, "partial": 0, "fail": 0},
+                        "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
+                        "convergenceDecision": "MANUAL_REVIEW",
+                        "consensus": None,
+                        "conflictReason": "NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY",
+                        "evidenceRefs": [],
+                        "generatedAt": "2026-04-10T00:00:00+00:00",
+                    },
+                ],
+                patch_rows=[
+                    {
+                        "statementKey": "demo.user.advanced.findUsersByKeyword",
+                        "patchFiles": [],
+                        "selectionReason": {"code": "PATCH_CONVERGENCE_REVIEW_REQUIRED"},
+                    },
+                    {
+                        "statementKey": "demo.test.complex.multiFragmentLevel1",
+                        "patchFiles": [],
+                        "selectionReason": {"code": "PATCH_CONVERGENCE_REVIEW_REQUIRED"},
+                    },
+                    {
+                        "statementKey": "demo.test.complex.includeNested",
+                        "patchFiles": [],
+                        "selectionReason": {"code": "PATCH_CONVERGENCE_REVIEW_REQUIRED"},
+                    },
+                    {
+                        "statementKey": "demo.order.harness.listOrdersWithUsersPaged",
+                        "patchFiles": [],
+                        "selectionReason": {"code": "PATCH_CONVERGENCE_REVIEW_REQUIRED"},
+                    },
+                    {
+                        "statementKey": "demo.shipment.harness.findShipments",
+                        "patchFiles": [],
+                        "selectionReason": {"code": "PATCH_CONVERGENCE_REVIEW_REQUIRED"},
+                    },
+                ],
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--batch-run",
+                    f"generalization-batch13={run_dir}",
+                    "--format",
+                    "json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        payload = json.loads(proc.stdout)
+        rows = {row["statement_key"]: row for row in payload["batches"][0]["statements"]}
+        self.assertEqual(rows["demo.user.advanced.findUsersByKeyword"]["boundaryCategory"], "PROVIDER_LIMITED")
+        self.assertEqual(
+            rows["demo.user.advanced.findUsersByKeyword"]["boundarySummary"],
+            "blocked by current provider quality",
+        )
+        self.assertEqual(
+            rows["demo.user.advanced.findUsersByKeyword"]["recommendedAction"],
+            "consider_provider_investment",
+        )
+        self.assertEqual(rows["demo.test.complex.multiFragmentLevel1"]["boundaryCategory"], "FROZEN_NON_GOAL")
+        self.assertEqual(rows["demo.test.complex.includeNested"]["boundaryCategory"], "VALIDATE_SECURITY_BOUNDARY")
+        self.assertEqual(rows["demo.order.harness.listOrdersWithUsersPaged"]["boundaryCategory"], "SEMANTIC_BOUNDARY")
+
     def test_missing_batch_run_directory_fails(self) -> None:
         missing_run_dir = ROOT / "tests" / "fixtures" / "projects" / "sample_project" / "runs" / "run_does_not_exist"
         proc = subprocess.run(
