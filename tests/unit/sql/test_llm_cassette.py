@@ -235,6 +235,10 @@ class LlmCassetteTest(unittest.TestCase):
                 "forbidSetOperations": True,
                 "forbidBranchMerge": True,
                 "forbidWholeStatementRewrite": True,
+                "forbidIndexAdvisoryOnly": True,
+                "forbidFlattenedPredicateRewrite": True,
+                "forbidDefaultBranchReduction": True,
+                "returnNoCandidateWhenContractUnsatisfied": True,
                 "allowedTemplateRewriteOps": ["replace_choose_branch_body"],
             },
             "promptVersion": "v1",
@@ -245,7 +249,7 @@ class LlmCassetteTest(unittest.TestCase):
             base_request,
             dynamicSurfaceContract={
                 **base_request["dynamicSurfaceContract"],
-                "forbidSetOperations": False,
+                "forbidIndexAdvisoryOnly": False,
             },
         )
 

@@ -1113,5 +1113,15 @@
     "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_5662aef54d87",
     "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_upgt86gn/config.resolved.json",
     "updated_at": "2026-04-10T02:37:39.845273+00:00"
+  },
+  "run_833167277cef": {
+    "run_dir": "/Users/klaus/.config/superpowers/worktrees/sql-optimizer-skill/codex-provider-candidate-quality-program/tests/fixtures/projects/sample_project/runs/run_833167277cef",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_1p7l38pt/config.resolved.json",
+    "updated_at": "2026-04-10T05:37:57.958981+00:00"
+  },
+  "run_3e4eaf58fc8d": {
+    "run_dir": "/Users/klaus/.config/superpowers/worktrees/sql-optimizer-skill/codex-provider-candidate-quality-program/tests/fixtures/projects/sample_project/runs/run_3e4eaf58fc8d",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_knytfc2j/config.resolved.json",
+    "updated_at": "2026-04-10T05:41:34.416356+00:00"
   }
 }
