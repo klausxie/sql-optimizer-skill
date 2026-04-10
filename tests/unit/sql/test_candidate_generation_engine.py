@@ -749,7 +749,8 @@ class CandidateGenerationEngineTest(unittest.TestCase):
     def test_freezes_find_users_by_keyword_candidate_pool_classification_after_branch_identity_reseed(self) -> None:
         original_sql = (
             "SELECT id, name, email, status, created_at, updated_at "
-            "FROM users AS u WHERE status != 'DELETED' ORDER BY created_at DESC"
+            "FROM users AS u WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+            "ORDER BY created_at DESC"
         )
         sql_unit = {
             "sqlKey": "demo.user.advanced.findUsersByKeyword",
@@ -795,7 +796,22 @@ class CandidateGenerationEngineTest(unittest.TestCase):
             {
                 "id": "opt-001",
                 "source": "llm",
-                "rewriteStrategy": "union_or_elimination",
+                "rewriteStrategy": "INDEX_SEEK",
+                "rewrittenSql": (
+                    "SELECT DISTINCT id, name, email, status, created_at, updated_at FROM ("
+                    "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} "
+                    "UNION ALL "
+                    "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} "
+                    "AND status != 'DELETED' AND NOT (name ILIKE #{keywordPattern}) "
+                    "UNION ALL "
+                    "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' "
+                    "AND status != #{status} AND NOT (name ILIKE #{keywordPattern})) AS t ORDER BY created_at DESC"
+                ),
+            },
+            {
+                "id": "opt-002",
+                "source": "llm",
+                "rewriteStrategy": "PREDICATE_SIMPLIFICATION",
                 "rewrittenSql": (
                     "SELECT id, name, email, status, created_at, updated_at "
                     "FROM users AS u WHERE (name ILIKE #{keywordPattern} OR status = #{status}) "
@@ -803,21 +819,12 @@ class CandidateGenerationEngineTest(unittest.TestCase):
                 ),
             },
             {
-                "id": "opt-002",
-                "source": "llm",
-                "rewriteStrategy": "redundant_condition_removal",
-                "rewrittenSql": (
-                    "SELECT id, name, email, status, created_at, updated_at "
-                    "FROM users AS u WHERE name ILIKE #{keywordPattern} ORDER BY created_at DESC"
-                ),
-            },
-            {
                 "id": "opt-003",
                 "source": "llm",
-                "rewriteStrategy": "index_driven_union",
+                "rewriteStrategy": "PREDICATE_REDUCTION",
                 "rewrittenSql": (
                     "SELECT id, name, email, status, created_at, updated_at "
-                    "FROM users AS u WHERE name ILIKE #{keywordPattern} ORDER BY created_at DESC"
+                    "FROM users AS u WHERE status != 'DELETED' ORDER BY created_at DESC"
                 ),
             },
         ]
@@ -833,7 +840,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
 
         self.assertEqual(
             outcome.diagnostics.raw_rewrite_strategies,
-            ["union_or_elimination", "redundant_condition_removal", "index_driven_union"],
+            ["INDEX_SEEK", "PREDICATE_SIMPLIFICATION", "PREDICATE_REDUCTION"],
         )
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
@@ -847,18 +854,18 @@ class CandidateGenerationEngineTest(unittest.TestCase):
             [
                 (
                     "opt-001",
-                    "SEMANTIC_RISK_REWRITE",
-                    "candidate merges choose branches on a supported choose-guarded filter without a template-preserving safe path",
+                    "CHOOSE_LOCAL_CONTRACT_SET_OPERATION",
+                    "candidate introduces set operations instead of a branch-local choose cleanup",
                 ),
                 (
                     "opt-002",
-                    "NO_SAFE_BASELINE_MATCH",
-                    "candidate rewrites choose-guarded filter predicates but does not match any supported template-preserving baseline",
+                    "CHOOSE_LOCAL_CONTRACT_FLATTENED_PREDICATE_REWRITE",
+                    "candidate rewrites the flattened statement predicate instead of isolating the rendered choose branch",
                 ),
                 (
                     "opt-003",
-                    "UNSUPPORTED_STRATEGY",
-                    "candidate uses an unsupported union/index strategy on a supported choose-guarded filter",
+                    "CHOOSE_LOCAL_CONTRACT_DEFAULT_BRANCH_REDUCTION",
+                    "candidate reduces to a sibling choose branch instead of cleaning up the rendered branch",
                 ),
             ],
         )

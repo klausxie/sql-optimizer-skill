@@ -1,0 +1,129 @@
+{
+  "createdAt": "2026-04-10T05:38:31.625166+00:00",
+  "fingerprint": "867272d50e06ccbcd69cd8fe0d622ed39c9e9c6ff2ff942ccb8663c10a107b2f",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "BIND",
+      "INCLUDE",
+      "WHERE",
+      "CHOOSE"
+    ],
+    "dynamicRenderIdentity": {
+      "branchKind": "WHEN",
+      "branchOrdinal": 0,
+      "branchTestFingerprint": "keyword != null and keyword != ''",
+      "chooseOrdinal": 0,
+      "renderMode": "CHOOSE_BRANCH_RENDERED",
+      "renderedBranchSql": "name ILIKE #{keywordPattern}",
+      "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+      "requiredSiblingShape": {
+        "branchCount": 3
+      },
+      "surfaceType": "CHOOSE_BRANCH_BODY"
+    },
+    "dynamicSurfaceContract": {
+      "allowedTemplateRewriteOps": [
+        "replace_choose_branch_body"
+      ],
+      "branchLocalOnly": true,
+      "branchOrdinal": 0,
+      "forbidBranchMerge": true,
+      "forbidDefaultBranchReduction": true,
+      "forbidFlattenedPredicateRewrite": true,
+      "forbidIndexAdvisoryOnly": true,
+      "forbidSetOperations": true,
+      "forbidWholeStatementRewrite": true,
+      "preferredOutcome": "BRANCH_LOCAL_CLEANUP_OR_NO_CANDIDATE",
+      "renderedBranchSql": "name ILIKE #{keywordPattern}",
+      "returnNoCandidateWhenContractUnsatisfied": true,
+      "targetSurface": "CHOOSE_BRANCH_BODY"
+    },
+    "dynamicTrace": {
+      "chooseBranchSurfaces": [
+        {
+          "branchKind": "WHEN",
+          "branchOrdinal": 0,
+          "branchTestFingerprint": "keyword != null and keyword != ''",
+          "chooseOrdinal": 0,
+          "renderedBranchSql": "name ILIKE #{keywordPattern}",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        },
+        {
+          "branchKind": "WHEN",
+          "branchOrdinal": 1,
+          "branchTestFingerprint": "status != null and status != ''",
+          "chooseOrdinal": 0,
+          "renderedBranchSql": "status = #{status}",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        },
+        {
+          "branchKind": "OTHERWISE",
+          "branchOrdinal": 2,
+          "chooseOrdinal": 0,
+          "renderedBranchSql": "status != 'DELETED'",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        }
+      ],
+      "includeFragments": [
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.user.advanced.AdvancedUserColumns"
+        }
+      ],
+      "statementFeatures": [
+        "BIND",
+        "INCLUDE",
+        "WHERE",
+        "CHOOSE"
+      ]
+    },
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+    "sqlKey": "demo.user.advanced.findUsersByKeyword",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 4,
+        "summary": "Sort  (cost=13.49..13.69 rows=79 width=896)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" />\n        SELECT <include refid=\"AdvancedUserColumns\" />\n        FROM users\n        <where>\n            <choose>\n                <when test=\"keyword != null and keyword != ''\">\n                    name ILIKE #{keywordPattern}\n                </when>\n                <when test=\"status != null and status != ''\">\n                    status = #{status}\n                </when>\n                <otherwise>\n                    status != 'DELETED'\n                </otherwise>\n            </choose>\n        </where>\n        ORDER BY created_at DESC"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.user.advanced.findUsersByKeyword"
+}

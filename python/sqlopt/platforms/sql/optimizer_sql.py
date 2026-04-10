@@ -71,6 +71,10 @@ def _build_dynamic_surface_contract(sql_unit: dict[str, Any]) -> dict[str, Any]:
         "forbidSetOperations": True,
         "forbidBranchMerge": True,
         "forbidWholeStatementRewrite": True,
+        "forbidIndexAdvisoryOnly": True,
+        "forbidFlattenedPredicateRewrite": True,
+        "forbidDefaultBranchReduction": True,
+        "returnNoCandidateWhenContractUnsatisfied": True,
         "allowedTemplateRewriteOps": ["replace_choose_branch_body"],
         "preferredOutcome": "BRANCH_LOCAL_CLEANUP_OR_NO_CANDIDATE",
     }

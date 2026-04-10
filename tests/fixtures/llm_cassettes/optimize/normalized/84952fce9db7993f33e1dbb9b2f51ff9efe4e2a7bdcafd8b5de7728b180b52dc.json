@@ -1,36 +1,20 @@
 {
   "fingerprint": "84952fce9db7993f33e1dbb9b2f51ff9efe4e2a7bdcafd8b5de7728b180b52dc",
-  "rawCandidateCount": 3,
+  "rawCandidateCount": 1,
   "sqlKey": "demo.order.harness.listOrdersWithUsersPaged",
   "trace": {
     "candidate_summary": {
       "candidates": [
         {
-          "confidence": "0.85",
-          "id": "opt-001",
-          "rewriteStrategy": "PREDICATE_PUSH_DOWN",
-          "semanticRisk": "low",
-          "source": "llm",
-          "sql_preview": "WITH filtered_users AS (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '"
-        },
-        {
           "confidence": "0.75",
-          "id": "opt-002",
-          "rewriteStrategy": "OR_TO_UNION",
+          "id": "opt-001",
+          "rewriteStrategy": "use_covering_index",
           "semanticRisk": "low",
-          "source": "llm",
-          "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
-        },
-        {
-          "confidence": "0.65",
-          "id": "opt-003",
-          "rewriteStrategy": "KEYSET_PAGINATION",
-          "semanticRisk": "medium",
           "source": "llm",
           "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
         }
       ],
-      "count": 3
+      "count": 1
     },
     "config_snapshot": {
       "api_model": null,
@@ -38,13 +22,13 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-10T02:38:26.762369+00:00",
+    "created_at": "2026-04-10T05:40:45.920263+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 35888,
+    "elapsed_ms": 40316,
     "executor": "opencode_run",
     "input_hash": "ad0b35a8467443fd8553d21ba23bd12aee534e89b82acbd9ccbcb5766c454270",
     "mode": "candidate_generation",
-    "output_hash": "8f981c41c6f7813f7e4cc4785f6b3b80107a40ec3c2a011fc6d0fa8f9706468c",
+    "output_hash": "b0622b09de94a8fc6a90451249d63db773fb8e0d13853a38a68e161e188fb397",
     "prompt": {
       "optionalContext": {
         "columns": [
@@ -227,27 +211,11 @@
   },
   "validCandidates": [
     {
-      "confidence": "0.85",
-      "id": "opt-001",
-      "rewriteStrategy": "PREDICATE_PUSH_DOWN",
-      "rewrittenSql": "WITH filtered_users AS (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '%') OR email ILIKE CONCAT('%', #{keyword}, '%')) SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN filtered_users u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
-      "semanticRisk": "low",
-      "source": "llm"
-    },
-    {
       "confidence": "0.75",
-      "id": "opt-002",
-      "rewriteStrategy": "OR_TO_UNION",
-      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE u.name ILIKE CONCAT('%', #{keyword}, '%') AND o.status = #{status} UNION ALL SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE u.email ILIKE CONCAT('%', #{keyword}, '%') AND o.status = #{status} AND NOT (u.name ILIKE CONCAT('%', #{keyword}, '%')) ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}",
+      "id": "opt-001",
+      "rewriteStrategy": "use_covering_index",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
       "semanticRisk": "low",
-      "source": "llm"
-    },
-    {
-      "confidence": "0.65",
-      "id": "opt-003",
-      "rewriteStrategy": "KEYSET_PAGINATION",
-      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} AND o.created_at < COALESCE((SELECT created_at FROM orders WHERE status = #{status} ORDER BY created_at DESC LIMIT 1 OFFSET #{offset}), '1970-01-01'::timestamp) ORDER BY o.created_at DESC LIMIT #{limit}",
-      "semanticRisk": "medium",
       "source": "llm"
     }
   ]

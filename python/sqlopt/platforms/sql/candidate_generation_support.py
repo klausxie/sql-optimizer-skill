@@ -212,6 +212,31 @@ def is_supported_choose_guarded_filter(sql_unit: dict[str, Any]) -> bool:
     return within_where
 
 
+def _choose_branch_identity(sql_unit: dict[str, Any]) -> tuple[str, tuple[str, ...]] | None:
+    identity = sql_unit.get("dynamicRenderIdentity") or {}
+    if not isinstance(identity, dict):
+        return None
+    if str(identity.get("surfaceType") or "").strip().upper() != "CHOOSE_BRANCH_BODY":
+        return None
+    current_branch_sql = normalize_sql(str(identity.get("renderedBranchSql") or ""))
+    if not current_branch_sql:
+        return None
+    current_branch_ordinal = identity.get("branchOrdinal")
+    sibling_branch_sqls: list[str] = []
+    choose_surfaces = ((sql_unit.get("dynamicTrace") or {}).get("chooseBranchSurfaces") or [])
+    for surface in choose_surfaces:
+        if not isinstance(surface, dict):
+            continue
+        if str(surface.get("surfaceType") or "").strip().upper() != "CHOOSE_BRANCH_BODY":
+            continue
+        if surface.get("branchOrdinal") == current_branch_ordinal:
+            continue
+        rendered = normalize_sql(str(surface.get("renderedBranchSql") or ""))
+        if rendered:
+            sibling_branch_sqls.append(rendered)
+    return current_branch_sql, tuple(sibling_branch_sqls)
+
+
 def classify_supported_choose_guarded_filter_candidate(
     *,
     original_sql: str,
@@ -223,6 +248,27 @@ def classify_supported_choose_guarded_filter_candidate(
     rewritten_sql = normalize_sql(str(candidate.get("rewrittenSql") or ""))
     if not rewritten_sql:
         return None
+
+    choose_identity = _choose_branch_identity(sql_unit)
+    if choose_identity is not None:
+        current_branch_sql, sibling_branch_sqls = choose_identity
+        if re.search(r"\bunion(?:\s+all)?\b", rewritten_sql, flags=re.IGNORECASE):
+            return (
+                "CHOOSE_LOCAL_CONTRACT_SET_OPERATION",
+                "candidate introduces set operations instead of a branch-local choose cleanup",
+            )
+        sibling_hits = [surface_sql for surface_sql in sibling_branch_sqls if surface_sql and surface_sql in rewritten_sql]
+        current_hit = current_branch_sql in rewritten_sql
+        if current_hit and sibling_hits:
+            return (
+                "CHOOSE_LOCAL_CONTRACT_FLATTENED_PREDICATE_REWRITE",
+                "candidate rewrites the flattened statement predicate instead of isolating the rendered choose branch",
+            )
+        if not current_hit and sibling_hits:
+            return (
+                "CHOOSE_LOCAL_CONTRACT_DEFAULT_BRANCH_REDUCTION",
+                "candidate reduces to a sibling choose branch instead of cleaning up the rendered branch",
+            )
 
     from .candidate_generation_rules.low_value_speculative import classify_supported_choose_guarded_filter_strategy
 

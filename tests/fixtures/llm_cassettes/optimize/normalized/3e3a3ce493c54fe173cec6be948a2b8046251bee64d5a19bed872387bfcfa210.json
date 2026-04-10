@@ -13,9 +13,9 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-10T02:37:53.581805+00:00",
+    "created_at": "2026-04-10T05:39:11.783951+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 14386,
+    "elapsed_ms": 34007,
     "executor": "opencode_run",
     "input_hash": "77a4c3cbcd3ed7828062851474fcb8af99c3307a21e014f57ee67997b0eedf4d",
     "mode": "candidate_generation",

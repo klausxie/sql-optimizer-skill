@@ -123,6 +123,10 @@ class OptimizeProposalTest(unittest.TestCase):
         self.assertTrue(request["dynamicSurfaceContract"]["forbidSetOperations"])
         self.assertTrue(request["dynamicSurfaceContract"]["forbidBranchMerge"])
         self.assertTrue(request["dynamicSurfaceContract"]["forbidWholeStatementRewrite"])
+        self.assertTrue(request["dynamicSurfaceContract"]["forbidIndexAdvisoryOnly"])
+        self.assertTrue(request["dynamicSurfaceContract"]["forbidFlattenedPredicateRewrite"])
+        self.assertTrue(request["dynamicSurfaceContract"]["forbidDefaultBranchReduction"])
+        self.assertTrue(request["dynamicSurfaceContract"]["returnNoCandidateWhenContractUnsatisfied"])
 
     def test_build_prompt_adds_choose_local_rewrite_constraints(self) -> None:
         sql_unit = {
@@ -158,6 +162,10 @@ class OptimizeProposalTest(unittest.TestCase):
         self.assertTrue(contract["forbidSetOperations"])
         self.assertTrue(contract["forbidBranchMerge"])
         self.assertTrue(contract["forbidWholeStatementRewrite"])
+        self.assertTrue(contract["forbidIndexAdvisoryOnly"])
+        self.assertTrue(contract["forbidFlattenedPredicateRewrite"])
+        self.assertTrue(contract["forbidDefaultBranchReduction"])
+        self.assertTrue(contract["returnNoCandidateWhenContractUnsatisfied"])
 
 
 if __name__ == "__main__":
