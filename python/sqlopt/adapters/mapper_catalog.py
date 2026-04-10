@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from ..platforms.sql.dynamic_surface_locator import locate_choose_branch_surface
 from ..utils import statement_key_from_row
 
 _NAMESPACE_RE = re.compile(r"<mapper\b[^>]*\bnamespace\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
@@ -27,6 +28,20 @@ _KNOWN_DYNAMIC_TAGS = {
     "bind": "BIND",
 }
 _NON_OPAQUE_TAGS = set(_KNOWN_DYNAMIC_TAGS) | {"when", "otherwise", "property"}
+_SAMPLE_RENDER_PARAMS: dict[str, Any] = {
+    "id": 1,
+    "name": "demo",
+    "keyword": "demo",
+    "status": "ACTIVE",
+    "list": [1, 2, 3],
+    "items": ["a", "b"],
+    "offset": 0,
+    "limit": 10,
+}
+_TEST_EXPR_RE = re.compile(
+    r"^\s*(?P<path>[a-zA-Z_][a-zA-Z0-9_\.]*)\s*(?P<op>==|!=)\s*(?P<value>null|''|\"\"|'[^']*'|\"[^\"]*\"|-?\d+|true|false)\s*$",
+    flags=re.IGNORECASE,
+)
 
 
 def _local_name(tag: str) -> str:
@@ -226,6 +241,8 @@ def _build_statement_meta(xml_path: Path, namespace: str, xml_text: str, match: 
     include_bindings = _extract_include_bindings(body, namespace, xml_path)
     primary_fragment = include_bindings[0]["ref"] if include_bindings else None
     return statement_key, {
+        "templateSql": body,
+        "dynamicFeatures": _collect_dynamic_features(body),
         "locators": {
             "statementId": statement_id,
             "range": _range_for_span(xml_text, match.start(4), match.end(4)),
@@ -236,6 +253,134 @@ def _build_statement_meta(xml_path: Path, namespace: str, xml_text: str, match: 
     }
 
 
+def _extract_choose_branch_surfaces(template_sql: str) -> list[dict[str, Any]]:
+    text = str(template_sql or "").strip()
+    if not text:
+        return []
+    try:
+        wrapper = ET.fromstring(f"<root>{text}</root>")
+    except Exception:
+        return []
+    where_nodes = [child for child in list(wrapper) if _local_name(str(child.tag)).lower() == "where"]
+    if len(where_nodes) != 1:
+        return []
+    where_children = [child for child in list(where_nodes[0]) if child.tag is not None]
+    if len(where_children) != 1 or _local_name(str(where_children[0].tag)).lower() != "choose":
+        return []
+    choose_node = where_children[0]
+    branches = [child for child in list(choose_node) if _local_name(str(child.tag)).lower() in {"when", "otherwise"}]
+    if not branches or len(branches) != len(list(choose_node)):
+        return []
+    surfaces: list[dict[str, Any]] = []
+    for idx, branch in enumerate(branches):
+        branch_kind = _local_name(str(branch.tag)).upper()
+        branch_sql = _normalize_sql_text("".join(
+            ([branch.text] if branch.text else [])
+            + [ET.tostring(child, encoding="unicode") for child in list(branch)]
+        ))
+        if not branch_sql:
+            continue
+        row: dict[str, Any] = {
+            "surfaceType": "CHOOSE_BRANCH_BODY",
+            "chooseOrdinal": 0,
+            "branchOrdinal": idx,
+            "branchKind": branch_kind,
+            "renderedBranchSql": branch_sql,
+            "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+        }
+        branch_test = _normalize_sql_text(str(branch.attrib.get("test") or ""))
+        if branch_test:
+            row["branchTestFingerprint"] = branch_test
+        surfaces.append(row)
+    return surfaces
+
+
+def _sample_param_value(path: str) -> Any:
+    current: Any = _SAMPLE_RENDER_PARAMS
+    for part in str(path or "").strip().split("."):
+        if not part:
+            return None
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def _parse_test_literal(token: str) -> Any:
+    value = str(token or "").strip()
+    lower = value.lower()
+    if lower == "null":
+        return None
+    if lower == "true":
+        return True
+    if lower == "false":
+        return False
+    if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        return value[1:-1]
+    if re.fullmatch(r"-?\d+", value):
+        return int(value)
+    return value
+
+
+def _split_logical_test(expr: str, operator: str) -> list[str]:
+    pattern = re.compile(rf"\s+{operator}\s+", flags=re.IGNORECASE)
+    parts = [part.strip() for part in pattern.split(str(expr or "").strip()) if part.strip()]
+    return parts if len(parts) > 1 else []
+
+
+def _evaluate_simple_test(expr: str) -> bool | None:
+    match = _TEST_EXPR_RE.match(str(expr or "").strip())
+    if match is None:
+        return None
+    current = _sample_param_value(match.group("path"))
+    expected = _parse_test_literal(match.group("value"))
+    op = match.group("op")
+    return current == expected if op == "==" else current != expected
+
+
+def _evaluate_choose_test(expr: str) -> bool | None:
+    text = str(expr or "").strip()
+    if not text:
+        return None
+    and_parts = _split_logical_test(text, "and")
+    if and_parts:
+        results = [_evaluate_choose_test(part) for part in and_parts]
+        return None if any(result is None for result in results) else all(bool(result) for result in results)
+    or_parts = _split_logical_test(text, "or")
+    if or_parts:
+        results = [_evaluate_choose_test(part) for part in or_parts]
+        return None if any(result is None for result in results) else any(bool(result) for result in results)
+    return _evaluate_simple_test(text)
+
+
+def _sample_choose_render_identity(choose_branch_surfaces: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for surface in choose_branch_surfaces:
+        branch_kind = str(surface.get("branchKind") or "").strip().upper()
+        if branch_kind == "WHEN":
+            decision = _evaluate_choose_test(str(surface.get("branchTestFingerprint") or ""))
+            if decision is not True:
+                continue
+        elif branch_kind != "OTHERWISE":
+            continue
+        identity: dict[str, Any] = {
+            "surfaceType": "CHOOSE_BRANCH_BODY",
+            "renderMode": "CHOOSE_BRANCH_RENDERED",
+            "chooseOrdinal": int(surface.get("chooseOrdinal") or 0),
+            "branchOrdinal": int(surface.get("branchOrdinal") or 0),
+            "branchKind": branch_kind,
+            "renderedBranchSql": str(surface.get("renderedBranchSql") or "").strip(),
+            "requiredEnvelopeShape": str(surface.get("requiredEnvelopeShape") or "TOP_LEVEL_WHERE_CHOOSE").strip(),
+            "requiredSiblingShape": {
+                "branchCount": len(choose_branch_surfaces),
+            },
+        }
+        branch_test = str(surface.get("branchTestFingerprint") or "").strip()
+        if branch_test:
+            identity["branchTestFingerprint"] = branch_test
+        return identity
+    return None
+
+
 def _enrich_sql_unit(unit: dict[str, Any], statements_by_key: dict[str, dict[str, Any]]) -> None:
     key = statement_key_from_row(unit)
     meta = statements_by_key.get(key)
@@ -244,9 +389,44 @@ def _enrich_sql_unit(unit: dict[str, Any], statements_by_key: dict[str, dict[str
     locators = dict(unit.get("locators") or {})
     locators.update(meta["locators"])
     unit["locators"] = locators
+    if not str(unit.get("templateSql") or "").strip():
+        unit["templateSql"] = meta["templateSql"]
+    if not unit.get("dynamicFeatures"):
+        unit["dynamicFeatures"] = list(meta["dynamicFeatures"])
     unit["includeBindings"] = meta["includeBindings"]
     unit["templateTarget"] = meta["templateTarget"]
     unit["primaryFragmentTarget"] = meta["primaryFragmentTarget"]
+    choose_branch_surfaces = _extract_choose_branch_surfaces(str(unit.get("templateSql") or ""))
+    if choose_branch_surfaces:
+        dynamic_trace = dict(unit.get("dynamicTrace") or {})
+        dynamic_trace["chooseBranchSurfaces"] = choose_branch_surfaces
+        unit["dynamicTrace"] = dynamic_trace
+    if not unit.get("dynamicRenderIdentity"):
+        template_sql = str(unit.get("templateSql") or "").strip()
+        original_sql = str(unit.get("sql") or "").strip()
+        choose_surface = locate_choose_branch_surface(template_sql, original_sql) if template_sql and original_sql else None
+        if choose_surface:
+            target_anchor = dict(choose_surface.get("targetAnchor") or {})
+            identity: dict[str, Any] = {
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "chooseOrdinal": int(target_anchor.get("chooseOrdinal") or 0),
+                "branchOrdinal": int(target_anchor.get("branchOrdinal") or 0),
+                "branchKind": str(target_anchor.get("branchKind") or "").strip().upper(),
+                "renderedBranchSql": str(choose_surface.get("beforeBodySql") or "").strip(),
+                "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+                "requiredSiblingShape": {
+                    "branchCount": int(choose_surface.get("siblingBranchCount") or 0),
+                },
+            }
+            branch_test = str(target_anchor.get("branchTestFingerprint") or "").strip()
+            if branch_test:
+                identity["branchTestFingerprint"] = branch_test
+            unit["dynamicRenderIdentity"] = identity
+        elif choose_branch_surfaces:
+            sampled_identity = _sample_choose_render_identity(choose_branch_surfaces)
+            if sampled_identity:
+                unit["dynamicRenderIdentity"] = sampled_identity
 
 
 def build_fragment_catalog(project_root: Path, mapper_globs: list[str]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:

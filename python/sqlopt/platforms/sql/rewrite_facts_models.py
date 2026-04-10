@@ -106,9 +106,10 @@ class DynamicTemplateCapabilityProfile:
     blocker_family: str | None = None
     template_preserving_candidate: bool = False
     blockers: list[str] = field(default_factory=list)
+    surface_contract: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload = {
             "shapeFamily": self.shape_family,
             "capabilityTier": self.capability_tier,
             "patchSurface": self.patch_surface,
@@ -117,6 +118,9 @@ class DynamicTemplateCapabilityProfile:
             "templatePreservingCandidate": self.template_preserving_candidate,
             "blockers": list(self.blockers),
         }
+        if self.surface_contract:
+            payload["surfaceContract"] = dict(self.surface_contract)
+        return payload
 
 
 @dataclass(frozen=True)

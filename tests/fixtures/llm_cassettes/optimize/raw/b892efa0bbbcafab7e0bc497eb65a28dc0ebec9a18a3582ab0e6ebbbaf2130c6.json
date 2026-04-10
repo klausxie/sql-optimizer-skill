@@ -1,0 +1,73 @@
+{
+  "createdAt": "2026-04-10T02:38:26.709149+00:00",
+  "fingerprint": "b892efa0bbbcafab7e0bc497eb65a28dc0ebec9a18a3582ab0e6ebbbaf2130c6",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE",
+      "FOREACH",
+      "IF"
+    ],
+    "dynamicRenderIdentity": {},
+    "dynamicSurfaceContract": {},
+    "dynamicTrace": {
+      "includeFragments": [
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.order.harness.OrderHarnessColumns"
+        }
+      ],
+      "statementFeatures": [
+        "INCLUDE",
+        "WHERE",
+        "FOREACH",
+        "IF"
+      ]
+    },
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY id DESC",
+    "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)",
+          "index": "idx_orders_status",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE INDEX idx_orders_user_created ON public.orders USING btree (user_id, created_at DESC)",
+          "index": "idx_orders_user_created",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_order_no_key ON public.orders USING btree (order_no)",
+          "index": "orders_order_no_key",
+          "table": "orders"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)",
+          "index": "orders_pkey",
+          "table": "orders"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 4,
+        "summary": "Sort  (cost=0.01..0.02 rows=0 width=268)"
+      },
+      "tables": [
+        "orders"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"OrderHarnessColumns\" />\n        FROM orders\n        <where>\n            <foreach collection=\"userIds\" item=\"uid\" open=\"user_id IN (\" separator=\",\" close=\")\">\n                #{uid}\n            </foreach>\n            <if test=\"status != null and status != ''\">\n                AND status = #{status}\n            </if>\n        </where>\n        ORDER BY id DESC"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus"
+}

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import re
 
+from sqlopt.platforms.sql.dynamic_surface_locator import locate_choose_branch_body_range
 from sqlopt.stages.patching_render import build_range_patch
 from sqlopt.verification.patch_replay import replay_patch_target
 
@@ -279,6 +280,202 @@ def test_replay_patch_target_rejects_if_body_drift() -> None:
 
     assert result.matches_target is False
     assert result.drift_reason == "PATCH_DYNAMIC_IF_BODY_DRIFT"
+
+
+def test_replay_patch_target_accepts_choose_branch_local_edit() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>"""
+    ) as xml_path:
+        target_anchor = {
+            "surfaceType": "CHOOSE_BRANCH_BODY",
+            "chooseOrdinal": 0,
+            "branchKind": "WHEN",
+            "branchOrdinal": 0,
+            "whereEnvelopeRequired": True,
+            "branchTestFingerprint": "keyword != null and keyword != ''",
+        }
+        range_info = locate_choose_branch_body_range(xml_path.read_text(encoding="utf-8"), target_anchor)
+        assert range_info is not None
+        patch_text, _ = build_range_patch(xml_path, range_info, "email ILIKE #{keyword}")
+        target_sql = (
+            "SELECT id, name, email, status, created_at, updated_at "
+            "FROM users WHERE email ILIKE #{keyword}"
+        )
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "findUsersByKeyword",
+                "templateSql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                    "name ILIKE #{keyword}</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+                ),
+            },
+            patch_target={
+                "targetSql": target_sql,
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_choose_branch_body",
+                        "targetSurface": "CHOOSE_BRANCH_BODY",
+                        "targetAnchor": target_anchor,
+                        "afterTemplate": "email ILIKE #{keyword}",
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_choose_branch_body"],
+                    "expectedRenderedSql": target_sql,
+                    "expectedRenderedSqlNormalized": target_sql,
+                    "expectedFingerprint": {"kind": "normalized_sql", "value": target_sql},
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{keyword}"],
+                    "dialectSyntaxCheckRequired": True,
+                    "targetSurface": "CHOOSE_BRANCH_BODY",
+                    "targetAnchor": target_anchor,
+                    "requiredSurfaceIdentity": {
+                        "branchCount": 2,
+                        "targetBranchKind": "WHEN",
+                        "targetBranchTestFingerprint": "keyword != null and keyword != ''",
+                    },
+                    "requiredSiblingShape": {
+                        "siblingBranchCount": 1,
+                        "siblingBranchFingerprints": [
+                            {
+                                "branchKind": "OTHERWISE",
+                                "bodyFingerprint": "status = 'ACTIVE'",
+                                "testFingerprint": "",
+                            }
+                        ],
+                    },
+                    "requiredEnvelopeShape": {
+                        "whereEnvelopePresent": True,
+                        "outerChooseCount": 1,
+                        "outerUnsupportedTagsAbsent": True,
+                    },
+                    "surfaceFallbackAllowed": False,
+                },
+            },
+            fragment_catalog={},
+            patch_text=patch_text,
+        )
+
+    assert result.matches_target is True
+    assert result.drift_reason is None
+
+
+def test_replay_patch_target_rejects_choose_branch_sibling_drift() -> None:
+    with _mapper_path(
+        """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>"""
+    ) as xml_path:
+        target_anchor = {
+            "surfaceType": "CHOOSE_BRANCH_BODY",
+            "chooseOrdinal": 0,
+            "branchKind": "WHEN",
+            "branchOrdinal": 0,
+            "whereEnvelopeRequired": True,
+            "branchTestFingerprint": "keyword != null and keyword != ''",
+        }
+        range_info = locate_choose_branch_body_range(xml_path.read_text(encoding="utf-8"), target_anchor)
+        assert range_info is not None
+        patch_text, _ = build_range_patch(xml_path, range_info, "email ILIKE #{keyword}")
+        target_sql = (
+            "SELECT id, name, email, status, created_at, updated_at "
+            "FROM users WHERE email ILIKE #{keyword}"
+        )
+        result = replay_patch_target(
+            sql_unit={
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "findUsersByKeyword",
+                "templateSql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                    "name ILIKE #{keyword}</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+                ),
+            },
+            patch_target={
+                "targetSql": target_sql,
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_choose_branch_body",
+                        "targetSurface": "CHOOSE_BRANCH_BODY",
+                        "targetAnchor": target_anchor,
+                        "afterTemplate": "email ILIKE #{keyword}",
+                    }
+                ],
+                "replayContract": {
+                    "replayMode": "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",
+                    "requiredTemplateOps": ["replace_choose_branch_body"],
+                    "expectedRenderedSql": target_sql,
+                    "expectedRenderedSqlNormalized": target_sql,
+                    "expectedFingerprint": {"kind": "normalized_sql", "value": target_sql},
+                    "requiredAnchors": [],
+                    "requiredIncludes": [],
+                    "requiredPlaceholderShape": ["#{keyword}"],
+                    "dialectSyntaxCheckRequired": True,
+                    "targetSurface": "CHOOSE_BRANCH_BODY",
+                    "targetAnchor": target_anchor,
+                    "requiredSurfaceIdentity": {
+                        "branchCount": 2,
+                        "targetBranchKind": "WHEN",
+                        "targetBranchTestFingerprint": "keyword != null and keyword != ''",
+                    },
+                    "requiredSiblingShape": {
+                        "siblingBranchCount": 1,
+                        "siblingBranchFingerprints": [
+                            {
+                                "branchKind": "OTHERWISE",
+                                "bodyFingerprint": "status = 'PENDING'",
+                                "testFingerprint": "",
+                            }
+                        ],
+                    },
+                    "requiredEnvelopeShape": {
+                        "whereEnvelopePresent": True,
+                        "outerChooseCount": 1,
+                        "outerUnsupportedTagsAbsent": True,
+                    },
+                    "surfaceFallbackAllowed": False,
+                },
+            },
+            fragment_catalog={},
+            patch_text=patch_text,
+        )
+
+    assert result.matches_target is False
+    assert result.drift_reason == "PATCH_DYNAMIC_CHOOSE_SIBLING_DRIFT"
 
 
 def test_replay_patch_target_uses_fragment_artifact_output_for_fragment_ops() -> None:

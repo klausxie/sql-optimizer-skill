@@ -283,6 +283,7 @@ def _python_fallback_scan(project_root: Path, mapper_globs: list[str], manifest_
                 "includeFragments": include_fragments,
             } if unit["dynamicFeatures"] or include_trace else None
             units.append(_normalize_unit_sql(_normalize_unit_identity(unit)))
+    units, _ = enrich_sql_units_with_catalog(units, project_root, mapper_globs)
     return units, warnings
 
 

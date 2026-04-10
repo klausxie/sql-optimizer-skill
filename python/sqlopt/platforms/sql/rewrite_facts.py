@@ -8,6 +8,7 @@ from .aggregation_analysis import analyze_aggregation_query
 from .canonicalization_support import cleanup_redundant_from_alias, cleanup_redundant_select_aliases
 from .cte_analysis import analyze_simple_inline_cte
 from .dynamic_template_support import parse_direct_select_template, parse_select_wrapper_template
+from .dynamic_surface_locator import locate_choose_branch_surface
 from .rewrite_facts_models import (
     AggregationCapabilityProfile,
     AggregationQueryRewriteFacts,
@@ -91,6 +92,79 @@ _CHOOSE_OUTER_UNSUPPORTED_RE = re.compile(
 )
 
 
+def _dynamic_surface_contract_preview(patch_surface: str) -> dict[str, Any]:
+    surface = str(patch_surface or "").strip().upper()
+    if surface == "CHOOSE_BRANCH_BODY":
+        return {
+            "targetSurface": "CHOOSE_BRANCH_BODY",
+            "reviewOnly": True,
+            "rewriteOpPreview": {
+                "op": "replace_choose_branch_body",
+                "targetSurface": "CHOOSE_BRANCH_BODY",
+                "requiredTargetAnchorFields": [
+                    "surfaceType",
+                    "chooseOrdinal",
+                    "branchKind",
+                    "branchOrdinal",
+                    "whereEnvelopeRequired",
+                ],
+                "beforeTemplateScope": "SURFACE_LOCAL",
+                "afterTemplateScope": "SURFACE_LOCAL",
+                "statementLevelFallbackAllowed": False,
+                "fragmentLevelFallbackAllowed": False,
+            },
+            "replayContractPreview": {
+                "targetSurface": "CHOOSE_BRANCH_BODY",
+                "requiredReplayFields": [
+                    "targetSurface",
+                    "targetAnchor",
+                    "requiredSurfaceIdentity",
+                    "requiredSiblingShape",
+                    "requiredEnvelopeShape",
+                ],
+                "surfaceFallbackAllowed": False,
+            },
+            "materializationModePreview": "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",
+            "patchFamilyPreview": "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP",
+            "surfaceFallbackAllowed": False,
+        }
+    if surface == "COLLECTION_PREDICATE_BODY":
+        return {
+            "targetSurface": "COLLECTION_PREDICATE_BODY",
+            "reviewOnly": True,
+            "rewriteOpPreview": {
+                "op": "replace_collection_predicate_body",
+                "targetSurface": "COLLECTION_PREDICATE_BODY",
+                "requiredTargetAnchorFields": [
+                    "surfaceType",
+                    "foreachOrdinal",
+                    "guardKind",
+                    "whereEnvelopeRequired",
+                    "includeScoped",
+                ],
+                "beforeTemplateScope": "SURFACE_LOCAL",
+                "afterTemplateScope": "SURFACE_LOCAL",
+                "statementLevelFallbackAllowed": False,
+                "fragmentLevelFallbackAllowed": False,
+            },
+            "replayContractPreview": {
+                "targetSurface": "COLLECTION_PREDICATE_BODY",
+                "requiredReplayFields": [
+                    "targetSurface",
+                    "targetAnchor",
+                    "requiredSurfaceIdentity",
+                    "requiredSiblingShape",
+                    "requiredEnvelopeShape",
+                ],
+                "surfaceFallbackAllowed": False,
+            },
+            "materializationModePreview": "DYNAMIC_COLLECTION_PREDICATE_TEMPLATE_SAFE",
+            "patchFamilyPreview": "DYNAMIC_COLLECTION_PREDICATE_LOCAL_CLEANUP",
+            "surfaceFallbackAllowed": False,
+        }
+    return {}
+
+
 def _fingerprint_strength(equivalence: dict[str, Any], semantic_equivalence: dict[str, Any]) -> str:
     evidence = dict(semantic_equivalence.get("evidence") or {})
     strength = str(evidence.get("fingerprintStrength") or "").strip().upper()
@@ -148,6 +222,31 @@ def _supported_choose_guarded_filter_shape(sql_unit: dict[str, Any], template_sq
         return False
 
     return "WHERE" in dynamic_features or "<where" in lowered_template
+
+
+def _has_choose_branch_render_identity(sql_unit: dict[str, Any]) -> bool:
+    identity = sql_unit.get("dynamicRenderIdentity") or {}
+    if not isinstance(identity, dict):
+        return False
+    if str(identity.get("surfaceType") or "").strip().upper() != "CHOOSE_BRANCH_BODY":
+        return False
+    if str(identity.get("renderMode") or "").strip().upper() != "CHOOSE_BRANCH_RENDERED":
+        return False
+    if str(identity.get("requiredEnvelopeShape") or "").strip().upper() != "TOP_LEVEL_WHERE_CHOOSE":
+        return False
+    rendered_branch_sql = normalize_sql_text(str(identity.get("renderedBranchSql") or ""))
+    return bool(rendered_branch_sql)
+
+
+def _supported_choose_guarded_filter_local_surface(sql_unit: dict[str, Any], template_sql: str) -> bool:
+    if not _supported_choose_guarded_filter_shape(sql_unit, template_sql):
+        return False
+    if _has_choose_branch_render_identity(sql_unit):
+        return True
+    original_sql = str(sql_unit.get("sql") or "").strip()
+    if not original_sql:
+        return False
+    return locate_choose_branch_surface(template_sql, original_sql) is not None
 
 
 def _has_single_table_from_alias_candidate(from_suffix: str) -> bool:
@@ -269,6 +368,7 @@ def _build_dynamic_template_facts(
     blockers = [blocker_family]
     template_preserving_candidate = False
     baseline_family = None
+    surface_contract: dict[str, Any] = {}
 
     if "SET" in feature_set:
         shape_family = "SET_SELECTIVE_UPDATE"
@@ -280,8 +380,10 @@ def _build_dynamic_template_facts(
         if "INCLUDE" in feature_set:
             if feature_set & {"IF", "CHOOSE", "TRIM", "BIND"}:
                 shape_family = "FOREACH_COLLECTION_PREDICATE"
+                patch_surface = "COLLECTION_PREDICATE_BODY"
                 blocker_family = "FOREACH_COLLECTION_GUARDED_PREDICATE"
                 blockers = [blocker_family, "FOREACH_INCLUDE_PREDICATE", "FOREACH_SCALAR_GUARD_PREDICATE"]
+                surface_contract = _dynamic_surface_contract_preview(patch_surface)
             else:
                 shape_family = "FOREACH_IN_PREDICATE"
                 blocker_family = "FOREACH_INCLUDE_PREDICATE"
@@ -333,13 +435,27 @@ def _build_dynamic_template_facts(
                     baseline_family = "DYNAMIC_FILTER_SELECT_LIST_CLEANUP"
                 else:
                     choose_supported_shape = _supported_choose_guarded_filter_shape(sql_unit, template_sql)
-                    patch_surface = "CHOOSE_BRANCH_BODY" if choose_supported_shape else "WHERE_CLAUSE"
-                    blocker_family = (
-                        "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
-                        if choose_supported_shape
-                        else "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
-                    )
-                    blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                    choose_local_surface = _supported_choose_guarded_filter_local_surface(sql_unit, template_sql)
+                    if choose_supported_shape:
+                        patch_surface = "CHOOSE_BRANCH_BODY"
+                        surface_contract = _dynamic_surface_contract_preview(patch_surface)
+                        if choose_local_surface:
+                            capability_tier = "SAFE_BASELINE"
+                            blocker_family = None
+                            blockers = []
+                            template_preserving_candidate = True
+                            baseline_family = "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP"
+                        else:
+                            capability_tier = "REVIEW_REQUIRED"
+                            blocker_family = "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
+                            blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                            template_preserving_candidate = False
+                            baseline_family = None
+                    else:
+                        patch_surface = "WHERE_CLAUSE"
+                        blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                        blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                        surface_contract = _dynamic_surface_contract_preview(patch_surface)
             elif aliases_changed and (from_alias_changed or from_alias_candidate):
                 patch_surface = "STATEMENT_BODY"
                 capability_tier = "REVIEW_REQUIRED"
@@ -371,13 +487,30 @@ def _build_dynamic_template_facts(
             patch_surface = "WHERE_CLAUSE"
             if feature_set & {"CHOOSE", "TRIM", "BIND"}:
                 choose_supported_shape = "CHOOSE" in feature_set and _supported_choose_guarded_filter_shape(sql_unit, template_sql)
-                patch_surface = "CHOOSE_BRANCH_BODY" if choose_supported_shape else "WHERE_CLAUSE"
-                blocker_family = (
-                    "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
-                    if choose_supported_shape
-                    else "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                choose_local_surface = choose_supported_shape and _supported_choose_guarded_filter_local_surface(
+                    sql_unit,
+                    template_sql,
                 )
-                blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                if choose_supported_shape:
+                    patch_surface = "CHOOSE_BRANCH_BODY"
+                    surface_contract = _dynamic_surface_contract_preview(patch_surface)
+                    if choose_local_surface:
+                        capability_tier = "SAFE_BASELINE"
+                        blocker_family = None
+                        blockers = []
+                        template_preserving_candidate = True
+                        baseline_family = "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP"
+                    else:
+                        capability_tier = "REVIEW_REQUIRED"
+                        blocker_family = "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY"
+                        blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                        template_preserving_candidate = False
+                        baseline_family = None
+                else:
+                    patch_surface = "WHERE_CLAUSE"
+                    blocker_family = "DYNAMIC_FILTER_UNSAFE_STATEMENT_REWRITE"
+                    blockers = [blocker_family, _DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH]
+                    surface_contract = _dynamic_surface_contract_preview(patch_surface)
             else:
                 blocker_family = "DYNAMIC_FILTER_SUBTREE"
                 blockers = [blocker_family]
@@ -419,6 +552,7 @@ def _build_dynamic_template_facts(
                 blocker_family=blocker_family,
                 template_preserving_candidate=template_preserving_candidate,
                 blockers=blockers,
+                surface_contract=surface_contract,
             ),
         )
 

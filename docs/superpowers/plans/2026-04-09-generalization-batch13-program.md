@@ -16,7 +16,7 @@ Fresh replay run:
 - `generalization-batch13`: `run_c5294ca22116`
 
 Current truth:
-- `demo.user.advanced.findUsersByKeyword` -> `NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER`
+- `demo.user.advanced.findUsersByKeyword` -> `NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
 - `demo.shipment.harness.findShipments` -> `NO_SAFE_BASELINE_SPECULATIVE_LIMIT_ONLY`
 - `demo.test.complex.multiFragmentLevel1` -> `NO_SAFE_BASELINE_MULTI_FRAGMENT_INCLUDE`
 - `demo.test.complex.includeNested` -> `VALIDATE_SEMANTIC_ERROR`

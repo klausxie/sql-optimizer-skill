@@ -1013,5 +1013,105 @@
     "run_dir": "/private/tmp/sqlopt-post-batch7/tests/fixtures/projects/sample_project/runs/run_66ed44a3a958",
     "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config__inmr3in/config.resolved.json",
     "updated_at": "2026-04-09T11:48:52.820350+00:00"
+  },
+  "run_9c261f3eb3eb": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_9c261f3eb3eb",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_lxozjsep/config.resolved.json",
+    "updated_at": "2026-04-09T12:31:12.977636+00:00"
+  },
+  "run_27f9a22b7b54": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_27f9a22b7b54",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_vqrd37ai/config.resolved.json",
+    "updated_at": "2026-04-09T13:54:19.896617+00:00"
+  },
+  "run_24eb8d31ca96": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_24eb8d31ca96",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_r5hbfs8h/config.resolved.json",
+    "updated_at": "2026-04-09T13:56:51.066243+00:00"
+  },
+  "run_83022d546a0a": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_83022d546a0a",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_9ejhuuzy/config.resolved.json",
+    "updated_at": "2026-04-09T14:26:20.602499+00:00"
+  },
+  "run_009ca3851ac0": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_009ca3851ac0",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_4lqsbker/config.resolved.json",
+    "updated_at": "2026-04-09T14:59:43.132899+00:00"
+  },
+  "run_d58ae878e517": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_d58ae878e517",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_em45jk4x/config.resolved.json",
+    "updated_at": "2026-04-09T15:00:01.094710+00:00"
+  },
+  "run_8502ae46ad09": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_8502ae46ad09",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_2_xq1uh9/config.resolved.json",
+    "updated_at": "2026-04-09T15:09:44.535109+00:00"
+  },
+  "run_b33604eb69ed": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_b33604eb69ed",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_dlqc813v/config.resolved.json",
+    "updated_at": "2026-04-09T15:21:35.129089+00:00"
+  },
+  "run_ce76571909a7": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_ce76571909a7",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_8z9wx_zu/config.resolved.json",
+    "updated_at": "2026-04-09T15:24:10.218864+00:00"
+  },
+  "run_716bea3d1e32": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_716bea3d1e32",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_8uoifscp/config.resolved.json",
+    "updated_at": "2026-04-09T15:25:28.406887+00:00"
+  },
+  "run_641896a35f4e": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_641896a35f4e",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_qd3d7nh3/config.resolved.json",
+    "updated_at": "2026-04-09T15:25:55.559223+00:00"
+  },
+  "run_57e2f5cc8c31": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_57e2f5cc8c31",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_uenfvur6/config.resolved.json",
+    "updated_at": "2026-04-09T15:30:23.127484+00:00"
+  },
+  "run_55edef9257c3": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_55edef9257c3",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_eq5wjvw3/config.resolved.json",
+    "updated_at": "2026-04-09T15:30:23.444773+00:00"
+  },
+  "run_f961113beb1a": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_f961113beb1a",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_rn_5nbbw/config.resolved.json",
+    "updated_at": "2026-04-10T02:10:50.801267+00:00"
+  },
+  "run_1122320d49e8": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_1122320d49e8",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_hqxwjp20/config.resolved.json",
+    "updated_at": "2026-04-10T02:14:00.780373+00:00"
+  },
+  "run_8eb874f0bc1c": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_8eb874f0bc1c",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_tpwsqmfm/config.resolved.json",
+    "updated_at": "2026-04-10T02:16:24.516627+00:00"
+  },
+  "run_959958ffb2b9": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_959958ffb2b9",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_vutz1ew3/config.resolved.json",
+    "updated_at": "2026-04-10T02:18:46.573203+00:00"
+  },
+  "run_88eb9d50ae45": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_88eb9d50ae45",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_bz2zgog5/config.resolved.json",
+    "updated_at": "2026-04-10T02:34:47.644590+00:00"
+  },
+  "run_af54a75f453f": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_af54a75f453f",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_umao7pvx/config.resolved.json",
+    "updated_at": "2026-04-10T02:37:10.053574+00:00"
+  },
+  "run_5662aef54d87": {
+    "run_dir": "/private/tmp/sqlopt-template-dynamic-capability/tests/fixtures/projects/sample_project/runs/run_5662aef54d87",
+    "config_path": "/private/var/folders/lf/zbz9nlp56msdnw32sx0xqmg40000gn/T/sqlopt_sample_project_config_upgt86gn/config.resolved.json",
+    "updated_at": "2026-04-10T02:37:39.845273+00:00"
   }
 }

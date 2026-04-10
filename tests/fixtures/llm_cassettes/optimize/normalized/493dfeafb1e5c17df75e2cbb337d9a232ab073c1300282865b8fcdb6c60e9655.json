@@ -1,28 +1,44 @@
 {
   "fingerprint": "493dfeafb1e5c17df75e2cbb337d9a232ab073c1300282865b8fcdb6c60e9655",
-  "rawCandidateCount": 2,
+  "rawCandidateCount": 4,
   "sqlKey": "demo.order.harness.listOrdersWithUsersPaged",
   "trace": {
     "candidate_summary": {
       "candidates": [
         {
-          "confidence": "0.85",
-          "id": "opt-1",
-          "rewriteStrategy": "predicate_reorder",
+          "confidence": "0.75",
+          "id": "opt-001",
+          "rewriteStrategy": "OR_TO_UNION",
           "semanticRisk": "low",
           "source": "llm",
           "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
         },
         {
-          "confidence": "0.3",
-          "id": "opt-2",
-          "rewriteStrategy": "predicate_pushdown",
-          "semanticRisk": "high",
+          "confidence": "0.7",
+          "id": "opt-002",
+          "rewriteStrategy": "CTE_PRE_FILTER",
+          "semanticRisk": "none",
+          "source": "llm",
+          "sql_preview": "WITH matched_users AS (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '%"
+        },
+        {
+          "confidence": "0.85",
+          "id": "opt-003",
+          "rewriteStrategy": "KEYSET_PAGINATION",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
+        },
+        {
+          "confidence": "0.6",
+          "id": "opt-004",
+          "rewriteStrategy": "DERIVED_TABLE_PUSH_LIMIT",
+          "semanticRisk": "medium",
           "source": "llm",
           "sql_preview": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email A"
         }
       ],
-      "count": 2
+      "count": 4
     },
     "config_snapshot": {
       "api_model": null,
@@ -30,13 +46,13 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-09T02:46:30.245040+00:00",
+    "created_at": "2026-04-10T02:13:05.936945+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 15330,
+    "elapsed_ms": 48105,
     "executor": "opencode_run",
-    "input_hash": "0f75940f9455f3ee4d34bd5aa8aa57a8d93fe3ce49f2b71b519c7cbd2a36c748",
+    "input_hash": "2805f7c89fbfb7a3e423007ac1096cd80045a7580f022b8545ccfe11e08f8d90",
     "mode": "candidate_generation",
-    "output_hash": "d83de7a21aa13c776327ed2f09df668d97eb3e91975ca353e28323cbf176fb9d",
+    "output_hash": "effd4cf1a8c8dc02ff7f92cfa04da0c3e0a78b5f30e5c90539adf7963153aeeb",
     "prompt": {
       "optionalContext": {
         "columns": [
@@ -113,6 +129,7 @@
             "table": "users"
           }
         ],
+        "dynamicRenderIdentity": {},
         "dynamicTrace": {
           "includeFragments": [],
           "statementFeatures": [
@@ -217,19 +234,35 @@
   },
   "validCandidates": [
     {
-      "confidence": "0.85",
-      "id": "opt-1",
-      "rewriteStrategy": "predicate_reorder",
-      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.status = #{status} AND (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+      "confidence": "0.75",
+      "id": "opt-001",
+      "rewriteStrategy": "OR_TO_UNION",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE u.name ILIKE CONCAT('%', #{keyword}, '%') AND o.status = #{status} UNION ALL SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE u.email ILIKE CONCAT('%', #{keyword}, '%') AND o.status = #{status} ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}",
       "semanticRisk": "low",
       "source": "llm"
     },
     {
-      "confidence": "0.3",
-      "id": "opt-2",
-      "rewriteStrategy": "predicate_pushdown",
-      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
-      "semanticRisk": "high",
+      "confidence": "0.7",
+      "id": "opt-002",
+      "rewriteStrategy": "CTE_PRE_FILTER",
+      "rewrittenSql": "WITH matched_users AS (SELECT id, name, email FROM users WHERE name ILIKE CONCAT('%', #{keyword}, '%') OR email ILIKE CONCAT('%', #{keyword}, '%')) SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN matched_users u ON u.id = o.user_id WHERE o.status = #{status} ORDER BY o.created_at DESC LIMIT #{limit} OFFSET #{offset}",
+      "semanticRisk": "none",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.85",
+      "id": "opt-003",
+      "rewriteStrategy": "KEYSET_PAGINATION",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id WHERE (u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%')) AND o.status = #{status} AND o.created_at < #{last_created_at} ORDER BY o.created_at DESC LIMIT #{limit}",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.6",
+      "id": "opt-004",
+      "rewriteStrategy": "DERIVED_TABLE_PUSH_LIMIT",
+      "rewrittenSql": "SELECT o.id, o.order_no, o.user_id, o.amount, o.status, o.created_at, u.name AS user_name, u.email AS user_email FROM (SELECT id, order_no, user_id, amount, status, created_at FROM orders WHERE status = #{status} ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}) o JOIN users u ON u.id = o.user_id WHERE u.name ILIKE CONCAT('%', #{keyword}, '%') OR u.email ILIKE CONCAT('%', #{keyword}, '%') ORDER BY o.created_at DESC",
+      "semanticRisk": "medium",
       "source": "llm"
     }
   ]

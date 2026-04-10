@@ -368,10 +368,18 @@ class RewriteFactsTest(unittest.TestCase):
         self.assertTrue(model.dynamic_template.present)
         self.assertEqual(model.dynamic_template.capability_profile.shape_family, "FOREACH_COLLECTION_PREDICATE")
         self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
-        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "WHERE_CLAUSE")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "COLLECTION_PREDICATE_BODY")
         self.assertEqual(
             model.dynamic_template.capability_profile.blocker_family,
             "FOREACH_COLLECTION_GUARDED_PREDICATE",
+        )
+        self.assertEqual(
+            model.dynamic_template.capability_profile.surface_contract["rewriteOpPreview"]["op"],
+            "replace_collection_predicate_body",
+        )
+        self.assertEqual(
+            model.dynamic_template.capability_profile.surface_contract["materializationModePreview"],
+            "DYNAMIC_COLLECTION_PREDICATE_TEMPLATE_SAFE",
         )
         self.assertIn(
             "FOREACH_INCLUDE_PREDICATE",
@@ -382,7 +390,7 @@ class RewriteFactsTest(unittest.TestCase):
             model.dynamic_template.capability_profile.blockers,
         )
 
-    def test_build_rewrite_facts_model_marks_complex_dynamic_filter_as_unsafe_statement_rewrite(self) -> None:
+    def test_build_rewrite_facts_model_promotes_supported_choose_guarded_filter_to_safe_baseline(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.findUsersByKeyword",
             "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
@@ -408,19 +416,120 @@ class RewriteFactsTest(unittest.TestCase):
 
         self.assertTrue(model.dynamic_template.present)
         self.assertEqual(model.dynamic_template.capability_profile.shape_family, "IF_GUARDED_FILTER_STATEMENT")
-        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "SAFE_BASELINE")
         self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "CHOOSE_BRANCH_BODY")
+        self.assertIsNone(model.dynamic_template.capability_profile.blocker_family)
+        self.assertTrue(model.dynamic_template.capability_profile.template_preserving_candidate)
+        self.assertEqual(
+            model.dynamic_template.capability_profile.baseline_family,
+            "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP",
+        )
+        self.assertEqual(
+            model.dynamic_template.capability_profile.surface_contract["rewriteOpPreview"]["op"],
+            "replace_choose_branch_body",
+        )
+        self.assertEqual(model.dynamic_template.capability_profile.blockers, [])
+
+    def test_build_rewrite_facts_model_keeps_flattened_choose_guarded_filter_review_only_without_local_surface(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": (
+                "SELECT id, name, email, status, created_at, updated_at FROM users "
+                "WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+                "ORDER BY created_at DESC"
+            ),
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "findUsersByKeyword",
+            "templateSql": (
+                "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+                "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users "
+                "<where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+                "<when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where> ORDER BY created_at DESC"
+            ),
+            "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"]},
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            str(sql_unit["sql"]),
+            {},
+            {},
+            {"status": "UNCERTAIN", "confidence": "LOW", "evidenceLevel": "STRUCTURE", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "IF_GUARDED_FILTER_STATEMENT")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "CHOOSE_BRANCH_BODY")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "REVIEW_REQUIRED")
         self.assertEqual(
             model.dynamic_template.capability_profile.blocker_family,
             "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",
         )
         self.assertEqual(
             model.dynamic_template.capability_profile.blockers,
-            [
-                "DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY",
-                "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH",
-            ],
+            ["DYNAMIC_FILTER_CHOOSE_GUARDED_REVIEW_ONLY", "DYNAMIC_FILTER_ENVELOPE_SCOPE_MISMATCH"],
         )
+        self.assertIsNone(model.dynamic_template.capability_profile.baseline_family)
+        self.assertFalse(model.dynamic_template.capability_profile.template_preserving_candidate)
+
+    def test_build_rewrite_facts_model_promotes_flattened_choose_when_dynamic_render_identity_is_present(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": (
+                "SELECT id, name, email, status, created_at, updated_at FROM users "
+                "WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+                "ORDER BY created_at DESC"
+            ),
+            "xmlPath": "/tmp/demo_mapper.xml",
+            "namespace": "demo.user.advanced",
+            "statementId": "findUsersByKeyword",
+            "templateSql": (
+                "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+                "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users "
+                "<where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+                "<when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where> ORDER BY created_at DESC"
+            ),
+            "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"]},
+            "dynamicRenderIdentity": {
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "chooseOrdinal": 0,
+                "branchOrdinal": 0,
+                "branchKind": "WHEN",
+                "branchTestFingerprint": "keyword != null and keyword != ''",
+                "renderedBranchSql": "name ILIKE #{keywordPattern}",
+                "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+                "requiredSiblingShape": {"branchCount": 3},
+            },
+        }
+
+        model = build_rewrite_facts_model(
+            sql_unit,
+            str(sql_unit["sql"]),
+            {},
+            {},
+            {"status": "UNCERTAIN", "confidence": "LOW", "evidenceLevel": "STRUCTURE", "hardConflicts": []},
+        )
+
+        self.assertTrue(model.dynamic_template.present)
+        self.assertEqual(model.dynamic_template.capability_profile.shape_family, "IF_GUARDED_FILTER_STATEMENT")
+        self.assertEqual(model.dynamic_template.capability_profile.patch_surface, "CHOOSE_BRANCH_BODY")
+        self.assertEqual(model.dynamic_template.capability_profile.capability_tier, "SAFE_BASELINE")
+        self.assertIsNone(model.dynamic_template.capability_profile.blocker_family)
+        self.assertEqual(
+            model.dynamic_template.capability_profile.baseline_family,
+            "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP",
+        )
+        self.assertTrue(model.dynamic_template.capability_profile.template_preserving_candidate)
 
     def test_build_rewrite_facts_model_marks_dynamic_filter_select_list_cleanup_as_safe_baseline(self) -> None:
         sql_unit = {

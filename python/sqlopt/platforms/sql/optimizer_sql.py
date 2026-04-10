@@ -60,6 +60,29 @@ def _estimate_actionability(sql_unit: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_dynamic_surface_contract(sql_unit: dict[str, Any]) -> dict[str, Any]:
+    identity = sql_unit.get("dynamicRenderIdentity") or {}
+    surface = str(identity.get("surfaceType") or "").strip().upper()
+    if surface != "CHOOSE_BRANCH_BODY":
+        return {}
+    contract = {
+        "targetSurface": "CHOOSE_BRANCH_BODY",
+        "branchLocalOnly": True,
+        "forbidSetOperations": True,
+        "forbidBranchMerge": True,
+        "forbidWholeStatementRewrite": True,
+        "allowedTemplateRewriteOps": ["replace_choose_branch_body"],
+        "preferredOutcome": "BRANCH_LOCAL_CLEANUP_OR_NO_CANDIDATE",
+    }
+    rendered_branch_sql = str(identity.get("renderedBranchSql") or "").strip()
+    if rendered_branch_sql:
+        contract["renderedBranchSql"] = rendered_branch_sql
+    branch_ordinal = identity.get("branchOrdinal")
+    if branch_ordinal is not None:
+        contract["branchOrdinal"] = branch_ordinal
+    return contract
+
+
 def build_optimize_prompt(
     sql_unit: dict[str, Any],
     proposal: dict[str, Any],
@@ -76,6 +99,7 @@ def build_optimize_prompt(
         Prompt dictionary for LLM
     """
     db_summary = proposal.get("dbEvidenceSummary", {}) or {}
+    dynamic_surface_contract = _build_dynamic_surface_contract(sql_unit)
 
     prompt = {
         "task": "sql_optimize_candidate_generation",
@@ -92,6 +116,7 @@ def build_optimize_prompt(
         "optionalContext": {
             "includeTrace": sql_unit.get("includeTrace", []),
             "dynamicTrace": sql_unit.get("dynamicTrace") or {},
+            "dynamicRenderIdentity": sql_unit.get("dynamicRenderIdentity") or {},
             "columns": (db_summary.get("columns", []) or [])[:100],
             "tableStats": db_summary.get("tableStats", []),
             "planSummary": proposal.get("planSummary", {}) or {},
@@ -101,6 +126,7 @@ def build_optimize_prompt(
             "preserveParameterSemantics": True,
             "dynamicTemplateRequiresTemplateAwarePatch": bool(sql_unit.get("dynamicFeatures")),
             "mustProduceCandidateTypes": ["SECURITY_FIX", "PLAN_IMPROVE", "CONSERVATIVE_NOOP_PLUS"],
+            "dynamicSurfaceContract": dynamic_surface_contract,
         },
     }
 
@@ -116,12 +142,16 @@ def build_optimize_replay_request(
     db_summary = proposal.get("dbEvidenceSummary", {}) or {}
     provider = str(llm_cfg.get("provider") or "opencode_builtin").strip()
     model = str(llm_cfg.get("opencode_model") or llm_cfg.get("api_model") or llm_cfg.get("model") or provider or "").strip()
+    dynamic_surface_contract = _build_dynamic_surface_contract(sql_unit)
 
     return {
         "sqlKey": sql_unit["sqlKey"],
         "sql": sql_unit["sql"],
         "templateSql": sql_unit.get("templateSql", ""),
         "dynamicFeatures": sql_unit.get("dynamicFeatures", []),
+        "dynamicRenderIdentity": sql_unit.get("dynamicRenderIdentity") or {},
+        "dynamicTrace": sql_unit.get("dynamicTrace") or {},
+        "dynamicSurfaceContract": dynamic_surface_contract,
         "stableDbEvidence": {
             "tables": db_summary.get("tables", []),
             "indexes": db_summary.get("indexes", []),

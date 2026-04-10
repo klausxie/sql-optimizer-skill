@@ -7,6 +7,7 @@ from .dynamic_candidate_intent_engine import assess_dynamic_candidate_intent_mod
 from .patch_safety import assess_patch_safety_model
 from .patch_strategy_registry import iter_patch_strategies
 from .rewrite_facts import build_rewrite_facts_model
+from .template_rendering import normalize_sql_text
 from .template_materializer import build_replay_contract, build_rewrite_materialization
 
 
@@ -45,6 +46,91 @@ def _blocked_strategy_hints(patchability: dict[str, Any]) -> list[dict[str, Any]
             "aggregationConstraintFamily": constraint_family,
         }
     ]
+
+
+def _review_only_dynamic_surface_preview(
+    *,
+    sql_unit: dict[str, Any],
+    rewritten_sql: str,
+    rewrite_facts: dict[str, Any],
+    patchability: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    dynamic_template = dict((rewrite_facts.get("dynamicTemplate") or {}) if isinstance(rewrite_facts, dict) else {})
+    profile = dict((dynamic_template.get("capabilityProfile") or {}) if isinstance(dynamic_template, dict) else {})
+    if str(profile.get("capabilityTier") or "").strip().upper() != "REVIEW_REQUIRED":
+        return None, []
+    surface_contract = dict(profile.get("surfaceContract") or {})
+    if not surface_contract:
+        return None, []
+
+    rewrite_preview = dict(surface_contract.get("rewriteOpPreview") or {})
+    replay_preview = dict(surface_contract.get("replayContractPreview") or {})
+    op_name = str(rewrite_preview.get("op") or "").strip()
+    mode = str(surface_contract.get("materializationModePreview") or "").strip()
+    target_surface = str(surface_contract.get("targetSurface") or profile.get("patchSurface") or "").strip()
+    if not op_name or not mode or not target_surface:
+        return None, []
+
+    target_ref = str(sql_unit.get("sqlKey") or "").split("#", 1)[0]
+    required_anchor_fields = [str(x) for x in (rewrite_preview.get("requiredTargetAnchorFields") or []) if str(x).strip()]
+    normalized_sql = normalize_sql_text(rewritten_sql)
+    blocker_reason = str((patchability.get("dynamicBlockingReason") or profile.get("blockerFamily") or "DYNAMIC_SURFACE_REVIEW_ONLY")).strip()
+
+    ops = [
+        {
+            "op": op_name,
+            "targetRef": target_ref,
+            "targetSurface": target_surface,
+            "targetAnchor": {
+                "status": "REVIEW_ONLY_PREVIEW",
+                "surfaceType": target_surface,
+                "requiredFields": required_anchor_fields,
+            },
+            "beforeTemplate": "",
+            "afterTemplate": "",
+            "preservedAnchors": [],
+            "safetyChecks": {
+                "reviewOnlyPreview": True,
+                "surfaceLocalIdentityVerified": False,
+                "statementLevelFallbackUsed": False,
+                "fragmentLevelFallbackUsed": False,
+            },
+        }
+    ]
+    materialization = {
+        "mode": mode,
+        "targetType": "STATEMENT",
+        "targetRef": target_ref,
+        "reasonCode": blocker_reason,
+        "reasonMessage": "review-only dynamic surface contract preview",
+        "replayVerified": False,
+        "featureFlagApplied": False,
+        "replayContract": {
+            "replayMode": mode,
+            "requiredTemplateOps": [op_name],
+            "expectedRenderedSql": normalized_sql,
+            "expectedRenderedSqlNormalized": normalized_sql,
+            "expectedFingerprint": {"kind": "normalized_sql", "value": normalized_sql},
+            "requiredAnchors": [],
+            "requiredIncludes": [],
+            "requiredPlaceholderShape": [],
+            "dialectSyntaxCheckRequired": True,
+            "targetSurface": target_surface,
+            "targetAnchor": {
+                "status": "REVIEW_ONLY_PREVIEW",
+                "surfaceType": target_surface,
+                "requiredFields": required_anchor_fields,
+            },
+            "requiredSurfaceIdentity": {
+                "status": "REVIEW_ONLY_PREVIEW",
+                "requiredFields": [str(x) for x in (replay_preview.get("requiredReplayFields") or []) if str(x).strip()],
+            },
+            "requiredSiblingShape": {"status": "REVIEW_ONLY_PREVIEW"},
+            "requiredEnvelopeShape": {"status": "REVIEW_ONLY_PREVIEW"},
+            "surfaceFallbackAllowed": bool(surface_contract.get("surfaceFallbackAllowed")),
+        },
+    }
+    return materialization, ops
 
 
 def plan_patch_strategy(
@@ -130,12 +216,18 @@ def plan_patch_strategy(
             selected_ops,
         )
 
+    preview_materialization, preview_ops = _review_only_dynamic_surface_preview(
+        sql_unit=sql_unit,
+        rewritten_sql=rewritten_sql,
+        rewrite_facts=rewrite_facts,
+        patchability=patchability,
+    )
     return (
         rewrite_facts,
         dynamic_candidate_intent,
         patchability,
         None,
         _blocked_strategy_hints(patchability),
-        fallback_materialization,
-        fallback_ops,
+        preview_materialization if preview_materialization is not None else fallback_materialization,
+        preview_ops if preview_materialization is not None else fallback_ops,
     )

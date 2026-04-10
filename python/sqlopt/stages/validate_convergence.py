@@ -444,7 +444,10 @@ def target_shape_supported(sql_unit: dict[str, Any], shape_family: str, patch_fa
         return False
     if is_supported_choose_guarded_filter(sql_unit):
         normalized_patch_families = {str(value or "").strip().upper() for value in (patch_families or set()) if str(value).strip()}
-        return not normalized_patch_families or normalized_patch_families == {"DYNAMIC_FILTER_SELECT_LIST_CLEANUP"}
+        return not normalized_patch_families or normalized_patch_families == {
+            "DYNAMIC_FILTER_SELECT_LIST_CLEANUP",
+            "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP",
+        }
     return True
 
 

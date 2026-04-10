@@ -81,6 +81,25 @@ def test_dynamic_filter_cleanup_specs_are_explicit_registry_entries() -> None:
     assert from_spec.fixture_obligations.blocked_neighbor_required is True
 
 
+def test_dynamic_choose_branch_local_cleanup_spec_is_explicit_registry_entry() -> None:
+    spec = lookup_patch_family_spec("DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP")
+
+    assert spec is not None
+    assert spec.status == "FROZEN_AUTO_PATCH"
+    assert spec.stage == "MVP_DYNAMIC_LOCAL"
+    assert spec.scope.statement_types == ("SELECT",)
+    assert spec.scope.requires_template_preserving is True
+    assert spec.scope.dynamic_shape_families == ("IF_GUARDED_FILTER_STATEMENT",)
+    assert spec.scope.patch_surface == "CHOOSE_BRANCH_BODY"
+    assert spec.patch_target_policy.selected_patch_strategy == "EXACT_TEMPLATE_EDIT"
+    assert spec.patch_target_policy.materialization_modes == ("DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",)
+    assert spec.patch_target_policy.target_type == "STATEMENT"
+    assert spec.replay.required_template_ops == ("replace_choose_branch_body",)
+    assert spec.replay.render_mode == "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE"
+    assert spec.blockers.block_on_foreach is False
+    assert spec.fixture_obligations.ready_case_required is True
+
+
 def test_aggregation_baseline_specs_are_explicit_registry_entries() -> None:
     group_by_spec = lookup_patch_family_spec("REDUNDANT_GROUP_BY_WRAPPER")
     having_spec = lookup_patch_family_spec("REDUNDANT_HAVING_WRAPPER")

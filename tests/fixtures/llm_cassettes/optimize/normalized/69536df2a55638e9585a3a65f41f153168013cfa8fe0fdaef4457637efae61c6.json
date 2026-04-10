@@ -6,8 +6,8 @@
     "candidate_summary": {
       "candidates": [
         {
-          "confidence": "0.95",
-          "id": "opt-001",
+          "confidence": "0.9",
+          "id": "1",
           "rewriteStrategy": "index_recommendation",
           "semanticRisk": "low",
           "source": "llm",
@@ -15,8 +15,8 @@
         },
         {
           "confidence": "0.7",
-          "id": "opt-002",
-          "rewriteStrategy": "leverage_existing_index",
+          "id": "2",
+          "rewriteStrategy": "order_by_optimization",
           "semanticRisk": "medium",
           "source": "llm",
           "sql_preview": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{sta"
@@ -30,13 +30,13 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-09T02:42:32.262754+00:00",
+    "created_at": "2026-04-10T02:12:32.066046+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 40982,
+    "elapsed_ms": 33786,
     "executor": "opencode_run",
-    "input_hash": "cb7127bc4fd8fc3c55fc7b2e0a920f9ae278520d02f1c74021e45ceadb95c217",
+    "input_hash": "70bb21ecabb3b93778625c1613119de2f1eb5a80f2cdd717e244d00197c5ad44",
     "mode": "candidate_generation",
-    "output_hash": "6175a42af4f16370a6474a781f6e684abfae1f092e7c5619091ad1e0517531ed",
+    "output_hash": "531eaa28e45682e6d6cedf64171ba7580f51c86213ebb17f34083abf733dcd60",
     "prompt": {
       "optionalContext": {
         "columns": [
@@ -77,6 +77,7 @@
             "table": "orders"
           }
         ],
+        "dynamicRenderIdentity": {},
         "dynamicTrace": {
           "includeFragments": [
             {
@@ -167,8 +168,8 @@
   },
   "validCandidates": [
     {
-      "confidence": "0.95",
-      "id": "opt-001",
+      "confidence": "0.9",
+      "id": "1",
       "rewriteStrategy": "index_recommendation",
       "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY id DESC",
       "semanticRisk": "low",
@@ -176,9 +177,9 @@
     },
     {
       "confidence": "0.7",
-      "id": "opt-002",
-      "rewriteStrategy": "leverage_existing_index",
-      "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY created_at DESC, id DESC",
+      "id": "2",
+      "rewriteStrategy": "order_by_optimization",
+      "rewrittenSql": "SELECT id, user_id, order_no, amount, status, created_at FROM orders WHERE #{uid} AND status = #{status} ORDER BY user_id DESC, id DESC",
       "semanticRisk": "medium",
       "source": "llm"
     }

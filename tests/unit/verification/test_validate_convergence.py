@@ -1352,7 +1352,7 @@ def test_build_statement_convergence_row_reports_low_value_only_for_supported_ch
         },
     )
 
-    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
+    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
     assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
 
@@ -1409,9 +1409,9 @@ def test_build_statement_convergence_row_keeps_low_value_blocker_for_mixed_choos
         },
     )
 
-    assert row["shapeFamily"] == "FOREACH_COLLECTION_PREDICATE"
+    assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
-    assert row["conflictReason"] == "NO_SAFE_BASELINE_RECOVERY"
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
 
 
 def test_build_statement_convergence_row_keeps_choose_filter_low_value_only_without_no_safe_baseline_signal() -> None:
@@ -1518,7 +1518,7 @@ def test_build_statement_convergence_row_clarifies_foreach_include_safe_baseline
     assert row["conflictReason"] == "NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE"
 
 
-def test_build_statement_convergence_row_clarifies_choose_guarded_safe_baseline_gap() -> None:
+def test_build_statement_convergence_row_clarifies_choose_guarded_low_value_only_after_identity_reseed() -> None:
     sql_unit = _sql_unit(
         sqlKey="demo.user.advanced.findUsersByKeyword",
         statementKey="demo.user.advanced.findUsersByKeyword",
@@ -1557,9 +1557,9 @@ def test_build_statement_convergence_row_clarifies_choose_guarded_safe_baseline_
                 "acceptedCandidateCount": 0,
                 "finalCandidateCount": 0,
                 "lowValueAssessments": [
-                    {"candidateId": "opt-001", "category": "NO_SAFE_BASELINE_MATCH"},
-                    {"candidateId": "opt-002", "category": "NO_SAFE_BASELINE_MATCH"},
-                    {"candidateId": "opt-003", "category": "NO_SAFE_BASELINE_MATCH"},
+                    {"candidateId": "opt-001", "category": "SEMANTIC_RISK_REWRITE"},
+                    {"candidateId": "opt-002", "category": "LOW_SELECTIVITY_OR_EXPANSION"},
+                    {"candidateId": "opt-003", "category": "SPECULATIVE_INDEX_SHAPE"},
                 ],
             },
         },
@@ -1567,7 +1567,7 @@ def test_build_statement_convergence_row_clarifies_choose_guarded_safe_baseline_
 
     assert row["shapeFamily"] == "IF_GUARDED_FILTER_STATEMENT"
     assert row["convergenceDecision"] == "MANUAL_REVIEW"
-    assert row["conflictReason"] == "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER"
+    assert row["conflictReason"] == "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY"
 
 
 def test_build_statement_convergence_row_clarifies_multi_fragment_include_safe_baseline_gap() -> None:
@@ -1694,7 +1694,7 @@ def test_build_statement_convergence_row_keeps_collection_predicate_review_only_
                             "shapeFamily": "FOREACH_COLLECTION_PREDICATE",
                             "capabilityTier": "REVIEW_REQUIRED",
                             "baselineFamily": "STATIC_STATEMENT_REWRITE",
-                            "patchSurface": "WHERE_CLAUSE",
+                            "patchSurface": "COLLECTION_PREDICATE_BODY",
                             "blockerFamily": "FOREACH_COLLECTION_GUARDED_PREDICATE",
                         }
                     }

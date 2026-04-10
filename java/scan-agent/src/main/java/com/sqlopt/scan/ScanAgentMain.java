@@ -636,6 +636,7 @@ public class ScanAgentMain {
         Map<String, Object> params = new HashMap<>();
         params.put("id", 1);
         params.put("name", "demo");
+        params.put("keyword", "demo");
         params.put("status", "ACTIVE");
         params.put("list", Arrays.asList(1, 2, 3));
         params.put("items", Arrays.asList("a", "b"));

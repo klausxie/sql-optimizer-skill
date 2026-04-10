@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-04-09T02:38:42.608474+00:00",
+  "createdAt": "2026-04-10T02:12:31.989922+00:00",
   "fingerprint": "330e57b9725e52b43235d3db9cdbd20f1182fae30670ec813b5c6a320edc6d8d",
   "model": "opencode_run",
   "promptVersion": "v1",
@@ -47,7 +47,6 @@
     "templateSql": "SELECT <include refid=\"Frag_Cols_Basic\" />, <include refid=\"Frag_Cols_Contact\" /> FROM users"
   },
   "response": {
-    "empty_candidates": true,
     "fallback_used": false,
     "mode": "opencode_run"
   },

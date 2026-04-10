@@ -27,6 +27,9 @@ from sqlopt.devtools.generalization_blocker_inventory import (
     SEMANTIC_VALIDATION_PRIMARY_SENTINELS,
     SEMANTIC_PREDICATE_CHANGED_CLUSTER,
     SEMANTIC_ERROR_CLUSTER,
+    TEMPLATE_PRESERVING_DYNAMIC_GUARDRAIL_SENTINELS,
+    TEMPLATE_PRESERVING_DYNAMIC_PRIMARY_SENTINELS,
+    TEMPLATE_PRESERVING_DYNAMIC_SECOND_WAVE_SENTINELS,
     UNSUPPORTED_STRATEGY_GUARDRAIL_SENTINELS,
     UNSUPPORTED_STRATEGY_PRIMARY_SENTINELS,
     UNSUPPORTED_STRATEGY_CLUSTER,
@@ -105,6 +108,29 @@ def _write_complete_batch_run(
 
 class GeneralizationSummaryScriptTest(unittest.TestCase):
     def test_blocker_inventory_matches_fresh_baseline(self) -> None:
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_PRIMARY_SENTINELS,
+            ("demo.user.advanced.findUsersByKeyword",),
+        )
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_SECOND_WAVE_SENTINELS,
+            ("demo.order.harness.findOrdersByUserIdsAndStatus",),
+        )
+        self.assertEqual(
+            TEMPLATE_PRESERVING_DYNAMIC_GUARDRAIL_SENTINELS,
+            (
+                "demo.test.complex.chooseBasic",
+                "demo.test.complex.chooseMultipleWhen",
+                "demo.test.complex.chooseWithLimit",
+                "demo.test.complex.selectWithFragmentChoose",
+                "demo.shipment.harness.findShipmentsByOrderIds",
+                "demo.test.complex.multiFragmentLevel1",
+                "demo.shipment.harness.findShipments",
+                "demo.order.harness.listOrdersWithUsersPaged",
+                "demo.test.complex.includeNested",
+                "demo.user.findUsers",
+            ),
+        )
         self.assertEqual(COLLECTION_PREDICATE_PRIMARY_SENTINELS, ("demo.order.harness.findOrdersByUserIdsAndStatus",))
         self.assertEqual(
             COLLECTION_PREDICATE_GUARDRAIL_SENTINELS,
@@ -645,7 +671,7 @@ class GeneralizationSummaryScriptTest(unittest.TestCase):
                         "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
                         "convergenceDecision": "MANUAL_REVIEW",
                         "consensus": None,
-                        "conflictReason": "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER",
+                        "conflictReason": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
                         "evidenceRefs": [],
                         "generatedAt": "2026-04-09T00:00:00+00:00",
                     },
@@ -730,7 +756,8 @@ class GeneralizationSummaryScriptTest(unittest.TestCase):
             batch = payload["batches"][0]
             self.assertEqual(batch["decision_focus"], "NO_SAFE_BASELINE_RECOVERY")
             self.assertEqual(batch["recommended_next_step"], "clarify_safe_baseline_recovery_paths")
-            self.assertEqual(batch["blocker_bucket_counts"]["NO_SAFE_BASELINE_RECOVERY"], 4)
+            self.assertEqual(batch["blocker_bucket_counts"]["NO_SAFE_BASELINE_RECOVERY"], 3)
+            self.assertEqual(batch["blocker_bucket_counts"]["NO_PATCHABLE_CANDIDATE_SELECTED"], 1)
             self.assertEqual(
                 batch["post_batch9_sentinels"],
                 {
@@ -1074,7 +1101,7 @@ class GeneralizationSummaryScriptTest(unittest.TestCase):
                         "semanticGate": {"passCount": 1, "blockedCount": 0, "uncertainCount": 0},
                         "convergenceDecision": "MANUAL_REVIEW",
                         "consensus": None,
-                        "conflictReason": "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER",
+                        "conflictReason": "NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY",
                         "evidenceRefs": [],
                         "generatedAt": "2026-04-09T00:00:00+00:00",
                     },
@@ -1159,7 +1186,8 @@ class GeneralizationSummaryScriptTest(unittest.TestCase):
             batch = payload["batches"][0]
             self.assertEqual(batch["decision_focus"], "NO_SAFE_BASELINE_RECOVERY")
             self.assertEqual(batch["recommended_next_step"], "clarify_safe_baseline_recovery_paths")
-            self.assertEqual(batch["blocker_bucket_counts"]["NO_SAFE_BASELINE_RECOVERY"], 3)
+            self.assertEqual(batch["blocker_bucket_counts"]["NO_SAFE_BASELINE_RECOVERY"], 2)
+            self.assertEqual(batch["blocker_bucket_counts"]["NO_PATCHABLE_CANDIDATE_SELECTED"], 1)
             self.assertEqual(batch["blocker_bucket_counts"]["SEMANTIC_GATE_NOT_PASS"], 1)
             self.assertEqual(batch["blocker_bucket_counts"]["VALIDATE_STATUS_NOT_PASS"], 1)
 

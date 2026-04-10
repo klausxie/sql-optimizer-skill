@@ -125,6 +125,137 @@ class LlmCassetteTest(unittest.TestCase):
         self.assertNotEqual(base_fingerprint, provider_fingerprint)
         self.assertNotEqual(base_fingerprint, model_fingerprint)
 
+    def test_optimize_cassette_fingerprint_changes_when_dynamic_render_identity_changes(self) -> None:
+        base_request = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": "SELECT id, name FROM users WHERE (name ILIKE #{keyword} OR status = #{status})",
+            "templateSql": (
+                "SELECT id, name FROM users <where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keyword}</when>"
+                "<when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "stableDbEvidence": {},
+            "dynamicRenderIdentity": {
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "chooseOrdinal": 0,
+                "branchOrdinal": 0,
+                "branchKind": "WHEN",
+                "renderedBranchSql": "name ILIKE #{keyword}",
+                "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+            },
+            "dynamicTrace": {
+                "chooseBranchSurfaces": [
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 0, "renderedBranchSql": "name ILIKE #{keyword}"},
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 1, "renderedBranchSql": "status = #{status}"},
+                ]
+            },
+            "promptVersion": "v1",
+            "provider": "opencode_run",
+            "model": "gpt-5-mini",
+        }
+        changed_request = dict(
+            base_request,
+            dynamicRenderIdentity={
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "chooseOrdinal": 0,
+                "branchOrdinal": 1,
+                "branchKind": "WHEN",
+                "renderedBranchSql": "status = #{status}",
+                "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+            },
+        )
+
+        base_fingerprint = fingerprint_optimize_cassette_input(build_optimize_cassette_fingerprint_input(base_request))
+        changed_fingerprint = fingerprint_optimize_cassette_input(
+            build_optimize_cassette_fingerprint_input(changed_request)
+        )
+
+        self.assertNotEqual(base_fingerprint, changed_fingerprint)
+
+    def test_optimize_cassette_fingerprint_changes_when_choose_branch_surfaces_change(self) -> None:
+        base_request = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": "SELECT id, name FROM users WHERE (name ILIKE #{keyword} OR status = #{status})",
+            "templateSql": (
+                "SELECT id, name FROM users <where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keyword}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "stableDbEvidence": {},
+            "dynamicTrace": {
+                "chooseBranchSurfaces": [
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 0, "renderedBranchSql": "name ILIKE #{keyword}"},
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 1, "renderedBranchSql": "status != 'DELETED'"},
+                ]
+            },
+            "promptVersion": "v1",
+            "provider": "opencode_run",
+            "model": "gpt-5-mini",
+        }
+        changed_request = dict(
+            base_request,
+            dynamicTrace={
+                "chooseBranchSurfaces": [
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 0, "renderedBranchSql": "name ILIKE #{keyword}"},
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 1, "renderedBranchSql": "status = #{status}"},
+                    {"surfaceType": "CHOOSE_BRANCH_BODY", "branchOrdinal": 2, "renderedBranchSql": "status != 'DELETED'"},
+                ]
+            },
+        )
+
+        base_fingerprint = fingerprint_optimize_cassette_input(build_optimize_cassette_fingerprint_input(base_request))
+        changed_fingerprint = fingerprint_optimize_cassette_input(
+            build_optimize_cassette_fingerprint_input(changed_request)
+        )
+
+        self.assertNotEqual(base_fingerprint, changed_fingerprint)
+
+    def test_optimize_cassette_fingerprint_changes_when_dynamic_surface_contract_changes(self) -> None:
+        base_request = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": "SELECT id, name FROM users WHERE (name ILIKE #{keyword} OR status = #{status})",
+            "templateSql": (
+                "SELECT id, name FROM users <where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keyword}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "stableDbEvidence": {},
+            "dynamicSurfaceContract": {
+                "targetSurface": "CHOOSE_BRANCH_BODY",
+                "branchLocalOnly": True,
+                "forbidSetOperations": True,
+                "forbidBranchMerge": True,
+                "forbidWholeStatementRewrite": True,
+                "allowedTemplateRewriteOps": ["replace_choose_branch_body"],
+            },
+            "promptVersion": "v1",
+            "provider": "opencode_run",
+            "model": "gpt-5-mini",
+        }
+        changed_request = dict(
+            base_request,
+            dynamicSurfaceContract={
+                **base_request["dynamicSurfaceContract"],
+                "forbidSetOperations": False,
+            },
+        )
+
+        base_fingerprint = fingerprint_optimize_cassette_input(build_optimize_cassette_fingerprint_input(base_request))
+        changed_fingerprint = fingerprint_optimize_cassette_input(
+            build_optimize_cassette_fingerprint_input(changed_request)
+        )
+
+        self.assertNotEqual(base_fingerprint, changed_fingerprint)
+
     def test_optimize_cassette_fingerprint_requires_feature_list_not_string(self) -> None:
         with self.assertRaises(CassetteFormatError):
             build_optimize_cassette_fingerprint_input(

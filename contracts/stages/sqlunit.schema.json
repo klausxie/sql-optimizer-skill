@@ -33,6 +33,7 @@
     "templateTarget": {"type": "string"},
     "primaryFragmentTarget": {"type": ["string", "null"]},
     "includeBindings": {"type": "array", "items": {"type": "object"}},
+    "dynamicRenderIdentity": {"type": ["object", "null"]},
     "fingerprint": {"type": "string"},
     "sampleSource": {"type": "string"},
     "scanConfidence": {"type": "string"},

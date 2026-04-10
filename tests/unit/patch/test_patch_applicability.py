@@ -316,7 +316,10 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
+            self.assertEqual(
+                patch_row.get("selectionReason", {}).get("code"),
+                "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+            )
             self.assertEqual(patch_row.get("patchFiles"), [])
             self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
@@ -466,7 +469,10 @@ class PatchApplicabilityTest(unittest.TestCase):
                 patch_row = execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=ContractValidator(ROOT))
 
             self.assertTrue(patch_row["diffSummary"].get("skipped", False))
-            self.assertEqual(patch_row.get("selectionReason", {}).get("code"), "PATCH_TARGET_CONTRACT_MISSING")
+            self.assertEqual(
+                patch_row.get("selectionReason", {}).get("code"),
+                "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
+            )
             self.assertEqual(patch_row.get("patchFiles"), [])
             self.assertEqual(patch_row.get("deliveryOutcome", {}).get("tier"), "REVIEW_ONLY")
 
@@ -647,9 +653,8 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(
             patch_row.get("selectionReason", {}).get("code"),
-            "PATCH_BUILD_FAILED",
+            "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
         )
-        self.assertIn("statement not found in mapper", patch_row.get("selectionReason", {}).get("message", ""))
 
     def test_patch_is_skipped_for_dynamic_include_fragment_rewrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_patch_dynamic_include_fragment_") as td:
@@ -693,9 +698,8 @@ class PatchApplicabilityTest(unittest.TestCase):
         self.assertTrue(patch_row["diffSummary"].get("skipped", False))
         self.assertEqual(
             patch_row.get("selectionReason", {}).get("code"),
-            "PATCH_BUILD_FAILED",
+            "PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE",
         )
-        self.assertIn("statement not found in mapper", patch_row.get("selectionReason", {}).get("message", ""))
 
 
 if __name__ == "__main__":

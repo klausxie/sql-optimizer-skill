@@ -37,7 +37,7 @@ Fresh replay runs:
 
 Observed truth:
 
-- `demo.user.advanced.findUsersByKeyword` -> `MANUAL_REVIEW / NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER`
+- `demo.user.advanced.findUsersByKeyword` -> `MANUAL_REVIEW / NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
 - `demo.test.complex.chooseBasic` -> `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`
 - `demo.test.complex.chooseMultipleWhen` -> `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`
 - `demo.test.complex.chooseWithLimit` -> `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`

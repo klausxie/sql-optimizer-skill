@@ -1,11 +1,36 @@
 {
   "fingerprint": "330e57b9725e52b43235d3db9cdbd20f1182fae30670ec813b5c6a320edc6d8d",
-  "rawCandidateCount": 0,
+  "rawCandidateCount": 3,
   "sqlKey": "demo.test.complex.multiFragmentLevel1",
   "trace": {
     "candidate_summary": {
-      "candidates": [],
-      "count": 0
+      "candidates": [
+        {
+          "confidence": "0.85",
+          "id": "opt_001",
+          "rewriteStrategy": "index_first",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status FROM users ORDER BY status"
+        },
+        {
+          "confidence": "0.7",
+          "id": "opt_002",
+          "rewriteStrategy": "predicate_pushdown",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status FROM users WHERE status IS NOT NULL"
+        },
+        {
+          "confidence": "0.75",
+          "id": "opt_003",
+          "rewriteStrategy": "result_limit",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status FROM users LIMIT 100"
+        }
+      ],
+      "count": 3
     },
     "config_snapshot": {
       "api_model": null,
@@ -13,13 +38,13 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-09T02:38:19.610442+00:00",
+    "created_at": "2026-04-10T02:11:58.588062+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 22997,
+    "elapsed_ms": 33401,
     "executor": "opencode_run",
-    "input_hash": "516ce7f1897c2b50ab61c9e2772deff9920337bb5d885373eb13c0b0ccaa73ef",
+    "input_hash": "5b371f81d77454babc81fae31cda296cb089d5cb43ec4d67c20a66c4fe805b7b",
     "mode": "candidate_generation",
-    "output_hash": "2dcfac8486ebe9fded63f6461cf1dd2630ed7be976bd4e96ec257d1b53cc1906",
+    "output_hash": "fdd180308b6960e393f6cc5dfac5bd2da5c6bab3d6b964bca95634b67f59e44b",
     "prompt": {
       "optionalContext": {
         "columns": [
@@ -60,6 +85,7 @@
             "table": "users"
           }
         ],
+        "dynamicRenderIdentity": {},
         "dynamicTrace": {
           "includeFragments": [
             {
@@ -163,7 +189,6 @@
     },
     "provider": "opencode_run",
     "response": {
-      "empty_candidates": true,
       "fallback_used": false,
       "mode": "opencode_run"
     },
@@ -172,5 +197,30 @@
     "task": "rewrite_sql",
     "task_id": "demo.test.complex.multiFragmentLevel1:opt"
   },
-  "validCandidates": []
+  "validCandidates": [
+    {
+      "confidence": "0.85",
+      "id": "opt_001",
+      "rewriteStrategy": "index_first",
+      "rewrittenSql": "SELECT id, name, email, status FROM users ORDER BY status",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.7",
+      "id": "opt_002",
+      "rewriteStrategy": "predicate_pushdown",
+      "rewrittenSql": "SELECT id, name, email, status FROM users WHERE status IS NOT NULL",
+      "semanticRisk": "medium",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.75",
+      "id": "opt_003",
+      "rewriteStrategy": "result_limit",
+      "rewrittenSql": "SELECT id, name, email, status FROM users LIMIT 100",
+      "semanticRisk": "medium",
+      "source": "llm"
+    }
+  ]
 }

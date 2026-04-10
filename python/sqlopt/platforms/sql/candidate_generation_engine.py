@@ -139,6 +139,18 @@ def _normalize_sql(value: str) -> str:
     return " ".join(str(value or "").split())
 
 
+def _has_branch_local_choose_identity(sql_unit: dict[str, Any]) -> bool:
+    identity = sql_unit.get("dynamicRenderIdentity") or {}
+    if str(identity.get("surfaceType") or "").strip().upper() == "CHOOSE_BRANCH_BODY":
+        return True
+    dynamic_trace = sql_unit.get("dynamicTrace") or {}
+    choose_surfaces = dynamic_trace.get("chooseBranchSurfaces") or []
+    return any(
+        str((surface or {}).get("surfaceType") or "").strip().upper() == "CHOOSE_BRANCH_BODY"
+        for surface in choose_surfaces
+    )
+
+
 def _extract_on_clauses(sql: str) -> list[str]:
     return [_normalize_sql(match.group("on_clause") or "") for match in _JOIN_CLAUSE_RE.finditer(sql or "")]
 
@@ -918,6 +930,7 @@ def evaluate_candidate_generation(
         )
         choose_guarded_pool_without_safe_path = (
             is_supported_choose_guarded_filter(context.sql_unit)
+            and not _has_branch_local_choose_identity(context.sql_unit)
             and bool(low_value_assessments)
             and any(
                 assessment.category in {"SEMANTIC_RISK_REWRITE", "NO_SAFE_BASELINE_MATCH"}

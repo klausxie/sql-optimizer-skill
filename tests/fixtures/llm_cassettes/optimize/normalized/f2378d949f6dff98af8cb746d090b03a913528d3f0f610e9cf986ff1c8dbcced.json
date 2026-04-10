@@ -1,0 +1,256 @@
+{
+  "fingerprint": "f2378d949f6dff98af8cb746d090b03a913528d3f0f610e9cf986ff1c8dbcced",
+  "rawCandidateCount": 3,
+  "sqlKey": "demo.user.advanced.findUsersByKeyword",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.75",
+          "id": "opt-001",
+          "rewriteStrategy": "INDEX_SEEK",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT DISTINCT id, name, email, status, created_at, updated_at FROM (SELECT id, name, email, status"
+        },
+        {
+          "confidence": "0.65",
+          "id": "opt-002",
+          "rewriteStrategy": "PREDICATE_SIMPLIFICATION",
+          "semanticRisk": "medium",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern"
+        },
+        {
+          "confidence": "0.4",
+          "id": "opt-003",
+          "rewriteStrategy": "PREDICATE_REDUCTION",
+          "semanticRisk": "high",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY"
+        }
+      ],
+      "count": 3
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-10T02:37:11.311424+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 25312,
+    "executor": "opencode_run",
+    "input_hash": "a361edfb77634463d7fe817cd72d51f944826263ce13a84f1c8b0deaa711682f",
+    "mode": "candidate_generation",
+    "output_hash": "5a6973a7e618cd4d2cddffb06bb61c383221a7e43b7cf193a04c7fb69be5abfb",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicRenderIdentity": {
+          "branchKind": "WHEN",
+          "branchOrdinal": 0,
+          "branchTestFingerprint": "keyword != null and keyword != ''",
+          "chooseOrdinal": 0,
+          "renderMode": "CHOOSE_BRANCH_RENDERED",
+          "renderedBranchSql": "name ILIKE #{keywordPattern}",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "requiredSiblingShape": {
+            "branchCount": 3
+          },
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        },
+        "dynamicTrace": {
+          "chooseBranchSurfaces": [
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 0,
+              "branchTestFingerprint": "keyword != null and keyword != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "name ILIKE #{keywordPattern}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 1,
+              "branchTestFingerprint": "status != null and status != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status = #{status}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "OTHERWISE",
+              "branchOrdinal": 2,
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status != 'DELETED'",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            }
+          ],
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.user.advanced.AdvancedUserColumns"
+            }
+          ],
+          "statementFeatures": [
+            "BIND",
+            "INCLUDE",
+            "WHERE",
+            "CHOOSE"
+          ]
+        },
+        "includeTrace": [
+          "demo.user.advanced.AdvancedUserColumns"
+        ],
+        "planSummary": {
+          "lineCount": 4,
+          "summary": "Sort  (cost=13.49..13.69 rows=79 width=896)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "BIND",
+          "INCLUDE",
+          "WHERE",
+          "CHOOSE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" />\n        SELECT <include refid=\"AdvancedUserColumns\" />\n        FROM users\n        <where>\n            <choose>\n                <when test=\"keyword != null and keyword != ''\">\n                    name ILIKE #{keywordPattern}\n                </when>\n                <when test=\"status != null and status != ''\">\n                    status = #{status}\n                </when>\n                <otherwise>\n                    status != 'DELETED'\n                </otherwise>\n            </choose>\n        </where>\n        ORDER BY created_at DESC"
+      },
+      "rewriteConstraints": {
+        "dynamicSurfaceContract": {
+          "allowedTemplateRewriteOps": [
+            "replace_choose_branch_body"
+          ],
+          "branchLocalOnly": true,
+          "branchOrdinal": 0,
+          "forbidBranchMerge": true,
+          "forbidSetOperations": true,
+          "forbidWholeStatementRewrite": true,
+          "preferredOutcome": "BRANCH_LOCAL_CLEANUP_OR_NO_CANDIDATE",
+          "renderedBranchSql": "name ILIKE #{keywordPattern}",
+          "targetSurface": "CHOOSE_BRANCH_BODY"
+        },
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.user.advanced.findUsersByKeyword",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.user.advanced.findUsersByKeyword",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.user.advanced.findUsersByKeyword:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.75",
+      "id": "opt-001",
+      "rewriteStrategy": "INDEX_SEEK",
+      "rewrittenSql": "SELECT DISTINCT id, name, email, status, created_at, updated_at FROM (SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} UNION ALL SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND status != 'DELETED' AND NOT (name ILIKE #{keywordPattern}) UNION ALL SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' AND status != #{status} AND NOT (name ILIKE #{keywordPattern}) ) AS t ORDER BY created_at DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.65",
+      "id": "opt-002",
+      "rewriteStrategy": "PREDICATE_SIMPLIFICATION",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status}) AND status != 'DELETED' ORDER BY created_at DESC",
+      "semanticRisk": "medium",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.4",
+      "id": "opt-003",
+      "rewriteStrategy": "PREDICATE_REDUCTION",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY created_at DESC",
+      "semanticRisk": "high",
+      "source": "llm"
+    }
+  ]
+}

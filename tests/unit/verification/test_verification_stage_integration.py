@@ -401,9 +401,9 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 [
                     {
                         "candidate_id": "opt-001",
-                        "rule_id": "DYNAMIC_FILTER_NO_SAFE_BASELINE_MATCH",
-                        "category": "NO_SAFE_BASELINE_MATCH",
-                        "reason": "candidate rewrites choose-guarded filter predicates but does not match any supported template-preserving baseline",
+                        "rule_id": "DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+                        "category": "DYNAMIC_FILTER_SPECULATIVE_REWRITE",
+                        "reason": "candidate rewrites dynamic filter predicates without a safe template-preserving baseline",
                     }
                 ],
             )
@@ -602,7 +602,7 @@ class VerificationStageIntegrationTest(unittest.TestCase):
         self.assertEqual(convergence_rows[0]["convergenceDecision"], "MANUAL_REVIEW")
         self.assertEqual(convergence_rows[0]["conflictReason"], "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY")
 
-    def test_validate_convergence_allows_choose_filter_select_cleanup_when_patch_family_is_supported(self) -> None:
+    def test_validate_convergence_keeps_choose_filter_select_cleanup_manual_review_when_shape_family_is_not_targeted(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_shape_choose_select_cleanup_") as td:
             run_dir = Path(td)
             sql_unit = _sql_unit()
@@ -615,6 +615,17 @@ class VerificationStageIntegrationTest(unittest.TestCase):
                 "<otherwise>status != 'DELETED'</otherwise>"
                 "</choose></where>"
             )
+            sql_unit["dynamicRenderIdentity"] = {
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "chooseOrdinal": 0,
+                "branchOrdinal": 0,
+                "branchKind": "WHEN",
+                "branchTestFingerprint": "status != null",
+                "renderedBranchSql": "status = #{status}",
+                "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+                "requiredSiblingShape": {"branchCount": 2},
+            }
             proposal = {
                 "sqlKey": "demo.user.listUsersChooseAliases",
                 "statementKey": "demo.user.listUsersChooseAliases",
@@ -661,8 +672,8 @@ class VerificationStageIntegrationTest(unittest.TestCase):
 
         self.assertEqual(len(convergence_rows), 1)
         self.assertEqual(convergence_rows[0]["shapeFamily"], "IF_GUARDED_FILTER_STATEMENT")
-        self.assertEqual(convergence_rows[0]["convergenceDecision"], "AUTO_PATCHABLE")
-        self.assertEqual(convergence_rows[0]["consensus"]["patchFamily"], "DYNAMIC_FILTER_SELECT_LIST_CLEANUP")
+        self.assertEqual(convergence_rows[0]["convergenceDecision"], "MANUAL_REVIEW")
+        self.assertEqual(convergence_rows[0]["conflictReason"], "SHAPE_FAMILY_NOT_TARGET")
 
     def test_validate_convergence_allows_if_guarded_count_wrapper_with_dynamic_count_family(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_verification_validate_count_wrapper_") as td:
