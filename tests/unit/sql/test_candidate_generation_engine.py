@@ -470,7 +470,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
 
     def test_prunes_speculative_limit_addition_for_static_include_statement(self) -> None:
         original_sql = "SELECT id, name, email, status FROM users"
@@ -498,7 +498,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
 
     def test_prunes_in_subquery_wording_drift_variants_without_safe_baseline(self) -> None:
         original_sql = "SELECT id, name FROM users WHERE id IN (SELECT user_id FROM orders WHERE status = 'active')"
@@ -746,7 +746,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
         self.assertEqual(outcome.diagnostics.recovery_reason, "NO_PATCHABLE_CANDIDATE_UNSUPPORTED_STRATEGY")
 
-    def test_freezes_find_users_by_keyword_candidate_pool_classification(self) -> None:
+    def test_freezes_find_users_by_keyword_candidate_pool_classification_after_branch_identity_reseed(self) -> None:
         original_sql = (
             "SELECT id, name, email, status, created_at, updated_at "
             "FROM users AS u WHERE status != 'DELETED' ORDER BY created_at DESC"
@@ -764,7 +764,32 @@ class CandidateGenerationEngineTest(unittest.TestCase):
                 "</choose></where> ORDER BY created_at DESC"
             ),
             "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
-            "dynamicTrace": {"statementFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"]},
+            "dynamicTrace": {
+                "statementFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+                "chooseBranchSurfaces": [
+                    {
+                        "surfaceType": "CHOOSE_BRANCH_BODY",
+                        "branchOrdinal": 0,
+                        "renderedBranchSql": "name ILIKE #{keywordPattern}",
+                    },
+                    {
+                        "surfaceType": "CHOOSE_BRANCH_BODY",
+                        "branchOrdinal": 1,
+                        "renderedBranchSql": "status = #{status}",
+                    },
+                    {
+                        "surfaceType": "CHOOSE_BRANCH_BODY",
+                        "branchOrdinal": 2,
+                        "renderedBranchSql": "status != 'DELETED'",
+                    },
+                ],
+            },
+            "dynamicRenderIdentity": {
+                "surfaceType": "CHOOSE_BRANCH_BODY",
+                "renderMode": "CHOOSE_BRANCH_RENDERED",
+                "branchOrdinal": 0,
+                "renderedBranchSql": "name ILIKE #{keywordPattern}",
+            },
         }
         candidates = [
             {
@@ -813,7 +838,7 @@ class CandidateGenerationEngineTest(unittest.TestCase):
         self.assertEqual(len(outcome.accepted_candidates), 0)
         self.assertEqual(len(outcome.recovery_candidates), 0)
         self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
-        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "LOW_VALUE_PRUNED_TO_EMPTY")
         self.assertEqual(
             [
                 (assessment.candidate_id, assessment.category, assessment.reason)
@@ -837,6 +862,60 @@ class CandidateGenerationEngineTest(unittest.TestCase):
                 ),
             ],
         )
+
+    def test_keeps_choose_guarded_safe_baseline_gap_without_branch_identity(self) -> None:
+        original_sql = (
+            "SELECT id, name, email, status, created_at, updated_at "
+            "FROM users AS u WHERE status != 'DELETED' ORDER BY created_at DESC"
+        )
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": original_sql,
+            "templateSql": (
+                "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+                "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users "
+                "<where><choose>"
+                "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+                "<when test=\"status != null and status != ''\">status = #{status}</when>"
+                "<otherwise>status != 'DELETED'</otherwise>"
+                "</choose></where> ORDER BY created_at DESC"
+            ),
+            "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"]},
+        }
+        candidates = [
+            {
+                "id": "opt-001",
+                "source": "llm",
+                "rewriteStrategy": "union_or_elimination",
+                "rewrittenSql": (
+                    "SELECT id, name, email, status, created_at, updated_at "
+                    "FROM users AS u WHERE (name ILIKE #{keywordPattern} OR status = #{status}) "
+                    "AND status != 'DELETED' ORDER BY created_at DESC"
+                ),
+            },
+            {
+                "id": "opt-002",
+                "source": "llm",
+                "rewriteStrategy": "redundant_condition_removal",
+                "rewrittenSql": (
+                    "SELECT id, name, email, status, created_at, updated_at "
+                    "FROM users AS u WHERE name ILIKE #{keywordPattern} ORDER BY created_at DESC"
+                ),
+            },
+        ]
+
+        outcome = evaluate_candidate_generation(
+            sql_key="demo.user.advanced.findUsersByKeyword",
+            original_sql=original_sql,
+            sql_unit=sql_unit,
+            raw_candidates=candidates,
+            valid_candidates=candidates,
+            trace={},
+        )
+
+        self.assertEqual(outcome.diagnostics.degradation_kind, "ONLY_LOW_VALUE_CANDIDATES")
+        self.assertEqual(outcome.diagnostics.recovery_reason, "NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER")
 
 
 if __name__ == "__main__":

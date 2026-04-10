@@ -1,0 +1,92 @@
+{
+  "createdAt": "2026-04-10T02:38:07.968663+00:00",
+  "fingerprint": "3e3a3ce493c54fe173cec6be948a2b8046251bee64d5a19bed872387bfcfa210",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE"
+    ],
+    "dynamicRenderIdentity": {},
+    "dynamicSurfaceContract": {},
+    "dynamicTrace": {
+      "includeFragments": [
+        {
+          "dynamicFeatures": [
+            "INCLUDE"
+          ],
+          "ref": "demo.test.complex.Frag_Cols_Basic"
+        },
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.test.complex.Frag_Col_Id"
+        },
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.test.complex.Frag_Col_Name"
+        },
+        {
+          "dynamicFeatures": [
+            "INCLUDE"
+          ],
+          "ref": "demo.test.complex.Frag_Cols_Contact"
+        },
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.test.complex.Frag_Col_Email"
+        },
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.test.complex.Frag_Col_Status"
+        }
+      ],
+      "statementFeatures": [
+        "INCLUDE"
+      ]
+    },
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, name, email, status FROM users",
+    "sqlKey": "demo.test.complex.multiFragmentLevel1",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+          "index": "idx_users_name",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+          "index": "idx_users_status_created",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "index": "users_email_key",
+          "table": "users"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "index": "users_pkey",
+          "table": "users"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 1,
+        "summary": "Seq Scan on users  (cost=0.00..10.80 rows=80 width=880)"
+      },
+      "tables": [
+        "users"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"Frag_Cols_Basic\" />, <include refid=\"Frag_Cols_Contact\" /> FROM users"
+  },
+  "response": {
+    "empty_candidates": true,
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.test.complex.multiFragmentLevel1"
+}

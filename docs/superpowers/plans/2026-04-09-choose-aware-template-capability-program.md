@@ -148,7 +148,7 @@ Fresh replay review used:
 
 Final verdict:
 
-- `demo.user.advanced.findUsersByKeyword` remains `MANUAL_REVIEW / NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER`
+- `demo.user.advanced.findUsersByKeyword` remains `MANUAL_REVIEW / NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
 - `demo.test.complex.chooseBasic` remains `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`
 - `demo.test.complex.chooseMultipleWhen` remains `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`
 - `demo.test.complex.chooseWithLimit` remains `MANUAL_REVIEW / VALIDATE_SEMANTIC_ERROR`

@@ -324,6 +324,62 @@ def test_safe_baseline_recovery_family_keeps_choose_guarded_filter_unmapped() ->
     assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) is None
 
 
+def test_safe_baseline_recovery_family_recognizes_choose_local_cleanup_when_original_sql_matches_single_branch() -> None:
+    sql_unit = {
+        "sqlKey": "demo.user.advanced.findUsersByKeyword",
+        "statementKey": "demo.user.advanced.findUsersByKeyword",
+        "sql": (
+            "SELECT id, name, email, status, created_at, updated_at FROM users "
+            "WHERE upper(name) ILIKE upper(#{keyword})"
+        ),
+        "templateSql": (
+            "SELECT id, name, email, status, created_at, updated_at FROM users "
+            "<where><choose>"
+            "<when test=\"keyword != null and keyword != ''\">upper(name) ILIKE upper(#{keyword})</when>"
+            "<otherwise>status = 'ACTIVE'</otherwise>"
+            "</choose></where>"
+        ),
+        "dynamicFeatures": ["WHERE", "CHOOSE"],
+    }
+
+    assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) == "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP"
+
+
+def test_safe_baseline_recovery_family_recognizes_choose_local_cleanup_from_dynamic_render_identity() -> None:
+    sql_unit = {
+        "sqlKey": "demo.user.advanced.findUsersByKeyword",
+        "statementKey": "demo.user.advanced.findUsersByKeyword",
+        "sql": (
+            "SELECT id, name, email, status, created_at, updated_at FROM users "
+            "WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') "
+            "ORDER BY created_at DESC"
+        ),
+        "templateSql": (
+            "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" /> "
+            "SELECT <include refid=\"AdvancedUserColumns\" /> FROM users "
+            "<where><choose>"
+            "<when test=\"keyword != null and keyword != ''\">name ILIKE #{keywordPattern}</when>"
+            "<when test=\"status != null and status != ''\">status = #{status}</when>"
+            "<otherwise>status != 'DELETED'</otherwise>"
+            "</choose></where> ORDER BY created_at DESC"
+        ),
+        "dynamicFeatures": ["BIND", "INCLUDE", "WHERE", "CHOOSE"],
+        "dynamicRenderIdentity": {
+            "surfaceType": "CHOOSE_BRANCH_BODY",
+            "renderMode": "CHOOSE_BRANCH_RENDERED",
+            "chooseOrdinal": 0,
+            "branchOrdinal": 0,
+            "branchKind": "WHEN",
+            "branchTestFingerprint": "keyword != null and keyword != ''",
+            "renderedBranchSql": "name ILIKE #{keywordPattern}",
+            "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+            "requiredSiblingShape": {"branchCount": 3},
+        },
+    }
+
+    assert safe_baseline_recovery_family(sql_unit, str(sql_unit["sql"])) == "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP"
+
+
 def test_safe_baseline_recovery_family_keeps_find_shipments_as_no_safe_baseline_sentinel() -> None:
     sql_unit = {
         "sqlKey": "demo.shipment.harness.findShipments",

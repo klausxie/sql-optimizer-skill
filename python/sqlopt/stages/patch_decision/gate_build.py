@@ -93,6 +93,21 @@ class BuildGate(Gate[dict]):
         fallback_reason_codes: list[str]
     ) -> GateResult[dict]:
         """生成语句级补丁"""
+        dynamic_features = list(ctx.sql_unit.get("dynamicFeatures") or [])
+        rewrite_materialization = dict(getattr(ctx.selection, "rewrite_materialization", {}) or {})
+        if dynamic_features and str(rewrite_materialization.get("mode") or "").strip().upper() == "UNMATERIALIZABLE":
+            return self.on_skip(
+                ReasonCode.PATCH_DYNAMIC_XML_REQUIRES_TEMPLATE_AWARE_REWRITE,
+                "dynamic mapper statement cannot be replaced by flattened sql",
+                selection_evidence=build_selection_evidence(
+                    status=ctx.acceptance.get("status"),
+                    semantic_gate_status=ctx.selection.semantic_gate_status,
+                    semantic_gate_confidence=ctx.selection.semantic_gate_confidence,
+                    acceptance=ctx.acceptance,
+                ),
+                fallback_reason_codes=fallback_reason_codes,
+            )
+
         # 获取必要信息
         locators = ctx.sql_unit.get("locators") or {}
         statement_id = str((locators.get("statementId") or ctx.sql_unit.get("statementId") or "")).strip()

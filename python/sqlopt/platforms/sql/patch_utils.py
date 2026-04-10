@@ -768,4 +768,5 @@ def dynamic_template_summary(
         "baselineFamily": str(profile.get("baselineFamily") or "").strip() or None,
         "blockingReason": blocking_reason,
         "deliveryClass": delivery_class,
+        "surfaceContract": dict(profile.get("surfaceContract") or {}) or None,
     }

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..io_utils import read_jsonl
+from ..platforms.sql.dynamic_surface_locator import locate_choose_branch_body_range
 from ..run_paths import canonical_paths
 from ..platforms.sql.materialization_constants import TEMPLATE_SAFE_MODES
 from .patching_render import build_range_patch
@@ -38,6 +39,19 @@ def build_template_plan_patch(
     materialization = acceptance.get("rewriteMaterialization") or {}
     mode = str(materialization.get("mode") or "").strip()
     ops = [row for row in (acceptance.get("templateRewriteOps") or []) if isinstance(row, dict)]
+    surface_op = next(
+        (
+            row
+            for row in ops
+            if str(row.get("op") or "").strip() in {"replace_choose_branch_body", "replace_collection_predicate_body"}
+        ),
+        None,
+    )
+    if surface_op is not None and str(surface_op.get("op") or "").strip() == "replace_collection_predicate_body":
+        return None, 0, {
+            "code": "PATCH_TEMPLATE_SURFACE_UNSUPPORTED",
+            "message": "surface-specific dynamic template ops are not yet materializable as patch files",
+        }
     if mode not in TEMPLATE_SAFE_MODES:
         return None, 0, None
     if materialization.get("replayVerified") is not True:
@@ -66,6 +80,31 @@ def build_template_plan_patch(
                 Path(str(sql_unit.get("xmlPath") or "")),
                 range_info,
                 str(statement_op.get("afterTemplate") or ""),
+                base_dir=base_dir,
+            )
+            + (None,)
+        )
+
+    choose_op = next((row for row in ops if str(row.get("op") or "") == "replace_choose_branch_body"), None)
+    if choose_op is not None:
+        xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+        if not xml_path.exists() or not xml_path.is_file():
+            return None, 0, {
+                "code": "PATCH_TEMPLATE_MATERIALIZATION_MISSING",
+                "message": "choose branch template rewrite op missing xml path",
+            }
+        xml_text = xml_path.read_text(encoding="utf-8")
+        range_info = locate_choose_branch_body_range(xml_text, dict(choose_op.get("targetAnchor") or {}))
+        if not isinstance(range_info, dict):
+            return None, 0, {
+                "code": "PATCH_TEMPLATE_SURFACE_UNSUPPORTED",
+                "message": "choose branch target anchor could not be materialized",
+            }
+        return (
+            build_range_patch(
+                xml_path,
+                range_info,
+                str(choose_op.get("afterTemplate") or ""),
                 base_dir=base_dir,
             )
             + (None,)

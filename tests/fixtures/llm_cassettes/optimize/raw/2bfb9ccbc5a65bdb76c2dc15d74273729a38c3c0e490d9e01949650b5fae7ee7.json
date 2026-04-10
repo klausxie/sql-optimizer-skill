@@ -1,0 +1,61 @@
+{
+  "createdAt": "2026-04-10T02:37:53.524818+00:00",
+  "fingerprint": "2bfb9ccbc5a65bdb76c2dc15d74273729a38c3c0e490d9e01949650b5fae7ee7",
+  "model": "opencode_run",
+  "promptVersion": "v1",
+  "provider": "opencode_run",
+  "request": {
+    "dynamicFeatures": [
+      "INCLUDE",
+      "WHERE",
+      "IF"
+    ],
+    "dynamicRenderIdentity": {},
+    "dynamicSurfaceContract": {},
+    "dynamicTrace": {
+      "includeFragments": [
+        {
+          "dynamicFeatures": [],
+          "ref": "demo.shipment.harness.ShipmentHarnessColumns"
+        }
+      ],
+      "statementFeatures": [
+        "INCLUDE",
+        "WHERE",
+        "IF"
+      ]
+    },
+    "model": "opencode_run",
+    "promptVersion": "v1",
+    "provider": "opencode_run",
+    "sql": "SELECT id, order_id, carrier, tracking_no, status, shipped_at FROM shipments WHERE status = #{status} AND carrier = #{carrier} ORDER BY shipped_at DESC",
+    "sqlKey": "demo.shipment.harness.findShipments",
+    "stableDbEvidence": {
+      "indexes": [
+        {
+          "definition": "CREATE INDEX idx_shipments_order ON public.shipments USING btree (order_id)",
+          "index": "idx_shipments_order",
+          "table": "shipments"
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX shipments_pkey ON public.shipments USING btree (id)",
+          "index": "shipments_pkey",
+          "table": "shipments"
+        }
+      ],
+      "planSummary": {
+        "lineCount": 4,
+        "summary": "Sort  (cost=0.01..0.02 rows=0 width=526)"
+      },
+      "tables": [
+        "shipments"
+      ]
+    },
+    "templateSql": "SELECT <include refid=\"ShipmentHarnessColumns\" />\n        FROM shipments\n        <where>\n            <if test=\"status != null and status != ''\">\n                AND status = #{status}\n            </if>\n            <if test=\"carrier != null and carrier != ''\">\n                AND carrier = #{carrier}\n            </if>\n        </where>\n        ORDER BY shipped_at DESC"
+  },
+  "response": {
+    "fallback_used": false,
+    "mode": "opencode_run"
+  },
+  "sqlKey": "demo.shipment.harness.findShipments"
+}

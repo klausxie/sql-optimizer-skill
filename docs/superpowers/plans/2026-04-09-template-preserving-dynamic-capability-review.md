@@ -53,13 +53,13 @@ No patch files are generated for either lane.
 
 Fresh replay runs:
 
-- `generalization-batch9` -> `run_9c261f3eb3eb`
-- `generalization-batch13` -> `run_16a5ae61564a`
+- `generalization-batch9` -> `run_9e0c1b399913`
+- `generalization-batch13` -> `run_959958ffb2b9`
 
 Observed truth:
 
 - `demo.user.advanced.findUsersByKeyword`
-  - `MANUAL_REVIEW / NO_SAFE_BASELINE_CHOOSE_GUARDED_FILTER`
+  - `MANUAL_REVIEW / NO_PATCHABLE_CANDIDATE_LOW_VALUE_ONLY`
 - `demo.order.harness.findOrdersByUserIdsAndStatus`
   - `MANUAL_REVIEW / NO_SAFE_BASELINE_COLLECTION_GUARDED_PREDICATE`
 - guardrails remained blocked:
@@ -77,6 +77,12 @@ Observed truth:
 No statement became `AUTO_PATCHABLE`.
 
 No guardrail widened accidentally.
+
+The updated choose truth is narrower than the original review conclusion:
+
+- branch-local `dynamicRenderIdentity` now exists
+- optimize prompt and cassette replay now consume that context
+- the remaining blocker is candidate quality, not missing choose-local substrate
 
 ## Why Promotion Still Fails
 

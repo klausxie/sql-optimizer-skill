@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .materialization_constants import (
+    DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE,
     FRAGMENT_TEMPLATE_SAFE_AUTO,
     FRAGMENT_TEMPLATE_SAFE,
     REASON_ANCHOR_ALIGNMENT_FAILED,
@@ -21,6 +22,12 @@ from .materialization_constants import (
     STATEMENT_SQL,
     STATEMENT_TEMPLATE_SAFE,
     UNMATERIALIZABLE,
+)
+from .dynamic_surface_locator import (
+    collapse_choose_to_branch_template,
+    inspect_choose_branch_template,
+    locate_choose_branch_surface,
+    replace_choose_branch_body_template,
 )
 from .rewrite_target_inference import infer_rewrite_target
 from .template_rendering import (
@@ -120,6 +127,7 @@ def build_replay_contract(
     namespace = str(sql_unit.get("namespace") or "").strip()
     statement_op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
     fragment_op = next((row for row in ops if str(row.get("op") or "") == "replace_fragment_body"), None)
+    choose_op = next((row for row in ops if str(row.get("op") or "") == "replace_choose_branch_body"), None)
     after_template = str((statement_op or fragment_op or {}).get("afterTemplate") or "")
     expected_rendered_sql = normalize_sql_text(rewritten_sql if not after_template else after_template)
 
@@ -151,9 +159,28 @@ def build_replay_contract(
             )
             if rendered:
                 expected_rendered_sql = rendered
+    elif choose_op is not None:
+        template_sql = str(sql_unit.get("templateSql") or "")
+        xml_path = Path(str(sql_unit.get("xmlPath") or ""))
+        target_anchor = dict(choose_op.get("targetAnchor") or materialization.get("targetAnchor") or {})
+        localized_template = replace_choose_branch_body_template(
+            template_sql,
+            choose_ordinal=int(target_anchor.get("chooseOrdinal") or 0),
+            branch_ordinal=int(target_anchor.get("branchOrdinal") or 0),
+            after_template=str(choose_op.get("afterTemplate") or ""),
+        )
+        if localized_template:
+            collapsed_template = collapse_choose_to_branch_template(
+                localized_template,
+                choose_ordinal=int(target_anchor.get("chooseOrdinal") or 0),
+                branch_ordinal=int(target_anchor.get("branchOrdinal") or 0),
+            )
+            rendered = render_template_body_sql(collapsed_template or "", namespace, xml_path, fragment_catalog)
+            if rendered:
+                expected_rendered_sql = rendered
 
     expected_rendered_sql = normalize_sql_text(expected_rendered_sql)
-    return {
+    payload = {
         "replayMode": mode,
         "requiredTemplateOps": [str(row.get("op") or "") for row in ops if str(row.get("op") or "").strip()],
         "expectedRenderedSql": expected_rendered_sql,
@@ -166,6 +193,37 @@ def build_replay_contract(
         "requiredIfBodyShape": _collect_normalized_if_bodies(after_template),
         "dialectSyntaxCheckRequired": mode != STATEMENT_SQL,
     }
+    if choose_op is not None:
+        target_anchor = dict(choose_op.get("targetAnchor") or materialization.get("targetAnchor") or {})
+        localized_template = replace_choose_branch_body_template(
+            str(sql_unit.get("templateSql") or ""),
+            choose_ordinal=int(target_anchor.get("chooseOrdinal") or 0),
+            branch_ordinal=int(target_anchor.get("branchOrdinal") or 0),
+            after_template=str(choose_op.get("afterTemplate") or ""),
+        )
+        inspection = inspect_choose_branch_template(localized_template or str(sql_unit.get("templateSql") or ""), target_anchor)
+        payload.update(
+            {
+                "targetSurface": "CHOOSE_BRANCH_BODY",
+                "targetAnchor": target_anchor,
+                "requiredSurfaceIdentity": {
+                    "branchCount": int((inspection or {}).get("branchCount") or 0),
+                    "targetBranchKind": str((inspection or {}).get("targetBranchKind") or ""),
+                    "targetBranchTestFingerprint": str((inspection or {}).get("targetBranchTestFingerprint") or ""),
+                },
+                "requiredSiblingShape": {
+                    "siblingBranchCount": len((inspection or {}).get("siblingBranchFingerprints") or []),
+                    "siblingBranchFingerprints": list((inspection or {}).get("siblingBranchFingerprints") or []),
+                },
+                "requiredEnvelopeShape": {
+                    "whereEnvelopePresent": bool((inspection or {}).get("whereEnvelopePresent")),
+                    "outerChooseCount": int((inspection or {}).get("outerChooseCount") or 0),
+                    "outerUnsupportedTagsAbsent": bool((inspection or {}).get("outerUnsupportedTagsAbsent")),
+                },
+                "surfaceFallbackAllowed": False,
+            }
+        )
+    return payload
 
 
 def _attach_replay_contract(
@@ -264,6 +322,99 @@ def _fragment_template_auto_result(materialization: dict[str, Any]) -> dict[str,
     out["featureFlagApplied"] = False
     out["reasonMessage"] = "include-only static fragment auto materialized without feature flag"
     return out
+
+
+def _choose_branch_template_result(
+    statement_key: str,
+    before_template: str,
+    after_template: str,
+    *,
+    target_anchor: dict[str, Any],
+    replay_verified: bool,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    return (
+        {
+            "mode": DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE,
+            "targetType": "STATEMENT",
+            "targetRef": statement_key,
+            "targetSurface": "CHOOSE_BRANCH_BODY",
+            "targetAnchor": dict(target_anchor),
+            "reasonCode": "CHOOSE_BRANCH_LOCAL_TEMPLATE_SAFE",
+            "reasonMessage": "choose branch body can be rewritten as a local template edit",
+            "replayVerified": replay_verified,
+            "featureFlagApplied": False,
+        },
+        [
+            {
+                "op": "replace_choose_branch_body",
+                "targetRef": statement_key,
+                "targetSurface": "CHOOSE_BRANCH_BODY",
+                "targetAnchor": dict(target_anchor),
+                "beforeTemplate": before_template,
+                "afterTemplate": after_template,
+                "preservedAnchors": [],
+                "safetyChecks": {
+                    "surfaceLocalIdentityVerified": True,
+                    "siblingStructurePreserved": True,
+                    "envelopeStructurePreserved": True,
+                    "statementLevelFallbackUsed": False,
+                    "fragmentLevelFallbackUsed": False,
+                },
+            }
+        ],
+    )
+
+
+def _materialize_choose_branch_template(
+    sql_unit: dict[str, Any],
+    rewritten_sql: str,
+    fragment_catalog: dict[str, dict[str, Any]],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    template_sql = str(sql_unit.get("templateSql") or "").strip()
+    if not template_sql:
+        return None, []
+    choose_surface = locate_choose_branch_surface(template_sql, str(sql_unit.get("sql") or ""))
+    if not choose_surface:
+        return None, []
+    original_sql = normalize_sql_text(str(sql_unit.get("sql") or ""))
+    rewritten = normalize_sql_text(rewritten_sql)
+    original_parts = split_by_anchors(original_sql, [str(choose_surface.get("beforeBodySql") or "")])
+    if original_parts is None:
+        return None, []
+    after_template = extract_repeated_replacement(rewritten, original_parts)
+    if after_template is None or not after_template.strip():
+        return None, []
+    rebuilt_template = replace_choose_branch_body_template(
+        template_sql,
+        choose_ordinal=int((choose_surface.get("targetAnchor") or {}).get("chooseOrdinal") or 0),
+        branch_ordinal=int((choose_surface.get("targetAnchor") or {}).get("branchOrdinal") or 0),
+        after_template=after_template.strip(),
+    )
+    if not rebuilt_template:
+        return None, []
+    collapsed_template = collapse_choose_to_branch_template(
+        rebuilt_template,
+        choose_ordinal=int((choose_surface.get("targetAnchor") or {}).get("chooseOrdinal") or 0),
+        branch_ordinal=int((choose_surface.get("targetAnchor") or {}).get("branchOrdinal") or 0),
+    )
+    rendered_local_sql = (
+        render_template_body_sql(
+            collapsed_template,
+            str(sql_unit.get("namespace") or "").strip(),
+            Path(str(sql_unit.get("xmlPath") or "")),
+            fragment_catalog,
+        )
+        if collapsed_template
+        else None
+    )
+    statement_key = str(sql_unit.get("sqlKey") or "").split("#", 1)[0]
+    return _choose_branch_template_result(
+        statement_key,
+        str(choose_surface.get("beforeTemplate") or ""),
+        after_template.strip(),
+        target_anchor=dict(choose_surface.get("targetAnchor") or {}),
+        replay_verified=normalize_sql_text(rendered_local_sql or "") == rewritten,
+    )
 
 
 def _materialize_statement_template(
@@ -450,6 +601,9 @@ def build_rewrite_materialization(
     enable_fragment_materialization: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     fragment_catalog = fragment_catalog or {}
+    choose_materialization, choose_ops = _materialize_choose_branch_template(sql_unit, rewritten_sql, fragment_catalog)
+    if choose_materialization is not None:
+        return _attach_replay_contract(sql_unit, rewritten_sql, fragment_catalog, choose_materialization, choose_ops)
     inferred = infer_rewrite_target(sql_unit, rewritten_sql)
     if inferred.get("modeHint") == STATEMENT_SQL:
         return _attach_replay_contract(

@@ -113,6 +113,9 @@ def _coerce_rewrite_facts(rewrite_facts: dict[str, object] | RewriteFacts) -> Re
                     for code in ((((rewrite_facts.get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("blockers")) or [])
                     if str(code).strip()
                 ],
+                surface_contract=dict(
+                    ((((rewrite_facts.get("dynamicTemplate") or {}).get("capabilityProfile") or {}).get("surfaceContract")) or {})
+                ),
             ),
         ),
         aggregation_query=AggregationQueryRewriteFacts(

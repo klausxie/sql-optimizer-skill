@@ -16,6 +16,11 @@ from ..platforms.sql.template_rendering import (
     render_fragment_body_sql,
     render_template_body_sql,
 )
+from ..platforms.sql.dynamic_surface_locator import (
+    collapse_choose_to_branch_template,
+    inspect_choose_branch_template,
+    replace_choose_branch_body_template,
+)
 from .patch_artifact import PatchArtifactResult, materialize_patch_artifact
 
 _PLACEHOLDER_RE = re.compile(r"(?:#|\$)\{[^}]+\}")
@@ -212,6 +217,7 @@ def replay_patch_target(
     ops = [row for row in (patch_target.get("templateRewriteOps") or []) if isinstance(row, dict)]
     statement_op = next((row for row in ops if str(row.get("op") or "") == "replace_statement_body"), None)
     fragment_op = next((row for row in ops if str(row.get("op") or "") == "replace_fragment_body"), None)
+    choose_op = next((row for row in ops if str(row.get("op") or "") == "replace_choose_branch_body"), None)
     replay_mode = str(replay_contract.get("replayMode") or "").strip()
 
     template_after = ""
@@ -219,6 +225,8 @@ def replay_patch_target(
         template_after = str(statement_op.get("afterTemplate") or "")
     elif fragment_op is not None:
         template_after = str(fragment_op.get("afterTemplate") or "")
+    elif choose_op is not None:
+        template_after = str(choose_op.get("afterTemplate") or "")
     else:
         target_sql = str(patch_target.get("targetSql") or "")
         normalized_target_sql = normalize_sql_text(target_sql)
@@ -260,6 +268,61 @@ def replay_patch_target(
             return ReplayResult(False, None, None, artifact_result.reason_code or "PATCH_ARTIFACT_INVALID")
         if artifact_result.xml_parse_ok is not True:
             return ReplayResult(False, None, None, artifact_result.reason_code or "PATCH_XML_PARSE_FAILED")
+
+    if choose_op is not None:
+        target_anchor = dict(replay_contract.get("targetAnchor") or choose_op.get("targetAnchor") or {})
+        if replay_contract.get("surfaceFallbackAllowed") is True:
+            return ReplayResult(False, None, None, "PATCH_TEMPLATE_SURFACE_FALLBACK_FORBIDDEN")
+        if artifact_result is not None:
+            if artifact_result.root is None:
+                return ReplayResult(False, None, None, "PATCH_ARTIFACT_INVALID")
+            statement_id = str(((sql_unit.get("locators") or {}) if isinstance(sql_unit.get("locators"), dict) else {}).get("statementId") or sql_unit.get("statementId") or "").strip()
+            statement = find_statement_node(artifact_result.root, statement_id)
+            if statement is None:
+                return ReplayResult(False, None, None, "PATCH_TARGET_ANCHOR_DRIFT")
+            localized_template = _node_inner_template(statement)
+        else:
+            localized_template = replace_choose_branch_body_template(
+                str(sql_unit.get("templateSql") or ""),
+                choose_ordinal=int(target_anchor.get("chooseOrdinal") or 0),
+                branch_ordinal=int(target_anchor.get("branchOrdinal") or 0),
+                after_template=str(choose_op.get("afterTemplate") or ""),
+            )
+        if not localized_template:
+            return ReplayResult(False, None, None, "PATCH_TARGET_ANCHOR_DRIFT")
+        inspection = inspect_choose_branch_template(localized_template, target_anchor)
+        if inspection is None:
+            return ReplayResult(False, None, None, "PATCH_TARGET_ANCHOR_DRIFT")
+        required_surface_identity = dict(replay_contract.get("requiredSurfaceIdentity") or {})
+        if (
+            int(required_surface_identity.get("branchCount") or 0) != int(inspection.get("branchCount") or 0)
+            or str(required_surface_identity.get("targetBranchKind") or "") != str(inspection.get("targetBranchKind") or "")
+            or str(required_surface_identity.get("targetBranchTestFingerprint") or "") != str(inspection.get("targetBranchTestFingerprint") or "")
+        ):
+            return ReplayResult(False, None, None, "PATCH_DYNAMIC_CHOOSE_IDENTITY_DRIFT")
+        required_sibling_shape = dict(replay_contract.get("requiredSiblingShape") or {})
+        if int(required_sibling_shape.get("siblingBranchCount") or 0) != len(inspection.get("siblingBranchFingerprints") or []):
+            return ReplayResult(False, None, None, "PATCH_DYNAMIC_CHOOSE_SIBLING_DRIFT")
+        if list(required_sibling_shape.get("siblingBranchFingerprints") or []) != list(inspection.get("siblingBranchFingerprints") or []):
+            return ReplayResult(False, None, None, "PATCH_DYNAMIC_CHOOSE_SIBLING_DRIFT")
+        required_envelope_shape = dict(replay_contract.get("requiredEnvelopeShape") or {})
+        if (
+            bool(required_envelope_shape.get("whereEnvelopePresent")) != bool(inspection.get("whereEnvelopePresent"))
+            or int(required_envelope_shape.get("outerChooseCount") or 0) != int(inspection.get("outerChooseCount") or 0)
+            or bool(required_envelope_shape.get("outerUnsupportedTagsAbsent")) != bool(inspection.get("outerUnsupportedTagsAbsent"))
+        ):
+            return ReplayResult(False, None, None, "PATCH_DYNAMIC_CHOOSE_ENVELOPE_DRIFT")
+        collapsed_template = collapse_choose_to_branch_template(
+            localized_template,
+            choose_ordinal=int(target_anchor.get("chooseOrdinal") or 0),
+            branch_ordinal=int(target_anchor.get("branchOrdinal") or 0),
+        )
+        rendered_sql = _render_statement_sql(collapsed_template or "", sql_unit, fragment_catalog)
+        normalized_rendered_sql = _normalize_replay_sql(rendered_sql or "")
+        normalized_target_sql = _normalize_replay_sql(str(patch_target.get("targetSql") or ""))
+        if normalized_rendered_sql != normalized_target_sql:
+            return ReplayResult(False, rendered_sql, normalized_rendered_sql, "PATCH_TARGET_DRIFT")
+        return ReplayResult(True, rendered_sql, normalized_rendered_sql, None)
 
     rendered_sql: str | None
     if artifact_result is not None:

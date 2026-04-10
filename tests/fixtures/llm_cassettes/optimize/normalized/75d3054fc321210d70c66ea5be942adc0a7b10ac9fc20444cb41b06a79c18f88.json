@@ -6,28 +6,28 @@
     "candidate_summary": {
       "candidates": [
         {
-          "confidence": "0.85",
+          "confidence": "0.75",
           "id": "opt-001",
-          "rewriteStrategy": "union_split",
+          "rewriteStrategy": "OR_TO_UNION",
           "semanticRisk": "low",
           "source": "llm",
           "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern}"
         },
         {
-          "confidence": "0.9",
+          "confidence": "0.95",
           "id": "opt-002",
-          "rewriteStrategy": "remove_redundant_condition",
-          "semanticRisk": "low",
+          "rewriteStrategy": "PREDICATE_SIMPLIFICATION",
+          "semanticRisk": "none",
           "source": "llm",
           "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern"
         },
         {
-          "confidence": "0.7",
+          "confidence": "0.6",
           "id": "opt-003",
-          "rewriteStrategy": "composite_index_optimization",
+          "rewriteStrategy": "INDEX_OPTIMIZATION",
           "semanticRisk": "medium",
           "source": "llm",
-          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND (name"
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status IN (SELECT unnest(str"
         }
       ],
       "count": 3
@@ -38,13 +38,13 @@
       "provider": "opencode_run",
       "timeout_ms": 80000
     },
-    "created_at": "2026-04-09T02:44:25.557827+00:00",
+    "created_at": "2026-04-10T02:10:52.132862+00:00",
     "degrade_reason": null,
-    "elapsed_ms": 26643,
+    "elapsed_ms": 46318,
     "executor": "opencode_run",
-    "input_hash": "592c111ed210cfed6d3fe0ae37d0cbd323a64164cc10dc4d1c71d285b4c41ab0",
+    "input_hash": "8e0e09d2a488ddc099a73dced61e72790d7dd6d45a1cd488be45a40d3fe40e4d",
     "mode": "candidate_generation",
-    "output_hash": "9650453e50bfb9d814c2f073cf98dff23ce6e45e8c543a370c70e0f63369fab6",
+    "output_hash": "ab616f1d0e38730ac062821a5118f4cf78130b18bc35bbabd71572fff286389c",
     "prompt": {
       "optionalContext": {
         "columns": [
@@ -85,7 +85,48 @@
             "table": "users"
           }
         ],
+        "dynamicRenderIdentity": {
+          "branchKind": "WHEN",
+          "branchOrdinal": 0,
+          "branchTestFingerprint": "keyword != null and keyword != ''",
+          "chooseOrdinal": 0,
+          "renderMode": "CHOOSE_BRANCH_RENDERED",
+          "renderedBranchSql": "name ILIKE #{keywordPattern}",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "requiredSiblingShape": {
+            "branchCount": 3
+          },
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        },
         "dynamicTrace": {
+          "chooseBranchSurfaces": [
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 0,
+              "branchTestFingerprint": "keyword != null and keyword != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "name ILIKE #{keywordPattern}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 1,
+              "branchTestFingerprint": "status != null and status != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status = #{status}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "OTHERWISE",
+              "branchOrdinal": 2,
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status != 'DELETED'",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            }
+          ],
           "includeFragments": [
             {
               "dynamicFeatures": [],
@@ -175,26 +216,26 @@
   },
   "validCandidates": [
     {
-      "confidence": "0.85",
+      "confidence": "0.75",
       "id": "opt-001",
-      "rewriteStrategy": "union_split",
-      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' ORDER BY created_at DESC",
+      "rewriteStrategy": "OR_TO_UNION",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} AND status != 'DELETED' ORDER BY created_at DESC UNION ALL SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND status != 'DELETED' AND NOT (name ILIKE #{keywordPattern}) ORDER BY created_at DESC",
       "semanticRisk": "low",
       "source": "llm"
     },
     {
-      "confidence": "0.9",
+      "confidence": "0.95",
       "id": "opt-002",
-      "rewriteStrategy": "remove_redundant_condition",
-      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status}) ORDER BY created_at DESC",
-      "semanticRisk": "low",
+      "rewriteStrategy": "PREDICATE_SIMPLIFICATION",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status}) AND status != 'DELETED' ORDER BY created_at DESC",
+      "semanticRisk": "none",
       "source": "llm"
     },
     {
-      "confidence": "0.7",
+      "confidence": "0.6",
       "id": "opt-003",
-      "rewriteStrategy": "composite_index_optimization",
-      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} AND (name ILIKE #{keywordPattern} OR status != 'DELETED') ORDER BY created_at DESC",
+      "rewriteStrategy": "INDEX_OPTIMIZATION",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status IN (SELECT unnest(string_to_array(#{status}, ','))) AND status != 'DELETED' UNION ALL SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} AND status != 'DELETED' ORDER BY created_at DESC",
       "semanticRisk": "medium",
       "source": "llm"
     }

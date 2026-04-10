@@ -189,6 +189,110 @@ class PatchingTemplatesTest(unittest.TestCase):
         self.assertGreater(changed_lines, 0)
         self.assertIn("active = TRUE", patch_text)
 
+    def test_build_template_plan_patch_rejects_choose_branch_body_without_xml_context(self) -> None:
+        patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+            {"locators": {"range": {"startOffset": 0, "endOffset": 1}}},
+            {
+                "rewriteMaterialization": {
+                    "mode": "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",
+                    "replayVerified": True,
+                    "replayContract": {"requiredTemplateOps": ["replace_choose_branch_body"]},
+                },
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_choose_branch_body",
+                        "targetSurface": "CHOOSE_BRANCH_BODY",
+                        "targetAnchor": {"surfaceType": "CHOOSE_BRANCH_BODY"},
+                        "afterTemplate": "name ILIKE #{keyword}",
+                    }
+                ],
+            },
+            Path("."),
+        )
+
+        self.assertIsNone(patch_text)
+        self.assertEqual(changed_lines, 0)
+        self.assertEqual(error["code"], "PATCH_TEMPLATE_MATERIALIZATION_MISSING")
+
+    def test_build_template_plan_patch_builds_choose_branch_body_patch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_template_choose_local_") as td:
+            run_dir = Path(td)
+            mapper = run_dir / "demo_mapper.xml"
+            mapper.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+
+            patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+                {"xmlPath": str(mapper), "locators": {"range": {"startOffset": 0, "endOffset": 1}}},
+                {
+                    "rewriteMaterialization": {
+                        "mode": "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE",
+                        "replayVerified": True,
+                        "targetSurface": "CHOOSE_BRANCH_BODY",
+                        "replayContract": {"requiredTemplateOps": ["replace_choose_branch_body"]},
+                    },
+                    "templateRewriteOps": [
+                        {
+                            "op": "replace_choose_branch_body",
+                            "targetSurface": "CHOOSE_BRANCH_BODY",
+                            "targetAnchor": {
+                                "surfaceType": "CHOOSE_BRANCH_BODY",
+                                "branchTag": "when",
+                                "branchIndex": 0,
+                            },
+                            "afterTemplate": "email ILIKE #{keyword}",
+                        }
+                    ],
+                },
+                run_dir,
+            )
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(patch_text)
+        self.assertGreater(changed_lines, 0)
+        self.assertIn("email ILIKE #{keyword}", patch_text)
+
+    def test_build_template_plan_patch_rejects_collection_predicate_body_surface_op(self) -> None:
+        patch_text, changed_lines, error = patching_templates.build_template_plan_patch(
+            {"locators": {"range": {"startOffset": 0, "endOffset": 1}}},
+            {
+                "rewriteMaterialization": {
+                    "mode": "DYNAMIC_COLLECTION_PREDICATE_TEMPLATE_SAFE",
+                    "replayVerified": True,
+                    "replayContract": {"requiredTemplateOps": ["replace_collection_predicate_body"]},
+                },
+                "templateRewriteOps": [
+                    {
+                        "op": "replace_collection_predicate_body",
+                        "targetSurface": "COLLECTION_PREDICATE_BODY",
+                        "targetAnchor": {"surfaceType": "COLLECTION_PREDICATE_BODY"},
+                        "afterTemplate": "user_id IN (#{userId})",
+                    }
+                ],
+            },
+            Path("."),
+        )
+
+        self.assertIsNone(patch_text)
+        self.assertEqual(changed_lines, 0)
+        self.assertEqual(error["code"], "PATCH_TEMPLATE_SURFACE_UNSUPPORTED")
+
 
 if __name__ == "__main__":
     unittest.main()

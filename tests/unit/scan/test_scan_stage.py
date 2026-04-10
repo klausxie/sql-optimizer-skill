@@ -165,6 +165,132 @@ class ScannerAdapterTest(unittest.TestCase):
             self.assertIn("INCLUDE", include_fragments["demo.user.BaseWhere"])
             self.assertEqual(warnings, [])
 
+    def test_run_scan_enriches_java_output_with_choose_dynamic_render_identity_when_sql_is_localizable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_choose_identity_") as td:
+            root = Path(td)
+            jar = root / "java" / "scan-agent" / "target" / "scan-agent-1.0.0.jar"
+            jar.parent.mkdir(parents=True, exist_ok=True)
+            jar.write_text("jar-placeholder", encoding="utf-8")
+            mapper = root / "src" / "main" / "resources" / "demo_mapper.xml"
+            mapper.parent.mkdir(parents=True, exist_ok=True)
+            mapper.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword" resultType="map">
+    SELECT id, name FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            run_dir = root / "runs" / "run_scan_choose_identity"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(root)},
+                "scan": {
+                    "mapper_globs": ["src/main/resources/*.xml"],
+                    "java_scanner": {"jar_path": "java/scan-agent/target/scan-agent-1.0.0.jar"},
+                },
+                "db": {"platform": "postgresql"},
+            }
+
+            def _fake_run(cmd: list[str]) -> _Proc:
+                out_idx = cmd.index("--out-jsonl") + 1
+                out_path = Path(cmd[out_idx])
+                row = {
+                    "sqlKey": "demo.user.advanced.findUsersByKeyword#v1",
+                    "statementKey": "demo.user.advanced.findUsersByKeyword",
+                    "xmlPath": str(mapper),
+                    "namespace": "demo.user.advanced",
+                    "statementId": "findUsersByKeyword",
+                    "statementType": "SELECT",
+                    "variantId": "v1",
+                    "sql": "SELECT id, name FROM users WHERE name ILIKE #{keyword}",
+                    "parameterMappings": [],
+                    "paramExample": {},
+                    "locators": {"statementId": "findUsersByKeyword"},
+                    "riskFlags": [],
+                    "scanWarnings": None,
+                }
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+                return _Proc(0, "", "")
+
+            with patch("sqlopt.adapters.scanner_java.run_capture_text", side_effect=_fake_run):
+                units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+
+            self.assertEqual(len(units), 1)
+            identity = units[0].get("dynamicRenderIdentity")
+            self.assertIsInstance(identity, dict)
+            self.assertEqual(identity["surfaceType"], "CHOOSE_BRANCH_BODY")
+            self.assertEqual(identity["renderMode"], "CHOOSE_BRANCH_RENDERED")
+            self.assertEqual(identity["branchKind"], "WHEN")
+            self.assertEqual(identity["renderedBranchSql"], "name ILIKE #{keyword}")
+            self.assertEqual(len(units[0]["dynamicTrace"]["chooseBranchSurfaces"]), 2)
+            self.assertEqual(warnings, [])
+
+    def test_run_scan_adds_sample_render_identity_for_flattened_choose(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_scan_choose_flattened_") as td:
+            root = Path(td)
+            mapper = root / "src" / "main" / "resources" / "demo_mapper.xml"
+            mapper.parent.mkdir(parents=True, exist_ok=True)
+            mapper.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword" resultType="map">
+    SELECT id, name FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <when test="status != null and status != ''">
+          status = #{status}
+        </when>
+        <otherwise>
+          status != 'DELETED'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            run_dir = root / "runs" / "run_scan_choose_flattened"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config = {
+                "project": {"root_path": str(root)},
+                "scan": {
+                    "mapper_globs": ["src/main/resources/*.xml"],
+                },
+                "db": {"platform": "postgresql"},
+            }
+
+            units, warnings = run_scan(config, run_dir, run_dir / "pipeline" / "manifest.jsonl")
+
+            self.assertEqual(len(units), 1)
+            identity = units[0].get("dynamicRenderIdentity")
+            self.assertIsInstance(identity, dict)
+            self.assertEqual(identity["surfaceType"], "CHOOSE_BRANCH_BODY")
+            self.assertEqual(identity["renderMode"], "CHOOSE_BRANCH_RENDERED")
+            self.assertEqual(identity["branchKind"], "WHEN")
+            self.assertEqual(identity["branchOrdinal"], 0)
+            self.assertEqual(identity["renderedBranchSql"], "name ILIKE #{keyword}")
+            self.assertEqual(identity["branchTestFingerprint"], "keyword != null and keyword != ''")
+            self.assertEqual(len(units[0]["dynamicTrace"]["chooseBranchSurfaces"]), 3)
+            self.assertEqual(
+                units[0]["dynamicTrace"]["chooseBranchSurfaces"][0]["renderedBranchSql"],
+                "name ILIKE #{keyword}",
+            )
+            self.assertEqual(warnings, [])
+
     def test_run_scan_fails_when_java_jar_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_scan_") as td:
             root = Path(td)

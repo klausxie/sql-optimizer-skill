@@ -549,11 +549,11 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_SEMANTIC_EQUIVALENCE_NOT_PASS")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
 
-    def test_choose_branch_body_review_only_short_circuits_generation(self) -> None:
+    def test_unsupported_choose_shape_still_short_circuits_generation(self) -> None:
         acceptance = {
-            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sqlKey": "demo.test.complex.chooseWithLimit",
             "status": "PASS",
-            "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = 'ACTIVE'",
+            "rewrittenSql": "SELECT id, name FROM users WHERE status = 'active' LIMIT #{limit}",
             "patchTarget": self._patch_target(),
             "equivalence": {},
             "perfComparison": {},
@@ -569,27 +569,26 @@ class PatchGenerateOrchestrationTest(unittest.TestCase):
         }
         run_dir = self._prepare_run_dir(acceptance)
         unit = {
-            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sqlKey": "demo.test.complex.chooseWithLimit",
             "statementType": "SELECT",
-            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
+            "sql": "SELECT id, name FROM users WHERE status = 'active' LIMIT #{limit}",
             "templateSql": (
-                "SELECT id, name, email, status, created_at, updated_at FROM users "
-                "<where><choose><when test=\"keyword != null and keyword != ''\">"
-                "name ILIKE #{keyword}</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+                "SELECT id, name FROM users <choose>"
+                "<when test=\"statusFilter == 'active'\">WHERE status = 'active'</when>"
+                "<when test=\"statusFilter == 'pending'\">WHERE status = 'pending'</when>"
+                "<otherwise>WHERE 1=1</otherwise>"
+                "</choose> <if test=\"limit != null\">LIMIT #{limit}</if>"
             ),
-            "dynamicFeatures": ["WHERE", "CHOOSE"],
-            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "user" / "advanced_user_mapper.xml"),
-            "locators": {"statementId": "findUsersByKeyword"},
-            "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+            "dynamicFeatures": ["CHOOSE", "IF"],
+            "xmlPath": str(ROOT / "tests" / "fixtures" / "project" / "src" / "main" / "resources" / "com" / "example" / "mapper" / "test" / "complex_mapper.xml"),
+            "locators": {"statementId": "chooseWithLimit"},
+            "dynamicTrace": {"statementFeatures": ["CHOOSE", "IF"]},
         }
 
-        with patch("sqlopt.stages.patch_generate._build_template_plan_patch", return_value=(None, 0, None)) as template_mock:
-            with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
-                patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
+        with patch("sqlopt.stages.patch_generate._build_unified_patch") as unified_mock:
+            patch_row = patch_generate.execute_one(run_dir=run_dir, sql_unit=unit, acceptance=acceptance, validator=self._validator())
 
-        template_mock.assert_not_called()
         unified_mock.assert_not_called()
-        self.assertEqual(patch_row["selectionReason"]["code"], "PATCH_DYNAMIC_FILTER_TEMPLATE_REVIEW_REQUIRED")
         self.assertTrue(patch_row["diffSummary"]["skipped"])
 
     def test_collection_predicate_body_review_only_short_circuits_generation(self) -> None:

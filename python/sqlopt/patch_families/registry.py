@@ -4,6 +4,7 @@ from collections import Counter
 
 from .models import PatchFamilySpec
 from .specs.distinct_from_alias_cleanup import DISTINCT_FROM_ALIAS_CLEANUP_SPEC
+from .specs.dynamic_choose_branch_local_cleanup import DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP_SPEC
 from .specs.dynamic_count_wrapper_collapse import DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC
 from .specs.dynamic_filter_from_alias_cleanup import DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC
 from .specs.dynamic_filter_select_list_cleanup import DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC
@@ -80,6 +81,7 @@ _REGISTERED_PATCH_FAMILY_SPECS = (
     STATIC_NULL_COMPARISON_SPEC,
     STATIC_UNION_COLLAPSE_SPEC,
     DYNAMIC_COUNT_WRAPPER_COLLAPSE_SPEC,
+    DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP_SPEC,
     DYNAMIC_FILTER_WRAPPER_COLLAPSE_SPEC,
     DYNAMIC_FILTER_SELECT_LIST_CLEANUP_SPEC,
     DYNAMIC_FILTER_FROM_ALIAS_CLEANUP_SPEC,

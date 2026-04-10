@@ -395,6 +395,56 @@ class TemplateMaterializerTest(unittest.TestCase):
         self.assertEqual(materialization["reasonCode"], "MULTIPLE_FRAGMENT_BINDINGS_MISMATCH")
         self.assertEqual(ops, [])
 
+    def test_choose_branch_materializes_as_local_template_safe_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="tmpl_choose_stmt_") as td:
+            xml_path = Path(td) / "demo_mapper.xml"
+            xml_path.write_text(
+                """<mapper namespace="demo.user.advanced">
+  <select id="findUsersByKeyword">
+    SELECT id, name, email, status, created_at, updated_at
+    FROM users
+    <where>
+      <choose>
+        <when test="keyword != null and keyword != ''">
+          name ILIKE #{keyword}
+        </when>
+        <otherwise>
+          status = 'ACTIVE'
+        </otherwise>
+      </choose>
+    </where>
+  </select>
+</mapper>""",
+                encoding="utf-8",
+            )
+            sql_unit = {
+                "sqlKey": "demo.user.advanced.findUsersByKeyword",
+                "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
+                "xmlPath": str(xml_path),
+                "namespace": "demo.user.advanced",
+                "statementId": "findUsersByKeyword",
+                "templateSql": (
+                    "SELECT id, name, email, status, created_at, updated_at FROM users "
+                    "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                    "name ILIKE #{keyword}</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+                ),
+                "dynamicFeatures": ["WHERE", "CHOOSE"],
+                "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+            }
+
+            materialization, ops = build_rewrite_materialization(
+                sql_unit,
+                "SELECT id, name, email, status, created_at, updated_at FROM users WHERE email ILIKE #{keyword}",
+                {},
+        )
+
+        self.assertEqual(materialization["mode"], "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE")
+        self.assertTrue(materialization["replayVerified"])
+        self.assertEqual(materialization["targetSurface"], "CHOOSE_BRANCH_BODY")
+        self.assertEqual(ops[0]["op"], "replace_choose_branch_body")
+        self.assertEqual(ops[0]["targetSurface"], "CHOOSE_BRANCH_BODY")
+        self.assertIn("email ILIKE #{keyword}", ops[0]["afterTemplate"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,119 @@ from sqlopt.stages.patch_select import build_patch_selection_context
 
 
 class PatchSelectionTest(unittest.TestCase):
+    def test_choose_primary_sentinel_selects_local_safe_baseline_family(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE upper(name) ILIKE upper(#{keyword})",
+            "xmlPath": str(Path(__file__).resolve()),
+            "namespace": "demo.user.advanced",
+            "statementId": "findUsersByKeyword",
+            "templateSql": (
+                "SELECT id, name, email, status, created_at, updated_at FROM users "
+                "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                "upper(name) ILIKE upper(#{keyword})</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+        }
+        acceptance = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "status": "PASS",
+            "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
+            "selectedCandidateId": "candidate_1",
+            "selectedCandidateSource": "llm",
+            "equivalence": {"checked": True, "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}]},
+            "semanticEquivalence": {
+                "status": "PASS",
+                "confidence": "HIGH",
+                "evidenceLevel": "DB_FINGERPRINT",
+                "hardConflicts": [],
+                "evidence": {"fingerprintStrength": "EXACT"},
+            },
+        }
+
+        selection = build_patch_selection_context(
+            sql_unit=sql_unit,
+            acceptance=acceptance,
+            fragment_catalog={},
+            config={},
+        )
+
+        self.assertEqual(selection.family, "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP")
+        self.assertEqual(selection.dynamic_template["patchSurface"], "CHOOSE_BRANCH_BODY")
+        self.assertEqual(selection.dynamic_template["baselineFamily"], "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP")
+        self.assertEqual(
+            selection.dynamic_template["surfaceContract"]["rewriteOpPreview"]["op"],
+            "replace_choose_branch_body",
+        )
+        self.assertFalse(selection.dynamic_template["surfaceContract"]["surfaceFallbackAllowed"])
+        self.assertEqual(selection.selected_patch_strategy["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(selection.rewrite_materialization["mode"], "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE")
+        self.assertTrue(selection.rewrite_materialization["replayVerified"])
+        self.assertEqual(selection.template_rewrite_ops[0]["op"], "replace_choose_branch_body")
+
+    def test_collection_review_only_summary_carries_surface_contract_preview(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+            "sql": (
+                "SELECT id, user_id, order_no, amount, status, created_at "
+                "FROM orders WHERE user_id IN (#{userId}) AND status = #{status}"
+            ),
+            "xmlPath": str(Path(__file__).resolve()),
+            "namespace": "demo.order.harness",
+            "statementId": "findOrdersByUserIdsAndStatus",
+            "templateSql": (
+                'SELECT <include refid="OrderColumns" /> FROM orders <where>'
+                '<foreach collection="userIds" item="userId" open="user_id IN (" separator="," close=")">'
+                "#{userId}</foreach>"
+                '<if test="status != null and status != \'\'">AND status = #{status}</if>'
+                "</where>"
+            ),
+            "dynamicFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
+            "dynamicTrace": {
+                "statementFeatures": ["INCLUDE", "WHERE", "FOREACH", "IF"],
+                "includeFragments": [{"ref": "demo.order.harness.OrderColumns", "dynamicFeatures": []}],
+            },
+        }
+        acceptance = {
+            "sqlKey": "demo.order.harness.findOrdersByUserIdsAndStatus",
+            "status": "PASS",
+            "rewrittenSql": (
+                "SELECT id, user_id, order_no, amount, status, created_at "
+                "FROM orders WHERE user_id IN (#{userId}) AND status = #{status}"
+            ),
+            "selectedCandidateId": "candidate_1",
+            "selectedCandidateSource": "llm",
+            "equivalence": {"checked": True, "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}]},
+            "semanticEquivalence": {
+                "status": "PASS",
+                "confidence": "HIGH",
+                "evidenceLevel": "DB_FINGERPRINT",
+                "hardConflicts": [],
+                "evidence": {"fingerprintStrength": "EXACT"},
+            },
+        }
+
+        selection = build_patch_selection_context(
+            sql_unit=sql_unit,
+            acceptance=acceptance,
+            fragment_catalog={},
+            config={},
+        )
+
+        self.assertEqual(selection.dynamic_template["patchSurface"], "COLLECTION_PREDICATE_BODY")
+        self.assertEqual(
+            selection.dynamic_template["surfaceContract"]["rewriteOpPreview"]["op"],
+            "replace_collection_predicate_body",
+        )
+        self.assertEqual(
+            selection.dynamic_template["surfaceContract"]["patchFamilyPreview"],
+            "DYNAMIC_COLLECTION_PREDICATE_LOCAL_CLEANUP",
+        )
+        self.assertEqual(selection.rewrite_materialization["mode"], "DYNAMIC_COLLECTION_PREDICATE_TEMPLATE_SAFE")
+        self.assertFalse(selection.rewrite_materialization["replayVerified"])
+        self.assertEqual(selection.template_rewrite_ops[0]["op"], "replace_collection_predicate_body")
+
     def test_static_qualified_alias_cleanup_keeps_exact_template_edit(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",

@@ -8,6 +8,60 @@ from sqlopt.platforms.sql.patch_strategy_planner import plan_patch_strategy
 
 
 class PatchStrategyPlannerTest(unittest.TestCase):
+    def test_exact_template_edit_is_selected_for_choose_local_safe_baseline(self) -> None:
+        sql_unit = {
+            "sqlKey": "demo.user.advanced.findUsersByKeyword",
+            "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE upper(name) ILIKE upper(#{keyword})",
+            "xmlPath": str(Path(__file__).resolve()),
+            "namespace": "demo.user.advanced",
+            "statementId": "findUsersByKeyword",
+            "templateSql": (
+                "SELECT id, name, email, status, created_at, updated_at FROM users "
+                "<where><choose><when test=\"keyword != null and keyword != ''\">"
+                "upper(name) ILIKE upper(#{keyword})</when><otherwise>status = 'ACTIVE'</otherwise></choose></where>"
+            ),
+            "dynamicFeatures": ["WHERE", "CHOOSE"],
+            "dynamicTrace": {"statementFeatures": ["WHERE", "CHOOSE"]},
+        }
+        equivalence = {
+            "checked": True,
+            "method": "sql_semantic_compare_v2",
+            "rowCount": {"status": "MATCH"},
+            "keySetHash": {"status": "MATCH"},
+            "rowSampleHash": {"status": "MATCH"},
+            "evidenceRefs": [],
+            "evidenceRefObjects": [{"source": "DB_FINGERPRINT", "match_strength": "EXACT"}],
+        }
+        semantic_equivalence = {
+            "status": "PASS",
+            "confidence": "HIGH",
+            "evidenceLevel": "DB_FINGERPRINT",
+            "hardConflicts": [],
+            "evidence": {"fingerprintStrength": "EXACT"},
+        }
+
+        rewrite_facts, dynamic_intent, patchability, selected, candidates, materialization, ops = plan_patch_strategy(
+            sql_unit,
+            "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keyword}",
+            {},
+            equivalence,
+            semantic_equivalence,
+            enable_fragment_materialization=False,
+        )
+
+        self.assertTrue(rewrite_facts["dynamicTemplate"]["present"])
+        self.assertIsNotNone(dynamic_intent)
+        self.assertEqual(
+            rewrite_facts["dynamicTemplate"]["capabilityProfile"]["baselineFamily"],
+            "DYNAMIC_CHOOSE_BRANCH_LOCAL_CLEANUP",
+        )
+        self.assertEqual(selected["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(candidates[0]["strategyType"], "EXACT_TEMPLATE_EDIT")
+        self.assertEqual(materialization["mode"], "DYNAMIC_CHOOSE_BRANCH_TEMPLATE_SAFE")
+        self.assertTrue(materialization["replayVerified"])
+        self.assertEqual(materialization["targetSurface"], "CHOOSE_BRANCH_BODY")
+        self.assertEqual(ops[0]["op"], "replace_choose_branch_body")
+
     def test_exact_template_edit_is_selected_for_static_qualified_alias_cleanup(self) -> None:
         sql_unit = {
             "sqlKey": "demo.user.advanced.listUsersProjectedQualifiedAliases",

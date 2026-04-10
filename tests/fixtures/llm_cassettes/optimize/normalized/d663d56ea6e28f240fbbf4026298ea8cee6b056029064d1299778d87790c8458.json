@@ -1,0 +1,227 @@
+{
+  "fingerprint": "d663d56ea6e28f240fbbf4026298ea8cee6b056029064d1299778d87790c8458",
+  "rawCandidateCount": 2,
+  "sqlKey": "demo.user.advanced.findUsersByKeyword",
+  "trace": {
+    "candidate_summary": {
+      "candidates": [
+        {
+          "confidence": "0.75",
+          "id": "opt-001",
+          "rewriteStrategy": "OR-to-UNION for index utilization",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern}"
+        },
+        {
+          "confidence": "0.8",
+          "id": "opt-002",
+          "rewriteStrategy": "Partial UNION with selective status filter using idx_users_status_created",
+          "semanticRisk": "low",
+          "source": "llm",
+          "sql_preview": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} UNION ALL"
+        }
+      ],
+      "count": 2
+    },
+    "config_snapshot": {
+      "api_model": null,
+      "opencode_model": null,
+      "provider": "opencode_run",
+      "timeout_ms": 80000
+    },
+    "created_at": "2026-04-10T02:16:25.793539+00:00",
+    "degrade_reason": null,
+    "elapsed_ms": 28858,
+    "executor": "opencode_run",
+    "input_hash": "8e0e09d2a488ddc099a73dced61e72790d7dd6d45a1cd488be45a40d3fe40e4d",
+    "mode": "candidate_generation",
+    "output_hash": "cd575b54abe35a33447a0364633247840e7baa5a8429c38b0b752fa0e7b3702e",
+    "prompt": {
+      "optionalContext": {
+        "columns": [
+          {
+            "column": "id",
+            "dataType": "bigint",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "name",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "email",
+            "dataType": "character varying",
+            "isNullable": true,
+            "table": "users"
+          },
+          {
+            "column": "status",
+            "dataType": "character varying",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "created_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          },
+          {
+            "column": "updated_at",
+            "dataType": "timestamp with time zone",
+            "isNullable": false,
+            "table": "users"
+          }
+        ],
+        "dynamicRenderIdentity": {
+          "branchKind": "WHEN",
+          "branchOrdinal": 0,
+          "branchTestFingerprint": "keyword != null and keyword != ''",
+          "chooseOrdinal": 0,
+          "renderMode": "CHOOSE_BRANCH_RENDERED",
+          "renderedBranchSql": "name ILIKE #{keywordPattern}",
+          "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+          "requiredSiblingShape": {
+            "branchCount": 3
+          },
+          "surfaceType": "CHOOSE_BRANCH_BODY"
+        },
+        "dynamicTrace": {
+          "chooseBranchSurfaces": [
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 0,
+              "branchTestFingerprint": "keyword != null and keyword != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "name ILIKE #{keywordPattern}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "WHEN",
+              "branchOrdinal": 1,
+              "branchTestFingerprint": "status != null and status != ''",
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status = #{status}",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            },
+            {
+              "branchKind": "OTHERWISE",
+              "branchOrdinal": 2,
+              "chooseOrdinal": 0,
+              "renderedBranchSql": "status != 'DELETED'",
+              "requiredEnvelopeShape": "TOP_LEVEL_WHERE_CHOOSE",
+              "surfaceType": "CHOOSE_BRANCH_BODY"
+            }
+          ],
+          "includeFragments": [
+            {
+              "dynamicFeatures": [],
+              "ref": "demo.user.advanced.AdvancedUserColumns"
+            }
+          ],
+          "statementFeatures": [
+            "BIND",
+            "INCLUDE",
+            "WHERE",
+            "CHOOSE"
+          ]
+        },
+        "includeTrace": [
+          "demo.user.advanced.AdvancedUserColumns"
+        ],
+        "planSummary": {
+          "lineCount": 4,
+          "summary": "Sort  (cost=13.49..13.69 rows=79 width=896)"
+        },
+        "tableStats": [
+          {
+            "estimatedRows": -1,
+            "table": "users"
+          }
+        ]
+      },
+      "requiredContext": {
+        "dynamicFeatures": [
+          "BIND",
+          "INCLUDE",
+          "WHERE",
+          "CHOOSE"
+        ],
+        "indexes": [
+          {
+            "definition": "CREATE INDEX idx_users_name ON public.users USING btree (name)",
+            "index": "idx_users_name",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE INDEX idx_users_status_created ON public.users USING btree (status, created_at DESC)",
+            "index": "idx_users_status_created",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+            "index": "users_email_key",
+            "table": "users"
+          },
+          {
+            "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+            "index": "users_pkey",
+            "table": "users"
+          }
+        ],
+        "issues": [],
+        "riskFlags": [],
+        "sql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE (name ILIKE #{keywordPattern} OR status = #{status} OR status != 'DELETED') ORDER BY created_at DESC",
+        "tables": [
+          "users"
+        ],
+        "templateSql": "<bind name=\"keywordPattern\" value=\"'%' + keyword + '%'\" />\n        SELECT <include refid=\"AdvancedUserColumns\" />\n        FROM users\n        <where>\n            <choose>\n                <when test=\"keyword != null and keyword != ''\">\n                    name ILIKE #{keywordPattern}\n                </when>\n                <when test=\"status != null and status != ''\">\n                    status = #{status}\n                </when>\n                <otherwise>\n                    status != 'DELETED'\n                </otherwise>\n            </choose>\n        </where>\n        ORDER BY created_at DESC"
+      },
+      "rewriteConstraints": {
+        "dynamicTemplateRequiresTemplateAwarePatch": true,
+        "forbidMultiStatement": true,
+        "mustProduceCandidateTypes": [
+          "SECURITY_FIX",
+          "PLAN_IMPROVE",
+          "CONSERVATIVE_NOOP_PLUS"
+        ],
+        "preserveParameterSemantics": true
+      },
+      "sqlKey": "demo.user.advanced.findUsersByKeyword",
+      "task": "sql_optimize_candidate_generation"
+    },
+    "provider": "opencode_run",
+    "response": {
+      "fallback_used": false,
+      "mode": "opencode_run"
+    },
+    "sql_key": "demo.user.advanced.findUsersByKeyword",
+    "stage": "optimize",
+    "task": "rewrite_sql",
+    "task_id": "demo.user.advanced.findUsersByKeyword:opt"
+  },
+  "validCandidates": [
+    {
+      "confidence": "0.75",
+      "id": "opt-001",
+      "rewriteStrategy": "OR-to-UNION for index utilization",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} UNION SELECT id, name, email, status, created_at, updated_at FROM users WHERE status != 'DELETED' AND status != #{status} AND name NOT ILIKE #{keywordPattern} ORDER BY created_at DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    },
+    {
+      "confidence": "0.8",
+      "id": "opt-002",
+      "rewriteStrategy": "Partial UNION with selective status filter using idx_users_status_created",
+      "rewrittenSql": "SELECT id, name, email, status, created_at, updated_at FROM users WHERE status = #{status} UNION ALL SELECT id, name, email, status, created_at, updated_at FROM users WHERE name ILIKE #{keywordPattern} AND status != #{status} ORDER BY created_at DESC",
+      "semanticRisk": "low",
+      "source": "llm"
+    }
+  ]
+}
