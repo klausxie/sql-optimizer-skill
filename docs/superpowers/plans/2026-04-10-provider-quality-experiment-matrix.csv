@@ -1,0 +1,4 @@
+exp_id,prompt_config,few_shot,model,run_id,total_candidates,branch_local_valid,low_value,unsupported,semantic_risk,branch_local_valid_rate,result_status
+control_A,none,0,current,N/A,0,0,0,0,0,0,NO_CHOOSE_IDENTITY
+control_B,strict,0,current,f2378d949,3,0,1,1,1,0.00,LOW_VALUE_PRUNED_TO_EMPTY
+exp_1,strict,0,current,run_6f04c2393cb5,3,0,1,2,0,0.00,LOW_VALUE_PRUNED_TO_EMPTY
