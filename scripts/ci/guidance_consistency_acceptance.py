@@ -17,6 +17,7 @@ def _repo_root() -> Path:
 
 sys.path.insert(0, str(_repo_root() / "python"))
 
+from sqlopt.config import load_config  # noqa: E402
 from sqlopt.application.diagnostics_summary import build_verify_payload  # noqa: E402
 from sqlopt.stages.report_builder import build_report_artifacts  # noqa: E402
 from sqlopt.stages.report_loader import load_report_inputs  # noqa: E402
@@ -61,6 +62,17 @@ def _parse_last_dict(text: str) -> dict[str, Any]:
         if isinstance(value, dict):
             return value
     return {}
+
+
+def _write_resolved_config(project_dir: Path) -> Path:
+    user_config_path = project_dir / "sqlopt.local.yml"
+    resolved = load_config(user_config_path)
+    validate_cfg = dict(resolved.get("validate") or {})
+    validate_cfg["db_reachable"] = False
+    resolved["validate"] = validate_cfg
+    resolved_path = project_dir / "config.resolved.json"
+    resolved_path.write_text(json.dumps(resolved, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return resolved_path
 
 
 def _run(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -114,8 +126,9 @@ def main() -> None:
         temp_root = Path(td)
         project_dir = temp_root / "project"
         shutil.copytree(fixture, project_dir)
-        config_path = project_dir / "sqlopt.local.yml"
-        config_path.write_text(_config_text(), encoding="utf-8")
+        user_config_path = project_dir / "sqlopt.local.yml"
+        user_config_path.write_text(_config_text(), encoding="utf-8")
+        config_path = _write_resolved_config(project_dir)
 
         run_proc = _run(
             [
@@ -131,7 +144,7 @@ def main() -> None:
                 "--max-seconds",
                 "45",
             ],
-            cwd=repo_root,
+            cwd=project_dir,
         )
         run_payload = _require_payload(run_proc, step="sqlopt_cli run")
         if not bool(run_payload.get("complete", False)):

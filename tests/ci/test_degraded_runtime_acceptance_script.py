@@ -45,6 +45,21 @@ class DegradedRuntimeAcceptanceScriptTest(unittest.TestCase):
         self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable", text)
         self.assertIn("provider: opencode_builtin", text)
 
+    def test_write_resolved_config_forces_db_check_off(self) -> None:
+        module = _load_module()
+        with tempfile.TemporaryDirectory(prefix="sqlopt_degraded_resolved_") as td:
+            repo_root = Path(td)
+            project_dir = repo_root / "project"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            user_config_path = project_dir / "sqlopt.local.yml"
+            user_config_path.write_text(module._config_text(repo_root), encoding="utf-8")
+
+            resolved_path = module._write_resolved_config(project_dir)
+            payload = __import__("json").loads(resolved_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(resolved_path.name, "config.resolved.json")
+        self.assertFalse(payload["validate"]["db_reachable"])
+
 
 if __name__ == "__main__":
     unittest.main()

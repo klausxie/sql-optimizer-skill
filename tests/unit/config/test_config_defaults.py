@@ -24,6 +24,23 @@ class ConfigDefaultsTest(unittest.TestCase):
         self.assertEqual(cfg["verification"]["critical_output_policy"], "warn")
         self.assertIn("stage_timeout_ms", cfg["runtime"])
 
+    def test_apply_minimal_defaults_preserves_resolved_internal_overrides(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="sqlopt_cfg_defaults_") as td:
+            cfg: dict = {
+                "project": {"root_path": "."},
+                "scan": {"mapper_globs": ["src/main/resources/**/*.xml"]},
+                "db": {"platform": "postgresql", "dsn": "postgresql://dummy"},
+                "llm": {"provider": "opencode_builtin"},
+                "validate": {"db_reachable": False},
+                "runtime": {"stage_retry_backoff_ms": 250},
+            }
+            apply_minimal_defaults(cfg, config_path=Path(td) / "config.resolved.json")
+
+        self.assertFalse(cfg["validate"]["db_reachable"])
+        self.assertEqual(cfg["validate"]["selection_mode"], "patchability_first")
+        self.assertEqual(cfg["runtime"]["stage_retry_backoff_ms"], 250)
+        self.assertIn("preflight", cfg["runtime"]["stage_timeout_ms"])
+
 
 if __name__ == "__main__":
     unittest.main()

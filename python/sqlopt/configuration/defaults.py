@@ -54,6 +54,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .common import merge_dict
+
 DEFAULT_RUNTIME = {
     "stage_timeout_ms": {
         "preflight": 12000,
@@ -155,14 +157,21 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
     llm_cfg.setdefault("api_timeout_ms", None)
     llm_cfg.setdefault("api_headers", None)
 
-    cfg["apply"] = {"mode": "PATCH_ONLY"}
-    cfg["policy"] = {
+    cfg["apply"] = merge_dict(
+        {"mode": "PATCH_ONLY"},
+        cfg.get("apply", {}) if isinstance(cfg.get("apply"), dict) else {},
+    )
+    cfg["policy"] = merge_dict(
+        {
         "require_perf_improvement": False,
         "cost_threshold_pct": 0,
         "allow_seq_scan_if_rows_below": 0,
         "semantic_strict_mode": True,
-    }
-    cfg["validate"] = {
+        },
+        cfg.get("policy", {}) if isinstance(cfg.get("policy"), dict) else {},
+    )
+    cfg["validate"] = merge_dict(
+        {
         "db_reachable": True,
         "plan_compare_enabled": False,
         "allow_db_unreachable_fallback": True,
@@ -176,15 +185,33 @@ def apply_minimal_defaults(cfg: dict[str, Any], *, config_path: Path) -> None:
             "enabled": False,
             "only_on_db_mismatch": True,
         },
-    }
-    cfg["patch"] = {
+        },
+        cfg.get("validate", {}) if isinstance(cfg.get("validate"), dict) else {},
+    )
+    cfg["patch"] = merge_dict(
+        {
         "llm_assist": {
             "enabled": False,
             "only_for_dynamic_sql": True,
             "generate_template_suggestions": True,
         }
-    }
-    cfg["diagnostics"] = {}
-    cfg["runtime"] = deepcopy(DEFAULT_RUNTIME)
-    cfg["report"] = {"enabled": bool((cfg.get("report") or {}).get("enabled", True))}
-    cfg["verification"] = {"enforce_verified_outputs": False, "critical_output_policy": "warn"}
+        },
+        cfg.get("patch", {}) if isinstance(cfg.get("patch"), dict) else {},
+    )
+    cfg["diagnostics"] = merge_dict(
+        {},
+        cfg.get("diagnostics", {}) if isinstance(cfg.get("diagnostics"), dict) else {},
+    )
+    cfg["runtime"] = merge_dict(
+        deepcopy(DEFAULT_RUNTIME),
+        cfg.get("runtime", {}) if isinstance(cfg.get("runtime"), dict) else {},
+    )
+    cfg["report"] = merge_dict(
+        {"enabled": True},
+        cfg.get("report", {}) if isinstance(cfg.get("report"), dict) else {},
+    )
+    cfg["report"]["enabled"] = bool(cfg["report"].get("enabled", True))
+    cfg["verification"] = merge_dict(
+        {"enforce_verified_outputs": False, "critical_output_policy": "warn"},
+        cfg.get("verification", {}) if isinstance(cfg.get("verification"), dict) else {},
+    )

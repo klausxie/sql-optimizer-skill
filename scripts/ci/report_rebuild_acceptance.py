@@ -10,6 +10,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "python"))
+
+from sqlopt.config import load_config
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -56,6 +61,17 @@ def _parse_last_dict(text: str) -> dict[str, Any]:
     return {}
 
 
+def _write_resolved_config(project_dir: Path) -> Path:
+    user_config_path = project_dir / "sqlopt.local.yml"
+    resolved = load_config(user_config_path)
+    validate_cfg = dict(resolved.get("validate") or {})
+    validate_cfg["db_reachable"] = False
+    resolved["validate"] = validate_cfg
+    resolved_path = project_dir / "config.resolved.json"
+    resolved_path.write_text(json.dumps(resolved, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return resolved_path
+
+
 def _run(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
@@ -83,8 +99,9 @@ def main() -> None:
         temp_root = Path(td)
         project_dir = temp_root / "project"
         shutil.copytree(fixture, project_dir)
-        config_path = project_dir / "sqlopt.local.yml"
-        config_path.write_text(_config_text(repo_root), encoding="utf-8")
+        user_config_path = project_dir / "sqlopt.local.yml"
+        user_config_path.write_text(_config_text(repo_root), encoding="utf-8")
+        config_path = _write_resolved_config(project_dir)
 
         run_proc = _run(
             [
@@ -100,7 +117,7 @@ def main() -> None:
                 "--max-seconds",
                 "45",
             ],
-            cwd=repo_root,
+            cwd=project_dir,
         )
         run_payload = _require_ok(run_proc, step="sqlopt_cli run")
         if not bool(run_payload.get("complete", False)):
@@ -133,7 +150,7 @@ def main() -> None:
                 "--run-id",
                 run_id,
             ],
-            cwd=repo_root,
+            cwd=project_dir,
         )
         rebuild_payload = _require_ok(rebuild_proc, step="report_rebuild")
         if rebuild_payload.get("result", {}).get("phase") != "report":

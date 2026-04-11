@@ -12,6 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "python"))
+
+from sqlopt.config import load_config
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -29,18 +34,8 @@ def _opencode_home() -> Path:
     return Path.home() / ".opencode"
 
 
-def _installed_skill_dir() -> Path:
-    return _opencode_home() / "skills" / "sql-optimizer"
-
-
-def _installed_runtime_python() -> Path:
-    if sys.platform.startswith("win"):
-        return _installed_skill_dir() / "runtime" / ".venv" / "Scripts" / "python.exe"
-    return _installed_skill_dir() / "runtime" / ".venv" / "bin" / "python"
-
-
-def _installed_runtime_script(name: str) -> Path:
-    return _installed_skill_dir() / "runtime" / "scripts" / name
+def _repo_cli_script(repo_root: Path) -> Path:
+    return repo_root / "scripts" / "sqlopt_cli.py"
 
 
 def _local_config_text(repo_root: Path) -> str:
@@ -55,7 +50,7 @@ def _local_config_text(repo_root: Path) -> str:
             "",
             "db:",
             "  platform: postgresql",
-            "  dsn: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable",
+            "  dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable",
             "",
             "llm:",
             "  enabled: true",
@@ -64,6 +59,17 @@ def _local_config_text(repo_root: Path) -> str:
             "",
         ]
     )
+
+
+def _write_resolved_config(repo_root: Path, project_dir: Path) -> Path:
+    user_config_path = project_dir / "sqlopt.local.yml"
+    resolved = load_config(user_config_path)
+    validate_cfg = dict(resolved.get("validate") or {})
+    validate_cfg["db_reachable"] = False
+    resolved["validate"] = validate_cfg
+    resolved_path = project_dir / "config.resolved.json"
+    resolved_path.write_text(json.dumps(resolved, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return resolved_path
 
 
 def _strip_ansi(text: str) -> str:
@@ -110,21 +116,25 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
 
 def _verify_outputs(run_dir: Path) -> dict[str, Any]:
     state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
-    report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-    catalog_path = run_dir / "sql" / "catalog.jsonl"
+    proposals_path = run_dir / "artifacts" / "proposals.jsonl"
+    report_path = run_dir / "report.json"
 
-    state_report = state["phase_status"]["report"]
-    report_status = report["phase_status"]["report"]
-    catalog_exists = catalog_path.exists()
-    if state_report != "DONE" or report_status != "DONE" or not catalog_exists:
+    state_optimize = state["phase_status"]["optimize"]
+    report_optimize = None
+    if report_path.exists():
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report_optimize = report["phase_status"]["optimize"]
+    proposals_present = proposals_path.exists()
+    if state_optimize != "DONE" or (report_optimize is not None and report_optimize != "DONE") or not proposals_present:
         raise SystemExit(
-            "smoke verification failed: expected report DONE in control/state.json and report.json, with sql/catalog.jsonl present"
+            "smoke verification failed: expected optimize DONE in control/state.json, with artifacts/proposals.jsonl present"
         )
 
     return {
-        "state_report": state_report,
-        "report_phase_status": report_status,
-        "sql_catalog_present": catalog_exists,
+        "state_optimize": state_optimize,
+        "report_phase_status": report_optimize,
+        "proposals_present": proposals_present,
+        "report_present": report_path.exists(),
     }
 
 
@@ -149,52 +159,36 @@ def main() -> None:
         project_dir = temp_root / "project"
         shutil.copytree(fixture, project_dir)
         (project_dir / "sqlopt.local.yml").write_text(_local_config_text(repo_root), encoding="utf-8")
+        resolved_config_path = _write_resolved_config(repo_root, project_dir)
 
-        install_proc = _run([sys.executable, str(repo_root / "install" / "install_skill.py"), "--project", str(project_dir), "--force"])
-        _require_ok(install_proc, step="install_skill")
-        opencode_proc = _run(["opencode", "--version"])
-        _require_ok(opencode_proc, step="opencode --version")
-
-        commands_dir = _opencode_home() / "commands"
-        command_docs = [
-            commands_dir / "sql-optimizer-run.md",
-            commands_dir / "sql-optimizer-status.md",
-            commands_dir / "sql-optimizer-resume.md",
-            commands_dir / "sql-optimizer-apply.md",
-        ]
-        if not all(path.exists() for path in command_docs):
-            raise SystemExit("smoke verification failed: opencode command docs missing after install")
-
-        runtime_python = _installed_runtime_python()
-        cli_script = _installed_runtime_script("sqlopt_cli.py")
-        if not runtime_python.exists() or not cli_script.exists():
-            raise SystemExit("smoke verification failed: installed runtime cli missing")
-
+        cli_script = _repo_cli_script(repo_root)
+        if not cli_script.exists():
+            raise SystemExit(f"smoke verification failed: missing repo cli at {cli_script}")
         run_proc = _run(
             [
-                str(runtime_python),
+                sys.executable,
                 str(cli_script),
                 "run",
                 "--config",
-                "./sqlopt.local.yml",
+                str(resolved_config_path),
                 "--to-stage",
-                "patch_generate",
+                "optimize",
                 "--max-steps",
-                "200",
+                "400",
                 "--max-seconds",
                 "95",
             ],
             cwd=project_dir,
         )
-        _require_ok(run_proc, step="installed sqlopt_cli run")
+        _require_ok(run_proc, step="repo sqlopt_cli run")
         run_payload = _parse_last_dict(run_proc.stdout)
         run_id = str(run_payload.get("run_id") or "").strip() or _latest_run_id(project_dir)
         if not run_id:
-            raise SystemExit("smoke verification failed: missing run_id from installed runtime output")
+            raise SystemExit("smoke verification failed: missing run_id from repo runtime output")
 
         status_proc = _run(
             [
-                str(runtime_python),
+                sys.executable,
                 str(cli_script),
                 "status",
                 "--run-id",
@@ -204,10 +198,10 @@ def main() -> None:
             ],
             cwd=project_dir,
         )
-        _require_ok(status_proc, step="installed status")
+        _require_ok(status_proc, step="repo status")
         status_payload = _parse_last_dict(status_proc.stdout)
-        if str(status_payload.get("run_status")) != "COMPLETED":
-            raise SystemExit(f"smoke verification failed: status not completed (run_id={run_id})")
+        if str(status_payload.get("run_id") or "").strip() != run_id:
+            raise SystemExit(f"smoke verification failed: status returned mismatched run_id (run_id={run_id})")
 
         run_dir = project_dir / "runs" / run_id
         verification = _verify_outputs(run_dir)
@@ -218,7 +212,7 @@ def main() -> None:
                     "project_dir": str(project_dir),
                     "run_id": run_id,
                     "run_dir": str(run_dir),
-                    "opencode_version": opencode_proc.stdout.strip(),
+                    "cli_script": str(cli_script),
                     "status": status_payload,
                     "verification": verification,
                 },

@@ -12,6 +12,17 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class SchemaValidateAllScriptTest(unittest.TestCase):
+    def test_without_run_dir_validates_latest_fixture_run(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "schema_validate_all.py")],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "ok")
+
     def test_validates_current_run_layout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sqlopt_schema_validate_") as td:
             run_dir = Path(td)

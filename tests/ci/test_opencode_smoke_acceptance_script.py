@@ -5,6 +5,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 def _load_module():
@@ -45,7 +46,7 @@ class OpencodeSmokeAcceptanceScriptTest(unittest.TestCase):
 
         self.assertIn("provider: opencode_builtin", text)
         self.assertIn("mapper_globs:", text)
-        self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable", text)
+        self.assertIn("dsn: postgresql://postgres:postgres@127.0.0.1:9/postgres?sslmode=disable", text)
 
     def test_latest_run_id_picks_most_recent_directory(self) -> None:
         module = _load_module()
@@ -62,6 +63,58 @@ class OpencodeSmokeAcceptanceScriptTest(unittest.TestCase):
             run_id = module._latest_run_id(project_dir)
 
         self.assertEqual(run_id, "run_new")
+
+    def test_main_uses_repo_cli_offline_smoke_path(self) -> None:
+        module = _load_module()
+        calls = []
+
+        class _Proc:
+            returncode = 0
+            stdout = '{"run_id": "run_demo", "complete": true, "run_status": "COMPLETED"}'
+            stderr = ""
+
+        def fake_run(cmd, *, cwd=None):
+            calls.append((cmd, cwd))
+            return _Proc()
+
+        with tempfile.TemporaryDirectory(prefix="sqlopt_smoke_acceptance_") as td:
+            project_fixture = Path(td) / "fixture"
+            project_fixture.mkdir(parents=True, exist_ok=True)
+            (project_fixture / "runs").mkdir()
+            local_repo = Path(td) / "repo"
+            (local_repo / "tests" / "fixtures" / "projects").mkdir(parents=True, exist_ok=True)
+            target_fixture = local_repo / "tests" / "fixtures" / "projects" / "sample_project"
+            target_fixture.mkdir()
+            (target_fixture / "runs").mkdir()
+            (local_repo / "scripts").mkdir(parents=True, exist_ok=True)
+            (local_repo / "scripts" / "sqlopt_cli.py").write_text("", encoding="utf-8")
+
+            with patch.object(module, "_repo_root", return_value=local_repo):
+                with patch.object(module, "_project_fixture", return_value=target_fixture):
+                    with patch.object(module, "_run", side_effect=fake_run):
+                        with patch.object(module, "_require_ok", return_value=None):
+                            with patch.object(module, "_verify_outputs", return_value={"state_optimize": "DONE", "report_phase_status": "DONE", "proposals_present": True}):
+                                with patch.object(module, "_latest_run_id", return_value="run_demo"):
+                                    with patch.object(module, "_write_resolved_config", return_value=target_fixture / "config.resolved.json"):
+                                        module.main()
+
+        cli_calls = [cmd for cmd, _ in calls if cmd and "sqlopt_cli.py" in str(cmd[1] if len(cmd) > 1 else "")]
+        self.assertGreaterEqual(len(cli_calls), 2, "expected repo sqlopt_cli run/status to be used")
+
+    def test_write_resolved_config_forces_db_check_off(self) -> None:
+        module = _load_module()
+        with tempfile.TemporaryDirectory(prefix="sqlopt_smoke_resolved_") as td:
+            repo_root = Path(td)
+            project_dir = repo_root / "project"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            user_config_path = project_dir / "sqlopt.local.yml"
+            user_config_path.write_text(module._local_config_text(repo_root), encoding="utf-8")
+
+            resolved_path = module._write_resolved_config(repo_root, project_dir)
+            payload = __import__("json").loads(resolved_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(resolved_path.name, "config.resolved.json")
+        self.assertFalse(payload["validate"]["db_reachable"])
 
 
 if __name__ == "__main__":

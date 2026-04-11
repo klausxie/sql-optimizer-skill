@@ -10,6 +10,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "python"))
+
+from sqlopt.config import load_config
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -46,6 +51,17 @@ def _config_text(repo_root: Path) -> str:
     )
 
 
+def _write_resolved_config(project_dir: Path) -> Path:
+    user_config_path = project_dir / "sqlopt.local.yml"
+    resolved = load_config(user_config_path)
+    validate_cfg = dict(resolved.get("validate") or {})
+    validate_cfg["db_reachable"] = False
+    resolved["validate"] = validate_cfg
+    resolved_path = project_dir / "config.resolved.json"
+    resolved_path.write_text(json.dumps(resolved, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return resolved_path
+
+
 def _parse_last_dict(text: str) -> dict[str, Any]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     for line in reversed(lines):
@@ -75,7 +91,7 @@ def _require_ok(proc: subprocess.CompletedProcess[str], *, step: str) -> None:
     raise SystemExit(f"{step} failed with exit code {proc.returncode}")
 
 
-def _run_until_complete(repo_root: Path, config_path: Path) -> str:
+def _run_until_complete(repo_root: Path, project_dir: Path, config_path: Path) -> str:
     run_id = ""
     for _ in range(6):
         if run_id:
@@ -85,6 +101,8 @@ def _run_until_complete(repo_root: Path, config_path: Path) -> str:
                 "resume",
                 "--run-id",
                 run_id,
+                "--project",
+                ".",
                 "--max-steps",
                 "200",
                 "--max-seconds",
@@ -104,7 +122,7 @@ def _run_until_complete(repo_root: Path, config_path: Path) -> str:
                 "--max-seconds",
                 "95",
             ]
-        proc = _run(cmd, cwd=repo_root)
+        proc = _run(cmd, cwd=project_dir)
         _require_ok(proc, step="sqlopt_cli")
         payload = _parse_last_dict(proc.stdout)
         run_id = str(payload.get("run_id") or run_id).strip()
@@ -123,10 +141,11 @@ def main() -> None:
         temp_root = Path(td)
         project_dir = temp_root / "project"
         shutil.copytree(fixture, project_dir)
-        config_path = project_dir / "sqlopt.local.yml"
-        config_path.write_text(_config_text(repo_root), encoding="utf-8")
+        user_config_path = project_dir / "sqlopt.local.yml"
+        user_config_path.write_text(_config_text(repo_root), encoding="utf-8")
+        config_path = _write_resolved_config(project_dir)
 
-        run_id = _run_until_complete(repo_root, config_path)
+        run_id = _run_until_complete(repo_root, project_dir, config_path)
         run_dir = project_dir / "runs" / run_id
 
         state = json.loads((run_dir / "control" / "state.json").read_text(encoding="utf-8"))
